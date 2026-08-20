@@ -47,13 +47,32 @@ class Assembly(Protocol):
 
     Structural, so that an assembly type from another package satisfies it
     without this module importing that package.
+
+    The members are read-only properties rather than plain attributes. A
+    mutable protocol member is invariant, and a frozen dataclass cannot
+    satisfy it, which would rule out exactly the immutable assembly types this
+    is meant to accept.
     """
 
-    residual: npt.NDArray[np.float64]
-    rows: npt.NDArray[np.int64]
-    cols: npt.NDArray[np.int64]
-    values: npt.NDArray[np.float64]
-    shape: tuple[int, int]
+    @property
+    def residual(self) -> npt.NDArray[np.float64]:
+        """F(x), one entry per unknown."""
+
+    @property
+    def rows(self) -> npt.NDArray[np.int64]:
+        """Jacobian row indices."""
+
+    @property
+    def cols(self) -> npt.NDArray[np.int64]:
+        """Jacobian column indices."""
+
+    @property
+    def values(self) -> npt.NDArray[np.float64]:
+        """Jacobian values."""
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """Jacobian shape."""
 
 
 @dataclass(frozen=True)
