@@ -349,3 +349,19 @@ def test_a_non_finite_residual_is_reported_as_divergence() -> None:
     assert not result.converged
     assert "diverged" in result.message
     assert result.residual_history[-1] == float("inf")
+
+
+def test_a_non_finite_newton_update_is_reported() -> None:
+    """A finite residual over a zero-ish Jacobian gives an infinite step.
+
+    Distinct from the diverged-residual case above: here the step itself is
+    already unusable, so it is caught before it is ever applied.
+    """
+
+    def assemble(x: np.ndarray) -> System:
+        with np.errstate(divide="ignore", over="ignore"):
+            return diagonal_system(np.ones(1), np.full(1, 5e-324))
+
+    result = newton_solve(assemble, np.zeros(1), max_iterations=3)
+    assert not result.converged
+    assert "non-finite" in result.message
