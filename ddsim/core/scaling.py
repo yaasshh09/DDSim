@@ -77,6 +77,11 @@ class ScaleFactors:
         max|net doping| in a later phase is a single call site change. See the
         choice of C_0 discussion in docs/02-numerics.md.
         """
+        # T is checked here as well as in __post_init__, because the defaults
+        # below evaluate n_i(T) and D_n(T), both of which divide by V_T(T).
+        # At T = 0 that is a ZeroDivisionError before validation ever runs.
+        if T <= 0.0:
+            raise ValueError(f"T must be positive, got {T}")
         return cls(
             T=T,
             C_0=C.n_i(T) if C_0 is None else C_0,

@@ -34,7 +34,13 @@ branch = true
 [tool.coverage.report]
 fail_under = 95
 show_missing = true
-exclude_lines = ["pragma: no cover", "raise NotImplementedError", "if TYPE_CHECKING:"]
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+  # Protocol method bodies are declarations, never executed.
+  '^\s*\.\.\.$',
+]
 
 [tool.ruff]
 line-length = 88

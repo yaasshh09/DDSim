@@ -254,3 +254,15 @@ def test_solve_package_imports_nothing_semiconductor_specific() -> None:
                         f"{source.name} imports {name}, which breaks the "
                         "solve/ module boundary"
                     )
+
+
+def test_fill_nnz_before_factorizing_raises() -> None:
+    solver = SparseLU()
+    with pytest.raises(RuntimeError, match="factorize"):
+        _ = solver.fill_nnz
+
+
+def test_size_reports_the_factorized_dimension() -> None:
+    solver = SparseLU()
+    solver.factorize(*as_arrays(tridiagonal(7)))
+    assert solver.size == 7

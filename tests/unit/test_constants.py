@@ -189,3 +189,37 @@ def test_no_temperature_dependent_value_is_a_module_level_constant() -> None:
     names = ("V_T", "Eg", "Nc", "Nv", "n_i", "SS_min", "mu_n", "mu_p", "D_n", "D_p")
     for name in names:
         assert callable(getattr(C, name)), f"{name} must be a function of T"
+
+
+# ------------------------------------------- the effective mass provenance path
+
+
+def test_effective_mass_model_reproduces_the_tabulated_densities() -> None:
+    """The Phase 1 replacement, checked against the numbers it will replace.
+
+    Nc = 2 * (2*pi * m* * k * T / h^2)^(3/2) * M_c with the single valley
+    density of states mass, Nv the same without the valley count. Silicon
+    masses: (m_l * m_t^2)^(1/3) = (0.98 * 0.19^2)^(1/3) = 0.328 for electrons
+    with 6 valleys, and 1.15 for the combined hole bands.
+
+    Landing within a few percent of 2.86e19 and 3.10e19 validates both the
+    formula and the m^-3 to cm^-3 conversion, which is the part that is easy
+    to get wrong by six orders of magnitude.
+    """
+    model = C.EffectiveMassBandDensity(m_e=0.328, m_h=1.15, M_c=6)
+    assert model.Nc(300.0) == pytest.approx(2.86e19, rel=0.05)  # [cm^-3]
+    assert model.Nv(300.0) == pytest.approx(3.10e19, rel=0.05)  # [cm^-3]
+
+
+def test_effective_mass_model_scales_as_temperature_to_the_three_halves() -> None:
+    model = C.EffectiveMassBandDensity(m_e=0.328, m_h=1.15)
+    ratio = (600.0 / 300.0) ** 1.5
+    assert model.Nc(600.0) / model.Nc(300.0) == pytest.approx(ratio, rel=1e-14)
+    assert model.Nv(600.0) / model.Nv(300.0) == pytest.approx(ratio, rel=1e-14)
+
+
+def test_effective_mass_model_satisfies_the_band_density_protocol() -> None:
+    """It must be droppable into BAND_DENSITY without any other change."""
+    model: C.BandDensityModel = C.EffectiveMassBandDensity(m_e=0.328, m_h=1.15)
+    assert model.Nc(300.0) > 0.0
+    assert model.Nv(300.0) > 0.0

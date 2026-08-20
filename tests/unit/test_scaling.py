@@ -205,3 +205,24 @@ def test_poisson_coefficient_is_unity_at_400k() -> None:
     scale = ScaleFactors.for_silicon(T=400.0)
     group = scale.eps * scale.psi_0 / (C.q * scale.C_0 * scale.x_0**2)
     assert group == pytest.approx(1.0, rel=1e-14)
+
+
+def test_non_positive_temperature_raises() -> None:
+    with pytest.raises(ValueError, match="T"):
+        ScaleFactors.for_silicon(T=0.0)
+
+
+def test_non_positive_permittivity_raises() -> None:
+    with pytest.raises(ValueError, match="eps"):
+        ScaleFactors.for_silicon(eps=-1.0)
+
+
+def test_non_positive_diffusivity_raises() -> None:
+    with pytest.raises(ValueError, match="D_0"):
+        ScaleFactors.for_silicon(D_0=0.0)
+
+
+def test_direct_construction_rejects_non_positive_temperature() -> None:
+    """for_silicon catches this earlier, but the dataclass must guard too."""
+    with pytest.raises(ValueError, match="T"):
+        ScaleFactors(T=-1.0, C_0=1e10, eps=1e-12, D_0=30.0)
