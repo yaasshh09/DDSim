@@ -40,7 +40,8 @@ select = ["E", "F", "W", "I", "UP", "B", "N"]
 ignore = ["N802", "N803", "N806", "N812", "N815", "N816"]
 
 [tool.mypy]
-python_version = "3.11"
+# No python_version pin. numpy 2.5 stubs use 3.12+ syntax, so mypy runs on the
+# interpreter it is installed under, in a single CI job rather than the matrix.
 files = ["ddsim"]
 warn_return_any = true
 warn_unused_ignores = true
