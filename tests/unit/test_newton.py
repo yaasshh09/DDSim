@@ -263,3 +263,72 @@ def test_does_not_mutate_the_initial_guess() -> None:
 def test_returns_a_newton_result() -> None:
     result = newton_solve(square_root_problem(np.array([4.0])), np.array([1.0]))
     assert isinstance(result, NewtonResult)
+
+
+# ------------------------------------------------- residual tolerance scaling
+
+
+def scaled_by(assemble, factor: float):
+    """The same problem with its residual and Jacobian multiplied through.
+
+    Mathematically identical: the Newton step is unchanged, since the factor
+    cancels between the residual and the Jacobian. Only the numbers are
+    bigger, exactly as they are on a heavily doped device.
+    """
+
+    def wrapped(x: np.ndarray) -> System:
+        inner = assemble(x)
+        return System(
+            residual=inner.residual * factor,
+            rows=inner.rows,
+            cols=inner.cols,
+            values=inner.values * factor,
+            shape=inner.shape,
+        )
+
+    return wrapped
+
+
+def test_convergence_is_invariant_under_scaling_the_residual() -> None:
+    """The bug this guards against, stated as an invariant.
+
+    A residual with an absolute tolerance is not scale free. Multiplying the
+    whole system by 1e8 changes nothing about the mathematics, but it lifts
+    the roundoff floor of the residual by 1e8 as well, so a fixed 1e-10
+    threshold becomes unreachable. Real devices do exactly this: the Poisson
+    residual is proportional to the doping, so a solve that converges at
+    1e16 cm^-3 fails at 1e18 for no physical reason.
+    """
+    problem = square_root_problem(np.array([2.0]))
+    base = newton_solve(problem, np.array([1.0]))
+    scaled = newton_solve(scaled_by(problem, 1e8), np.array([1.0]))
+
+    assert base.converged
+    assert scaled.converged, scaled.message
+    assert scaled.iterations == base.iterations
+    np.testing.assert_allclose(scaled.x, base.x, rtol=1e-14)
+
+
+def test_relative_residual_tolerance_still_rejects_a_stalled_solve() -> None:
+    """Loosening the residual test must not let a stalled solve through.
+
+    Both criteria are required, so a persistently large update still fails
+    even when the relative residual threshold is generous.
+    """
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(np.full(1, 1e8), np.full(1, 1.0))
+
+    result = newton_solve(assemble, np.zeros(1), max_step=1.0, max_iterations=5)
+    assert not result.converged
+
+
+def test_a_problem_that_starts_at_zero_residual_still_converges() -> None:
+    """A relative threshold must not collapse to zero when F_0 is zero."""
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(np.zeros(1), np.ones(1))
+
+    result = newton_solve(assemble, np.zeros(1))
+    assert result.converged
+    assert result.iterations == 0

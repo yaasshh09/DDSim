@@ -8,10 +8,17 @@ An import graph test enforces it for every file in this package.
 Convergence, from docs/02-numerics.md, needs both of:
 
     1. update norm    max |dx| < update_tol
-    2. residual norm  max |F|  < residual_tol
+    2. residual norm  max |F|  < residual_atol + residual_rtol * max |F_0|
 
 Checking only the update norm reports a stalled solve as a success, which is
 worse than reporting a failure, because the stalled answer looks plausible.
+
+The residual threshold is relative to where the residual started, not
+absolute. An absolute threshold is not scale free, and the Poisson residual is
+proportional to the doping. Its roundoff floor is proportional to the doping
+too, so a fixed 1e-10 that works at 1e16 cm^-3 is unreachable at 1e18 and a
+perfectly good solve gets reported as a failure. The update norm needs no such
+treatment, because psi is measured in units of V_T whatever the doping.
 
 Step limiting, rather than a line search. docs/02-numerics.md prescribes
 5 * V_T per Newton step, which is 5.0 in scaled units. The update direction is
@@ -89,7 +96,8 @@ def newton_solve(
     assemble: Callable[[npt.NDArray[np.float64]], Assembly],
     x0: npt.NDArray[np.float64],
     max_step: float | None = None,
-    residual_tol: float = 1e-10,
+    residual_atol: float = 1e-12,
+    residual_rtol: float = 1e-10,
     update_tol: float = 1e-10,
     max_iterations: int = 50,
 ) -> NewtonResult:
@@ -100,7 +108,9 @@ def newton_solve(
         x0: initial guess. Not modified.
         max_step: largest allowed max |dx| per step, or None for no limit.
             5.0 is the scaled value docs/02-numerics.md prescribes for psi.
-        residual_tol: convergence threshold on max |F|.
+        residual_atol: absolute floor on the residual threshold, for problems
+            that start at or near zero residual.
+        residual_rtol: residual threshold relative to the initial residual.
         update_tol: convergence threshold on max |dx|.
         max_iterations: give up after this many steps.
 
@@ -120,7 +130,11 @@ def newton_solve(
     residual_norm = float(np.max(np.abs(system.residual)))
     residual_history.append(residual_norm)
 
-    if residual_norm < residual_tol:
+    # Fixed once, from the initial residual, so that the threshold cannot
+    # drift as the iteration proceeds.
+    residual_threshold = residual_atol + residual_rtol * residual_norm
+
+    if residual_norm < residual_threshold:
         return NewtonResult(
             x=x,
             converged=True,
@@ -167,7 +181,7 @@ def newton_solve(
         residual_norm = float(np.max(np.abs(system.residual)))
         residual_history.append(residual_norm)
 
-        if step_norm < update_tol and residual_norm < residual_tol:
+        if step_norm < update_tol and residual_norm < residual_threshold:
             return NewtonResult(
                 x=x,
                 converged=True,
