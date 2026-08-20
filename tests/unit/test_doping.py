@@ -216,3 +216,8 @@ def test_abrupt_junction_takes_magnitudes_not_signed_values() -> None:
 def test_abrupt_junction_rejects_negative_concentrations() -> None:
     with pytest.raises(ValueError, match="Na"):
         abrupt_junction(Na=-1e16, Nd=1e16, position=0.5 * MICRON)
+
+
+def test_abrupt_junction_rejects_a_negative_donor_concentration() -> None:
+    with pytest.raises(ValueError, match="Nd"):
+        abrupt_junction(Na=1e16, Nd=-1e16, position=0.5 * MICRON)

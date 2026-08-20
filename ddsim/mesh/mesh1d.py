@@ -26,6 +26,7 @@ The generator here handles that.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -36,6 +37,9 @@ _RATIO_TOLERANCE = 1e-14
 
 _DEGENERATE_TOLERANCE = 1e-12
 """Below this relative difference, a side is treated as exactly uniform [1]."""
+
+_LOG_MAX_DOUBLE = 700.0
+"""ln of a number comfortably below the largest double, about 1.8e308 [1]."""
 
 
 @dataclass(frozen=True)
@@ -122,9 +126,17 @@ def uniform_mesh_1d(length: float, n_nodes: int) -> Mesh1D:
 
 
 def _geometric_sum(h_min: float, ratio: float, n_intervals: int) -> float:
-    """Total length of n_intervals spacings growing geometrically [cm]."""
+    """Total length of n_intervals spacings growing geometrically [cm].
+
+    Saturates to infinity rather than overflowing. The bracketing search below
+    starts at ratio 2 and doubles, and with a thousand cells 2^1000 is far
+    past the double range. The bisection only ever asks whether the sum
+    exceeds the side length, so infinity is a perfectly usable answer.
+    """
     if ratio == 1.0:
         return h_min * n_intervals
+    if n_intervals * math.log(ratio) > _LOG_MAX_DOUBLE:
+        return math.inf
     return h_min * (ratio**n_intervals - 1.0) / (ratio - 1.0)
 
 

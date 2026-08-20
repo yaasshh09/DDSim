@@ -13,6 +13,32 @@ Phase 1 comes first.
 The initial guess is the charge neutral potential, psi = asinh(N/2), which is
 the exact answer in uniform material and a good one everywhere except within a
 few Debye lengths of a junction.
+
+Applying a bias
+---------------
+phases/PHASE-1.md asks for depletion widths at -1 V and -5 V reverse bias, and
+that cannot be done with phi_n = phi_p = 0. With the quasi-Fermi levels pinned
+at zero the carrier densities are tied absolutely to psi, so a quasi-neutral
+region cannot shift its potential without changing p by exp(38.7) per volt. The
+applied bias never reaches the junction: it drops across a thin layer at the
+contact instead. Measured on a 1e16 diode at -1 V, the whole volt falls across
+0.05 um at the contact with a 2e5 V/cm field there, while the junction field
+stays at its zero bias value of 3.2e4 V/cm.
+
+The standard resolution, and step one of Gummel iteration in Phase 2, is to
+carry fixed quasi-Fermi levels. With no current flowing, phi_n is flat across
+the whole device at the bias of the contact in the n-type material, and phi_p
+is flat at the bias of the contact in the p-type material. Their separation is
+the applied bias, which is what reverse bias means.
+
+They have to be two separate levels rather than one. A single common phi with a
+step at the metallurgical junction drives n = exp(psi - phi) to 1e26 cm^-3 on
+the p side of the junction, which screens the field and gives a depletion width
+three times too small.
+
+frozen_quasi_fermi builds both. It is an approximation, valid at reverse bias
+and low forward bias where recombination has not yet bent the levels, and
+Phase 2 replaces it by solving for phi_n and phi_p properly.
 """
 
 from __future__ import annotations
@@ -59,8 +85,55 @@ class DeviceState:
     """The solver history, including the residual tail."""
 
 
+def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
+    """Flat quasi-Fermi levels (phi_n, phi_p) [V], scaled.
+
+    With no current flowing, each level is constant across the whole device.
+    phi_n takes the bias of the contact sitting in n-type material and phi_p
+    the bias of the contact sitting in p-type material, because those are the
+    contacts that fix the majority carrier population at each end. Their
+    difference is the applied bias.
+
+    They have to be two separate levels. A single common phi with a step at the
+    metallurgical junction drives n = exp(psi - phi) to 1e26 cm^-3 on the p side
+    of the junction, which screens the field and shrinks the depletion width by
+    a factor of three.
+
+    If every contact sits in material of one type, both levels fall back to
+    that contact's bias, which is the right answer for a resistor.
+
+    This is the reverse bias and low injection approximation. Phase 2 solves
+    for phi_n and phi_p instead of assuming them flat.
+    """
+    doping = device.net_doping.data
+    n_nodes = device.mesh.n_nodes
+
+    n_side = [c for c in device.contacts if doping[c.node] >= 0.0]
+    p_side = [c for c in device.contacts if doping[c.node] < 0.0]
+
+    n_bias = n_side[0].voltage if n_side else p_side[0].voltage
+    p_bias = p_side[0].voltage if p_side else n_side[0].voltage
+
+    phi_n = Field(
+        np.full(n_nodes, n_bias / device.scale.psi_0),
+        "V",
+        ScalingState.SCALED,
+        Location.NODE,
+        name="phi_n",
+    )
+    phi_p = Field(
+        np.full(n_nodes, p_bias / device.scale.psi_0),
+        "V",
+        ScalingState.SCALED,
+        Location.NODE,
+        name="phi_p",
+    )
+    return phi_n, phi_p
+
+
 def solve_equilibrium(
     device: Device,
+    quasi_fermi: tuple[Field, Field] | None = None,
     max_iterations: int = 50,
     residual_rtol: float = 1e-10,
     update_tol: float = 1e-10,
@@ -69,6 +142,9 @@ def solve_equilibrium(
 
     Args:
         device: the device specification.
+        quasi_fermi: fixed (phi_n, phi_p) [V], scaled. None means true thermal
+            equilibrium, both zero everywhere. Pass frozen_quasi_fermi(device)
+            to solve a reverse biased junction.
         max_iterations: Newton iteration budget.
         residual_rtol: residual threshold relative to the initial residual
             [1]. Relative rather than absolute, because the Poisson residual
@@ -79,6 +155,8 @@ def solve_equilibrium(
     that is returned quietly is the worst outcome available here, because it
     looks like a converged one and every number downstream inherits the error.
     """
+    phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
+
     mesh = device.mesh
     scale = device.scale
     net_doping = device.net_doping_scaled
@@ -86,12 +164,18 @@ def solve_equilibrium(
 
     def assemble(psi_values: npt.NDArray[np.float64]) -> PoissonAssembly:
         psi = Field(psi_values, "V", ScalingState.SCALED, Location.NODE, name="psi")
-        assembly = assemble_poisson(mesh, psi, net_doping, scale)
+        assembly = assemble_poisson(mesh, psi, net_doping, scale, phi_n, phi_p)
         return apply_ohmic_contacts(
             assembly, psi_values, doping_values, device.contacts, scale
         )
 
+    # Charge neutral guess, shifted by the quasi-Fermi level of the local
+    # majority carrier so that a biased region starts near the potential its
+    # contact demands rather than a whole volt away from it.
     initial = np.asarray(psi_equilibrium_scaled(doping_values), dtype=np.float64)
+    if phi_n is not None and phi_p is not None:
+        majority = np.where(doping_values >= 0.0, phi_n.data, phi_p.data)
+        initial = initial + majority
 
     result = newton_solve(
         assemble,
@@ -108,18 +192,20 @@ def solve_equilibrium(
             f"Residual history: {result.residual_history}"
         )
 
+    n_level = 0.0 if phi_n is None else phi_n.data
+    p_level = 0.0 if phi_p is None else phi_p.data
     psi = Field(result.x, "V", ScalingState.SCALED, Location.NODE, name="psi")
     return DeviceState(
         psi=psi,
         n=Field(
-            np.asarray(n_boltzmann_scaled(result.x)),
+            np.asarray(n_boltzmann_scaled(result.x, n_level)),
             "cm^-3",
             ScalingState.SCALED,
             Location.NODE,
             name="n",
         ),
         p=Field(
-            np.asarray(p_boltzmann_scaled(result.x)),
+            np.asarray(p_boltzmann_scaled(result.x, p_level)),
             "cm^-3",
             ScalingState.SCALED,
             Location.NODE,

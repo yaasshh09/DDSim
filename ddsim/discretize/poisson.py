@@ -7,7 +7,30 @@ per docs/02-numerics.md:
 
 In scaled units that is just
 
-    lap(psi) = -(p - n + N)     with     n = exp(psi),  p = exp(-psi)
+    lap(psi) = -(p - n + N)
+
+    n = exp(psi - phi_n),   p = exp(phi_p - psi)
+
+phi_n and phi_p are the quasi-Fermi potentials, held fixed here. At true
+thermal equilibrium both are zero and the densities reduce to exp(+/- psi).
+
+They are carried because without them an applied bias cannot reach a junction.
+With the quasi-Fermi levels pinned at zero the densities are tied absolutely to
+psi, so a quasi-neutral region cannot shift its potential without changing p by
+exp(38.7) per volt. The bias piles up in a thin layer at the contact instead:
+measured on a 1e16 diode at -1 V, the whole volt falls across 0.05 um at the
+contact with a 2e5 V/cm field there, while the junction field stays at its zero
+bias value.
+
+They have to be separate, not one common phi. Under reverse bias phi_n and
+phi_p are split by exactly the applied bias throughout the depletion region,
+which is what reverse bias means. Forcing a single phi with a step at the
+metallurgical junction makes n = exp(psi - phi) blow up to 1e26 cm^-3 on the p
+side of the junction, which screens the field and gives a depletion width three
+times too small.
+
+Shifting psi, phi_n and phi_p together by the same amount leaves n and p
+unchanged, which is the freedom a biased neutral region needs.
 
 Discretization is box integration over the dual cell of each node, which is
 what makes the scheme conservative and what carries over unchanged to the
@@ -76,6 +99,8 @@ def poisson_residual(
     volume: npt.NDArray[np.float64],
     psi: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
+    phi_n: npt.NDArray[np.float64] | None = None,
+    phi_p: npt.NDArray[np.float64] | None = None,
 ) -> npt.NDArray[np.float64]:
     """Residual of the scaled nonlinear Poisson equation [1].
 
@@ -84,14 +109,17 @@ def poisson_residual(
         volume: scaled dual cell widths [1], length n_nodes.
         psi: scaled potential [1], length n_nodes.
         net_doping: scaled net doping N = (Nd - Na)/C_0 [1], length n_nodes.
+        phi_n: electron quasi-Fermi potential [1], length n_nodes. None means
+            zero, which is true thermal equilibrium.
+        phi_p: hole quasi-Fermi potential [1], length n_nodes. None means zero.
 
     Reflecting at both ends. Contacts are applied separately.
 
     Does not force a dtype, so passing a complex psi gives a complex residual
     and complex step differentiation works directly on this function.
     """
-    n = np.exp(psi)
-    p = np.exp(-psi)
+    n = np.exp(psi if phi_n is None else psi - phi_n)
+    p = np.exp(-psi if phi_p is None else phi_p - psi)
 
     residual = np.zeros_like(psi)
 
@@ -113,16 +141,21 @@ def poisson_jacobian(
     volume: npt.NDArray[np.float64],
     psi: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
+    phi_n: npt.NDArray[np.float64] | None = None,
+    phi_p: npt.NDArray[np.float64] | None = None,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """Jacobian of poisson_residual, in COO form.
 
     Returns (rows, cols, values). Written term by term rather than assembled
     with a stencil helper, so that a device engineer can check each derivative
     against the residual above by eye.
+
+    The quasi-Fermi levels are held fixed, so dn/dpsi is still n and dp/dpsi is
+    still -p and the diagonal keeps its form.
     """
     n_nodes = psi.size
-    n = np.exp(psi)
-    p = np.exp(-psi)
+    n = np.exp(psi if phi_n is None else psi - phi_n)
+    p = np.exp(-psi if phi_p is None else phi_p - psi)
 
     nodes = np.arange(n_nodes, dtype=np.int64)
     edges = np.arange(h.size, dtype=np.int64)
@@ -148,6 +181,8 @@ def assemble_poisson(
     psi: Field,
     net_doping: Field,
     scale: ScaleFactors,
+    phi_n: Field | None = None,
+    phi_p: Field | None = None,
 ) -> PoissonAssembly:
     """Assemble the equilibrium Poisson system for a 1D mesh.
 
@@ -156,6 +191,9 @@ def assemble_poisson(
         psi: scaled potential on nodes [V], must be SCALED.
         net_doping: scaled net doping on nodes [cm^-3], must be SCALED.
         scale: the de Mari scale factors, used to put the mesh in units of x_0.
+        phi_n: electron quasi-Fermi potential on nodes [V], must be SCALED.
+            None means true equilibrium.
+        phi_p: hole quasi-Fermi potential on nodes [V], must be SCALED.
 
     Checks the scaling state and mesh location once here, then works on raw
     arrays, which is the pattern docs/03-architecture.md prescribes.
@@ -165,7 +203,13 @@ def assemble_poisson(
     orders of magnitude, since x_0 is 40.9 um at intrinsic doping while a
     device is 1 um across.
     """
-    for name, field in (("psi", psi), ("net_doping", net_doping)):
+    checked = [("psi", psi), ("net_doping", net_doping)]
+    if phi_n is not None:
+        checked.append(("phi_n", phi_n))
+    if phi_p is not None:
+        checked.append(("phi_p", phi_p))
+
+    for name, field in checked:
         if field.scaling is not ScalingState.SCALED:
             raise ValueError(
                 f"{name} must be SCALED before assembly, got {field.scaling.name}. "
@@ -185,8 +229,14 @@ def assemble_poisson(
     h = mesh.h / scale.x_0
     volume = mesh.volume / scale.x_0
 
-    residual = poisson_residual(h, volume, psi.data, net_doping.data)
-    rows, cols, values = poisson_jacobian(h, volume, psi.data, net_doping.data)
+    n_values = None if phi_n is None else phi_n.data
+    p_values = None if phi_p is None else phi_p.data
+    residual = poisson_residual(
+        h, volume, psi.data, net_doping.data, n_values, p_values
+    )
+    rows, cols, values = poisson_jacobian(
+        h, volume, psi.data, net_doping.data, n_values, p_values
+    )
 
     return PoissonAssembly(
         residual=residual,

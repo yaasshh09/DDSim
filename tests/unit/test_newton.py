@@ -332,3 +332,20 @@ def test_a_problem_that_starts_at_zero_residual_still_converges() -> None:
     result = newton_solve(assemble, np.zeros(1))
     assert result.converged
     assert result.iterations == 0
+
+
+def test_a_non_finite_residual_is_reported_as_divergence() -> None:
+    """An iterate that overflows is a diverged solve, not a crash.
+
+    Starting at x = -700 the Jacobian is exp(-700), about 1e-304, so the
+    Newton step is 1e304. That is finite, so the update passes its own check,
+    and only the next residual overflows. This is the path that separates a
+    bad iterate from a bad step.
+    """
+    with np.errstate(over="ignore"):
+        result = newton_solve(
+            exponential_problem(1.0), np.array([-700.0]), max_iterations=5
+        )
+    assert not result.converged
+    assert "diverged" in result.message
+    assert result.residual_history[-1] == float("inf")

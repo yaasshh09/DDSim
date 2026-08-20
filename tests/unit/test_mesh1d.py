@@ -294,3 +294,25 @@ def test_geometric_sum_handles_a_ratio_of_exactly_one() -> None:
 
     assert _geometric_sum(2.0, 1.0, 5) == pytest.approx(10.0, rel=1e-15)
     assert _geometric_sum(2.0, 2.0, 3) == pytest.approx(14.0, rel=1e-15)
+
+
+def test_graded_mesh_handles_many_cells_with_a_very_small_h_min() -> None:
+    """The bracketing search must not overflow while looking for the ratio.
+
+    The search starts at ratio 2 and doubles, and the geometric sum is
+    h_min*(r^m - 1)/(r - 1). With 1200 cells, 2^1199 is far past the double
+    range, so the probe overflows before the bisection ever starts. Phase 0
+    never hit it because 200 cells and 1 nm spacing keep r^m small.
+    """
+    mesh = graded_mesh_1d(4.0 * MICRON, 1201, refine_at=2.0 * MICRON, h_min=2e-8)
+    assert mesh.n_nodes == 1201
+    assert mesh.h.min() == pytest.approx(2e-8, rel=1e-6)
+    assert mesh.volume.sum() == pytest.approx(4.0 * MICRON, rel=1e-12)
+
+
+def test_geometric_sum_saturates_instead_of_overflowing() -> None:
+    """An enormous sum is still an answer the bisection can use."""
+    from ddsim.mesh.mesh1d import _geometric_sum
+
+    assert _geometric_sum(1e-8, 2.0, 1199) == float("inf")
+    assert _geometric_sum(1e-8, 1.001, 100) < 1e-5

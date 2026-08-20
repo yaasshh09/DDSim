@@ -295,3 +295,86 @@ def test_assemble_returns_a_square_system_of_the_right_size() -> None:
     assembly = assemble_poisson(mesh, psi, doping, scale)
     assert assembly.shape == (11, 11)
     assert assembly.residual.shape == (11,)
+
+
+# ------------------------------------------------- frozen quasi-Fermi levels
+
+
+def test_residual_uses_the_quasi_fermi_potentials_in_the_densities() -> None:
+    """n = exp(psi - phi_n), p = exp(phi_p - psi), not exp(+/- psi).
+
+    Without this, a bias applied at a contact cannot reach the junction. The
+    carrier densities are tied absolutely to psi, so the neutral bulk cannot
+    shift its potential without changing p by exp(38.7) per volt. The applied
+    bias piles up in a thin layer at the contact instead. Measured on a 1e16
+    diode at -1 V: the whole volt drops across 0.05 um at the contact, with a
+    2e5 V/cm field there, while the junction field stays at its zero bias
+    value of 3.2e4 V/cm.
+    """
+    h, volume = scaled_mesh(n_nodes=11)
+    psi = np.full(11, 2.0)
+    net_doping = np.zeros(11)
+    phi = np.full(11, 2.0)
+
+    residual = poisson_residual(h, volume, psi, net_doping, phi, phi)
+    # psi == phi means n = p = 1, so the charge term vanishes exactly.
+    np.testing.assert_allclose(residual, 0.0, atol=1e-15)
+
+
+def test_quasi_fermi_defaults_to_zero_which_is_true_equilibrium() -> None:
+    h, volume = scaled_mesh(n_nodes=11)
+    psi = np.linspace(-2.0, 2.0, 11)
+    net_doping = np.zeros(11)
+
+    without = poisson_residual(h, volume, psi, net_doping)
+    with_zero = poisson_residual(
+        h, volume, psi, net_doping, np.zeros(11), np.zeros(11)
+    )
+    np.testing.assert_array_equal(without, with_zero)
+
+
+def test_a_uniform_shift_of_psi_and_both_levels_leaves_the_residual_alone() -> None:
+    """The gauge freedom that lets a bias propagate into the bulk.
+
+    Shifting psi and phi by the same amount leaves n and p unchanged, so a
+    quasi-neutral region can sit at any potential its contact demands.
+    """
+    h, volume = scaled_mesh(n_nodes=11)
+    psi = np.linspace(-1.0, 1.0, 11)
+    net_doping = np.full(11, 1e6)
+
+    base = poisson_residual(
+        h, volume, psi, net_doping, np.zeros(11), np.zeros(11)
+    )
+    shifted = poisson_residual(
+        h, volume, psi + 38.7, net_doping, np.full(11, 38.7), np.full(11, 38.7)
+    )
+    np.testing.assert_allclose(shifted, base, rtol=1e-12, atol=1e-12)
+
+
+def test_jacobian_with_quasi_fermi_matches_complex_step() -> None:
+    h, volume = scaled_mesh(n_nodes=20)
+    rng = np.random.default_rng(7)
+    psi = rng.uniform(-6.0, 6.0, 20)
+    net_doping = rng.uniform(-1e5, 1e5, 20)
+    phi_n = rng.uniform(-3.0, 3.0, 20)
+    phi_p = rng.uniform(-3.0, 3.0, 20)
+
+    rows, cols, values = poisson_jacobian(
+        h, volume, psi, net_doping, phi_n, phi_p
+    )
+    assembled = sp.coo_matrix((values, (rows, cols)), shape=(20, 20)).toarray()
+
+    step = 1e-30
+    for column in range(20):
+        perturbed = psi.astype(np.complex128)
+        perturbed[column] += 1j * step
+        derivative = (
+            poisson_residual(
+                h, volume, perturbed, net_doping, phi_n, phi_p
+            ).imag
+            / step
+        )
+        np.testing.assert_allclose(
+            assembled[:, column], derivative, rtol=1e-12, atol=1e-12
+        )

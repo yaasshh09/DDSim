@@ -231,3 +231,13 @@ def test_build_device_defaults_to_silicon() -> None:
     )
     assert isinstance(device, Device)
     assert device.material.n_i == 1.0e10  # [cm^-3]
+
+
+def test_device_rejects_duplicate_contact_names() -> None:
+    mesh = uniform_mesh_1d(MICRON, 11)
+    with pytest.raises(ValueError, match="unique"):
+        build_device(
+            mesh=mesh,
+            doping=Uniform(1e16),
+            contacts=(OhmicContact("a", 0, 0.0), OhmicContact("a", 10, 0.0)),
+        )
