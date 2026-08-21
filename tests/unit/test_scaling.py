@@ -61,11 +61,14 @@ def test_debye_length_matches_doc_table(doping: float, debye_nm: float) -> None:
 
 
 def test_intrinsic_debye_length_follows_the_doc_formula(scale: ScaleFactors) -> None:
-    """The doc says 'roughly 24 um' but its own formula gives 40.885 um.
+    """docs/06-constants.md used to say 'roughly 24 um'. Its own formula gives
+    40.885 um.
 
     24 um reproduces only as sqrt(eps*V_T/(2*q*n_i)) with n_i = 1.45e10, which
-    carries both an extra factor of 2 and the superseded n_i. The formula wins.
-    See the known deviations table in PROGRESS.md.
+    carries both an extra factor of 2 and the superseded n_i. The formula wins,
+    and the doc now says 40.9 um. Pinned here so a future edit that reverts the
+    doc cannot quietly take the code with it. See the known deviations table in
+    PROGRESS.md.
     """
     assert scale.x_0 * 1e4 == pytest.approx(40.885, rel=1e-4)  # [um]
 

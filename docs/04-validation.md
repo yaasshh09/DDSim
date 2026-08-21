@@ -42,6 +42,36 @@ at 1e16 and 1e18 cm^-3. Caughey-Thomas approaching v_sat at 1e5 V/cm.
 Each of these is a full solve compared to a closed-form result. Tolerances are
 starting points, tighten as the code improves.
 
+**Ohmic resistor.** A uniformly doped bar between two ohmic contacts has to obey
+
+    J = sigma * V / L,      sigma = q * (mu_n * n + mu_p * p)
+
+Unlike everything else in this tier, this is not a limit the solver is allowed to
+miss by a percent. With constant mobility and Boltzmann statistics the Van
+Roosbroeck system reduces to Ohm's law identically, and Scharfetter-Gummel is
+exact for a constant field, so the agreement is at solver tolerance and does not
+improve under refinement.
+
+Measured relative error, across net doping from -1e16 to 1e18 cm^-3 including
+the near-intrinsic cases where the hole term carries a quarter of the current:
+
+| Bias | Worst relative error |
+|---|---|
+| 1e-4 V | 4.3e-12 |
+| 1e-2 V | 3.4e-10 |
+| 0.1 V | 3.1e-9 |
+
+The growth with bias is the Gummel convergence tolerance, not the
+discretization. Refinement confirms it: at 1e16 and 0.01 V the error is 1.4e-10
+on 11 nodes and 2.0e-10 on 401, which is flat to the digit that matters. The
+gate in the test is 1e-7, which leaves two orders of headroom over the worst
+case.
+
+Run this one first. It pins the Einstein relation, the drift sign, the contact
+conditions, the unit scaling and the terminal current extraction with a single
+number, and if it is wrong nothing further down this list is worth reading.
+See `tests/analytic/test_ohmic_resistor.py`.
+
 **Debye length.** Solve nonlinear Poisson on a doping step. The potential decays
 with the local Debye length. Fit the decay, compare. Under 1 percent.
 
@@ -96,6 +126,18 @@ recombination disabled, Jn + Jp is identical at every node. Assert max relative
 deviation under 1e-6. This is the strongest single check available and it catches
 SG sign errors, boundary condition errors, and assembly errors alike.
 
+The 1e-6 gate only holds above roughly 0.25 V forward, and the reason is
+arithmetic rather than physics. Jn is the difference of two edge terms of size
+(Dn/h)*n, and near equilibrium those two cancel almost completely, so the
+relative spread is machine epsilon multiplied by the ratio of a flux term to the
+surviving current. Measured on the reference diode: 3.3e-10 at 0.5 V, 1.3e-8 at
+0.4 V, 2.8e-7 at 0.3 V, 1.5e-5 at 0.2 V, 6.6e-4 at 0.1 V. Dividing each by eps
+times that flux-to-current ratio gives between 0.4 and 1.2 across seven decades
+of bias, which is what subtraction out of digits looks like and is not what a
+broken scheme looks like. Assert the 1e-6 gate at 0.3 V and above, and assert
+the cancellation model separately at every bias including reverse. A gate that
+silently fails at low bias trains you to ignore it.
+
 **Charge neutrality in the bulk.** Far from any junction, |p - n + N| / N under
 1e-6.
 
@@ -107,6 +149,28 @@ means obtuse triangles and negative dual areas. Do not paper over it by clamping
 
 **Terminal current sum.** Sum of currents into all contacts is zero. Under 1e-8
 relative to the largest terminal current. Catches boundary condition errors.
+Take the terminal current from the continuity residual at the contact node
+rather than from the adjacent edge flux. Written that way the recombination in
+the contact half cell cancels between the two carriers and the sum is zero
+identically instead of approximately.
+
+Same low bias caveat as current continuity, and the same cause. It holds from
+0.3 V up (5.6e-9, 2.6e-10, 2.0e-12) and reaches 2.5e-5 relative at -1 V, where
+in absolute terms the leftover is 1e-13 A/cm^2 against an arithmetic floor of
+6.3e-13. Bound the low bias case against the floor, not against a relative
+tolerance.
+
+**Mirror symmetry.** Build the device back to front, solve, and every terminal
+current has to come back the same. Potentials reflect and change sign, current
+densities reflect and change sign. This is nearly free and it catches any
+asymmetry accidentally baked into the mesh, the assembly or the contact
+handling. Gate at 1e-12 relative; measured 9e-16. One caveat worth knowing
+before it costs you an afternoon: a step doping profile is right continuous, so
+a node sitting exactly on the junction takes the n side value one way round and
+the p side value the other. That moves the metallurgical junction by one cell,
+and on a short base diode one cell of base width is worth about 0.1 percent of
+the current. Put the junction between nodes, or expect that offset and test for
+it.
 
 **Gummel and Newton agree.** Same device, same bias, both paths. Solutions must
 agree to solver tolerance. If they disagree, one of the two Jacobians is wrong.

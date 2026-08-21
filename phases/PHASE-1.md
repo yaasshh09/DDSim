@@ -24,7 +24,10 @@ Substitute Boltzmann statistics into Poisson to eliminate n and p:
   quadratically in the last 3 iterations. Log the residual history and confirm
   the quadratic tail visually.
 - **Built-in potential**, 1e16/1e16 abrupt junction, matches
-  `V_T*ln(Na*Nd/n_i^2)` to under 0.5 percent (expect about 0.695 V)
+  `V_T*ln(Na*Nd/n_i^2)` to under 0.5 percent (expect 0.7143 V). An earlier
+  revision said 0.695 V here, which is the same formula at the superseded
+  n_i = 1.45e10 and contradicts the formula printed beside it by 2.8 percent,
+  five times the tolerance. The formula wins.
 - **Depletion width** matches the depletion approximation to under 3 percent at
   0, -1, and -5 V reverse bias
 - **Debye decay**: potential from a doping step decays with the local L_D, fit to

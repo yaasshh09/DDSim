@@ -71,27 +71,63 @@ Properties:
     B(x) -> x*exp(-x)  as x -> +inf         (underflows to 0 safely)
     B'(0) = -1/2
 
-Branch structure. Use these thresholds as a starting point and tune against
-double precision:
+Branch structure. These are the thresholds `ddsim/physics/bernoulli.py` ships,
+after tuning against an 80 digit `decimal` reference rather than against a back
+of the envelope estimate:
 
 | Range | Evaluation |
 |---|---|
-| x < -80 | return -x (exp overflow otherwise) |
-| -80 <= x < -1e-4 | x / expm1(x) |
+| x < -1e-4 | x / expm1(x) |
 | \|x\| <= 1e-4 | series: 1 - x/2 + x^2/12 - x^4/720 |
-| 1e-4 < x <= 80 | x / expm1(x) |
-| x > 80 | return 0.0 (underflow, mathematically x*exp(-x)) |
+| x > 1e-4 | -x * exp(-x) / expm1(-x) |
+
+There is no large-\|x\| branch and none is needed. For x < -80, expm1(x)
+saturates to exactly -1.0 and x / expm1(x) returns exactly -x on its own, so a
+short circuit there buys nothing. Nothing overflows either: expm1 of a negative
+argument lives in [-1, 0). On the positive side, writing the positive branch as
+-x*exp(-x)/expm1(-x) keeps every representable value from B(80) = 1.44e-33 down
+to the underflow at x = 745, where a hard "return 0.0 above 80" would throw away
+290 decades of perfectly good numbers.
 
 Use `numpy.expm1`, never `exp(x) - 1`. The latter loses all precision near zero.
 
-You also need the derivative dB/dx for the Newton Jacobian:
+You also need the derivative dB/dx for the Newton Jacobian. The textbook form is
 
     B'(x) = (exp(x) * (1 - x) - 1) / (exp(x) - 1)^2
 
-Same branch care applies. Near zero use the series -1/2 + x/6 - x^3/180.
-Consider verifying B' against complex-step differentiation in a test, which is
-exact to machine precision and catches algebra errors that finite differences
-would hide.
+and it is not accurate enough to use as written. `exp(x)*(1 - x) - 1` subtracts
+two order-one quantities to produce an order x^2 result, so the relative error
+goes as eps/x^2. Measured against the 80 digit reference it is 1.8e-8 at
+x = 1e-4 and 7.7e-8 at 1e-5, which misses the 1e-13 target by five orders of
+magnitude. Rewrite it with expm1 as
+
+    B'(x) = (E * (1 - x) - x) / E^2,      E = expm1(x)
+
+which moves the cancellation down to order x and buys back three orders of
+magnitude. The derivative branches are:
+
+| Range | Evaluation |
+|---|---|
+| x < -80 | -1.0 |
+| -80 <= x < -0.1 | (E*(1 - x) - x) / E^2 |
+| \|x\| <= 0.1 | series: -1/2 + x/6 - x^3/180 + x^5/5040 - x^7/151200 |
+| 0.1 < x <= 80 | (E*(1 - x) - x) / E^2 |
+| x > 80 | (1 - x) * exp(-x) |
+
+The series needs terms to x^7 and a window out to 0.1 for both sides of the
+boundary to sit near 1e-15. A three term series cut off at 1e-4, which is the
+obvious thing to write, leaves a 1e-8 step at the branch boundary.
+
+Complex-step differentiation is worth having as a check, but it is not exact
+here and it will lie to you near the origin. It removes the cancellation from
+the differencing, not the cancellation inside B's own algebra, and B has plenty
+of the latter near zero. It loses roughly eps/\|x\|: measured 9.3e-11 at
+x = 1e-6 against 3.3e-15 at x = 0.1. Use it as the criterion for
+0.1 <= \|x\| <= 300, where it genuinely is exact, and use a high precision
+reference for everything closer in. Note also that neither numpy nor math has a
+complex expm1, and a reference built on the naive `exp(z) - 1` is three orders
+worse again, which reads exactly like a bug in the implementation it is meant to
+be checking.
 
 ## Scharfetter-Gummel discretization
 
@@ -259,19 +295,78 @@ Sparse, non-symmetric, ill-conditioned. Direct solve is correct at these sizes.
 - Do not reach for iterative solvers (GMRES, BiCGStab) unless a solve exceeds
   30 seconds. The matrix conditioning makes preconditioning its own project.
 
-Reuse the symbolic factorization across Newton steps if the sparsity pattern is
-unchanged. It is, so do it. Significant speedup for free.
+Reusing the symbolic factorization across Newton steps is the obvious thing to
+want, since the sparsity pattern never changes. SciPy will not let you do it.
+`splu` takes `permc_spec` as a string and hands `perm_c` back, with no way to
+pass a symbolic factorization or a precomputed permutation in, so there is no
+symbolic and numeric split to exploit.
+
+The usual workaround, keeping `perm_c` and refactorizing `A[:, perm_c]` with
+`permc_spec="NATURAL"`, is a pessimization here and a bad one. Measured on a
+five point stencil: 23 ms becomes 352 ms at 100x100, 134 ms becomes 6146 ms at
+200x200. The column gather is not the cost, it is 0.6 ms. The factorization
+itself blows up, from 645,750 nonzeros in L and U under COLAMD to 3,933,424
+under the pre-permuted NATURAL run, a factor of 6.1 more fill. SuperLU's COLAMD
+path does a column elimination tree postordering that the NATURAL path skips, so
+`perm_c` on its own does not reproduce the ordering SuperLU actually eliminated
+with. Factorize fresh with COLAMD every time.
+
+What is worth reusing is the part of the assembly that depends only on the
+pattern. Going from COO triplets to CSC costs a sort and a duplicate summation,
+and across Newton steps only the values move, so both can be computed once and
+replayed as a gather plus a segmented sum. That is real and it is the single
+biggest win in the solve loop. Keep a fingerprint of the pattern so a future
+UMFPACK or KLU backend, which does expose the symbolic and numeric split, can
+deliver the rest.
 
 ## Convergence criteria
 
 Check all three, not just one:
 
-1. Update norm: max |dpsi| < 1e-10 (scaled), and relative change in n, p < 1e-8
-2. Residual norm: ||F|| < tol, absolute, on the scaled system
+1. Update norm: max |dpsi| < 1e-10 (scaled), and carrier change under 1e-8
+2. Residual norm: ||F|| below a threshold built from the size of the terms F is
+   assembled from, on the scaled system
 3. Current continuity: max deviation of (Jn + Jp) across nodes < 1e-6 relative
 
 Criterion 3 is physical rather than algebraic and it catches failures the other
-two miss. Report all three at every step in verbose mode.
+two miss. Report all three at every step in verbose mode, and report the
+threshold alongside the residual, not just the residual. A residual sitting
+above a threshold reads as a slow solve when it is really an unreachable
+threshold, and those have different fixes.
+
+Three refinements that only show up once real devices are running.
+
+**The residual threshold cannot be absolute.** The Poisson residual scales with
+the doping, and so does its own roundoff floor, so a fixed 1e-10 that is
+comfortable at 1e16 is unreachable at 1e18. Making it relative to the initial
+residual fixes that for a cold start and breaks warm starts, which is what every
+Gummel cycle after the first is: a solve handed the answer already starts on its
+roundoff floor, and a threshold a decade under that floor can never be met.
+Build the scale from something that does not depend on the starting iterate.
+For Poisson, the doping charge in the largest dual cell works.
+
+**And that scale has a floor of its own.** The residual is also a difference of
+two face fluxes of size eps*psi/h, and a difference cannot resolve below eps
+times the size of the things being differenced. The two scales move in opposite
+directions: the charge falls linearly with doping while psi is only logarithmic
+in it, so below about 1e13 cm^-3 the charge-based threshold sinks underneath the
+flux floor and a perfectly converged solve reports failure. On a 1e12 bar the
+residual reached 6.8e-12 at iteration three and sat there, unchanged to the last
+bit, for the remaining forty-seven, with an update of 4.4e-16 throughout. Raise
+the scale to clear the flux floor, and only when the floor would otherwise bind,
+so every device that already clears it keeps the threshold it had. High
+resistivity substrates live at exactly these dopings.
+
+**Measure the carrier change as max |dn| / (n + n_i).** A pure relative change
+is dominated by nodes where the density is 1e-15 and physically irrelevant. An
+absolute change is dominated by the majority carrier. The floor at n_i is 1 in
+scaled units and says what you mean: a carrier below the intrinsic density
+carries no charge worth converging.
+
+Finally, stop early when the residual has frozen to the last bit while the
+update is already inside tolerance. Both criteria still have to pass, so this is
+still a failure and still reported as one, but the remaining budget cannot
+change the answer and spending it only delays the diagnosis.
 
 ## Small-signal AC (Phase 4, for C-V)
 

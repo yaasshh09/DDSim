@@ -81,7 +81,7 @@ def test_built_in_potential_matches_the_analytic_form(Na: float, Nd: float) -> N
 
 
 def test_built_in_potential_is_not_the_value_quoted_in_the_docs() -> None:
-    """phases/PHASE-1.md and docs/06-constants.md both say to expect 0.695 V
+    """phases/PHASE-1.md and docs/06-constants.md used to say expect 0.695 V
     for a 1e16 / 1e16 junction. That figure is the n_i = 1.45e10 answer and
     predates this project's decision to use 1.0e10.
 
@@ -90,8 +90,10 @@ def test_built_in_potential_is_not_the_value_quoted_in_the_docs() -> None:
     phase asks for, so both cannot be satisfied. The formula wins, because it
     is the definition and it is consistent with the n_i in use.
 
-    This test exists so the discrepancy stays visible instead of being
-    rediscovered as a solver bug. See the deviations table in PROGRESS.md.
+    Both documents now carry 0.7143 V. This test stays anyway, because the
+    number it rejects is the one every other reference for silicon prints, and
+    a 19 mV offset in V_bi reads exactly like a boundary condition sign error.
+    See the deviations table in PROGRESS.md.
     """
     device = long_diode(1e16, 1e16)
     state = solve_equilibrium(device)

@@ -57,6 +57,33 @@ discrepancy in diode current that costs a day to track down.
 
 Record any change to this value in `PROGRESS.md`, and regenerate all golden data.
 
+### n_i is not consistent with Nc, Nv and Eg, and that is deliberate
+
+Nothing above says so, so say it here. The three values in the table do not
+satisfy the relation that connects them:
+
+    sqrt(Nc * Nv) * exp(-Eg / (2 * V_T)) = 1.0757e10 cm^-3
+
+against the 1.0e10 we use. That is 7.6 percent in n_i and 16 percent in n_i^2.
+Nc and Nv are measured 300 K values and n_i is anchored by the decision above,
+so they cannot both be primary and no amount of rearranging makes them agree.
+
+How the code resolves it: n_i(300) is pinned to 1.0e10 and the physics supplies
+only the temperature dependence,
+
+    n_i(T) = n_i(300) * (T/300)^(3/2)
+                      * exp(Eg(300)/(2 V_T(300)) - Eg(T)/(2 V_T(T)))
+
+where the power law carries the Nc*Nv scaling and the exponential carries the
+gap. The ratio n_i^2 / (Nc Nv exp(-Eg/V_T)) is then exactly temperature
+independent, which is tested. Eg comes from the Varshni formula rather than the rounded 1.1242 in the
+table; the two differ by 8.1e-5 eV and the formula is the definition.
+
+This is fine as long as nothing computes an absolute band edge position or a
+Fermi level from Nc, because that is where a 7.6 percent inconsistency stops
+being bookkeeping and starts being a wrong answer. Phase 5 degenerate statistics
+is where it has to be settled.
+
 ## Silicon dioxide
 
 | Name | Value | Units |
@@ -116,17 +143,26 @@ Defaults, Scharfetter doping dependence:
 
 At 300 K in silicon:
 
+Extrinsic Debye length, `sqrt(eps_Si * V_T / (q * N))`:
+
 | Doping (cm^-3) | Debye length | Note |
 |---|---|---|
-| 1e15 | 128 nm | |
-| 1e16 | 40 nm | |
-| 1e17 | 13 nm | |
-| 1e18 | 4.1 nm | mesh must resolve this |
-| 1e20 | 0.4 nm | continuum model straining |
+| 1e15 | 129 nm | |
+| 1e16 | 40.9 nm | |
+| 1e17 | 12.9 nm | |
+| 1e18 | 4.09 nm | mesh must resolve this |
+| 1e20 | 0.409 nm | continuum model straining |
 
-Intrinsic Debye length at n_i = 1e10 is roughly 24 um.
+Intrinsic Debye length at n_i = 1e10 is **40.9 um**, from the same formula with
+N = n_i. An earlier revision of this file said 24 um. That number is
+`sqrt(eps_Si * V_T / (2 * q * 1.45e10))`, so it carried both a stray factor of
+2 and the superseded n_i = 1.45e10.
 
-Built-in potential, 1e16 / 1e16 abrupt junction: about 0.695 V.
+Built-in potential, 1e16 / 1e16 abrupt junction: **0.7143 V**, from
+`V_T * ln(Na*Nd/n_i^2)`. An earlier revision said 0.695 V, which is the same
+formula evaluated at n_i = 1.45e10. This one matters: it is an acceptance target
+in phases/PHASE-1.md, and a 19 mV offset in V_bi reads exactly like a boundary
+condition sign error.
 
 ## Provenance
 
