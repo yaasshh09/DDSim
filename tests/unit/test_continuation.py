@@ -270,3 +270,13 @@ def test_repr_reports_where_it_got_to() -> None:
 
     assert "1" in repr(result)
     assert "converged" in repr(result)
+
+
+def test_event_repr_reports_the_attempt() -> None:
+    result = continue_to(
+        fails_beyond(0.5, 0.2), start=0.0, target=1.0, initial=0.0, step=0.5
+    )
+    text = repr(result.events[0])
+
+    assert "step" in text
+    assert "ok" in text or "failed" in text

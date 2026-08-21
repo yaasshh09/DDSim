@@ -718,3 +718,4 @@ def test_assemble_rejects_a_field_of_the_wrong_length() -> None:
 
     with pytest.raises(ValueError, match="length"):
         assemble_hole_continuity(mesh, psi, n, short, NoRecombination(), scale, D_P)
+

@@ -268,7 +268,18 @@ def iv_sweep(
             return None
         return solved
 
-    first = at_bias(start, None)
+    # Two different failures, one meaning: there is nothing to continue from.
+    # solve_bias returns a stalled result rather than raising, but the guess it
+    # falls back on when given none is the Phase 1 equilibrium solve, and that
+    # one does raise.
+    try:
+        first = at_bias(start, None)
+    except RuntimeError as error:
+        raise RuntimeError(
+            f"the sweep could not be started: no solution exists at "
+            f"{start:+g} V to continue from. {error}"
+        ) from error
+
     if first is None:
         raise RuntimeError(
             f"the sweep could not be started: the solve at {start:+g} V did not "

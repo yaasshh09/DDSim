@@ -21,6 +21,7 @@ from ddsim.core.field import Location, ScalingState
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels, solve_bias
 from ddsim.extract.iv import (
+    IVCurve,
     continuity_residuals,
     current_densities,
     iv_sweep,
@@ -236,3 +237,40 @@ def test_a_sweep_stops_and_says_where_when_it_stalls() -> None:
 def test_an_unknown_contact_is_rejected_before_any_solving() -> None:
     with pytest.raises(KeyError, match="gate"):
         iv_sweep(diode(), "gate", [0.1])
+
+
+def test_curve_repr_reports_the_range() -> None:
+    curve = iv_sweep(diode(), "anode", [0.0, 0.2])
+
+    assert "anode" in repr(curve)
+    assert "complete" in repr(curve)
+
+
+def test_an_empty_curve_still_has_a_repr() -> None:
+    """A sweep that stalls before its first requested point returns no points."""
+    curve = IVCurve(contact="anode", points=(), complete=False, message="stalled")
+
+    assert "empty" in repr(curve)
+
+
+def test_a_sweep_with_no_starting_guess_raises() -> None:
+    """Every point is continued from the starting bias, so that one must solve.
+
+    Starting cold at 5 V is far outside any basin of attraction. The fallback
+    guess is the Phase 1 equilibrium solve, which raises rather than returning
+    something unconverged, and the sweep says what that means for the sweep.
+    """
+    with pytest.raises(RuntimeError, match="could not be started"):
+        iv_sweep(diode(), "anode", [5.1], start=5.0, max_iterations=5)
+
+
+def test_a_sweep_whose_first_point_stalls_raises() -> None:
+    """The other way the same thing happens: a guess exists but will not solve.
+
+    Forced here with a tolerance no solve can meet, which is the cleanest way
+    to reach the branch without inventing a device that cannot be solved.
+    """
+    with pytest.raises(RuntimeError, match="did not converge"):
+        iv_sweep(
+            diode(), "anode", [0.1], max_iterations=1, update_tol=1e-30
+        )

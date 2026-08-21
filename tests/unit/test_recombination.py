@@ -386,3 +386,14 @@ def test_no_recombination_broadcasts_to_the_input_shape() -> None:
     """
     model = NoRecombination()
     assert np.asarray(model.rate(np.zeros(5), np.zeros(5))).shape == (5,)
+
+
+def test_a_lifetime_floor_above_the_ceiling_raises() -> None:
+    """tau_min above tau_max would make the lifetime rise with doping."""
+    with pytest.raises(ValueError, match="tau_max"):
+        scharfetter_lifetime(1e16, tau_max=1e-7, tau_min=1e-5)
+
+
+def test_a_non_positive_reference_doping_raises() -> None:
+    with pytest.raises(ValueError, match="N_ref"):
+        scharfetter_lifetime(1e16, tau_max=1e-5, N_ref=0.0)

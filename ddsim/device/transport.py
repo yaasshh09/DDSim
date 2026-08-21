@@ -199,7 +199,11 @@ def poisson_block(device: Device) -> BlockStep[DeviceState]:
             n = state.n.data * np.exp(shift)
             p = state.p.data * np.exp(-shift)
 
-        if not (np.all(np.isfinite(n)) and np.all(np.isfinite(p))):
+        if not (np.all(np.isfinite(n)) and np.all(np.isfinite(p))):  # pragma: no cover
+            # Unreachable as configured, and deliberately kept. The step
+            # limiter allows 5 per Newton iteration and solve_poisson allows
+            # 50 of them, so one cycle can move psi by at most 250 and
+            # exp(250) is 3.7e108. Raising either number would make this live.
             raise TransportError(
                 f"the potential moved by {np.max(np.abs(shift)):.3g} V_T in one "
                 "cycle and overflowed the Boltzmann densities. Ramp the bias in "
