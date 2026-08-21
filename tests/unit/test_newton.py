@@ -464,3 +464,91 @@ def test_a_reused_solver_follows_a_changed_pattern() -> None:
 
     assert bigger.converged
     np.testing.assert_allclose(bigger.x, [2.0, 3.0, 5.0], rtol=1e-12)
+
+
+# ------------------------------------------------------------------ stagnation
+
+
+def test_a_frozen_residual_with_a_settled_update_stops_early() -> None:
+    """Spinning the whole budget on a solve that has stopped moving is waste.
+
+    `floored_problem` is the shape of a real stall: the residual sits on its
+    own arithmetic floor and the Jacobian is far too large for any update to
+    shift it. Once the residual has not changed in the last bit for several
+    steps running and the update is already inside its tolerance, nothing
+    later in the budget can change the answer.
+    """
+    result = newton_solve(floored_problem(1e-11), np.array([2.0]), max_iterations=50)
+
+    assert not result.converged
+    assert result.iterations < 10
+    assert "stopped moving" in result.message
+
+
+def test_the_stagnation_message_carries_both_numbers() -> None:
+    """A stall and a slow solve look identical without the residual and the
+    threshold side by side. That was what made the low doping convergence bug
+    slow to find, so the message keeps carrying them.
+    """
+    result = newton_solve(floored_problem(1e-11), np.array([2.0]), max_iterations=50)
+
+    assert "1.000e-11" in result.message
+    assert "threshold" in result.message
+
+
+def test_stagnation_does_not_fire_while_the_update_is_still_large() -> None:
+    """A flat residual is not a stall on its own.
+
+    Here the residual is bit for bit identical every step while the iterate
+    marches off by one unit each time. That is a solver making real steps that
+    happen not to help, which is a different failure and must not be cut short
+    by a guard aimed at settled iterates.
+    """
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(np.ones(1), np.ones(1))
+
+    result = newton_solve(assemble, np.zeros(1), max_iterations=12)
+
+    assert not result.converged
+    assert result.iterations == 12
+    assert "did not converge" in result.message
+
+
+def test_stagnation_does_not_fire_on_a_healthy_solve() -> None:
+    """Quadratic convergence changes the residual every step until it lands."""
+    result = newton_solve(square_root_problem(np.array([2.0])), np.array([1.0]))
+
+    assert result.converged
+    assert result.x == pytest.approx(np.sqrt([2.0]))
+
+
+def test_the_stagnation_guard_can_be_switched_off() -> None:
+    """Off restores the old behaviour exactly: run the budget, then report."""
+    result = newton_solve(
+        floored_problem(1e-11),
+        np.array([2.0]),
+        max_iterations=50,
+        stagnation_window=None,
+    )
+
+    assert not result.converged
+    assert result.iterations == 50
+    assert "did not converge" in result.message
+
+
+def test_a_converged_solve_is_never_turned_into_a_stall() -> None:
+    """The guard runs after the convergence check, not before it.
+
+    A warm started solve arrives with a frozen residual and a zero update by
+    construction, which is precisely the stagnation pattern. Given a scale it
+    has to still be reported as the success it is.
+    """
+    result = newton_solve(
+        floored_problem(1e-11),
+        np.array([2.0]),
+        residual_scale=1.0,
+        max_iterations=50,
+    )
+
+    assert result.converged

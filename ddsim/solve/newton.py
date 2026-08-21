@@ -129,6 +129,7 @@ def newton_solve(
     residual_scale: float | None = None,
     update_tol: float = 1e-10,
     max_iterations: int = 50,
+    stagnation_window: int | None = 4,
     solver: SparseLU | None = None,
 ) -> NewtonResult:
     """Solve F(x) = 0 by damped Newton.
@@ -150,6 +151,19 @@ def newton_solve(
             starting iterate.
         update_tol: convergence threshold on max |dx|.
         max_iterations: give up after this many steps.
+        stagnation_window: give up early once the residual has been identical
+            to the last bit across this many consecutive entries of the
+            history while the update is already inside update_tol. Both halves
+            are load bearing. A frozen residual on its own is a solver taking
+            real steps that happen not to help, which is a different failure
+            and gets the whole budget. A frozen residual underneath a settled
+            iterate means the residual has hit its own arithmetic floor, and no
+            number of further steps can move it: on a 1e12 cm^-3 bar the
+            Poisson residual reached its floor at step three and sat there,
+            unchanged to the last bit, for the remaining forty-seven. None
+            disables the guard and runs the full budget. This never turns a
+            success into a failure, because the check runs after the
+            convergence test and reports converged=False either way.
         solver: a factorization to reuse across calls. A fresh one is built
             when this is None, which is right for a one-off solve. A caller
             that solves the same system over and over, as every Gummel cycle
@@ -235,6 +249,25 @@ def newton_solve(
                 update_history=update_history,
                 limited_steps=limited_steps,
             )
+
+        if (
+            stagnation_window is not None
+            and step_norm < update_tol
+            and len(residual_history) >= stagnation_window
+            and len(set(residual_history[-stagnation_window:])) == 1
+        ):
+            message = (
+                f"the residual stopped moving at iteration {iteration}: "
+                f"{residual_norm:.3e} unchanged over the last "
+                f"{stagnation_window} evaluations, against a threshold of "
+                f"{residual_threshold:.3e}, with the update already down to "
+                f"{step_norm:.3e}. The residual is on its arithmetic floor "
+                "and the remaining budget cannot move it. Either the "
+                "threshold is below that floor, in which case pass a "
+                "residual_scale built from the size of the terms, or the "
+                "Jacobian is wrong."
+            )
+            break
 
     if not message:
         # The threshold belongs in the message. A residual that stops moving
