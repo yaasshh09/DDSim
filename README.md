@@ -67,10 +67,18 @@ the continuity equations, the contact conditions and the lifetimes at once:
 
 | Quantity | Simulated | Analytic | Error |
 |---|---|---|---|
-| Saturation current, 1e16 / 1e16 | 1.3322e-10 A/cm^2 | 1.3333e-10 | 0.08 % |
+| Saturation current, 1e16 / 1e16 | 1.3322e-10 A/cm^2 | 1.330 to 1.353e-10 | 0.1 to 1.6 % |
 | Reverse current at -1 V | -3.94e-9 A/cm^2 | between I_s and 9.7e-9 | in bracket |
 | Jn + Jp spread across the device, 0.5 V | 3.3e-10 | 0 | gate is 1e-6 |
 | Terminal current sum, 0.5 V | 2.0e-12 of the largest | 0 | gate is 1e-8 |
+
+The saturation current deserves its range rather than a single number. The
+simulated value is mesh converged: 1.33256e-10 on 101 nodes, 1.33220e-10 on
+201, 1.33194e-10 on 801, so it has stopped moving to five significant figures.
+The analytic expression is the loose one, because the quasi-neutral width it
+needs depends on where the depletion edge is taken, and that moves the answer
+by 1.7 percent across the fitting window. Quoting the tightest pairing as the
+error would be quoting my choice of depletion edge.
 
 This diode is short based: the hole diffusion length is 55 um against a 6 um
 n side, so the coth(W/L) factor in the general expression is worth a factor of

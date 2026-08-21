@@ -22,7 +22,7 @@ Phase 2 headline numbers, 1e16 / 1e16 diode, 12 um, 201 nodes:
 
 | Quantity | Simulated | Analytic | Error |
 |---|---|---|---|
-| Saturation current | 1.3322e-10 A/cm^2 | 1.3333e-10 | 0.08 % |
+| Saturation current | 1.3322e-10 A/cm^2 | 1.330 to 1.353e-10 | 0.1 to 1.6 % |
 | Reverse current at -1 V | -3.94e-9 A/cm^2 | between I_s and 9.7e-9 | in bracket |
 | Jn + Jp spread at 0.5 V | 3.3e-10 | 0 | gate is 1e-6 |
 | Terminal current sum at 0.5 V | 2.0e-12 of the largest | 0 | gate is 1e-8 |
@@ -125,8 +125,13 @@ direction, in the right amount.
   ideality factor and saturation current.
 
 Results. The saturation current comes out at 1.3322e-10 A/cm^2 against an
-analytic 1.3333e-10 from the configured lifetimes and diffusion lengths, which
-is 0.08 percent, where the phase asks for 10. The short base coth factor is
+analytic 1.330 to 1.353e-10 from the configured lifetimes and diffusion
+lengths, so between 0.1 and 1.6 percent where the phase asks for 10. The range
+on the analytic side is real and it is the looser of the two: the expression
+needs a quasi-neutral width, and taking the depletion edge at 0 V rather than
+at the middle of the fitting window moves it by 1.7 percent. The simulated
+value is the tight one, converged to five figures under refinement from 101 to
+801 nodes, which is what licenses quoting an agreement at all. The short base coth factor is
 worth a factor of nine here and the agreement does not survive dropping it, so
 that is a real check rather than a coincidence. Reverse current saturates at
 -3.94e-9, sitting between the diffusion floor and the full depletion generation
