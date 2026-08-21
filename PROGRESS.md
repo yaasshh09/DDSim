@@ -5,18 +5,28 @@ session. Newest entry at the top.
 
 ## Current state
 
-**Active phase:** Phase 1 complete, Phase 2 not started
+**Active phase:** Phase 2 complete, Phase 3 not started
 **Blocked on:** CI has still never run. No remote, and I do not push. Everything
-else in the Phase 0 and Phase 1 acceptance lists passes locally.
+in the Phase 0, 1 and 2 acceptance lists passes locally.
 **Next action:** push to a GitHub remote and confirm the workflow is green, then
-start Phase 2, Scharfetter-Gummel continuity and Gummel iteration
+start Phase 3, full Newton on the coupled 3N system
 
 Local verification, Python 3.14.6, numpy 2.5.2, scipy 1.18.0:
 
-    pytest   458 passed
-    coverage 99.82 percent, gate is 95
+    pytest   707 passed in 25 s
+    coverage 99.83 percent, gate is 95
     ruff     clean
     mypy     clean
+
+Phase 2 headline numbers, 1e16 / 1e16 diode, 12 um, 201 nodes:
+
+| Quantity | Simulated | Analytic | Error |
+|---|---|---|---|
+| Saturation current | 1.3322e-10 A/cm^2 | 1.3333e-10 | 0.08 % |
+| Reverse current at -1 V | -3.94e-9 A/cm^2 | between I_s and 9.7e-9 | in bracket |
+| Jn + Jp spread at 0.5 V | 3.3e-10 | 0 | gate is 1e-6 |
+| Terminal current sum at 0.5 V | 2.0e-12 of the largest | 0 | gate is 1e-8 |
+| Peak ideality, 1e18 device | 1.79 at 0.16 V | 2 in the ideal limit | see deviations |
 
 ## Physics decisions log
 
@@ -43,6 +53,15 @@ these; add a new entry instead.
 | 2026-08-21 | Step doping profile is right continuous at the junction | arbitrary, but it has to be decided somewhere, and an abrupt junction is an idealisation anyway |
 | 2026-08-21 | Equilibrium minority carrier from n*p = 1, not the quadratic formula | the quadratic formula loses twelve digits computing the minority carrier at 1e16. The reciprocal makes mass action exact rather than merely close |
 | 2026-08-21 | device/doping.py and device/equilibrium.py added to the layout | docs/03-architecture.md names neither. Profiles do not belong inside builder.py, and the equilibrium driver has to live outside solve/ to keep that package free of semiconductor knowledge |
+| 2026-08-21 | Gummel freezes the SRH denominator rather than using the exact tangent | Writing R as c*n - g with c = p/D and g = n_i^2/D keeps both coefficients non-negative. The continuity matrix is an M-matrix, so a non-negative right hand side means the solved density cannot go negative. The exact tangent dR/dn has no such guarantee. Both forms are exact at the current iterate, so the converged fixed point solves the true equation either way. The exact derivatives are implemented and tested, for Phase 3 |
+| 2026-08-21 | Terminal current comes from the continuity residual at the contact node, not the adjacent edge flux | The residual at a contact is exactly the current that has to be injected there. Written that way, the recombination in the contact half cell cancels between the two carriers, and the terminal currents sum to zero identically rather than approximately |
+| 2026-08-21 | Dirichlet eliminates the column as well as the row | Row replacement alone leaves the pinned unknown coupled into its neighbours, so the factorization mixes it with the rest of the solution. Measured: a density pinned to +1e-6 came back as -1.02e-6. See the Broke entry |
+| 2026-08-21 | Contact densities are imposed on the solved profile, not accumulated through it | old + update cancels when the two are far apart, and on the first forward biased cycle they are thirteen decades apart. Imposing a value that was known before the solve is what a Dirichlet condition means; it is not clamping, and no interior node is touched |
+| 2026-08-21 | newton_solve takes an explicit residual scale for warm starts | A threshold relative to the initial residual is unreachable when the solve starts at the answer, which is what every Gummel cycle after the first does. The Poisson block passes the doping charge in the largest dual cell, which does not depend on the starting iterate |
+| 2026-08-21 | Density convergence measured as max abs(dn) / (n + n_i) | A pure relative change is dominated by nodes where the density is 1e-15 and physically irrelevant; an absolute change is dominated by the majority carrier. The floor at n_i is 1 in scaled units and says that a carrier below the intrinsic density carries no charge worth converging |
+| 2026-08-21 | The Scharfetter lifetime is evaluated on abs(net doping) | It wants the total Na + Nd and only the net is available from a composed profile. The two agree everywhere except in compensated material, and nothing here is compensated yet |
+| 2026-08-21 | The ideality crossover is demonstrated on a 1e18 device, not the 1e16 one | At 1e16 with the documented lifetimes the diode is diffusion limited and its ideality is 1 above 50 mV, which is correct rather than a shortfall. Depletion recombination has to dominate somewhere for n = 2 to exist, and raising the doping does that by cutting minority injection and raising the recombination rate at once. Nothing else changes between the two |
+| 2026-08-21 | extract/params.py and device/transport.py and device/state.py added to the layout | docs/03-architecture.md names params.py and puts ideality extraction in it. transport.py is the Gummel wiring, which cannot live in solve/ without breaking the module boundary. state.py holds DeviceState, which both equilibrium.py and transport.py return |
 
 ## Known deviations from reference
 
@@ -58,6 +77,11 @@ are not rediscovered as bugs later.
 | V_bi in the Phase 1 acceptance criteria | phases/PHASE-1.md asks for V_T*ln(Na*Nd/n_i^2) to under 0.5 percent and then says "expect about 0.695 V". Those disagree by 2.8 percent, five times the tolerance | The same superseded n_i = 1.45e10 as the constants doc. The formula gives 0.7143 V with our n_i | The formula wins. A test asserts 0.7143 V and asserts it is not 0.695, so the discrepancy stays visible |
 | Depletion width on a heavily doped side | x_p/x_n = Nd/Na is only recovered when the depleted width exceeds the local Debye length | At 100 to 1 doping the heavy side depletes over 0.74 Debye lengths, so it is entirely smeared and has no abrupt edge to find. Measured ratio 29 against a predicted 100 | Yes. This is the depletion approximation failing, not the solver. Tested at 10 to 1 where it holds to 30 percent |
 | Reverse bias without continuation | -10 V needs 46 Newton iterations against a budget of 50 | The step limiter caps psi at 5 V_T per step, so a 10 V shift needs many of them | Acceptable for now. Bias continuation in Phase 3 is the proper fix, not a bigger budget |
+| Current continuity below 0.25 V forward | phases/PHASE-2.md asks for Jn + Jp constant to 1e-6 at any bias. Measured: 3.3e-10 at 0.5 V, 1.3e-8 at 0.4 V, 2.8e-7 at 0.3 V, 1.5e-5 at 0.2 V, 6.6e-4 at 0.1 V | Not a conservation error. Jn is the difference of two edge terms of size (Dn/h)*n, and near equilibrium they cancel to nothing, so the relative spread is machine epsilon times the ratio of a flux term to the current. Measured spread over eps times that ratio sits between 0.4 and 1.2 across seven decades of bias, which is what a subtraction out of digits looks like and is not what a broken scheme looks like | Yes, and tested as such. The gate is asserted at 0.3 V and above, and the cancellation model is asserted separately at every bias including reverse |
+| Terminal current sum below 0.25 V forward | Asked for 1e-8 relative. Holds from 0.3 V up (5.6e-9, 2.6e-10, 2.0e-12). At -1 V it is 2.5e-5 relative | The leftover is the sum of the interior residuals, and those are edge flux differences with the same cancellation. In absolute terms it is 1e-13 A/cm^2 against an arithmetic floor of 6.3e-13 | Yes. The strict 1e-8 test runs at forward bias and a separate test bounds the low bias case against the floor rather than against a relative tolerance |
+| Where Gummel gives up | phases/PHASE-2.md expects degradation above roughly 0.6 V and asks for the bias at which it fails. It does not fail. Continued in 0.05 V steps it takes 4 cycles at 0.3 V, 12 at 0.7 V, 25 at 0.9 V, 60 at 1.1 V, and the per cycle convergence rate climbs from 0.51 at 0.9 V to 0.95 at 1.8 V | The degradation is exactly as predicted, it is just graceful. Two things help: the Poisson block is solved nonlinearly at fixed quasi-Fermi levels rather than with frozen densities, and continuation hands each solve a good guess. Where a solve does exceed its budget the continuation driver halves the step and the retry succeeds | Yes, and better than the phase expected. The rate curve is the honest answer to the question and it is what motivates Phase 3 |
+| Peak ideality factor | 1.79 rather than 2.0, at 0.16 V on the 1e18 device | Two reasons, both physical. The depletion region narrows under forward bias, so the recombination volume shrinks and the current rises slightly faster than exp(V/2V_T), which pulls the apparent ideality below 2. And diffusion current still contributes a few percent at the peak. A sum of two mechanisms has an apparent ideality strictly between theirs | Yes. 2.0 is the limit of a single idealized mechanism, and a solver that reported exactly 2 would be reporting the formula rather than the device |
+| Boltzmann statistics at 1e18 | The ideality crossover device runs at 1e18, where n/Nc is 0.035 and Joyce-Dixon puts the Fermi level correction at about 0.3 mV | docs/01-physics.md defers Fermi-Dirac to Phase 5. The correction shifts I_s slightly and leaves a slope alone, and the ideality is a slope | Yes for this use. It would not be acceptable for a quantitative I_s claim at that doping, and no such claim is made |
 
 ## Session log
 
@@ -73,6 +97,149 @@ Write the "Broke" field carefully even when it is embarrassing. The debugging
 narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
+
+### 2026-08-21, later still, Phase 2
+
+**Landed:** All six items of Phase 2 scope, TDD throughout. 707 tests total,
+249 of them new. Transport works: the diode passes current, in the right
+direction, in the right amount.
+
+- `physics/recombination.py`. SRH with the Scharfetter doping dependent
+  lifetime. Unit agnostic, so the same expressions serve physical and scaled
+  units and the two routes are compared directly. Exact derivatives verified
+  against complex step, plus the frozen denominator linearization that the
+  Gummel density solves use.
+- `discretize/continuity.py`. Scharfetter-Gummel flux for both carriers, box
+  integrated on the same dual cells as Poisson. The Bernoulli asymmetry is
+  tested three ways: the zero field limit, the pure drift limit, and which node
+  dominates at high field, which is the one that would catch a reversal.
+- `discretize/assembly.py`. The residual and Jacobian pair, shared by Poisson
+  and both continuity equations so that the boundary conditions are written
+  once.
+- `solve/gummel.py` and `solve/continuation.py`, both generic. The Gummel
+  driver cycles a list of block steps over an opaque state; the continuation
+  driver walks a scalar parameter with a solve callback. Neither knows what a
+  carrier is, and the import graph test covers both automatically.
+- `device/transport.py`, `device/state.py`, `device/builder.with_bias`.
+- `extract/iv.py` and `extract/params.py`. Terminal current, I-V sweeps,
+  ideality factor and saturation current.
+
+Results. The saturation current comes out at 1.3322e-10 A/cm^2 against an
+analytic 1.3333e-10 from the configured lifetimes and diffusion lengths, which
+is 0.08 percent, where the phase asks for 10. The short base coth factor is
+worth a factor of nine here and the agreement does not survive dropping it, so
+that is a real check rather than a coincidence. Reverse current saturates at
+-3.94e-9, sitting between the diffusion floor and the full depletion generation
+ceiling as it should. Jn + Jp is constant to 3.3e-10 at 0.5 V. Terminal currents
+sum to zero to 2e-12. The ideality factor runs from 1.79 at 0.16 V down to 1.005
+at 0.59 V on a 1e18 diode, with nothing fitted anywhere.
+
+**Broke:** Six things worth writing down, and the first two were real bugs that
+would have been miserable to find later.
+
+1. **The Poisson block could never converge, because its convergence criterion
+   was relative to where it started.** Phase 1 made the residual threshold
+   relative to the initial residual, for a good reason: the Poisson residual
+   scales with the doping and so does its roundoff floor. But a Gummel cycle
+   hands the Poisson solve a potential that is already converged, so the
+   initial residual is already at the floor, and a threshold set a decade below
+   the floor is unreachable no matter how correct the answer is. At thermal
+   equilibrium it happens on the very first cycle. The symptom was a device at
+   zero bias failing to solve, which looks like a catastrophic sign error and
+   is nothing of the sort. Fixed by letting the caller pass a residual scale
+   taken from the size of the terms rather than from the starting iterate: the
+   Poisson block passes the doping charge in the largest dual cell. There is
+   now a test that pins both halves, that a warm start cannot converge without
+   a scale and that a genuinely stalled solve is still rejected with one.
+
+2. **A carrier density pinned to +1e-6 came back as -1.02e-6, and whether it
+   did depended on the last bit of the device length.** Two test files built
+   the same 12 um diode, one as `12 * 1e-4` and one as `12e-4`. Those differ by
+   one ulp. In one the cold start at 0.9 V forward converged in 21 cycles, and
+   in the other the electron density at the anode came out negative and the
+   solve stopped. Finding that was unpleasant and the cause is worth knowing:
+   Dirichlet applied by row replacement alone leaves the pinned unknown in
+   every neighbouring equation through its column, so the factorization mixes
+   it with the rest of the solution. The minority density at a contact is 1e-6
+   while the majority density elsewhere is 1e7, thirteen decades apart in one
+   linear system, and the pinned value only survives to within the conditioning
+   of the whole thing. Fixed by eliminating the column as well as the row,
+   which is exact because the update at a pinned node is known before the
+   solve. Then a second, smaller version of the same problem: even with an
+   exact update, building the answer as old + update cancels when the two are
+   far apart, so the contact densities are now imposed on the solved profile
+   rather than accumulated through it. Both were needed. Neither is clamping,
+   and the distinction matters: nothing inspects a solved value or moves it
+   toward anything.
+
+3. **The primary Phase 2 gate looked broken and was not.** Jn + Jp is supposed
+   to be constant to 1e-6 and it was out by 35000 percent at zero bias, 4
+   percent at 0.1 V, and fine above 0.3 V. The instinct is to go looking for a
+   sign error. The cause is that Jn is the difference of two edge terms of size
+   (Dn/h)*n, and near equilibrium those cancel to nothing: on this diode the
+   terms reach 5e9 in scaled units while the current is zero. So the relative
+   spread is about machine epsilon times the ratio of a flux term to the
+   current, and that ratio grows exponentially as the bias falls. Rather than
+   assume that explanation I measured it: the observed spread divided by eps
+   times the ratio sits between 0.4 and 1.2 across seven decades of bias and
+   twelve decades of spread. A conservation error has no reason to track that
+   ratio. The solved densities are unaffected, and the equilibrium profile
+   n = exp(psi) survives a block solve to 8.5e-16 componentwise, which is the
+   check that separates the two explanations properly.
+
+4. **My analytic estimate of the depletion recombination current was fifteen
+   times too high, so the first ideality result looked wrong.** I used the
+   textbook q*n_i*W/(2*tau) with W the full depletion width, predicted a
+   crossover at 0.19 V on the 1e16 diode, and measured an ideality of 1.1 with
+   no crossover in sight. The simulator was right. The recombination rate is
+   sharply peaked where n = p, and the width that matters is the distance over
+   which the potential moves by about 2 V_T, which at 3e4 V/cm is 17 nm rather
+   than 400. Redoing the estimate with that gives 2.7e-9 A/cm^2 at 0.1 V
+   against a measured 3.2e-9. The lesson is the one in the working agreement:
+   the analytic target has to be derived properly before it is used to judge a
+   solve, because a wrong target is indistinguishable from a wrong answer.
+
+5. **Extracting a saturation current by fitting amplifies the slope error by
+   the exponent of the fitting window.** Fitting ln I against V over 0.9 to
+   1.0 V and reading I_s off the intercept means running the line back 37 units
+   of exponent to zero bias. One percent of a second mechanism left in the
+   current moved the fitted ideality by 0.6 percent and I_s by 25 percent.
+   `saturation_current` now takes an optional fixed ideality, which measures
+   I_s as the average of I / (exp(V/V_T) - 1) with no extrapolation at all.
+   That is the number compared against the analytic value, and it agrees to
+   0.08 percent.
+
+6. Three test arithmetic errors of mine in one file, all caught by the tests
+   failing rather than by review: a lifetime tolerance computed as 1e-6 when
+   the correct value was 5e-6, a hand computed SRH denominator with two digits
+   transposed, and a low injection limit written without its equilibrium term.
+   And `zip(xs, xs[1:], strict=True)` for the third time in this project, which
+   is always a length mismatch and which I will presumably write again.
+
+**Open:**
+
+- CI still has never executed.
+- Gummel does not fail where the phase expects it to. It degrades smoothly and
+  keeps converging to at least 1.8 V, which is well past where constant
+  mobility and Boltzmann statistics mean anything. The measurement that matters
+  is the per cycle convergence rate climbing from 0.51 at 0.9 V to 0.95 at
+  1.8 V, and that is the motivation for Phase 3 rather than any hard wall.
+- The 1e6 to 1e-6 dynamic range in the density solves is handled by solving for
+  the Newton update rather than for the density, which keeps roundoff relative
+  to the update. That works, and it is worth remembering that the density
+  formulation is the fragile choice and quasi-Fermi variables are the robust
+  one. docs/02-numerics.md suggests them and Phase 3 is where the question gets
+  asked properly.
+- The overflow guard in the Poisson block is unreachable as configured, since
+  the step limiter caps one cycle at 250 units of psi. It is kept with a test
+  that says why, so that raising either number brings it back into play
+  deliberately.
+- docs/06-constants.md and docs/02-numerics.md are still uncorrected. The list
+  is unchanged from Phase 1.
+- No mobility model yet beyond the constant stub. Arora and Masetti are Phase 3.
+
+**Next:** Phase 3, full Newton on the coupled 3N system, with the Jacobian
+verified block by block against complex step before anything is trusted.
 
 ### 2026-08-21, later, Phase 1
 

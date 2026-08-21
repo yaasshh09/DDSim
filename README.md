@@ -14,15 +14,16 @@ eventually be computed by a layer below it.
 
 ## Where it is
 
-Phase 1 of 6. A PN diode at thermal equilibrium, solved by damped Newton on the
-nonlinear Poisson equation, validated against closed form device physics.
+Phase 2 of 6. A PN diode that passes current: Scharfetter-Gummel transport,
+SRH recombination, Gummel iteration and bias continuation, validated against
+closed form device physics.
 
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Scaling, the Field type, Bernoulli, meshes, linear solver | done |
 | 1 | Equilibrium Poisson in 1D, PN diode | done |
-| 2 | Scharfetter-Gummel continuity, Gummel iteration | next |
-| 3 | Full Newton, bias continuation, I-V | |
+| 2 | Scharfetter-Gummel continuity, Gummel iteration, I-V | done |
+| 3 | Full Newton, coupled 3N system | next |
 | 4 | 2D, MOS capacitor, C-V | |
 | 5 | MOSFET, gate length sweep | |
 | 6 | Compact model extraction for SPICE | |
@@ -52,6 +53,44 @@ Measured against closed form results:
 Newton converges in 8 iterations from the charge neutral guess, with a
 quadratic tail, at every doping level from 1e14 to 1e20 cm^-3.
 
+## PN diode I-V
+
+12 um device, SRH recombination with Scharfetter doping dependent lifetimes,
+constant mobility. The current, the saturation current and the ideality factor
+all come out of the solve. Nothing is fitted.
+
+![PN diode I-V](docs/images/pn_diode_iv.png)
+
+The saturation current is the sharpest number here, because it is set by
+minority carrier diffusion into the quasi-neutral regions and therefore tests
+the continuity equations, the contact conditions and the lifetimes at once:
+
+| Quantity | Simulated | Analytic | Error |
+|---|---|---|---|
+| Saturation current, 1e16 / 1e16 | 1.3322e-10 A/cm^2 | 1.3333e-10 | 0.08 % |
+| Reverse current at -1 V | -3.94e-9 A/cm^2 | between I_s and 9.7e-9 | in bracket |
+| Jn + Jp spread across the device, 0.5 V | 3.3e-10 | 0 | gate is 1e-6 |
+| Terminal current sum, 0.5 V | 2.0e-12 of the largest | 0 | gate is 1e-8 |
+
+This diode is short based: the hole diffusion length is 55 um against a 6 um
+n side, so the coth(W/L) factor in the general expression is worth a factor of
+nine and the agreement does not survive dropping it.
+
+**The ideality factor crossover is the result worth looking at.** At 1e16 the
+diode is diffusion limited and n = 1 across the whole useful range. Raise the
+doping to 1e18 and depletion region recombination takes over at low bias, and
+the ideality rises to 1.79 before falling back to 1 as diffusion current
+overtakes it again. The only thing that changed is the doping. Nothing in the
+code contains a 2, and the peak sits below 2 for a physical reason: the
+depletion region narrows under forward bias, so the recombination volume
+shrinks and the current rises slightly faster than exp(V/2V_T).
+
+Gummel converges in 4 cycles at 0.3 V, 12 at 0.7 V, 25 at 0.9 V and 60 at
+1.1 V, with the per cycle convergence rate climbing from 0.51 to 0.95 as
+injection passes the doping. That degradation is expected, is linear
+convergence doing what linear convergence does, and is the reason Phase 3
+exists.
+
 ## Running it
 
 ```bash
@@ -62,14 +101,22 @@ python -m venv .venv
 
 ```python
 from ddsim.device.pn_diode import pn_diode
-from ddsim.device.equilibrium import solve_equilibrium
+from ddsim.extract.iv import iv_sweep
+from ddsim.extract.params import ideality_factor
 
-device = pn_diode(Na=1e16, Nd=1e16)
-state = solve_equilibrium(device)
+device = pn_diode(Na=1e16, Nd=1e16, length=12e-4, junction=6e-4, n_nodes=201)
+curve = iv_sweep(device, "anode", [0.1, 0.2, 0.3, 0.4, 0.5], step=0.05)
 
-psi = state.psi.to_physical(device.scale).data   # [V]
-print(f"V_bi = {psi[-1] - psi[0]:.4f} V")
+for point in curve.points:
+    print(f"{point.voltage:.2f} V  {point.current:.4e} A/cm^2")
+
+bias, n = ideality_factor(curve.voltage, curve.current)
+print(f"ideality {n[-1]:.3f} at {bias[-1]:.2f} V")
 ```
+
+Each bias point is continued from the one before it, which is the only way a
+forward biased solve reaches its answer. There is no such thing as a good
+initial guess at 0.5 V.
 
 ## How it is kept honest
 
@@ -87,6 +134,18 @@ code currently produces. The Bernoulli function is checked against an 80 digit
 reference, its branch thresholds tuned by measurement rather than taken from the
 docs. Jacobians are verified by complex step differentiation, which is exact.
 
+**The invariants are checked, and so are the reasons they fail.** Current
+continuity is the strongest single check available: with recombination off, the
+total current through every plane of the device has to be identical. It holds
+to 3e-10 at 0.5 V and degrades to 1e-2 at zero bias, which looks alarming and
+is not a conservation error. Jn is the difference of two edge terms of size
+(Dn/h)*n and near equilibrium those cancel to nothing, so what is left is
+machine epsilon times the ratio of a flux term to the current. That claim is
+measured rather than asserted: the observed spread over the predicted floor
+sits between 0.4 and 1.2 across seven decades of bias. An invariant that is
+allowed to fail without an explanation is worth nothing, and so is one whose
+explanation is never checked.
+
 **Tests are written first.** In a numerics project, a test written after the
 code tends to assert whatever the code already does.
 
@@ -98,10 +157,11 @@ and regression against DEVSIM. See `docs/04-validation.md`.
 
     ddsim/core/        constants, de Mari scaling, the Field type
     ddsim/mesh/        1D meshes, uniform and graded
-    ddsim/physics/     pure functions: Bernoulli, carrier statistics
+    ddsim/physics/     pure functions: Bernoulli, carrier statistics, recombination
     ddsim/discretize/  residual and Jacobian assembly, boundary conditions
-    ddsim/solve/       Newton and the linear solver, no semiconductor knowledge
+    ddsim/solve/       Newton, Gummel, continuation, no semiconductor knowledge
     ddsim/device/      composition: geometry and doping in, a Device out
+    ddsim/extract/     post processing: terminal current, I-V, extracted parameters
     docs/              physics, numerics, architecture, validation, constants
     phases/            scope and acceptance criteria per phase
 
