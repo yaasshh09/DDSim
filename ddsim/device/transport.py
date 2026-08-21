@@ -68,7 +68,11 @@ from ddsim.device.equilibrium import (
     solve_poisson,
 )
 from ddsim.device.state import DeviceState
-from ddsim.discretize.boundary import Carrier, apply_ohmic_densities
+from ddsim.discretize.boundary import (
+    Carrier,
+    apply_ohmic_densities,
+    impose_ohmic_densities,
+)
 from ddsim.discretize.continuity import (
     Diffusivity,
     assemble_electron_continuity,
@@ -237,7 +241,12 @@ def electron_block(
         )
 
         solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
-        updated_n = state.n.data + solver.solve(-assembly.residual)
+        updated_n = impose_ohmic_densities(
+            state.n.data + solver.solve(-assembly.residual),
+            doping,
+            device.contacts,
+            Carrier.ELECTRON,
+        )
 
         _check_positive(updated_n, "n", state)
         return (
@@ -268,7 +277,12 @@ def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState
         )
 
         solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
-        updated_p = state.p.data + solver.solve(-assembly.residual)
+        updated_p = impose_ohmic_densities(
+            state.p.data + solver.solve(-assembly.residual),
+            doping,
+            device.contacts,
+            Carrier.HOLE,
+        )
 
         _check_positive(updated_p, "p", state)
         return (

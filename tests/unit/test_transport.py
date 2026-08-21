@@ -22,6 +22,7 @@ from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels, solve_bias
 from ddsim.physics.recombination import NoRecombination
+from ddsim.physics.statistics import equilibrium_densities_scaled
 
 MICRON = 1e-4
 """One micron [cm]."""
@@ -244,3 +245,46 @@ def test_the_update_history_falls_monotonically_at_low_bias() -> None:
     assert solved.gummel is not None
     history = solved.gummel.update_history
     assert history[-1] < history[0]
+
+
+# ------------------------------------------------------- the contact condition
+
+
+@pytest.mark.parametrize("voltage", [0.0, 0.4, -1.0])
+def test_the_contact_densities_come_out_exact(voltage: float) -> None:
+    """A Dirichlet value is imposed on the solution, not approached by it.
+
+    Both densities at an ohmic contact are the neutrality and mass action
+    values, whatever the terminal voltage, so they are known before the solve
+    and have to appear in the answer to the last bit. Building them as
+    old + update instead loses digits whenever the two are far apart, which on
+    the first forward biased cycle they are by thirteen decades.
+    """
+    device = diode().with_bias(anode=voltage)
+    state = solve_bias(device)
+    doping = device.net_doping_scaled.data
+
+    for contact in device.contacts:
+        expected_n, expected_p = equilibrium_densities_scaled(
+            float(doping[contact.node])
+        )
+        assert state.n.data[contact.node] == float(expected_n)
+        assert state.p.data[contact.node] == float(expected_p)
+
+
+def test_a_cold_start_at_high_forward_bias_still_converges() -> None:
+    """No continuation, straight to 0.9 V from the flat level guess.
+
+    docs/05-pitfalls.md says there is no such thing as a good initial guess at
+    high forward bias, and it is right that continuation is the way to work.
+    This is here because the case used to fail outright: the pinned minority
+    density at the anode came back as -1.02e-6 and the solve stopped, and
+    whether it did so depended on the last bit of the device length. Both the
+    column elimination in apply_dirichlet and imposing the contact densities
+    were needed to make it stop mattering.
+    """
+    state = solve_bias(diode().with_bias(anode=0.9), max_iterations=400)
+
+    assert state.gummel is not None
+    assert state.gummel.converged
+    assert np.all(state.n.data > 0.0)

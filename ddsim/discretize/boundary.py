@@ -29,9 +29,13 @@ Every boundary that is not a contact is reflecting, and reflecting is what the
 Poisson assembly already produces by having no face on the outward side. So
 there is nothing to do for those.
 
-Dirichlet is applied by row replacement: the contact row becomes the identity
-and its residual becomes psi - target. That breaks the symmetry of the Poisson
-matrix, which costs nothing with a direct solver and keeps the code obvious.
+Dirichlet is applied by eliminating both the row and the column: the contact
+row becomes the identity, its residual becomes psi - target, and every other
+row that referenced the pinned unknown has that coefficient folded into its own
+residual. Row replacement alone is the textbook shortcut and it leaves the
+pinned unknown coupled into its neighbours, which costs accuracy exactly where
+a pinned value is many decades away from the rest of the solution. Both break
+the symmetry of the Poisson matrix, which costs nothing with a direct solver.
 """
 
 from __future__ import annotations
@@ -76,33 +80,64 @@ def ohmic_psi_scaled(net_doping: float, applied: float) -> float:
 
 def apply_dirichlet(
     assembly: SparseAssembly,
-    psi: npt.NDArray[np.float64],
+    value: npt.NDArray[np.float64],
     node: int,
     target: float,
 ) -> SparseAssembly:
-    """Pin psi at one node, returning a new assembly.
+    """Pin one unknown at one node, returning a new assembly.
 
     Args:
-        assembly: the assembled Poisson system.
-        psi: the current scaled potential [1], used to form the residual.
+        assembly: the assembled system, Poisson or either continuity equation.
+        value: the current scaled unknown [1], used to form the residual.
         node: mesh node index to pin.
-        target: scaled potential to pin it to [1].
+        target: scaled value to pin it to [1].
 
-    The row becomes the identity and the residual becomes psi[node] - target,
-    so a Newton step lands exactly on the target. The input assembly is not
-    modified.
+    The row becomes the identity and its residual becomes value - target, so
+    the update at that node is exactly target - value.
+
+    **The column is eliminated as well, not only the row.** Every other row
+    that referenced this unknown has its coefficient folded into its residual,
+    which is exact because the update at a pinned node is known before the
+    solve. Leaving the column in place is the textbook shortcut and it is
+    subtly wrong in floating point: the pinned unknown stays coupled into every
+    neighbouring equation, so the factorization mixes it with the rest of the
+    solution and the pinned value comes back only to within the conditioning of
+    the whole system.
+
+    That is not hypothetical. The minority carrier density at a contact is 1e-6
+    in scaled units while the majority density elsewhere is 1e7, thirteen
+    decades apart in one linear system. Solved with the column left in, a cold
+    start at 0.9 V forward bias returned n = -1.02e-6 at the contact, a pinned
+    value that came back negative. Eliminating the column makes it exact
+    instead, since the unknown no longer appears anywhere the factorization can
+    reach.
+
+    The input assembly is not modified.
     """
     n_nodes = assembly.shape[0]
     if not 0 <= node < n_nodes:
         raise IndexError(f"node {node} is outside the mesh, which has {n_nodes} nodes")
 
-    keep = assembly.rows != node
+    # The update this node will take. Known exactly, before any solve.
+    correction = target - value[node]
+
+    in_row = assembly.rows == node
+    in_column = (assembly.cols == node) & ~in_row
+
+    # J*delta = -F, and delta at this node is fixed, so its column moves to
+    # the right hand side: F_i becomes F_i + J[i, node] * correction.
+    residual = assembly.residual.copy()
+    np.add.at(
+        residual,
+        assembly.rows[in_column],
+        assembly.values[in_column] * correction,
+    )
+    residual[node] = value[node] - target
+
+    keep = ~in_row & ~in_column
     rows = np.concatenate([assembly.rows[keep], np.array([node], dtype=np.int64)])
     cols = np.concatenate([assembly.cols[keep], np.array([node], dtype=np.int64)])
     values = np.concatenate([assembly.values[keep], np.array([1.0])])
-
-    residual = assembly.residual.copy()
-    residual[node] = psi[node] - target
 
     return SparseAssembly(
         residual=residual,
@@ -118,6 +153,44 @@ class Carrier(Enum):
 
     ELECTRON = "electron"
     HOLE = "hole"
+
+
+def ohmic_density_scaled(net_doping: float, carrier: Carrier) -> float:
+    """One carrier density at an ohmic contact [1].
+
+    Neutrality plus mass action, n - p = N and n*p = 1, solved for whichever
+    carrier is asked for. The minority one comes from the reciprocal rather
+    than from the quadratic formula, so mass action is exact rather than
+    merely close. See physics/statistics.py.
+    """
+    n_contact, p_contact = equilibrium_densities_scaled(net_doping)
+    return float(n_contact if carrier is Carrier.ELECTRON else p_contact)
+
+
+def impose_ohmic_densities(
+    density: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    contacts: tuple[OhmicContact, ...],
+    carrier: Carrier,
+) -> npt.NDArray[np.float64]:
+    """Write the contact densities into a solved profile, exactly.
+
+    A Dirichlet condition is a statement about the solution, so the right way
+    to end up with it is to impose it rather than to arrive at it. Building the
+    contact value as old + update instead cancels whenever the two are far
+    apart, and at a diode contact they are thirteen decades apart on the first
+    forward biased cycle: the update is -6.6e8 and the answer is 1e-6.
+
+    This is not clamping. Nothing here inspects the solved value or moves it
+    toward anything, and every interior node is left alone. See
+    docs/05-pitfalls.md on why the difference matters.
+    """
+    imposed = density.copy()
+    for contact in contacts:
+        imposed[contact.node] = ohmic_density_scaled(
+            float(net_doping[contact.node]), carrier
+        )
+    return imposed
 
 
 def apply_ohmic_densities(
@@ -150,11 +223,8 @@ def apply_ohmic_densities(
     """
     result = assembly
     for contact in contacts:
-        n_contact, p_contact = equilibrium_densities_scaled(
-            float(net_doping[contact.node])
-        )
-        target = n_contact if carrier is Carrier.ELECTRON else p_contact
-        result = apply_dirichlet(result, density, contact.node, float(target))
+        target = ohmic_density_scaled(float(net_doping[contact.node]), carrier)
+        result = apply_dirichlet(result, density, contact.node, target)
     return result
 
 

@@ -120,21 +120,86 @@ def test_dirichlet_row_becomes_the_identity() -> None:
     np.testing.assert_allclose(matrix[3, :], expected, atol=0.0)
 
 
-def test_dirichlet_leaves_other_rows_untouched() -> None:
+def test_dirichlet_eliminates_the_column_as_well_as_the_row() -> None:
+    """Nothing else may reference a pinned unknown after this.
+
+    Leaving the column in place keeps the pinned unknown coupled into every
+    neighbouring equation, so the factorization mixes it with the rest of the
+    solution and the pinned value comes back only to within the conditioning
+    of the whole system.
+    """
+    assembly, psi = sample_assembly()
+    matrix = dense(apply_dirichlet(assembly, psi, node=3, target=0.0))
+
+    expected = np.zeros(assembly.shape[0])
+    expected[3] = 1.0
+    np.testing.assert_allclose(matrix[:, 3], expected, atol=0.0)
+
+
+def test_dirichlet_folds_the_column_into_the_neighbouring_residuals() -> None:
+    """The elimination is exact, because the update at a pinned node is known.
+
+    Solving J*delta = -F with delta[node] fixed at target - value[node] means
+    that column times that number moves to the right hand side. Doing anything
+    else there would change the answer rather than just its conditioning.
+    """
+    assembly, psi = sample_assembly()
+    target = 0.0
+    correction = target - psi[3]
+    column = dense(assembly)[:, 3]
+
+    constrained = apply_dirichlet(assembly, psi, node=3, target=target)
+
+    expected = assembly.residual + column * correction
+    expected[3] = psi[3] - target
+    np.testing.assert_allclose(constrained.residual, expected, rtol=1e-14)
+
+
+def test_dirichlet_leaves_untouched_rows_untouched() -> None:
+    """Only the pinned row and its immediate neighbours may move."""
     assembly, psi = sample_assembly()
     before = dense(assembly)
     after = dense(apply_dirichlet(assembly, psi, node=3, target=0.0))
-    others = [i for i in range(assembly.shape[0]) if i != 3]
-    np.testing.assert_allclose(after[others, :], before[others, :], rtol=1e-15)
+    far = [i for i in range(assembly.shape[0]) if abs(i - 3) > 1]
+
+    np.testing.assert_allclose(after[far, :], before[far, :], rtol=1e-15)
 
 
-def test_dirichlet_leaves_other_residuals_untouched() -> None:
-    assembly, psi = sample_assembly()
-    constrained = apply_dirichlet(assembly, psi, node=3, target=0.0)
-    others = [i for i in range(assembly.shape[0]) if i != 3]
-    np.testing.assert_allclose(
-        constrained.residual[others], assembly.residual[others], rtol=1e-15
+def test_the_pinned_value_survives_an_ill_conditioned_system() -> None:
+    """The regression test for a pinned density that came back negative.
+
+    Thirteen decades between the pinned value and the rest of the solution is
+    not a contrived case: it is the minority carrier density at a diode contact
+    next to the majority density in the bulk. With the column left in place, a
+    cold start at 0.9 V forward bias produced n = -1.02e-6 at a node pinned to
+    +1e-6. The update at the pinned entry has to come back exactly, whatever
+    the rest of the system is doing.
+
+    Adding that update to the old value is a separate matter and cancels
+    whenever the two are far apart, which is why the caller imposes the pinned
+    value rather than accumulating it.
+    """
+    n_nodes = 11
+    index = np.arange(n_nodes, dtype=np.int64)
+    coupling = np.full(n_nodes - 1, -1e7)
+
+    assembly = SparseAssembly(
+        residual=np.full(n_nodes, 1e7),
+        rows=np.concatenate([index, index[:-1], index[1:]]),
+        cols=np.concatenate([index, index[1:], index[:-1]]),
+        values=np.concatenate([np.full(n_nodes, 2e7), coupling, coupling]),
+        shape=(n_nodes, n_nodes),
     )
+    values = np.full(n_nodes, 1e7)
+
+    constrained = apply_dirichlet(assembly, values, node=0, target=1e-6)
+    matrix = sp.csc_matrix(
+        (constrained.values, (constrained.rows, constrained.cols)),
+        shape=constrained.shape,
+    )
+    delta = sp.linalg.spsolve(matrix, -constrained.residual)
+
+    assert delta[0] == 1e-6 - values[0]
 
 
 def test_dirichlet_does_not_mutate_the_original_assembly() -> None:
