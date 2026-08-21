@@ -129,6 +129,7 @@ def newton_solve(
     residual_scale: float | None = None,
     update_tol: float = 1e-10,
     max_iterations: int = 50,
+    solver: SparseLU | None = None,
 ) -> NewtonResult:
     """Solve F(x) = 0 by damped Newton.
 
@@ -149,13 +150,21 @@ def newton_solve(
             starting iterate.
         update_tol: convergence threshold on max |dx|.
         max_iterations: give up after this many steps.
+        solver: a factorization to reuse across calls. A fresh one is built
+            when this is None, which is right for a one-off solve. A caller
+            that solves the same system over and over, as every Gummel cycle
+            does, should keep one and hand it back in: the sparsity pattern is
+            identical every time, and SparseLU keeps the part of the COO to
+            CSC conversion that depends only on the pattern. It never reuses
+            numbers, so a stale factorization cannot leak into a later solve.
 
     Returns a NewtonResult rather than raising, including when the Jacobian is
     singular. A failed solve is information the caller usually wants to inspect
     rather than an exception to catch.
     """
     x = np.array(x0, dtype=np.float64, copy=True)
-    solver = SparseLU()
+    if solver is None:
+        solver = SparseLU()
 
     residual_history: list[float] = []
     update_history: list[float] = []

@@ -175,13 +175,22 @@ def B(x: float | npt.NDArray[np.float64]) -> float | npt.NDArray[np.float64]:
     # Masked assignment rather than np.where. np.where evaluates both arms, so
     # it would compute 0/0 at x = 0 and raise an invalid value warning even
     # though the result is discarded.
+    #
+    # Each branch is skipped when nothing falls in it. On a device most edges
+    # sit in one branch: the potential is flat through the quasi-neutral
+    # regions and rises steadily through the depletion region, so the sign of
+    # X rarely changes. Asking is one comparison, and the gather, the
+    # evaluation and the scatter it avoids are three passes.
     near_zero = np.abs(values) <= SERIES_CUTOFF_B
     negative = values < -SERIES_CUTOFF_B
     positive = values > SERIES_CUTOFF_B
 
-    out[near_zero] = _B_series(values[near_zero])
-    out[negative] = _B_negative_branch(values[negative])
-    out[positive] = _B_positive_branch(values[positive])
+    if near_zero.any():
+        out[near_zero] = _B_series(values[near_zero])
+    if negative.any():
+        out[negative] = _B_negative_branch(values[negative])
+    if positive.any():
+        out[positive] = _B_positive_branch(values[positive])
 
     if is_scalar:
         return float(out[0])
@@ -209,10 +218,15 @@ def dB_dx(x: float | npt.NDArray[np.float64]) -> float | npt.NDArray[np.float64]
     far_positive = values > ASYMPTOTE_CUTOFF_DB
     middle = ~near_zero & ~far_negative & ~far_positive
 
-    out[near_zero] = _dB_series(values[near_zero])
-    out[far_negative] = -1.0
-    out[middle] = _dB_expm1_branch(values[middle])
-    out[far_positive] = _dB_positive_asymptote(values[far_positive])
+    # Skipped when empty, for the same reason as in B.
+    if near_zero.any():
+        out[near_zero] = _dB_series(values[near_zero])
+    if far_negative.any():
+        out[far_negative] = -1.0
+    if middle.any():
+        out[middle] = _dB_expm1_branch(values[middle])
+    if far_positive.any():
+        out[far_positive] = _dB_positive_asymptote(values[far_positive])
 
     if is_scalar:
         return float(out[0])

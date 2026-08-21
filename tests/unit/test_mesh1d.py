@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 
 from ddsim.mesh.mesh1d import Mesh1D, graded_mesh_1d, uniform_mesh_1d
+from tests.reference.grading import solve_ratio as reference_solve_ratio
 
 MICRON = 1e-4
 """One micron [cm]."""
@@ -290,10 +291,13 @@ def test_repr_reports_size_and_spacing_range() -> None:
 
 def test_geometric_sum_handles_a_ratio_of_exactly_one() -> None:
     """Guards the r = 1 singularity, where (r^m - 1)/(r - 1) is 0/0."""
-    from ddsim.mesh.mesh1d import _geometric_sum
+    from ddsim.mesh.mesh1d import _geometric_sums
 
-    assert _geometric_sum(2.0, 1.0, 5) == pytest.approx(10.0, rel=1e-15)
-    assert _geometric_sum(2.0, 2.0, 3) == pytest.approx(14.0, rel=1e-15)
+    total = _geometric_sums(
+        2.0, np.array([1.0, 2.0]), np.array([5.0, 3.0])
+    )
+    assert total[0] == pytest.approx(10.0, rel=1e-15)
+    assert total[1] == pytest.approx(14.0, rel=1e-15)
 
 
 def test_graded_mesh_handles_many_cells_with_a_very_small_h_min() -> None:
@@ -312,7 +316,66 @@ def test_graded_mesh_handles_many_cells_with_a_very_small_h_min() -> None:
 
 def test_geometric_sum_saturates_instead_of_overflowing() -> None:
     """An enormous sum is still an answer the bisection can use."""
-    from ddsim.mesh.mesh1d import _geometric_sum
+    from ddsim.mesh.mesh1d import _geometric_sums
 
-    assert _geometric_sum(1e-8, 2.0, 1199) == float("inf")
-    assert _geometric_sum(1e-8, 1.001, 100) < 1e-5
+    total = _geometric_sums(
+        1e-8, np.array([2.0, 1.001]), np.array([1199.0, 100.0])
+    )
+    assert total[0] == float("inf")
+    assert total[1] < 1e-5
+
+
+class TestRatioSolveMatchesTheScalarReference:
+    """The vectorised bisection has to be the scalar one, element for element.
+
+    tests/reference/grading.py holds the obvious scalar version. A vectorised
+    bisection goes wrong in ways that do not look wrong afterwards: an element
+    that keeps iterating past its own stopping test, or a mask applied a step
+    late, moves the growth ratio in the last few bits and produces a mesh that
+    is still perfectly plausible. So these compare exactly rather than to a
+    tolerance. The two are meant to be the same arithmetic in the same order.
+    """
+
+    @pytest.mark.parametrize(
+        ("side_length", "h_min", "n_intervals"),
+        [
+            (0.5 * MICRON, NANOMETRE, 100),
+            (0.5 * MICRON, NANOMETRE, 199),
+            (MICRON, NANOMETRE, 50),
+            (2.0 * MICRON, 2e-8, 600),
+            (1.0, 1e-3, 4),
+        ],
+    )
+    def test_every_interval_count_agrees_exactly(
+        self, side_length: float, h_min: float, n_intervals: int
+    ) -> None:
+        from ddsim.mesh.mesh1d import _solve_ratios
+
+        counts = np.arange(1, n_intervals + 1, dtype=np.int64)
+        vectorised = _solve_ratios(side_length, h_min, counts)
+
+        for index, count in enumerate(counts):
+            expected = reference_solve_ratio(side_length, h_min, int(count))
+            if expected is None:
+                assert np.isnan(vectorised[index]), (
+                    f"{count} intervals is infeasible for the reference but "
+                    f"the vectorised solver returned {vectorised[index]}"
+                )
+            else:
+                assert vectorised[index] == expected, (
+                    f"{count} intervals: {vectorised[index]!r} != {expected!r}"
+                )
+
+    def test_an_infeasible_side_is_all_nan(self) -> None:
+        """Even h_min repeated m times overshoots, so no ratio exists."""
+        from ddsim.mesh.mesh1d import _solve_ratios
+
+        counts = np.array([5, 10, 20], dtype=np.int64)
+        assert np.all(np.isnan(_solve_ratios(NANOMETRE, MICRON, counts)))
+
+    def test_a_zero_interval_count_is_infeasible(self) -> None:
+        """A side with no cells has no ratio, which is what a boundary
+        refinement point produces on the empty side."""
+        from ddsim.mesh.mesh1d import _solve_ratios
+
+        assert np.isnan(_solve_ratios(MICRON, NANOMETRE, np.array([0]))[0])

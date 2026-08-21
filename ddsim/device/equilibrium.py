@@ -57,6 +57,7 @@ from ddsim.physics.statistics import (
     p_boltzmann_scaled,
     psi_equilibrium_scaled,
 )
+from ddsim.solve.linear import SparseLU
 from ddsim.solve.newton import NewtonResult, newton_solve
 
 MAX_PSI_STEP = 5.0
@@ -122,6 +123,7 @@ def solve_poisson(
     max_iterations: int = 50,
     residual_rtol: float = 1e-10,
     update_tol: float = 1e-10,
+    solver: SparseLU | None = None,
 ) -> NewtonResult:
     """Solve the nonlinear Poisson equation for psi at fixed quasi-Fermi levels.
 
@@ -134,6 +136,9 @@ def solve_poisson(
         max_iterations: Newton iteration budget.
         residual_rtol: residual threshold relative to the initial residual [1].
         update_tol: convergence threshold on max |dpsi| [1].
+        solver: a factorization to reuse. Every Gummel cycle solves this same
+            system on the same mesh, so the caller inside a cycle keeps one
+            rather than paying for the sparsity pattern each time.
 
     This is both the whole of the equilibrium solve and the first block of
     every Gummel cycle. Keeping the densities inside Poisson as exp(psi - phi)
@@ -172,6 +177,7 @@ def solve_poisson(
         residual_scale=residual_scale,
         update_tol=update_tol,
         max_iterations=max_iterations,
+        solver=solver,
     )
 
 

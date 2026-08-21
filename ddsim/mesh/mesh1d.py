@@ -26,7 +26,6 @@ The generator here handles that.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -38,8 +37,14 @@ _RATIO_TOLERANCE = 1e-14
 _DEGENERATE_TOLERANCE = 1e-12
 """Below this relative difference, a side is treated as exactly uniform [1]."""
 
-_LOG_MAX_DOUBLE = 700.0
-"""ln of a number comfortably below the largest double, about 1.8e308 [1]."""
+_SCORE_SLACK = 1e-9
+"""How far above the best lower bound a split may still be worth scoring [1].
+
+The worst neighbouring cell ratio of a split is its growth ratio, up to the
+rounding in building the spacing array, which is at the last bit. This is many
+orders of magnitude above that rounding and many orders below the spacing
+between the growth ratios of two different splits.
+"""
 
 
 @dataclass(frozen=True)
@@ -125,61 +130,89 @@ def uniform_mesh_1d(length: float, n_nodes: int) -> Mesh1D:
     return _assemble(np.linspace(0.0, length, n_nodes))
 
 
-def _geometric_sum(h_min: float, ratio: float, n_intervals: int) -> float:
-    """Total length of n_intervals spacings growing geometrically [cm].
+def _geometric_sums(
+    h_min: float,
+    ratio: npt.NDArray[np.float64],
+    n_intervals: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """_geometric_sum evaluated on a whole array of (ratio, count) pairs [cm].
 
-    Saturates to infinity rather than overflowing. The bracketing search below
-    starts at ratio 2 and doubles, and with a thousand cells 2^1000 is far
-    past the double range. The bisection only ever asks whether the sum
-    exceeds the side length, so infinity is a perfectly usable answer.
+    The same expression, evaluated everywhere and repaired afterwards rather
+    than branched around. A ratio of exactly 1 gives 0/0, and a ratio that
+    overshoots the double range gives infinity on its own, which is the answer
+    the scalar version reaches by its explicit log test. Both are what the
+    bisection below wants, since it only ever asks whether the sum has passed
+    the side length.
+
+    Every split of the mesh needs its own ratio solved, and solving them one
+    at a time spends more time in the interpreter than in the arithmetic.
     """
-    if ratio == 1.0:
-        return h_min * n_intervals
-    if n_intervals * math.log(ratio) > _LOG_MAX_DOUBLE:
-        return math.inf
-    return h_min * (ratio**n_intervals - 1.0) / (ratio - 1.0)
+    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+        total = h_min * (ratio**n_intervals - 1.0) / (ratio - 1.0)
+    return np.where(ratio == 1.0, h_min * n_intervals, total)
 
 
-def _solve_ratio(side_length: float, h_min: float, n_intervals: int) -> float | None:
-    """Growth ratio r such that h_min * (r^m - 1)/(r - 1) = side_length.
+def _solve_ratios(
+    side_length: float, h_min: float, n_intervals: npt.NDArray[np.int64]
+) -> npt.NDArray[np.float64]:
+    """_solve_ratio for many interval counts at once [1].
 
-    Returns None if the side cannot be covered, which happens when even the
-    minimum spacing repeated m times overshoots the available length.
+    NaN marks a count the side cannot be covered with, which is what None
+    means in the scalar version. The bracketing and the bisection follow the
+    same schedule as the scalar version, element by element, with each entry
+    frozen as soon as it meets the same stopping test, so the answers agree
+    to the last bit.
     """
-    if n_intervals <= 0:
-        return None
-    if h_min > side_length * (1.0 + _DEGENERATE_TOLERANCE):
-        return None
+    counts = np.asarray(n_intervals, dtype=np.float64)
+    ratio = np.full(counts.shape, np.nan)
 
-    uniform_total = h_min * n_intervals
-    if uniform_total > side_length * (1.0 + _DEGENERATE_TOLERANCE):
-        return None
-    if n_intervals == 1:
-        return 1.0
-    if abs(uniform_total - side_length) <= _DEGENERATE_TOLERANCE * side_length:
-        return 1.0
+    uniform_total = h_min * counts
+    feasible = (
+        (counts > 0.0)
+        & (h_min <= side_length * (1.0 + _DEGENERATE_TOLERANCE))
+        & (uniform_total <= side_length * (1.0 + _DEGENERATE_TOLERANCE))
+    )
+
+    # A single cell spans the side on its own, and a side that the minimum
+    # spacing already fills exactly has no room to grow.
+    degenerate = feasible & (
+        (counts == 1.0)
+        | (np.abs(uniform_total - side_length) <= _DEGENERATE_TOLERANCE * side_length)
+    )
+    ratio[degenerate] = 1.0
+
+    solving = feasible & ~degenerate
+    if not solving.any():
+        return ratio
+
+    counts = counts[solving]
+    low = np.ones(counts.shape)
+    high = np.full(counts.shape, 2.0)
 
     # Bracket first. The sum grows monotonically with r, so doubling the upper
     # bound until it overshoots is enough.
-    low, high = 1.0, 2.0
-    while _geometric_sum(h_min, high, n_intervals) < side_length:
-        high *= 2.0
-        if high > 1e6:  # pragma: no cover
+    below = _geometric_sums(h_min, high, counts) < side_length
+    while below.any():
+        high[below] *= 2.0
+        if np.any(high > 1e6):  # pragma: no cover
             # Unreachable while the feasibility check above holds, since
             # h_min * m <= side_length guarantees some r >= 1 exists. Kept so
             # a future caller that skips that check cannot spin forever.
-            return None
+            return ratio
+        below = _geometric_sums(h_min, high, counts) < side_length
 
+    active = np.ones(counts.shape, dtype=bool)
     for _ in range(200):
         middle = 0.5 * (low + high)
-        if _geometric_sum(h_min, middle, n_intervals) < side_length:
-            low = middle
-        else:
-            high = middle
-        if high - low <= _RATIO_TOLERANCE * low:
+        below = _geometric_sums(h_min, middle, counts) < side_length
+        low = np.where(active & below, middle, low)
+        high = np.where(active & ~below, middle, high)
+        active &= high - low > _RATIO_TOLERANCE * low
+        if not active.any():
             break
 
-    return 0.5 * (low + high)
+    ratio[solving] = 0.5 * (low + high)
+    return ratio
 
 
 def _side_spacings(
@@ -247,50 +280,115 @@ def graded_mesh_1d(
             "Reduce h_min or reduce n_nodes."
         )
 
-    best_spacings: npt.NDArray[np.float64] | None = None
-    best_score = np.inf
-
     # A refinement point on a boundary means one side only.
     if left_length == 0.0:
-        splits = [0]
+        splits = np.array([0], dtype=np.int64)
     elif right_length == 0.0:
-        splits = [n_intervals]
+        splits = np.array([n_intervals], dtype=np.int64)
     else:
-        splits = list(range(1, n_intervals))
+        splits = np.arange(1, n_intervals, dtype=np.int64)
 
-    for n_left in splits:
-        n_right = n_intervals - n_left
+    on_left = splits
+    on_right = n_intervals - splits
+    ratio_left = _solve_ratios(left_length, h_min, on_left)
+    ratio_right = _solve_ratios(right_length, h_min, on_right)
 
-        ratio_left = _solve_ratio(left_length, h_min, n_left)
-        ratio_right = _solve_ratio(right_length, h_min, n_right)
-        if (n_left > 0 and ratio_left is None) or (n_right > 0 and ratio_right is None):
-            continue
-
-        pieces = []
-        if n_left > 0:
-            assert ratio_left is not None
-            # Ordered outward from the pivot, so reverse it to run left to right.
-            pieces.append(
-                _side_spacings(left_length, h_min, n_left, ratio_left)[::-1]
-            )
-        if n_right > 0:
-            assert ratio_right is not None
-            pieces.append(_side_spacings(right_length, h_min, n_right, ratio_right))
-
-        spacings = np.concatenate(pieces)
-        neighbour_ratios = spacings[1:] / spacings[:-1]
-        score = float(max(neighbour_ratios.max(), (1.0 / neighbour_ratios).max()))
-
-        if score < best_score:
-            best_score = score
-            best_spacings = spacings
-
-    if best_spacings is None:
+    feasible = ((on_left == 0) | np.isfinite(ratio_left)) & (
+        (on_right == 0) | np.isfinite(ratio_right)
+    )
+    if not feasible.any():
         raise ValueError(
             f"infeasible request: no split of {n_intervals} cells reaches "
             f"h_min={h_min:g} cm at refine_at={refine_at:g} cm within a domain "
             f"of {length:g} cm."
         )
+
+    # Every cell on one side grows by the same ratio, so every neighbouring
+    # jump inside a side of two cells or more is exactly that ratio. The one
+    # jump that is not is the pair straddling the pivot, and since each side
+    # is rescaled to land on its own length, those two cells are h_min times
+    # their side's rescale factor. So the whole score is known from the two
+    # ratios and the two rescale factors, without building a single spacing
+    # array. Rounding puts it a last bit or so away from what the arrays give,
+    # which is what the slack below allows for.
+    growth = np.ones(splits.size)
+    inside_left = on_left >= 2
+    growth[inside_left] = ratio_left[inside_left]
+    inside_right = on_right >= 2
+    growth[inside_right] = np.maximum(growth[inside_right], ratio_right[inside_right])
+
+    junction = np.ones(splits.size)
+    straddles = feasible & (on_left > 0) & (on_right > 0)
+    across = (
+        right_length
+        / _geometric_sums(
+            h_min,
+            ratio_right[straddles],
+            on_right[straddles].astype(np.float64),
+        )
+    ) / (
+        left_length
+        / _geometric_sums(
+            h_min, ratio_left[straddles], on_left[straddles].astype(np.float64)
+        )
+    )
+    junction[straddles] = np.maximum(across, 1.0 / across)
+
+    bound = np.maximum(growth, junction)
+    bound[~feasible] = np.inf
+
+    def score_splits(
+        indices: npt.NDArray[np.intp],
+    ) -> tuple[npt.NDArray[np.float64] | None, float]:
+        """Worst neighbouring cell ratio of each split, best one kept."""
+        chosen: npt.NDArray[np.float64] | None = None
+        best = np.inf
+        for index in indices:
+            pieces = []
+            if on_left[index] > 0:
+                # Ordered outward from the pivot, so reverse it to run left
+                # to right.
+                pieces.append(
+                    _side_spacings(
+                        left_length,
+                        h_min,
+                        int(on_left[index]),
+                        float(ratio_left[index]),
+                    )[::-1]
+                )
+            if on_right[index] > 0:
+                pieces.append(
+                    _side_spacings(
+                        right_length,
+                        h_min,
+                        int(on_right[index]),
+                        float(ratio_right[index]),
+                    )
+                )
+
+            spacings = np.concatenate(pieces)
+            neighbour_ratios = spacings[1:] / spacings[:-1]
+            score = float(
+                max(neighbour_ratios.max(), (1.0 / neighbour_ratios).max())
+            )
+            if score < best:
+                best = score
+                chosen = spacings
+        return chosen, best
+
+    best_bound = float(bound.min())
+    best_spacings, best_score = score_splits(
+        np.flatnonzero(bound <= best_bound * (1.0 + _SCORE_SLACK))
+    )
+
+    if best_score > best_bound * (1.0 + _SCORE_SLACK):  # pragma: no cover
+        # The bound only holds up to the rounding in building the spacings,
+        # which is at the last bit. If that ever grew past the slack the
+        # pruning would no longer be justified, so score every split instead
+        # of trusting it.
+        best_spacings, best_score = score_splits(np.flatnonzero(feasible))
+
+    assert best_spacings is not None
 
     if best_score > max_ratio:
         raise ValueError(

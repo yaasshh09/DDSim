@@ -24,6 +24,7 @@ from ddsim.discretize.boundary import (
     Carrier,
     OhmicContact,
     apply_dirichlet,
+    apply_dirichlet_nodes,
     apply_ohmic_contacts,
     apply_ohmic_densities,
     ohmic_psi_scaled,
@@ -405,3 +406,47 @@ def test_ohmic_densities_apply_at_every_contact() -> None:
     np.testing.assert_allclose(-pinned.residual[0], 1e-6, rtol=1e-6)
     np.testing.assert_allclose(-pinned.residual[2], 1e6, rtol=1e-6)
     assert pinned.residual[1] == 3.0
+
+
+# --------------------------------------------------------- pinning many nodes
+
+
+def test_pinning_many_nodes_at_once_matches_pinning_them_one_at_a_time() -> None:
+    """The batch form is an optimisation, so it has to be the same system.
+
+    A device has two contacts and a few hundred nodes, so applying Dirichlet
+    one contact at a time rebuilt the whole triplet array once per contact to
+    change a handful of entries. Doing them together has to give the identical
+    matrix and the identical right hand side, not merely an equivalent one.
+    """
+    assembly, psi = sample_assembly(n_nodes=11)
+    nodes, targets = [0, 5, 10], [-1.5, 0.25, 2.0]
+
+    sequential = assembly
+    for node, target in zip(nodes, targets, strict=True):
+        sequential = apply_dirichlet(sequential, psi, node, target)
+
+    batched = apply_dirichlet_nodes(assembly, psi, nodes, targets)
+
+    np.testing.assert_array_equal(batched.residual, sequential.residual)
+    np.testing.assert_array_equal(dense(batched), dense(sequential))
+
+
+def test_pinning_the_same_node_twice_is_rejected() -> None:
+    """Two Dirichlet values for one unknown is not a system with a solution.
+
+    Letting the last one quietly win would hide a device with two contacts
+    landing on the same node, which is a modelling error rather than a
+    degenerate but valid request.
+    """
+    assembly, psi = sample_assembly(n_nodes=5)
+
+    with pytest.raises(ValueError, match="pinned more than once"):
+        apply_dirichlet_nodes(assembly, psi, [2, 2], [0.0, 1.0])
+
+
+def test_pinning_many_nodes_rejects_one_outside_the_mesh() -> None:
+    assembly, psi = sample_assembly(n_nodes=5)
+
+    with pytest.raises(IndexError, match="outside the mesh"):
+        apply_dirichlet_nodes(assembly, psi, [0, 9], [0.0, 1.0])

@@ -181,9 +181,12 @@ def _density_update(
 
 def poisson_block(device: Device) -> BlockStep[DeviceState]:
     """Step 1: nonlinear Poisson at fixed quasi-Fermi levels."""
+    solver = SparseLU()
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
-        result = solve_poisson(device, state.psi.data, state.phi_n, state.phi_p)
+        result = solve_poisson(
+            device, state.psi.data, state.phi_n, state.phi_p, solver=solver
+        )
         if not result.converged:
             raise TransportError(
                 f"the Poisson block did not converge: {result.message}", state

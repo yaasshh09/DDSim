@@ -41,8 +41,10 @@ the symmetry of the Poisson matrix, which costs nothing with a direct solver.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
 
 import numpy as np
 import numpy.typing as npt
@@ -114,30 +116,82 @@ def apply_dirichlet(
 
     The input assembly is not modified.
     """
+    return apply_dirichlet_nodes(assembly, value, (node,), (target,))
+
+
+def apply_dirichlet_nodes(
+    assembly: SparseAssembly,
+    value: npt.NDArray[np.float64],
+    nodes: Sequence[int],
+    targets: Sequence[float],
+) -> SparseAssembly:
+    """Pin several unknowns at once, returning a new assembly.
+
+    Args:
+        assembly: the assembled system, Poisson or either continuity equation.
+        value: the current scaled unknown [1], used to form the residuals.
+        nodes: mesh node indices to pin. Must be distinct.
+        targets: scaled value to pin each node to [1], in the same order.
+
+    Same construction as apply_dirichlet, applied to every node in one pass
+    over the triplets instead of one pass each. A device has few contacts and
+    many nodes, so the sequential form rebuilt the whole COO array once per
+    contact to change a handful of entries. The result is the same system:
+    pinning one node never touches another node's row, and the coefficient a
+    pinned row would have contributed to another pinned row is discarded
+    either way, since that row is about to become the identity.
+
+    Two contacts on one node is rejected rather than resolved. They would be
+    two different Dirichlet values for one unknown, which is not a system with
+    a solution, and quietly letting the last one win hides the modelling error.
+    """
     n_nodes = assembly.shape[0]
-    if not 0 <= node < n_nodes:
-        raise IndexError(f"node {node} is outside the mesh, which has {n_nodes} nodes")
 
-    # The update this node will take. Known exactly, before any solve.
-    correction = target - value[node]
+    for node in nodes:
+        if not 0 <= node < n_nodes:
+            raise IndexError(
+                f"node {node} is outside the mesh, which has {n_nodes} nodes"
+            )
+    if len(set(nodes)) != len(nodes):
+        raise ValueError(
+            f"the same node is pinned more than once: {list(nodes)}. One "
+            "unknown cannot hold two Dirichlet values."
+        )
 
-    in_row = assembly.rows == node
-    in_column = (assembly.cols == node) & ~in_row
+    pinned = np.asarray(nodes, dtype=np.int64)
+    wanted = np.asarray(targets, dtype=np.float64)
 
-    # J*delta = -F, and delta at this node is fixed, so its column moves to
-    # the right hand side: F_i becomes F_i + J[i, node] * correction.
+    # Membership as a lookup table over nodes, so classifying the triplets is
+    # one gather rather than one comparison sweep per pinned node.
+    is_pinned = np.zeros(n_nodes, dtype=bool)
+    is_pinned[pinned] = True
+
+    in_row = is_pinned[assembly.rows]
+    in_column = is_pinned[assembly.cols]
+
+    # The update each pinned node will take. Known exactly, before any solve.
+    correction = np.zeros(n_nodes, dtype=np.float64)
+    correction[pinned] = wanted - value[pinned]
+
+    # J*delta = -F, and delta at a pinned node is fixed, so its column moves to
+    # the right hand side: F_i becomes F_i + J[i, node] * correction[node].
+    # Only a handful of triplets qualify, so they are gathered by index rather
+    # than by mask.
+    folded = np.flatnonzero(in_column & ~in_row)
+    fold_rows = assembly.rows[folded]
+
     residual = assembly.residual.copy()
     np.add.at(
         residual,
-        assembly.rows[in_column],
-        assembly.values[in_column] * correction,
+        fold_rows,
+        assembly.values[folded] * correction[assembly.cols[folded]],
     )
-    residual[node] = value[node] - target
+    residual[pinned] = value[pinned] - wanted
 
-    keep = ~in_row & ~in_column
-    rows = np.concatenate([assembly.rows[keep], np.array([node], dtype=np.int64)])
-    cols = np.concatenate([assembly.cols[keep], np.array([node], dtype=np.int64)])
-    values = np.concatenate([assembly.values[keep], np.array([1.0])])
+    keep = ~(in_row | in_column)
+    rows = np.concatenate([assembly.rows[keep], pinned])
+    cols = np.concatenate([assembly.cols[keep], pinned])
+    values = np.concatenate([assembly.values[keep], np.ones(pinned.size)])
 
     return SparseAssembly(
         residual=residual,
@@ -155,6 +209,7 @@ class Carrier(Enum):
     HOLE = "hole"
 
 
+@lru_cache(maxsize=64)
 def ohmic_density_scaled(net_doping: float, carrier: Carrier) -> float:
     """One carrier density at an ohmic contact [1].
 
@@ -162,6 +217,11 @@ def ohmic_density_scaled(net_doping: float, carrier: Carrier) -> float:
     carrier is asked for. The minority one comes from the reciprocal rather
     than from the quadratic formula, so mass action is exact rather than
     merely close. See physics/statistics.py.
+
+    Cached because it is a pure function of the doping at one node, and every
+    Gummel cycle asks for the same handful of values. The doping under a
+    contact does not change during a solve, and a device that changed it would
+    be a different device with a different net_doping key.
     """
     n_contact, p_contact = equilibrium_densities_scaled(net_doping)
     return float(n_contact if carrier is Carrier.ELECTRON else p_contact)
@@ -221,11 +281,15 @@ def apply_ohmic_densities(
     solution pinned here. The two boundary conditions agree by construction
     rather than by coincidence.
     """
-    result = assembly
-    for contact in contacts:
-        target = ohmic_density_scaled(float(net_doping[contact.node]), carrier)
-        result = apply_dirichlet(result, density, contact.node, target)
-    return result
+    return apply_dirichlet_nodes(
+        assembly,
+        density,
+        [contact.node for contact in contacts],
+        [
+            ohmic_density_scaled(float(net_doping[contact.node]), carrier)
+            for contact in contacts
+        ],
+    )
 
 
 def apply_ohmic_contacts(
@@ -252,9 +316,15 @@ def apply_ohmic_contacts(
     if len(set(names)) != len(names):
         raise ValueError(f"contact names must be unique, got {names}")
 
-    result = assembly
-    for contact in contacts:
-        applied = contact.voltage / scale.psi_0
-        target = ohmic_psi_scaled(float(net_doping[contact.node]), applied)
-        result = apply_dirichlet(result, psi, contact.node, target)
-    return result
+    psi_0 = scale.psi_0
+    return apply_dirichlet_nodes(
+        assembly,
+        psi,
+        [contact.node for contact in contacts],
+        [
+            ohmic_psi_scaled(
+                float(net_doping[contact.node]), contact.voltage / psi_0
+            )
+            for contact in contacts
+        ],
+    )

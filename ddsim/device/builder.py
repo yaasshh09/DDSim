@@ -12,6 +12,7 @@ profile has to stay re-evaluable on a mesh that does not exist yet.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from functools import cached_property
 
 from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
@@ -62,9 +63,15 @@ class Device:
     scale: ScaleFactors
     """The de Mari scale factors this device is solved in."""
 
-    @property
+    @cached_property
     def net_doping(self) -> Field:
-        """Net doping on the mesh nodes [cm^-3], physical units."""
+        """Net doping on the mesh nodes [cm^-3], physical units.
+
+        Cached, because a Device is frozen: the mesh and the profile that this
+        is evaluated from cannot change under it. with_bias returns a new
+        Device, which starts with an empty cache, so a rebiased device never
+        inherits a doping array from the one it was copied from.
+        """
         return Field(
             self.doping(self.mesh.x),
             "cm^-3",
@@ -73,7 +80,7 @@ class Device:
             name="net_doping",
         )
 
-    @property
+    @cached_property
     def net_doping_scaled(self) -> Field:
         """Net doping on the mesh nodes [cm^-3], scaled by C_0."""
         return self.net_doping.to_scaled(self.scale)

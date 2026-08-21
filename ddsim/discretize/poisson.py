@@ -72,6 +72,27 @@ from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.mesh.mesh1d import Mesh1D
 
+BoltzmannDensities = tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
+"""(n, p) on nodes [1], from psi at fixed quasi-Fermi levels."""
+
+
+def _boltzmann_densities(
+    psi: npt.NDArray[np.float64],
+    phi_n: npt.NDArray[np.float64] | None,
+    phi_p: npt.NDArray[np.float64] | None,
+) -> BoltzmannDensities:
+    """(n, p) from the potential at fixed quasi-Fermi levels [1].
+
+    n = exp(psi - phi_n) and p = exp(phi_p - psi), with None meaning a level
+    pinned at zero, which is true thermal equilibrium.
+
+    Does not force a dtype, so a complex psi gives complex densities and
+    complex step differentiation works through here.
+    """
+    n = np.exp(psi if phi_n is None else psi - phi_n)
+    p = np.exp(-psi if phi_p is None else phi_p - psi)
+    return n, p
+
 
 def poisson_residual(
     h: npt.NDArray[np.float64],
@@ -97,8 +118,27 @@ def poisson_residual(
     Does not force a dtype, so passing a complex psi gives a complex residual
     and complex step differentiation works directly on this function.
     """
-    n = np.exp(psi if phi_n is None else psi - phi_n)
-    p = np.exp(-psi if phi_p is None else phi_p - psi)
+    return _poisson_residual(
+        h, volume, psi, net_doping, _boltzmann_densities(psi, phi_n, phi_p)
+    )
+
+
+def _poisson_residual(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    psi: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    densities: BoltzmannDensities,
+) -> npt.NDArray[np.float64]:
+    """poisson_residual with the Boltzmann densities already in hand [1].
+
+    The residual and the Jacobian are built from the same n and p, and two
+    exponentials over every node is the most expensive thing in either, so
+    the assembly evaluates them once and hands them to both. Private because
+    the densities have to be the ones belonging to this psi and nothing
+    outside can check that.
+    """
+    n, p = densities
 
     residual = np.zeros_like(psi)
 
@@ -132,9 +172,19 @@ def poisson_jacobian(
     The quasi-Fermi levels are held fixed, so dn/dpsi is still n and dp/dpsi is
     still -p and the diagonal keeps its form.
     """
-    n_nodes = psi.size
-    n = np.exp(psi if phi_n is None else psi - phi_n)
-    p = np.exp(-psi if phi_p is None else phi_p - psi)
+    return _poisson_jacobian(
+        h, volume, psi.size, _boltzmann_densities(psi, phi_n, phi_p)
+    )
+
+
+def _poisson_jacobian(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    n_nodes: int,
+    densities: BoltzmannDensities,
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    """poisson_jacobian with the Boltzmann densities already in hand."""
+    n, p = densities
 
     nodes = np.arange(n_nodes, dtype=np.int64)
     edges = np.arange(h.size, dtype=np.int64)
@@ -143,9 +193,13 @@ def poisson_jacobian(
     # Diagonal: both adjacent face conductances, plus the charge derivative.
     # d/dpsi of -(p - n) is (p + n), and both are positive, so the charge term
     # can only strengthen the diagonal.
+    # Every node picks up the conductance of each face it touches. Edge e sits
+    # between nodes e and e+1, so the two contributions are a pair of slice
+    # additions. Sliced rather than scattered with np.add.at, which exists for
+    # repeated indices and pays for that generality even when there are none.
     diagonal = (n + p) * volume
-    np.add.at(diagonal, edges, conductance)
-    np.add.at(diagonal, edges + 1, conductance)
+    diagonal[:-1] += conductance
+    diagonal[1:] += conductance
 
     # Off diagonals: one entry per face, in each direction. Symmetric.
     rows = np.concatenate([nodes, edges, edges + 1])
@@ -210,12 +264,13 @@ def assemble_poisson(
 
     n_values = None if phi_n is None else phi_n.data
     p_values = None if phi_p is None else phi_p.data
-    residual = poisson_residual(
-        h, volume, psi.data, net_doping.data, n_values, p_values
+
+    # One pair of exponentials for both halves of the system.
+    densities = _boltzmann_densities(psi.data, n_values, p_values)
+    residual = _poisson_residual(
+        h, volume, psi.data, net_doping.data, densities
     )
-    rows, cols, values = poisson_jacobian(
-        h, volume, psi.data, net_doping.data, n_values, p_values
-    )
+    rows, cols, values = _poisson_jacobian(h, volume, mesh.n_nodes, densities)
 
     return SparseAssembly(
         residual=residual,

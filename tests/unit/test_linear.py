@@ -266,3 +266,76 @@ def test_size_reports_the_factorized_dimension() -> None:
     solver = SparseLU()
     solver.factorize(*as_arrays(tridiagonal(7)))
     assert solver.size == 7
+
+
+# ------------------------------------------------- pattern cached conversion
+
+
+def scattered_with_duplicates(n: int) -> tuple:
+    """Triplets in no useful order, with the same entry contributed twice.
+
+    That is what assembly actually emits: one triplet per contribution, in
+    whatever order the terms were written, and a diagonal built from several
+    of them. The conversion has to sort them and sum the duplicates.
+    """
+    rows, cols, values = [], [], []
+    for i in reversed(range(n)):
+        if i < n - 1:
+            rows += [i, i + 1]
+            cols += [i + 1, i]
+            values += [-1.0, -1.0]
+    # The diagonal arrives in two pieces, out of order, as a stencil plus a
+    # source term would.
+    for i in range(n):
+        rows.append(i)
+        cols.append(i)
+        values.append(1.5)
+    for i in reversed(range(n)):
+        rows.append(i)
+        cols.append(i)
+        values.append(2.5)
+    return (
+        np.array(rows, dtype=np.int64),
+        np.array(cols, dtype=np.int64),
+        np.array(values),
+        (n, n),
+    )
+
+
+def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() -> None:
+    """The cached pattern is a shortcut through the conversion, not a new one.
+
+    Reusing the sort and the duplicate grouping across Newton steps is only
+    safe if the replay lands on exactly what scipy would have built from the
+    same triplets, summation order of duplicates included. Compared bit for
+    bit rather than to a tolerance: a replay that merely agrees closely is a
+    replay that is doing different arithmetic.
+    """
+    rows, cols, values, shape = scattered_with_duplicates(9)
+    solver = SparseLU()
+
+    solver.factorize(rows, cols, values, shape)
+    expected = sp.coo_matrix((values, (rows, cols)), shape=shape).tocsc()
+    np.testing.assert_array_equal(solver._matrix.indptr, expected.indptr)
+    np.testing.assert_array_equal(solver._matrix.indices, expected.indices)
+    np.testing.assert_array_equal(solver._matrix.data, expected.data)
+
+    # New numbers on the same pattern, which is every Newton step after the
+    # first. This is the path that skips scipy entirely.
+    moved = values * 3.0 + 0.5
+    solver.factorize(rows, cols, moved, shape)
+    assert solver.pattern_unchanged is True
+
+    expected = sp.coo_matrix((moved, (rows, cols)), shape=shape).tocsc()
+    np.testing.assert_array_equal(solver._matrix.indptr, expected.indptr)
+    np.testing.assert_array_equal(solver._matrix.indices, expected.indices)
+    np.testing.assert_array_equal(solver._matrix.data, expected.data)
+
+
+def test_a_system_with_no_triplets_is_reported_as_singular() -> None:
+    """An empty Jacobian is singular, and saying so beats an index error."""
+    solver = SparseLU()
+    empty = np.array([], dtype=np.int64)
+
+    with pytest.raises(RuntimeError, match="singular"):
+        solver.factorize(empty, empty, np.array([]), (3, 3))

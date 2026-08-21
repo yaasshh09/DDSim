@@ -17,6 +17,7 @@ import numpy as np
 import numpy.typing as npt
 import pytest
 
+from ddsim.solve.linear import SparseLU
 from ddsim.solve.newton import NewtonResult, newton_solve
 
 
@@ -423,3 +424,43 @@ def test_a_residual_scale_still_rejects_a_genuinely_stalled_solve() -> None:
     )
 
     assert not result.converged
+
+
+# --------------------------------------------------------------- solver reuse
+
+
+def test_a_reused_solver_gives_the_identical_answer() -> None:
+    """Handing the same factorization back in is an optimisation only.
+
+    Every Gummel cycle solves the same Poisson system on the same mesh, so
+    the caller keeps one SparseLU rather than paying for the sparsity pattern
+    on every cycle. That has to be invisible in the answer: a solver that had
+    leaked any part of a previous numerical factorization would give a
+    plausible wrong result rather than an obviously wrong one, so this
+    compares bitwise across three consecutive solves.
+    """
+    target = np.array([2.0, 9.0, 16.0])
+    shared = SparseLU()
+
+    for _ in range(3):
+        warm = newton_solve(square_root_problem(target), np.full(3, 5.0), solver=shared)
+        cold = newton_solve(square_root_problem(target), np.full(3, 5.0))
+
+        assert warm.converged and cold.converged
+        assert warm.iterations == cold.iterations
+        np.testing.assert_array_equal(warm.x, cold.x)
+
+
+def test_a_reused_solver_follows_a_changed_pattern() -> None:
+    """A shared solver must not pin the caller to the first problem's shape."""
+    shared = SparseLU()
+
+    newton_solve(square_root_problem(np.array([4.0, 9.0])), np.full(2, 3.0),
+                 solver=shared)
+    bigger = newton_solve(
+        square_root_problem(np.array([4.0, 9.0, 25.0])), np.full(3, 3.0),
+        solver=shared,
+    )
+
+    assert bigger.converged
+    np.testing.assert_allclose(bigger.x, [2.0, 3.0, 5.0], rtol=1e-12)

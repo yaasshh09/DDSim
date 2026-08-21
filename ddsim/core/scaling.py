@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from functools import cached_property
 
 import numpy as np
 
@@ -39,6 +40,12 @@ class ScaleFactors:
 
     Immutable on purpose. A scale factor that changes underneath a solve turns
     every field in the device into a silently wrong number.
+
+    The derived quantities are cached rather than recomputed. That is safe
+    precisely because the four stored values are frozen, so nothing a cached
+    value was derived from can move underneath it. They are read on every
+    assembly (`mesh.h / scale.x_0`) and on every unit conversion, and x_0 is a
+    square root of a ratio of two constants that will never change.
     """
 
     T: float
@@ -91,38 +98,39 @@ class ScaleFactors:
 
     # ------------------------------------------------------ derived quantities
 
-    @property
+    @cached_property
     def psi_0(self) -> float:
         """Potential scale [V]. Equal to the thermal voltage."""
         return C.V_T(self.T)
 
-    @property
+    @cached_property
     def x_0(self) -> float:
         """Length scale [cm]. The Debye length at C_0."""
         return math.sqrt(self.eps * self.psi_0 / (C.q * self.C_0))
 
-    @property
+    @cached_property
     def mu_0(self) -> float:
         """Mobility scale [cm^2/(V s)]. D_0 / V_T by the Einstein relation."""
         return self.D_0 / self.psi_0
 
-    @property
+    @cached_property
     def t_0(self) -> float:
         """Time scale [s]. The diffusion time across one Debye length."""
         return self.x_0 * self.x_0 / self.D_0
 
-    @property
+    @cached_property
     def J_0(self) -> float:
         """Current density scale [A/cm^2]."""
         return C.q * self.D_0 * self.C_0 / self.x_0
 
-    @property
+    @cached_property
     def R_0(self) -> float:
         """Recombination rate scale [cm^-3 s^-1]."""
         return self.D_0 * self.C_0 / (self.x_0 * self.x_0)
 
     # ------------------------------------------------------------ unit lookup
 
+    @cached_property
     def _registry(self) -> dict[str, float]:
         """Maps a unit string to the factor that converts physical to scaled.
 
@@ -147,7 +155,7 @@ class ScaleFactors:
 
         physical = scaled * factor, scaled = physical / factor.
         """
-        registry = self._registry()
+        registry = self._registry
         if unit not in registry:
             known = ", ".join(sorted(registry))
             raise KeyError(f"unknown unit {unit!r}. Known units are: {known}")

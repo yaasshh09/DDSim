@@ -94,10 +94,11 @@ from ddsim.physics.recombination import RecombinationModel
 Diffusivity = float | npt.NDArray[np.float64]
 """Scaled diffusivity [1], one value or one per edge."""
 
+BernoulliPair = tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
+"""(B(X), B(-X)) on every edge, with X = psi_right - psi_left [1]."""
 
-def _bernoulli_pair(
-    psi: npt.NDArray[np.float64],
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+
+def _bernoulli_pair(psi: npt.NDArray[np.float64]) -> BernoulliPair:
     """(B(X), B(-X)) on every edge, with X = psi_right - psi_left [1]."""
     X = psi[1:] - psi[:-1]
     return np.asarray(B(X), dtype=np.float64), np.asarray(B(-X), dtype=np.float64)
@@ -123,7 +124,23 @@ def electron_current(
     Positive means conventional current flowing in +x. B(X) multiplies the
     right hand node. See the module docstring before changing that.
     """
-    b_plus, b_minus = _bernoulli_pair(psi)
+    return _electron_current(h, Dn, _bernoulli_pair(psi), n)
+
+
+def _electron_current(
+    h: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    bernoulli: BernoulliPair,
+    n: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """electron_current with the Bernoulli pair already in hand [1].
+
+    The pair costs more than the rest of an assembly put together, and the
+    residual and the Jacobian both need the same one, so the assembly
+    computes it once and hands it to both. Private because the pair has to be
+    the one belonging to this psi and nothing outside can check that.
+    """
+    b_plus, b_minus = bernoulli
     return np.asarray((Dn / h) * (b_plus * n[1:] - b_minus * n[:-1]))
 
 
@@ -138,7 +155,17 @@ def hole_current(
     B(X) multiplies the left hand node here, the mirror image of the electron
     flux. That is the asymmetry docs/05-pitfalls.md warns about.
     """
-    b_plus, b_minus = _bernoulli_pair(psi)
+    return _hole_current(h, Dp, _bernoulli_pair(psi), p)
+
+
+def _hole_current(
+    h: npt.NDArray[np.float64],
+    Dp: Diffusivity,
+    bernoulli: BernoulliPair,
+    p: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """hole_current with the Bernoulli pair already in hand [1]."""
+    b_plus, b_minus = bernoulli
     return np.asarray((Dp / h) * (b_plus * p[:-1] - b_minus * p[1:]))
 
 
@@ -168,7 +195,21 @@ def electron_continuity_residual(
     Boundary nodes get the reflecting condition for free, by having no face on
     the outward side. Contacts overwrite those rows afterwards.
     """
-    current = electron_current(h, Dn, psi, n)
+    return _electron_continuity_residual(
+        h, volume, Dn, _bernoulli_pair(psi), n, R
+    )
+
+
+def _electron_continuity_residual(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    bernoulli: BernoulliPair,
+    n: npt.NDArray[np.float64],
+    R: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """electron_continuity_residual with the Bernoulli pair already in hand."""
+    current = _electron_current(h, Dn, bernoulli, n)
 
     residual = R * volume
     residual[:-1] -= current
@@ -192,7 +233,19 @@ def hole_continuity_residual(
     because div(Jp) = -R while div(Jn) = +R. Both residuals still reduce to
     +R*volume with no current flowing.
     """
-    current = hole_current(h, Dp, psi, p)
+    return _hole_continuity_residual(h, volume, Dp, _bernoulli_pair(psi), p, R)
+
+
+def _hole_continuity_residual(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    Dp: Diffusivity,
+    bernoulli: BernoulliPair,
+    p: npt.NDArray[np.float64],
+    R: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64]:
+    """hole_continuity_residual with the Bernoulli pair already in hand."""
+    current = _hole_current(h, Dp, bernoulli, p)
 
     residual = R * volume
     residual[:-1] += current
@@ -222,8 +275,21 @@ def electron_continuity_jacobian(
     dR_dn is whatever the caller supplies. See the module docstring for why
     Gummel and Newton want different things there.
     """
-    n_nodes = psi.size
-    b_plus, b_minus = _bernoulli_pair(psi)
+    return _electron_continuity_jacobian(
+        h, volume, Dn, _bernoulli_pair(psi), psi.size, dR_dn
+    )
+
+
+def _electron_continuity_jacobian(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    bernoulli: BernoulliPair,
+    n_nodes: int,
+    dR_dn: npt.NDArray[np.float64],
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    """electron_continuity_jacobian with the Bernoulli pair already in hand."""
+    b_plus, b_minus = bernoulli
 
     # Coefficients of the two nodes in the edge flux Jn = right*n_right -
     # left*n_left. Both are strictly positive because B(x) > 0 everywhere.
@@ -233,9 +299,12 @@ def electron_continuity_jacobian(
     nodes = np.arange(n_nodes, dtype=np.int64)
     edges = np.arange(h.size, dtype=np.int64)
 
+    # Edge e sits between nodes e and e+1, so each node picks up the flux
+    # coefficient of every face it touches. Sliced rather than scattered with
+    # np.add.at, which exists for repeated indices and there are none here.
     diagonal = dR_dn * volume
-    np.add.at(diagonal, edges, left)
-    np.add.at(diagonal, edges + 1, right)
+    diagonal[:-1] += left
+    diagonal[1:] += right
 
     rows = np.concatenate([nodes, edges, edges + 1])
     cols = np.concatenate([nodes, edges + 1, edges])
@@ -261,8 +330,21 @@ def hole_continuity_jacobian(
     The two off diagonal factors have swapped places relative to the electron
     Jacobian, for the same reason the fluxes do.
     """
-    n_nodes = psi.size
-    b_plus, b_minus = _bernoulli_pair(psi)
+    return _hole_continuity_jacobian(
+        h, volume, Dp, _bernoulli_pair(psi), psi.size, dR_dp
+    )
+
+
+def _hole_continuity_jacobian(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    Dp: Diffusivity,
+    bernoulli: BernoulliPair,
+    n_nodes: int,
+    dR_dp: npt.NDArray[np.float64],
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    """hole_continuity_jacobian with the Bernoulli pair already in hand."""
+    b_plus, b_minus = bernoulli
 
     # Jp = left*p_left - right*p_right, the mirror of the electron flux.
     left = np.asarray((Dp / h) * b_plus)
@@ -272,8 +354,8 @@ def hole_continuity_jacobian(
     edges = np.arange(h.size, dtype=np.int64)
 
     diagonal = dR_dp * volume
-    np.add.at(diagonal, edges, left)
-    np.add.at(diagonal, edges + 1, right)
+    diagonal[:-1] += left
+    diagonal[1:] += right
 
     rows = np.concatenate([nodes, edges, edges + 1])
     cols = np.concatenate([nodes, edges + 1, edges])
@@ -338,9 +420,17 @@ def assemble_electron_continuity(
     R = np.asarray(recombination.rate(n.data, p.data), dtype=np.float64)
     slope, _ = recombination.electron_linearization(n.data, p.data)
 
-    residual = electron_continuity_residual(h, volume, Dn, psi.data, n.data, R)
-    rows, cols, values = electron_continuity_jacobian(
-        h, volume, Dn, psi.data, np.asarray(slope, dtype=np.float64)
+    # One pair for both halves of the system. It is the same psi and the same
+    # edges, and evaluating B twice is the most expensive thing here.
+    bernoulli = _bernoulli_pair(psi.data)
+    residual = _electron_continuity_residual(h, volume, Dn, bernoulli, n.data, R)
+    rows, cols, values = _electron_continuity_jacobian(
+        h,
+        volume,
+        Dn,
+        bernoulli,
+        mesh.n_nodes,
+        np.asarray(slope, dtype=np.float64),
     )
 
     return SparseAssembly(
@@ -373,9 +463,15 @@ def assemble_hole_continuity(
     R = np.asarray(recombination.rate(n.data, p.data), dtype=np.float64)
     slope, _ = recombination.hole_linearization(n.data, p.data)
 
-    residual = hole_continuity_residual(h, volume, Dp, psi.data, p.data, R)
-    rows, cols, values = hole_continuity_jacobian(
-        h, volume, Dp, psi.data, np.asarray(slope, dtype=np.float64)
+    bernoulli = _bernoulli_pair(psi.data)
+    residual = _hole_continuity_residual(h, volume, Dp, bernoulli, p.data, R)
+    rows, cols, values = _hole_continuity_jacobian(
+        h,
+        volume,
+        Dp,
+        bernoulli,
+        mesh.n_nodes,
+        np.asarray(slope, dtype=np.float64),
     )
 
     return SparseAssembly(
