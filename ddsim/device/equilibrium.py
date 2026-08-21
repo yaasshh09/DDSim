@@ -43,13 +43,12 @@ Phase 2 replaces it by solving for phi_n and phi_p properly.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 import numpy.typing as npt
 
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Device
+from ddsim.device.state import DeviceState
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import apply_ohmic_contacts
 from ddsim.discretize.poisson import assemble_poisson
@@ -67,23 +66,6 @@ docs/02-numerics.md prescribes 5 * V_T. A full undamped step from the charge
 neutral guess at a heavily doped junction can be tens of volts, which
 overflows exp immediately.
 """
-
-
-@dataclass(frozen=True)
-class DeviceState:
-    """A converged solution. All fields are scaled and live on nodes."""
-
-    psi: Field
-    """Electrostatic potential [V], scaled by V_T."""
-
-    n: Field
-    """Electron density [cm^-3], scaled by C_0."""
-
-    p: Field
-    """Hole density [cm^-3], scaled by C_0."""
-
-    newton: NewtonResult
-    """The solver history, including the residual tail."""
 
 
 def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
@@ -132,6 +114,67 @@ def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
     return phi_n, phi_p
 
 
+def solve_poisson(
+    device: Device,
+    psi_initial: npt.NDArray[np.float64],
+    phi_n: Field | None = None,
+    phi_p: Field | None = None,
+    max_iterations: int = 50,
+    residual_rtol: float = 1e-10,
+    update_tol: float = 1e-10,
+) -> NewtonResult:
+    """Solve the nonlinear Poisson equation for psi at fixed quasi-Fermi levels.
+
+    Args:
+        device: the device specification, which carries the mesh, the doping
+            and the contact biases.
+        psi_initial: scaled starting potential on nodes [1].
+        phi_n: electron quasi-Fermi potential [V], scaled. None means zero.
+        phi_p: hole quasi-Fermi potential [V], scaled. None means zero.
+        max_iterations: Newton iteration budget.
+        residual_rtol: residual threshold relative to the initial residual [1].
+        update_tol: convergence threshold on max |dpsi| [1].
+
+    This is both the whole of the equilibrium solve and the first block of
+    every Gummel cycle. Keeping the densities inside Poisson as exp(psi - phi)
+    rather than freezing them is what makes the cycle robust: the exponential
+    nonlinearity stays implicit and Newton handles it on a strictly positive
+    definite Jacobian.
+
+    Returns the NewtonResult rather than raising, so a caller inside a Gummel
+    cycle can decide what a stalled Poisson solve means.
+    """
+    mesh = device.mesh
+    scale = device.scale
+    net_doping = device.net_doping_scaled
+    doping_values = net_doping.data
+
+    def assemble(psi_values: npt.NDArray[np.float64]) -> SparseAssembly:
+        psi = Field(psi_values, "V", ScalingState.SCALED, Location.NODE, name="psi")
+        assembly = assemble_poisson(mesh, psi, net_doping, scale, phi_n, phi_p)
+        return apply_ohmic_contacts(
+            assembly, psi_values, doping_values, device.contacts, scale
+        )
+
+    # The residual is a charge balance over each dual cell, so the size of its
+    # terms is the doping charge in the largest cell. Taking the threshold from
+    # that rather than from the initial residual is what lets a solve that
+    # starts at the answer report success: inside a Gummel cycle the potential
+    # arrives already converged, its residual already at the roundoff floor,
+    # and a threshold relative to that floor is unreachable by construction.
+    residual_scale = float(np.max(np.abs(doping_values) * mesh.volume / scale.x_0))
+
+    return newton_solve(
+        assemble,
+        psi_initial,
+        max_step=MAX_PSI_STEP,
+        residual_rtol=residual_rtol,
+        residual_scale=residual_scale,
+        update_tol=update_tol,
+        max_iterations=max_iterations,
+    )
+
+
 def solve_equilibrium(
     device: Device,
     quasi_fermi: tuple[Field, Field] | None = None,
@@ -157,18 +200,7 @@ def solve_equilibrium(
     looks like a converged one and every number downstream inherits the error.
     """
     phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
-
-    mesh = device.mesh
-    scale = device.scale
-    net_doping = device.net_doping_scaled
-    doping_values = net_doping.data
-
-    def assemble(psi_values: npt.NDArray[np.float64]) -> SparseAssembly:
-        psi = Field(psi_values, "V", ScalingState.SCALED, Location.NODE, name="psi")
-        assembly = assemble_poisson(mesh, psi, net_doping, scale, phi_n, phi_p)
-        return apply_ohmic_contacts(
-            assembly, psi_values, doping_values, device.contacts, scale
-        )
+    doping_values = device.net_doping_scaled.data
 
     # Charge neutral guess, shifted by the quasi-Fermi level of the local
     # majority carrier so that a biased region starts near the potential its
@@ -178,13 +210,14 @@ def solve_equilibrium(
         majority = np.where(doping_values >= 0.0, phi_n.data, phi_p.data)
         initial = initial + majority
 
-    result = newton_solve(
-        assemble,
+    result = solve_poisson(
+        device,
         initial,
-        max_step=MAX_PSI_STEP,
+        phi_n,
+        phi_p,
+        max_iterations=max_iterations,
         residual_rtol=residual_rtol,
         update_tol=update_tol,
-        max_iterations=max_iterations,
     )
 
     if not result.converged:

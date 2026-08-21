@@ -21,9 +21,11 @@ import scipy.sparse as sp
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import (
+    Carrier,
     OhmicContact,
     apply_dirichlet,
     apply_ohmic_contacts,
+    apply_ohmic_densities,
     ohmic_psi_scaled,
 )
 from ddsim.discretize.poisson import poisson_jacobian, poisson_residual
@@ -238,3 +240,103 @@ def test_built_in_potential_is_the_difference_between_the_two_contacts() -> None
 
     expected = scale.psi_0 * math.log(1e16 * 1e16 / scale.C_0**2)  # [V]
     assert V_bi == pytest.approx(expected, rel=1e-6)
+
+
+# ------------------------------------------------- ohmic contacts on n and p
+
+
+def continuity_assembly(n_nodes: int = 5) -> SparseAssembly:
+    """A stand in continuity system: identity Jacobian, arbitrary residual."""
+    index = np.arange(n_nodes, dtype=np.int64)
+    return SparseAssembly(
+        residual=np.full(n_nodes, 3.0),
+        rows=index,
+        cols=index,
+        values=np.full(n_nodes, 2.0),
+        shape=(n_nodes, n_nodes),
+    )
+
+
+def test_ohmic_densities_pin_the_majority_carrier_to_the_doping() -> None:
+    """In n-type material the contact holds n at N, to twelve digits.
+
+    Neutrality plus mass action give n - p = N and n*p = 1, so with N = 1e6 the
+    majority carrier is 1e6 to within the minority correction of 1e-6.
+    """
+    doping = np.array([1e6, 1e6, 0.0, -1e6, -1e6])
+    density = np.zeros(5)
+    contacts = (OhmicContact("cathode", 0, 0.0),)
+
+    pinned = apply_ohmic_densities(
+        continuity_assembly(), density, doping, contacts, Carrier.ELECTRON
+    )
+
+    # residual = density - target, and density is zero here.
+    np.testing.assert_allclose(-pinned.residual[0], 1e6, rtol=1e-6)
+
+
+def test_ohmic_densities_pin_the_minority_carrier_by_mass_action() -> None:
+    """The minority carrier is 1/N, not N, and getting it right matters.
+
+    It is the minority density at the contact that sets the saturation current
+    of a diode, so an error here is an error in every I-V curve.
+    """
+    doping = np.array([1e6, 1e6, 0.0, -1e6, -1e6])
+    density = np.zeros(5)
+    contacts = (OhmicContact("cathode", 0, 0.0),)
+
+    pinned = apply_ohmic_densities(
+        continuity_assembly(), density, doping, contacts, Carrier.HOLE
+    )
+
+    np.testing.assert_allclose(-pinned.residual[0], 1e-6, rtol=1e-6)
+
+
+def test_the_two_pinned_densities_satisfy_mass_action_exactly() -> None:
+    doping = np.array([-1e6, 0.0, 1e6])
+    density = np.zeros(3)
+    contacts = (OhmicContact("anode", 0, 0.0),)
+
+    n = -apply_ohmic_densities(
+        continuity_assembly(3), density, doping, contacts, Carrier.ELECTRON
+    ).residual[0]
+    p = -apply_ohmic_densities(
+        continuity_assembly(3), density, doping, contacts, Carrier.HOLE
+    ).residual[0]
+
+    np.testing.assert_allclose(n * p, 1.0, rtol=1e-15)
+    np.testing.assert_allclose(p - n, 1e6, rtol=1e-12)
+
+
+def test_the_pinned_density_agrees_with_the_pinned_potential() -> None:
+    """n = exp(psi - phi_n) at the contact, with phi_n the applied bias.
+
+    The two boundary conditions are written independently, one from asinh and
+    one from the quadratic, so their agreement is a real check rather than a
+    tautology. If they disagreed, the first Gummel cycle would fight itself at
+    the contact node forever.
+    """
+    doping_value = -1e6
+    applied = 0.4 / ScaleFactors.for_silicon().psi_0
+
+    psi = ohmic_psi_scaled(doping_value, applied)
+    doping = np.array([doping_value, doping_value])
+    contacts = (OhmicContact("anode", 0, 0.0),)
+    n = -apply_ohmic_densities(
+        continuity_assembly(2), np.zeros(2), doping, contacts, Carrier.ELECTRON
+    ).residual[0]
+
+    np.testing.assert_allclose(n, math.exp(psi - applied), rtol=1e-12)
+
+
+def test_ohmic_densities_apply_at_every_contact() -> None:
+    doping = np.array([-1e6, 0.0, 1e6])
+    contacts = (OhmicContact("anode", 0, 0.0), OhmicContact("cathode", 2, 0.0))
+
+    pinned = apply_ohmic_densities(
+        continuity_assembly(3), np.zeros(3), doping, contacts, Carrier.ELECTRON
+    )
+
+    np.testing.assert_allclose(-pinned.residual[0], 1e-6, rtol=1e-6)
+    np.testing.assert_allclose(-pinned.residual[2], 1e6, rtol=1e-6)
+    assert pinned.residual[1] == 3.0

@@ -365,3 +365,61 @@ def test_a_non_finite_newton_update_is_reported() -> None:
     result = newton_solve(assemble, np.zeros(1), max_iterations=3)
     assert not result.converged
     assert "non-finite" in result.message
+
+
+# ------------------------------------------------------------ residual scale
+
+
+def floored_problem(floor: float):
+    """A residual stuck at `floor`, with a Jacobian too large to move it.
+
+    Stands in for a real assembly whose residual cannot fall below the size of
+    the terms it differences. Every warm started solve is in this position: it
+    arrives at the answer already, and the residual it reports is the roundoff
+    left over from cancelling terms of size 1e9 against each other.
+    """
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(np.full_like(x, floor), np.full_like(x, 1e18))
+
+    return assemble
+
+
+def test_a_solve_started_at_its_own_floor_cannot_converge_without_a_scale() -> None:
+    """The default threshold is relative to the initial residual.
+
+    Starting at the floor, the threshold lands a decade below it and is
+    unreachable however correct the iterate is. Pinned here because inside a
+    Gummel cycle it looks exactly like a broken solver, and because the repair
+    below only makes sense next to the failure it repairs.
+    """
+    result = newton_solve(floored_problem(1e-11), np.array([2.0]), max_iterations=5)
+
+    assert not result.converged
+    assert result.update_history[-1] < 1e-20
+
+
+def test_an_explicit_residual_scale_lets_a_warm_start_converge() -> None:
+    """The scale comes from the size of the terms, not from where it started."""
+    result = newton_solve(
+        floored_problem(1e-11),
+        np.array([2.0]),
+        residual_scale=1.0,
+        max_iterations=5,
+    )
+
+    assert result.converged
+
+
+def test_a_residual_scale_still_rejects_a_genuinely_stalled_solve() -> None:
+    """The point of the residual criterion survives the change.
+
+    A solve that stops moving while its residual is still large next to the
+    scale of the problem is a failure and has to keep being reported as one.
+    Otherwise the scale would have turned the criterion into decoration.
+    """
+    result = newton_solve(
+        floored_problem(0.5), np.array([1.0]), residual_scale=1.0, max_iterations=5
+    )
+
+    assert not result.converged

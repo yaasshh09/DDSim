@@ -13,12 +13,21 @@ Convergence, from docs/02-numerics.md, needs both of:
 Checking only the update norm reports a stalled solve as a success, which is
 worse than reporting a failure, because the stalled answer looks plausible.
 
-The residual threshold is relative to where the residual started, not
-absolute. An absolute threshold is not scale free, and the Poisson residual is
-proportional to the doping. Its roundoff floor is proportional to the doping
-too, so a fixed 1e-10 that works at 1e16 cm^-3 is unreachable at 1e18 and a
-perfectly good solve gets reported as a failure. The update norm needs no such
-treatment, because psi is measured in units of V_T whatever the doping.
+The residual threshold is relative to a scale, not absolute. An absolute
+threshold is not scale free, and the Poisson residual is proportional to the
+doping. Its roundoff floor is proportional to the doping too, so a fixed 1e-10
+that works at 1e16 cm^-3 is unreachable at 1e18 and a perfectly good solve gets
+reported as a failure. The update norm needs no such treatment, because psi is
+measured in units of V_T whatever the doping.
+
+The scale defaults to the initial residual, which is right for a cold start and
+wrong for a warm one. Handed a solution it has already found, the solve starts
+at its own roundoff floor, and a threshold set a decade below that floor can
+never be met however correct the answer is. That is not hypothetical: it is
+exactly what a Gummel cycle does on every iteration after the first, and at
+thermal equilibrium it does it on the first one too. Callers that start warm
+pass residual_scale explicitly, taken from the size of the terms the residual
+is built from rather than from where the iteration happened to begin.
 
 Step limiting, rather than a line search. docs/02-numerics.md prescribes
 5 * V_T per Newton step, which is 5.0 in scaled units. The update direction is
@@ -117,6 +126,7 @@ def newton_solve(
     max_step: float | None = None,
     residual_atol: float = 1e-12,
     residual_rtol: float = 1e-10,
+    residual_scale: float | None = None,
     update_tol: float = 1e-10,
     max_iterations: int = 50,
 ) -> NewtonResult:
@@ -129,7 +139,14 @@ def newton_solve(
             5.0 is the scaled value docs/02-numerics.md prescribes for psi.
         residual_atol: absolute floor on the residual threshold, for problems
             that start at or near zero residual.
-        residual_rtol: residual threshold relative to the initial residual.
+        residual_rtol: residual threshold relative to residual_scale.
+        residual_scale: the size of the terms the residual is built from. The
+            initial residual is used when this is None, which is right for a
+            cold start and wrong for a warm one: a solve handed the answer
+            already starts at the roundoff floor, and a threshold a decade
+            below that floor can never be met. Any caller that starts from a
+            previous solution should pass a scale that does not depend on the
+            starting iterate.
         update_tol: convergence threshold on max |dx|.
         max_iterations: give up after this many steps.
 
@@ -149,9 +166,9 @@ def newton_solve(
     residual_norm = float(np.max(np.abs(system.residual)))
     residual_history.append(residual_norm)
 
-    # Fixed once, from the initial residual, so that the threshold cannot
-    # drift as the iteration proceeds.
-    residual_threshold = residual_atol + residual_rtol * residual_norm
+    # Fixed once, so that the threshold cannot drift as the iteration proceeds.
+    reference = residual_norm if residual_scale is None else abs(residual_scale)
+    residual_threshold = residual_atol + residual_rtol * reference
 
     if residual_norm < residual_threshold:
         return NewtonResult(

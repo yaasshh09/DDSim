@@ -18,6 +18,13 @@ acceptor doping, and it is wrong anywhere compensation brings N near zero.
 docs/01-physics.md calls this out as a frequent bug source, so it is stated
 once here and used everywhere.
 
+The same pair fixes n and p there, from Phase 2 onward, and the two densities
+are pinned at their equilibrium values whatever the terminal voltage. The bias
+goes into psi and not into the densities. That is exactly what an ideal ohmic
+contact is: a perfect sink, where any excess carrier recombines with infinite
+velocity, which is why a diode with no bulk recombination at all still passes
+current.
+
 Every boundary that is not a contact is reflecting, and reflecting is what the
 Poisson assembly already produces by having no face on the outward side. So
 there is nothing to do for those.
@@ -31,12 +38,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from enum import Enum
 
 import numpy as np
 import numpy.typing as npt
 
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
+from ddsim.physics.statistics import equilibrium_densities_scaled
 
 
 @dataclass(frozen=True)
@@ -102,6 +111,51 @@ def apply_dirichlet(
         values=values,
         shape=assembly.shape,
     )
+
+
+class Carrier(Enum):
+    """Which continuity equation a boundary condition is being applied to."""
+
+    ELECTRON = "electron"
+    HOLE = "hole"
+
+
+def apply_ohmic_densities(
+    assembly: SparseAssembly,
+    density: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    contacts: tuple[OhmicContact, ...],
+    carrier: Carrier,
+) -> SparseAssembly:
+    """Pin one carrier density at every contact to its equilibrium value.
+
+    Args:
+        assembly: the assembled continuity system.
+        density: the current scaled density on nodes [1], n or p.
+        net_doping: scaled net doping on nodes [1].
+        contacts: the contacts to apply.
+        carrier: which of n and p is being solved for.
+
+    An ohmic contact is in thermal equilibrium whatever the terminal voltage,
+    so both densities are pinned at the values that solve neutrality together
+    with mass action. The applied bias goes into psi, not into n or p. That is
+    what makes the contact a perfect sink: any excess carrier arriving there
+    recombines with infinite velocity.
+
+    Consistency is worth checking once by hand. The contact potential is
+    V + asinh(N/2) and the quasi-Fermi levels there are both V, so
+    n = exp(psi - phi_n) = exp(asinh(N/2)), which is exactly the neutrality
+    solution pinned here. The two boundary conditions agree by construction
+    rather than by coincidence.
+    """
+    result = assembly
+    for contact in contacts:
+        n_contact, p_contact = equilibrium_densities_scaled(
+            float(net_doping[contact.node])
+        )
+        target = n_contact if carrier is Carrier.ELECTRON else p_contact
+        result = apply_dirichlet(result, density, contact.node, float(target))
+    return result
 
 
 def apply_ohmic_contacts(

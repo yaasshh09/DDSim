@@ -11,7 +11,7 @@ profile has to stay re-evaluable on a mesh that does not exist yet.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
@@ -78,8 +78,34 @@ class Device:
         """Net doping on the mesh nodes [cm^-3], scaled by C_0."""
         return self.net_doping.to_scaled(self.scale)
 
+    def with_bias(self, **voltages: float) -> Device:
+        """A copy of this device with new contact voltages [V].
+
+            device.with_bias(anode=0.5)
+
+        Contacts not named keep the bias they had. A Device is frozen, so a
+        bias sweep is a sequence of devices rather than one device being
+        mutated, which means a converged solution can never be left attached to
+        a bias it was not solved at.
+        """
+        known = {contact.name for contact in self.contacts}
+        unknown = sorted(set(voltages) - known)
+        if unknown:
+            raise KeyError(
+                f"no contact named {unknown} on this device, which has "
+                f"{sorted(known)}"
+            )
+
+        contacts = tuple(
+            replace(contact, voltage=voltages.get(contact.name, contact.voltage))
+            for contact in self.contacts
+        )
+        return replace(self, contacts=contacts)
+
     def __repr__(self) -> str:
-        names = ", ".join(contact.name for contact in self.contacts)
+        names = ", ".join(
+            f"{contact.name}={contact.voltage:g}V" for contact in self.contacts
+        )
         return (
             f"Device {self.material.name} {self.mesh.n_nodes} nodes "
             f"length={self.mesh.length:.3e} cm contacts=({names})"
