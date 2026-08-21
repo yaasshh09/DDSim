@@ -6,10 +6,17 @@ session. Newest entry at the top.
 ## Current state
 
 **Active phase:** Phase 2 complete, Phase 3 not started
-**Blocked on:** CI has still never run. No remote, and I do not push. Everything
-in the Phase 0, 1 and 2 acceptance lists passes locally.
-**Next action:** push to a GitHub remote and confirm the workflow is green, then
-start Phase 3, full Newton on the coupled 3N system
+**Blocked on:** nothing. The remote is
+[yaasshh09/DDSim](https://github.com/yaasshh09/DDSim) and CI is green on the
+current tip.
+**Next action:** start Phase 3, full Newton on the coupled 3N system
+
+Remote verification, run 32516425400 on 21ecf00, all four jobs green:
+
+    lint          ruff and mypy on 3.13
+    test (3.11)   full suite
+    test (3.12)   full suite
+    test (3.13)   full suite
 
 Local verification, Python 3.14.6, numpy 2.5.2, scipy 1.18.0:
 
@@ -98,6 +105,51 @@ Write the "Broke" field carefully even when it is embarrassing. The debugging
 narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
+
+### 2026-08-21, night, CI is green
+
+**Landed:** The oldest open item in this file is closed. The remote is
+`github.com/yaasshh09/DDSim`, everything is pushed, and the workflow that had
+been written and never executed has now executed and passed.
+
+Run 32516425400 on 21ecf00, four jobs, all green: lint, which is ruff and mypy
+on 3.13, and the full suite on 3.11, 3.12 and 3.13. Sixty-one seconds end to
+end. Every step inside every job succeeded, so the coverage gate at 95 passed
+on all three interpreters too, since pytest is configured to fail under it.
+
+The matrix is the part I could not check properly from here. Local is 3.14.6,
+and the most I could do before the push was parse every source and test file
+under a 3.11 feature version, which proves syntax and nothing else. Runtime
+behaviour on the oldest supported interpreter is now measured rather than
+assumed, which is the whole reason the matrix exists.
+
+**Broke:** One, and it is a claim I repeated three times without checking.
+
+**"CI has still never executed" was false from the Phase 2 entry onward.** The
+Actions API lists two runs, not one. The second is 32426149110 on 98d342f, the
+phase 1 writeup commit, dated 2026-08-20, and it passed. 98d342f is an ancestor
+of main, so that was a genuine push of this branch, not a stray. Which means CI
+had already run once, green, before I wrote that it never had, and I then
+carried the line forward into two more entries because I was copying my own
+previous "Open" list rather than checking the remote. There was no remote
+configured in my working copy, and I let that stand in for there being no remote
+at all. The two are not the same claim and only one of them was mine to make.
+
+Nothing downstream depended on it, which is the only reason it was cheap. The
+lesson is the same one this file keeps recording in different costumes: a fact
+that gets copied between entries stops being checked, and the copying is what
+makes it feel verified.
+
+**Open:** Two, both unchanged and both genuinely deferred rather than pending.
+
+- The right continuity convention still puts the metallurgical junction half a
+  cell off the refined node. Changing it moves every validated number and is a
+  decision to take deliberately.
+- n_i against Nc and Nv is documented but unresolved, and stays that way until
+  something needs an absolute band edge. Phase 5.
+
+**Next:** Phase 3. Full Newton on the coupled 3N system, then bias continuation
+on top of it.
 
 ### 2026-08-21, night, documentation debt and the stagnation guard
 
