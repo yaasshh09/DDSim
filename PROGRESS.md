@@ -13,7 +13,7 @@ start Phase 3, full Newton on the coupled 3N system
 
 Local verification, Python 3.14.6, numpy 2.5.2, scipy 1.18.0:
 
-    pytest   761 passed in 15 s
+    pytest   767 passed in 16 s
     coverage 99.84 percent, gate is 95
     ruff     clean
     mypy     clean
@@ -61,6 +61,7 @@ these; add a new entry instead.
 | 2026-08-21 | Density convergence measured as max abs(dn) / (n + n_i) | A pure relative change is dominated by nodes where the density is 1e-15 and physically irrelevant; an absolute change is dominated by the majority carrier. The floor at n_i is 1 in scaled units and says that a carrier below the intrinsic density carries no charge worth converging |
 | 2026-08-21 | The Scharfetter lifetime is evaluated on abs(net doping) | It wants the total Na + Nd and only the net is available from a composed profile. The two agree everywhere except in compensated material, and nothing here is compensated yet |
 | 2026-08-21 | The ideality crossover is demonstrated on a 1e18 device, not the 1e16 one | At 1e16 with the documented lifetimes the diode is diffusion limited and its ideality is 1 above 50 mV, which is correct rather than a shortfall. Depletion recombination has to dominate somewhere for n = 2 to exist, and raising the doping does that by cutting minority injection and raising the recombination rate at once. Nothing else changes between the two |
+| 2026-08-21 | newton_solve gives up once the residual is frozen to the last bit and the update is already inside tolerance | Both criteria still have to pass and the result is still converged=False, so the outcome is unchanged and only the iteration count moves. The check runs after the convergence test, so a warm start that arrives with a frozen residual and a zero update is still reported as the success it is. A frozen residual under a still moving iterate is deliberately not caught: that is a solver taking real steps that happen not to help, which is a different failure and gets the whole budget. Verified bit for bit inert on psi, n, p and the terminal currents at seven biases |
 | 2026-08-21 | extract/params.py and device/transport.py and device/state.py added to the layout | docs/03-architecture.md names params.py and puts ideality extraction in it. transport.py is the Gummel wiring, which cannot live in solve/ without breaking the module boundary. state.py holds DeviceState, which both equilibrium.py and transport.py return |
 
 ## Known deviations from reference
@@ -71,9 +72,9 @@ are not rediscovered as bugs later.
 | Item | Deviation | Reason | Acceptable? |
 |---|---|---|---|
 | n_i vs Nc, Nv, Eg | `sqrt(Nc*Nv)*exp(-Eg/(2*V_T))` = 1.0757e10, we use 1.0e10. 7.6 percent in n_i, 16 percent in n_i^2 | n_i is anchored to the textbook value by decision. Nc and Nv are the measured 300 K values. They are not mutually consistent and cannot both be primary | Yes for now. It will matter the first time something computes a band edge position or a Fermi level from Nc. Revisit at Phase 2 |
-| Intrinsic Debye length | docs/06-constants.md says "roughly 24 um". The doc's own formula with the doc's own n_i gives **40.885 um** | 24 um reproduces exactly as `sqrt(eps*V_T/(2*q*1.45e10))` = 24.01 um, so that line carries both an extra factor of 2 and the superseded 1.45e10 n_i. The doping table in the same section (128, 40, 13, 4.1, 0.4 nm) is consistent with the formula, so only the intrinsic line is wrong | No, the doc line should be corrected to 40.9 um. Code follows the formula |
-| Built-in potential, 1e16/1e16 | docs/06-constants.md says "about 0.695 V". With n_i = 1.0e10 it is **0.7143 V** | 0.695 V is the n_i = 1.45e10 answer. Same superseded constant as the line above | No, the doc line should be corrected to 0.714 V. This one bites in Phase 1, where V_bi is an acceptance target and a 19 mV offset reads exactly like a boundary condition sign error |
-| Symbolic factorization reuse | docs/02-numerics.md calls it a "significant speedup for free". It is not available at all | scipy's splu exposes no symbolic and numeric split. See the Broke entry | No, the doc claim should be softened. The interface is built so a UMFPACK or KLU backend can deliver it later |
+| Intrinsic Debye length | docs/06-constants.md says "roughly 24 um". The doc's own formula with the doc's own n_i gives **40.885 um** | 24 um reproduces exactly as `sqrt(eps*V_T/(2*q*1.45e10))` = 24.01 um, so that line carries both an extra factor of 2 and the superseded 1.45e10 n_i. The doping table in the same section (128, 40, 13, 4.1, 0.4 nm) is consistent with the formula, so only the intrinsic line is wrong | Corrected in the doc on 2026-08-21. Code follows the formula, and a test pins 40.885 um so a revert cannot take the code with it |
+| Built-in potential, 1e16/1e16 | docs/06-constants.md says "about 0.695 V". With n_i = 1.0e10 it is **0.7143 V** | 0.695 V is the n_i = 1.45e10 answer. Same superseded constant as the line above | Corrected in the doc on 2026-08-21, and in phases/PHASE-1.md. This one bites in Phase 1, where V_bi is an acceptance target and a 19 mV offset reads exactly like a boundary condition sign error, so a test asserts 0.7143 and separately asserts it is not 0.695 |
+| Symbolic factorization reuse | docs/02-numerics.md calls it a "significant speedup for free". It is not available at all | scipy's splu exposes no symbolic and numeric split. See the Broke entry | Corrected in the doc on 2026-08-21, with the measurement that killed it. The interface is built so a UMFPACK or KLU backend can deliver it later |
 | V_bi in the Phase 1 acceptance criteria | phases/PHASE-1.md asks for V_T*ln(Na*Nd/n_i^2) to under 0.5 percent and then says "expect about 0.695 V". Those disagree by 2.8 percent, five times the tolerance | The same superseded n_i = 1.45e10 as the constants doc. The formula gives 0.7143 V with our n_i | The formula wins. A test asserts 0.7143 V and asserts it is not 0.695, so the discrepancy stays visible |
 | Depletion width on a heavily doped side | x_p/x_n = Nd/Na is only recovered when the depleted width exceeds the local Debye length | At 100 to 1 doping the heavy side depletes over 0.74 Debye lengths, so it is entirely smeared and has no abrupt edge to find. Measured ratio 29 against a predicted 100 | Yes. This is the depletion approximation failing, not the solver. Tested at 10 to 1 where it holds to 30 percent |
 | Reverse bias without continuation | -10 V needs 46 Newton iterations against a budget of 50 | The step limiter caps psi at 5 V_T per step, so a 10 V shift needs many of them | Acceptable for now. Bias continuation in Phase 3 is the proper fix, not a bigger budget |
@@ -97,6 +98,117 @@ Write the "Broke" field carefully even when it is embarrassing. The debugging
 narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
+
+### 2026-08-21, night, documentation debt and the stagnation guard
+
+**Landed:** Every item on the open list that could be closed without making a
+physics decision. No numbers moved. 761 tests became 767, coverage 99.84
+percent, ruff and mypy clean.
+
+The documentation backlog has been carried since Phase 0 and it was the whole of
+what was actually fixable, so it went first.
+
+- `docs/06-constants.md`. The intrinsic Debye length is 40.9 um, not 24 um. The
+  built-in potential for 1e16 / 1e16 is 0.7143 V, not 0.695 V. Both old numbers
+  are the same formula at n_i = 1.45e10, and the Debye one carried a stray
+  factor of 2 as well. The extrinsic Debye table went to three significant
+  figures from the code rather than the rounded values it had. And the file now
+  says out loud that n_i, Nc, Nv and Eg are mutually inconsistent by 7.6 percent
+  in n_i, which it had only ever implied, with the anchoring scheme written out
+  and the note that it stops being bookkeeping the moment something computes a
+  band edge.
+- `docs/02-numerics.md`. Three corrections plus one I had not counted. The
+  Bernoulli derivative recipe is replaced by what the code ships, with the
+  cancellation analysis that forced it and the measured errors on both sides of
+  the branch boundary. The "exp overflow otherwise" note on the negative branch
+  is gone, because expm1 of a negative argument cannot overflow and the branch
+  was a short circuit that buys nothing. The symbolic factorization claim is
+  replaced by the measurement that killed it, 23 ms to 352 ms and 6.1 times the
+  fill, along with what is genuinely reusable, which is the pattern half of the
+  COO to CSC conversion. The fourth was the convergence criteria section, which
+  still described an absolute residual threshold. It now carries the scale, the
+  flux floor underneath the scale, and the carrier change measured as
+  max abs(dn)/(n + n_i).
+- `phases/PHASE-1.md`. The 0.695 V acceptance figure contradicted the formula
+  printed on the line above it by 2.8 percent against a 0.5 percent tolerance.
+  The formula wins and the phase says so.
+- `docs/04-validation.md`. Tier 2 gains the ohmic resistor, which was the one
+  case in the tier where the solver is not allowed to miss by a percent, with a
+  note to run it first because it pins the Einstein relation, the drift sign,
+  the contacts, the scaling and the current extraction with one number. Tier 3
+  gains mirror symmetry, the right continuity caveat that goes with it, and the
+  low bias caveat on both current continuity and the terminal current sum, which
+  were stated as unconditional gates and are not.
+
+Then the stagnation guard, which was the one open item that was code.
+`newton_solve` takes `stagnation_window`, default 4, and gives up once the
+residual has been identical to the last bit across that many consecutive history
+entries while the update is already inside `update_tol`. Both halves are load
+bearing: a frozen residual under a still moving iterate is a solver taking real
+steps that happen not to help, which is a different failure and gets the whole
+budget, and there is a test that holds it to that. The check runs after the
+convergence test, so it cannot turn a success into a failure. `converged` stays
+False either way, so this is a diagnosis speed change and not a semantics change
+in the outcome, which is what made it safe to take unilaterally. The message
+names the frozen residual, the threshold, the update and the two things that
+cause it.
+
+Proved inert three ways, in increasing order of how much they are worth. Psi, n,
+p and the terminal currents at seven biases from -1 V to +0.7 V, snapshotted
+with the guard on and with it off, byte identical. The whole suite with the
+guard defaulted off, where the only failure is the guard's own test and the
+other 766 are unmoved. And the one that actually settles it: instrumenting
+newton_solve across the analytic, convergence, invariant and regression suites,
+the guard fires zero times. It cannot move a device number because no device
+solve in the project reaches the state it triggers on.
+
+That last measurement is also the honest limit of the change. The threshold fix
+in the previous entry removed the case that motivated the guard, so today it is
+latent and only the synthetic unit tests exercise it. It is insurance against
+the next threshold that sits under a floor, not a saving anyone will feel now.
+One caveat I want on the record rather than buried: the guard reasons from four
+bit-identical residuals under a settled update, and while that means the
+residual is completely insensitive to the updates being taken, it is not a proof
+that accumulated drift could never eventually shift it. `stagnation_window=None`
+restores the old behaviour exactly and a test pins that, which is the intended
+escape hatch if it ever cuts a solve short.
+
+**Broke:** Two, both mine, both in claims rather than code.
+
+1. **The resistor accuracy in the last entry is wrong.** I wrote that it "comes
+   out at 1e-12 and does not move under refinement". The first half only holds
+   at the smallest bias. Measured across net doping from -1e16 to 1e18 including
+   the near-intrinsic cases: 4.3e-12 worst at 1e-4 V, 3.4e-10 at 1e-2 V, 3.1e-9
+   at 0.1 V. The growth is the Gummel tolerance, not the discretization, and the
+   refinement half of the claim is fine, 1.4e-10 on 11 nodes against 2.0e-10 on
+   401. I had taken the number from the lowest bias case and generalised it. The
+   validation doc now carries the table rather than the headline, and the test
+   gate at 1e-7 has two orders of headroom over the worst case rather than the
+   five I would have assumed.
+
+2. **Correcting the docs made two test docstrings lie.** Both the V_bi test and
+   the intrinsic Debye test open by quoting what the docs say, and both docs no
+   longer say it. Fixed, and both tests kept, because the numbers they reject
+   are the ones every other silicon reference prints and a doc edit that reverts
+   should not be able to take the code with it quietly.
+
+**Open:** Three, and all three are now blocked on something other than effort.
+
+- CI has still never executed. Unchanged and unchangeable from here: there is no
+  remote and I do not push. What I can say is that the three commands the
+  workflow actually runs, `ruff check ddsim tests`, `mypy`, and
+  `pytest --cov=ddsim`, were run verbatim and are clean, and that every source
+  and test file parses under a 3.11 feature version, which is the oldest entry
+  in the matrix and the one most likely to break first.
+- The right continuity convention still puts the metallurgical junction half a
+  cell off the node the mesh refines to. Deliberately untouched. Changing it
+  moves every validated number in the project and that is a decision to take on
+  purpose, not as part of a cleanup.
+- n_i against Nc and Nv is documented properly now but still unresolved, and it
+  stays unresolved until something needs an absolute band edge. That is Phase 5.
+
+**Next:** unchanged. Push to a remote and confirm the workflow is green, then
+start Phase 3, full Newton on the coupled 3N system.
 
 ### 2026-08-21, evening, performance and debugging pass
 
