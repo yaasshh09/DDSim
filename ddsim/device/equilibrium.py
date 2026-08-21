@@ -50,8 +50,9 @@ import numpy.typing as npt
 
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Device
+from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import apply_ohmic_contacts
-from ddsim.discretize.poisson import PoissonAssembly, assemble_poisson
+from ddsim.discretize.poisson import assemble_poisson
 from ddsim.physics.statistics import (
     n_boltzmann_scaled,
     p_boltzmann_scaled,
@@ -162,7 +163,7 @@ def solve_equilibrium(
     net_doping = device.net_doping_scaled
     doping_values = net_doping.data
 
-    def assemble(psi_values: npt.NDArray[np.float64]) -> PoissonAssembly:
+    def assemble(psi_values: npt.NDArray[np.float64]) -> SparseAssembly:
         psi = Field(psi_values, "V", ScalingState.SCALED, Location.NODE, name="psi")
         assembly = assemble_poisson(mesh, psi, net_doping, scale, phi_n, phi_p)
         return apply_ohmic_contacts(

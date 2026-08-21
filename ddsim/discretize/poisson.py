@@ -64,34 +64,13 @@ differentiation works on them, which is how the Jacobian is verified.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import numpy as np
 import numpy.typing as npt
 
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
+from ddsim.discretize.assembly import SparseAssembly
 from ddsim.mesh.mesh1d import Mesh1D
-
-
-@dataclass(frozen=True)
-class PoissonAssembly:
-    """A residual vector and a Jacobian in COO form, ready for solve/linear.py."""
-
-    residual: npt.NDArray[np.float64]
-    """F(psi) [1], one entry per node."""
-
-    rows: npt.NDArray[np.int64]
-    """Jacobian row indices."""
-
-    cols: npt.NDArray[np.int64]
-    """Jacobian column indices."""
-
-    values: npt.NDArray[np.float64]
-    """Jacobian values, same length as rows and cols."""
-
-    shape: tuple[int, int]
-    """Jacobian shape, (n_nodes, n_nodes)."""
 
 
 def poisson_residual(
@@ -183,7 +162,7 @@ def assemble_poisson(
     scale: ScaleFactors,
     phi_n: Field | None = None,
     phi_p: Field | None = None,
-) -> PoissonAssembly:
+) -> SparseAssembly:
     """Assemble the equilibrium Poisson system for a 1D mesh.
 
     Args:
@@ -238,7 +217,7 @@ def assemble_poisson(
         h, volume, psi.data, net_doping.data, n_values, p_values
     )
 
-    return PoissonAssembly(
+    return SparseAssembly(
         residual=residual,
         rows=rows,
         cols=cols,

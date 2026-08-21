@@ -36,7 +36,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ddsim.core.scaling import ScaleFactors
-from ddsim.discretize.poisson import PoissonAssembly
+from ddsim.discretize.assembly import SparseAssembly
 
 
 @dataclass(frozen=True)
@@ -66,11 +66,11 @@ def ohmic_psi_scaled(net_doping: float, applied: float) -> float:
 
 
 def apply_dirichlet(
-    assembly: PoissonAssembly,
+    assembly: SparseAssembly,
     psi: npt.NDArray[np.float64],
     node: int,
     target: float,
-) -> PoissonAssembly:
+) -> SparseAssembly:
     """Pin psi at one node, returning a new assembly.
 
     Args:
@@ -95,7 +95,7 @@ def apply_dirichlet(
     residual = assembly.residual.copy()
     residual[node] = psi[node] - target
 
-    return PoissonAssembly(
+    return SparseAssembly(
         residual=residual,
         rows=rows,
         cols=cols,
@@ -105,12 +105,12 @@ def apply_dirichlet(
 
 
 def apply_ohmic_contacts(
-    assembly: PoissonAssembly,
+    assembly: SparseAssembly,
     psi: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
     contacts: tuple[OhmicContact, ...],
     scale: ScaleFactors,
-) -> PoissonAssembly:
+) -> SparseAssembly:
     """Apply every ohmic contact to an assembled system.
 
     Args:

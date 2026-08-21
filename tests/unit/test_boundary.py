@@ -19,13 +19,14 @@ import pytest
 import scipy.sparse as sp
 
 from ddsim.core.scaling import ScaleFactors
+from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import (
     OhmicContact,
     apply_dirichlet,
     apply_ohmic_contacts,
     ohmic_psi_scaled,
 )
-from ddsim.discretize.poisson import PoissonAssembly, poisson_jacobian, poisson_residual
+from ddsim.discretize.poisson import poisson_jacobian, poisson_residual
 from ddsim.mesh.mesh1d import uniform_mesh_1d
 from ddsim.physics.statistics import psi_equilibrium_scaled
 
@@ -44,7 +45,7 @@ def sample_assembly(n_nodes: int = 11, doping: float = 1e6) -> tuple:
     net_doping = np.full(n_nodes, doping)
 
     rows, cols, values = poisson_jacobian(h, volume, psi, net_doping)
-    assembly = PoissonAssembly(
+    assembly = SparseAssembly(
         residual=poisson_residual(h, volume, psi, net_doping),
         rows=rows,
         cols=cols,
@@ -54,7 +55,7 @@ def sample_assembly(n_nodes: int = 11, doping: float = 1e6) -> tuple:
     return assembly, psi
 
 
-def dense(assembly: PoissonAssembly) -> np.ndarray:
+def dense(assembly: SparseAssembly) -> np.ndarray:
     """The Jacobian as a dense array, for inspection."""
     return sp.coo_matrix(
         (assembly.values, (assembly.rows, assembly.cols)), shape=assembly.shape
