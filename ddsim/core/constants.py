@@ -270,3 +270,26 @@ def D_n(T: float = T_ROOM) -> float:
 def D_p(T: float = T_ROOM) -> float:
     """Hole diffusivity [cm^2/s] from the Einstein relation D = V_T * mu."""
     return V_T(T) * mu_p(T)
+
+
+# ------------------------------------------------------------ SRH lifetimes
+# Numbers only. The Scharfetter model that consumes them lives in
+# physics/recombination.py, because a model is not a constant.
+
+TAU_N_MAX: float = 1e-5
+"""Electron lifetime in undoped silicon [s], from docs/06-constants.md."""
+
+TAU_P_MAX: float = 3e-6
+"""Hole lifetime in undoped silicon [s]."""
+
+TAU_N_MIN: float = 0.0
+"""Electron lifetime floor at very high doping [s]."""
+
+TAU_P_MIN: float = 0.0
+"""Hole lifetime floor at very high doping [s]."""
+
+N_REF_SRH: float = 5e16
+"""Doping at which the Scharfetter lifetime is halfway to its floor [cm^-3]."""
+
+GAMMA_SRH: float = 1.0
+"""Sharpness of the Scharfetter lifetime transition [1]."""
