@@ -237,9 +237,14 @@ def newton_solve(
             )
 
     if not message:
+        # The threshold belongs in the message. A residual that stops moving
+        # while the update is already tiny means the threshold is below the
+        # arithmetic floor of the residual, and without the number to compare
+        # against that reads exactly like a solve that is merely slow.
         message = (
             f"did not converge in {max_iterations} iterations, "
-            f"final residual {residual_history[-1]:.3e}, "
+            f"final residual {residual_history[-1]:.3e} "
+            f"against a threshold of {residual_threshold:.3e}, "
             f"final update {update_history[-1] if update_history else float('nan'):.3e}"
         )
 

@@ -255,8 +255,10 @@ def graded_mesh_1d(
     spacing has to fall to h_min and rise again.
 
     The split of nodes between the two sides is chosen to minimise the worst
-    neighbouring cell ratio, by trying every split. With a few hundred nodes
-    that is microseconds, and it is far easier to follow than a closed form.
+    neighbouring cell ratio. Every split's growth ratios are solved for, which
+    is enough to know its score without building its spacing array, so only the
+    splits that can actually win are built and measured. See the comment on the
+    bound below for why that is the same answer as scoring all of them.
     """
     if length <= 0.0:
         raise ValueError(f"length must be positive, got {length}")

@@ -18,7 +18,7 @@ import numpy as np
 import pytest
 
 from ddsim.core import constants as C
-from ddsim.device.equilibrium import solve_equilibrium
+from ddsim.device.equilibrium import solve_equilibrium, solve_poisson
 from ddsim.device.pn_diode import pn_diode
 
 MICRON = 1e-4
@@ -208,3 +208,88 @@ def test_the_charge_neutral_guess_is_a_good_starting_point() -> None:
     assert difference[far].max() < 1e-6, f"worst {difference[far].max():.3e}"
     assert difference.max() > 1.0, "the junction must actually need solving"
     assert L_D > 0.0
+
+
+# ------------------------------------------- the residual threshold has a floor
+
+
+def test_newton_converges_on_lightly_doped_material() -> None:
+    """The doping range above stops at 1e14, and below it the solve used to fail.
+
+    The residual threshold is built from the doping charge in the largest dual
+    cell, because that is the size of the terms the residual is made of and it
+    does not depend on where the iteration started. But the residual has a
+    second half, the difference of the two face fluxes, and that difference
+    cannot be resolved below machine epsilon times the size of the fluxes
+    themselves. The two scale in opposite directions: the charge falls with
+    the doping while psi is only logarithmic in it, so the flux floor stays
+    put.
+
+    Below about 1e13 the charge threshold sinks under the flux floor, and then
+    nothing can meet it. Measured on the 1e12 bar before the fix: the residual
+    reached 6.8e-12 at the third iteration and sat there, unchanged to the last
+    bit, for the remaining forty-seven, with an update of 4.4e-16 the whole
+    time. Newton had solved it at step three and then reported failure.
+
+    High resistivity substrates run at exactly these dopings, so this is a
+    range the project needs rather than a curiosity.
+    """
+    for doping in (1e13, 1e12, 1e11, 1e10):
+        device = pn_diode(
+            Na=doping, Nd=doping, length=4.0 * MICRON, junction=2.0 * MICRON
+        )
+        state = solve_equilibrium(device)
+
+        assert state.newton is not None
+        assert state.newton.converged, (
+            f"{doping:.0e} did not converge: {state.newton.message}"
+        )
+        assert state.newton.iterations < 10, (
+            f"{doping:.0e} took {state.newton.iterations} iterations, which "
+            "means the threshold is sitting on the floor rather than above it"
+        )
+
+
+def test_the_threshold_floor_does_not_loosen_a_normally_doped_solve() -> None:
+    """The floor is a floor, not an addition.
+
+    Raising the threshold to clear the flux floor must not touch any device
+    where the doping charge already clears it, otherwise every diode in the
+    project silently converges to a looser answer than it used to.
+    """
+    for doping in (1e15, 1e16, 1e18):
+        device = pn_diode(Na=doping, Nd=doping)
+        state = solve_equilibrium(device)
+
+        assert state.newton is not None
+        # The charge threshold is rtol times the doping charge in the largest
+        # cell, and the solve has to beat it rather than some raised version.
+        charge = float(
+            np.max(
+                np.abs(device.net_doping_scaled.data)
+                * device.mesh.volume
+                / device.scale.x_0
+            )
+        )
+        assert state.newton.residual_history[-1] < 1e-12 + 1e-10 * charge
+
+
+def test_a_stalled_solve_says_what_it_was_aiming_for() -> None:
+    """The message has to carry the threshold, not just the residual.
+
+    A residual that has stopped moving while the update is already tiny means
+    the threshold is under the arithmetic floor. Without the number to compare
+    against, that reads exactly like a solve that is merely slow, which is a
+    different problem with a different fix.
+    """
+    device = pn_diode(Na=1e16, Nd=1e16)
+
+    # A flat start is many volts from the answer and the step limiter allows
+    # 5 * V_T, so one iteration cannot possibly land.
+    stalled = solve_poisson(
+        device, np.zeros(device.mesh.n_nodes), max_iterations=1
+    )
+
+    assert not stalled.converged
+    assert "threshold" in stalled.message
+    assert f"{stalled.residual_history[-1]:.3e}" in stalled.message

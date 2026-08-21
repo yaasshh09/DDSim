@@ -68,6 +68,19 @@ neutral guess at a heavily doped junction can be tens of volts, which
 overflows exp immediately.
 """
 
+EPS = float(np.finfo(np.float64).eps)
+"""Machine epsilon [1], the unit the flux cancellation floor is measured in."""
+
+FLUX_FLOOR_MARGIN = 16.0
+"""Headroom over eps times the largest face flux [1].
+
+The residual floor is a few eps times the flux, not exactly one: each node
+sums two face fluxes and a charge term, and each face flux is itself a
+difference. Measured floors run 1.2 to 1.7 times eps*flux across four decades
+of doping, so 16 leaves an order of magnitude of headroom while staying far
+below the charge threshold at any doping where that one binds.
+"""
+
 
 def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
     """Flat quasi-Fermi levels (phi_n, phi_p) [V], scaled.
@@ -167,7 +180,31 @@ def solve_poisson(
     # starts at the answer report success: inside a Gummel cycle the potential
     # arrives already converged, its residual already at the roundoff floor,
     # and a threshold relative to that floor is unreachable by construction.
-    residual_scale = float(np.max(np.abs(doping_values) * mesh.volume / scale.x_0))
+    charge = float(np.max(np.abs(doping_values) * mesh.volume / scale.x_0))
+
+    # The other half of the residual is a difference of face fluxes, each of
+    # size psi/h, and a difference cannot be resolved below machine epsilon
+    # times the size of the things being differenced. That is a floor no solve
+    # gets under however exactly it satisfies the equation.
+    #
+    # It has to be in the threshold because the two terms scale differently.
+    # The charge falls with the doping while the flux barely moves, psi being
+    # logarithmic in it. At 1e16 the charge threshold sits four decades above
+    # the floor and this never binds. Below about 1e13 it sinks underneath,
+    # and then a perfectly converged solve reports failure having spent its
+    # whole iteration budget on a residual that stopped moving at step three.
+    # Measured on a 1e12 uniform bar: residual pinned at 6.8e-12 for 47
+    # iterations against a threshold of 3.4e-12, update 4.4e-16 throughout.
+    edge_psi = np.maximum(np.abs(psi_initial[:-1]), np.abs(psi_initial[1:]))
+    flux_floor = FLUX_FLOOR_MARGIN * EPS * float(
+        np.max(edge_psi / (mesh.h / scale.x_0))
+    )
+
+    # Raise the scale only when the floor would otherwise bind, so that every
+    # device where the charge already dominates keeps the threshold it had.
+    residual_scale = charge
+    if residual_rtol > 0.0 and residual_rtol * charge < flux_floor:
+        residual_scale = flux_floor / residual_rtol
 
     return newton_solve(
         assemble,
