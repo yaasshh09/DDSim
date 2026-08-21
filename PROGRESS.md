@@ -13,8 +13,8 @@ start Phase 3, full Newton on the coupled 3N system
 
 Local verification, Python 3.14.6, numpy 2.5.2, scipy 1.18.0:
 
-    pytest   707 passed in 25 s
-    coverage 99.83 percent, gate is 95
+    pytest   761 passed in 15 s
+    coverage 99.84 percent, gate is 95
     ruff     clean
     mypy     clean
 
@@ -97,6 +97,136 @@ Write the "Broke" field carefully even when it is embarrassing. The debugging
 narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
+
+### 2026-08-21, evening, performance and debugging pass
+
+**Landed:** An optimisation pass that moved no numbers, and one real bug found
+while probing for them.
+
+The bias sweep was spending more time in Python than in SuperLU, so I went
+after the overhead rather than the arithmetic. Everything in that commit is the
+same computation arranged to run once instead of twice, checked by snapshotting
+psi, n, p, Jn, Jp, the terminal currents and the Gummel iteration counts at four
+biases before and after. Every value is bit for bit identical.
+
+- `solve/linear.py` keeps the part of the COO to CSC conversion that depends
+  only on the sparsity pattern. Across Newton steps only the values move, so
+  the sort permutation and the duplicate grouping are computed once and
+  replayed as a gather plus a segmented sum. The replay is tested against
+  scipy's own conversion bit for bit, duplicate summation order included. This
+  was the single biggest win, and it is the thing the module docstring already
+  said a real backend would do with the pattern.
+- `newton_solve` takes a solver to reuse, so a Gummel cycle stops rebuilding
+  the Poisson pattern on every call. It was rebuilding it forty times a sweep.
+- The Poisson residual and Jacobian share one pair of exponentials, and the two
+  halves of each continuity system share one Bernoulli pair. Each was computing
+  the same thing twice per assembly, and the Bernoulli pair alone was 65 percent
+  of a continuity assembly.
+- Dirichlet is applied to every contact in one pass over the triplets instead of
+  rebuilding the whole triplet array once per contact.
+- The graded mesh solves every candidate split's growth ratio at once and builds
+  spacing arrays only for splits that can win. `np.add.at` on unique contiguous
+  indices became slice addition. `ScaleFactors` and `Device` net doping cache
+  their derived values, safe because both are frozen.
+
+Sweep 119 ms to 68 ms, mesh build 10.7 ms to 3.0 ms, test suite 26 s to 15 s.
+
+The scalar bisection the mesh used to call is now dead in production, so it
+moved to `tests/reference/grading.py` and became the oracle, in the same role
+`highprec.py` plays for Bernoulli. The vectorised solver has to match it to the
+last bit rather than to a tolerance.
+
+Two test files the suite was missing:
+
+- `tests/analytic/test_ohmic_resistor.py`. A uniformly doped bar has to obey
+  J = sigma V / L. Unlike every other Tier 2 target this is not a limit the
+  solver is allowed to miss by a percent: with constant mobility and Boltzmann
+  statistics the system reduces to Ohm's law identically. It comes out at 1e-12
+  and does not move under refinement, because Scharfetter-Gummel is exact for a
+  constant field. It pins the Einstein relation, the drift sign, the contacts,
+  the scaling and the current extraction with one number.
+- `tests/invariant/test_mirror_symmetry.py`. Build the diode back to front and
+  it has to give the same current. It does, to 9e-16.
+
+**Broke:** Three, in increasing order of how much they were worth finding.
+
+1. **My first pruning bound for the mesh split search was wrong, and the
+   fallback hid it.** I argued that every cell on one side grows by the same
+   ratio, so a split cannot score below max(ratio_left, ratio_right), and pruned
+   on that. Tests passed and the mesh was identical, because I had written a
+   fallback that rescans every split if the bound is ever violated. What I
+   missed is that `_side_spacings` rescales each side to land on its length
+   exactly, and for a side of one cell the ratio solve returns 1.0 without
+   solving anything, so that single cell becomes the whole side rather than
+   h_min. The two cells at the pivot are then 500 to 1 apart against a bound of
+   1.008. The fallback fired on every call, so the pruning saved nothing and the
+   mesh build barely moved. Putting the pivot junction into the bound turns it
+   into the exact score up to rounding, and only then did 10.7 ms become 3.0 ms.
+   The lesson is that a correctness fallback with no counter on it is invisible.
+
+2. **A mirrored diode disagreed with the original by 0.13 percent, at every
+   bias, in both directions.** Too systematic to be arithmetic. The mesh turned
+   out symmetric to 4e-20 and the doping arrays differed at exactly one node out
+   of 201. `Step` is right continuous, so the node sitting exactly on the
+   junction takes the n side value one way round and the p side value the other,
+   which moves the metallurgical junction by one cell. These diodes are short
+   base, half a micron against a diffusion length of 175 um, so the saturation
+   current goes as 1/W and one cell of base width is worth a tenth of a percent.
+   Confirmed by shifting the step by one h_min on a single device, which
+   reproduced the mirror disagreement to six digits. Not a defect, and the right
+   continuity convention is already in the decision log above, but the
+   interaction was not obvious and both facts are now pinned by tests.
+
+3. **The Poisson residual threshold sat below the arithmetic floor of the
+   residual for lightly doped material, and a converged solve reported
+   failure.** This is the real one. The threshold is built from the doping
+   charge in the largest dual cell, which is right as far as it goes: it does not
+   depend on where the iteration started, which is what lets a warm Gummel cycle
+   report success. But the residual is also a difference of two face fluxes of
+   size psi/h, and a difference cannot be resolved below eps times the size of
+   the things being differenced. The two scale in opposite directions. The
+   charge falls linearly with the doping while psi is only logarithmic in it, so
+   the flux floor stays put, and below about 1e13 the threshold sinks underneath
+   it.
+
+   On a 1e12 uniform bar the residual reached 6.8e-12 at the third iteration and
+   sat there, unchanged to the last bit, for the remaining forty-seven, with an
+   update of 4.4e-16 throughout. Newton had solved it at step three and then
+   raised. I found it by accident, building a near intrinsic resistor to
+   exercise the hole term in the conductivity.
+
+   The scale is now raised to clear the flux floor, and only when the floor
+   would otherwise bind, so every device where the charge already clears it
+   keeps the threshold it had. Verified by snapshot, unchanged bit for bit.
+   1e12 and 1e11 now converge in 3 iterations instead of failing after 50. High
+   resistivity substrates run at exactly these dopings, so this was a range the
+   project needed rather than a curiosity.
+
+   What made it slow to spot is that the failure message gave the final residual
+   and the final update but not the threshold. Without the number being compared
+   against, a residual stuck above a threshold reads exactly like a solve that is
+   merely slow, which is a different problem with a different fix. The message
+   carries it now.
+
+**Open:**
+
+- Newton spins its whole iteration budget when the residual has stopped moving
+  and the update is already below tolerance. Reporting failure there is correct
+  and documented, since both criteria have to pass, but spending forty-seven
+  iterations to do it is waste. A stagnation guard changes generic solver
+  semantics and I did not want to make that call unilaterally.
+- The right continuity convention means the shipped `pn_diode` puts the
+  metallurgical junction half a cell off the node the mesh refines to. A box
+  integrated abrupt junction would arguably give that node zero net doping,
+  since its dual cell is half p and half n. That is a physics decision that
+  would move every validated number, so it stays as it is unless taken
+  deliberately.
+- docs/04-validation.md Tier 2 has no resistor case. The test exists now, the
+  doc does not mention it.
+- CI has still never run. Unchanged.
+
+**Next:** unchanged. Push to a remote and confirm the workflow is green, then
+start Phase 3.
 
 ### 2026-08-21, later still, Phase 2
 
