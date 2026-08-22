@@ -58,7 +58,15 @@ import numpy.typing as npt
 from ddsim.core import constants as C
 
 Density = float | npt.NDArray[np.float64]
-"""A carrier density, scalar or per node. Units are the caller's choice."""
+"""A carrier density, scalar or per node. Units are the caller's choice.
+
+float64 because that is what a device has. Every function below is also dtype
+preserving, which is what lets the coupled residual be differentiated by
+complex step, but that is a property of the implementations rather than of the
+interface, and widening the alias to say so drags complex through thirty
+signatures to serve one caller. discretize/coupled.py casts at the one call
+site that needs it.
+"""
 
 Lifetime = float | npt.NDArray[np.float64]
 """A carrier lifetime, scalar or per node, in the caller's units."""
