@@ -30,6 +30,8 @@ from ddsim.physics.bernoulli import (
     _dB_series,
     dB_dx,
 )
+from tests.reference.complexstep import DEFAULT_STEP as CS_STEP
+from tests.reference.complexstep import B_complex
 from tests.reference.highprec import (
     COMPLEX_STEP_MAX_ABS_X,
     COMPLEX_STEP_MIN_ABS_X,
@@ -340,3 +342,64 @@ def test_complex_step_is_untrustworthy_below_the_documented_cutoff() -> None:
     """
     error = relative_error(dB_complex_step(1e-6), dB_reference(1e-6))
     assert error > 1e-13
+
+
+# ------------------------------------------------------ complex arguments
+
+
+def test_B_preserves_a_complex_dtype() -> None:
+    """The continuity residual is verified by complex step, and B is in it.
+
+    Without this, the Scharfetter-Gummel residual discards the imaginary part
+    and the complex step Jacobian of every continuity block comes back as
+    exactly zero, which reads as agreement rather than as breakage.
+    """
+    got = B(np.array([0.5 + 1e-20j, -0.5 + 1e-20j]))
+
+    assert np.iscomplexobj(got)
+
+
+def test_B_on_a_real_valued_complex_array_matches_the_real_branch() -> None:
+    """A zero imaginary part must not change the answer."""
+    x = np.array([-300.0, -37.0, -1.0, -0.05, 0.0, 0.05, 1.0, 37.0, 300.0])
+    got = B(x.astype(np.complex128))
+
+    np.testing.assert_allclose(
+        np.asarray(got).real, np.asarray(B(x)), rtol=2e-15, atol=0.0
+    )
+
+
+def test_B_on_complex_input_matches_the_independent_reference() -> None:
+    """Checked against the closed form reference, which shares no branch."""
+    x = np.array([-300.0, -37.0, -1.0, -0.05, 0.0, 0.05, 1.0, 37.0, 300.0])
+    z = x + 1e-20j
+
+    got = np.asarray(B(z))
+    expected = B_complex(z)
+
+    np.testing.assert_allclose(got.real, expected.real, rtol=2e-15, atol=0.0)
+    np.testing.assert_allclose(got.imag, expected.imag, rtol=2e-13, atol=0.0)
+
+
+def test_B_complex_does_not_overflow_in_the_positive_tail() -> None:
+    """The real branch avoids exp(x) past 710 and the complex one must too."""
+    got = np.asarray(B(np.array([700.0 + 1e-20j])))[0]
+
+    assert math.isfinite(got.real)
+    assert math.isfinite(got.imag)
+
+
+def test_complex_step_through_B_recovers_dB_dx_at_the_origin() -> None:
+    """B'(0) = -1/2, the case the whole complex path exists to make work."""
+    step = CS_STEP
+    got = np.asarray(B(np.array([complex(0.0, step)])))[0].imag / step
+
+    assert got == pytest.approx(-0.5, rel=1e-14)
+
+
+@pytest.mark.parametrize("x", [-300.0, -37.0, -1.0, -0.1, 0.1, 1.0, 37.0, 300.0])
+def test_complex_step_through_B_recovers_dB_dx(x: float) -> None:
+    """The Phase 3 harness path, end to end, over the trustworthy range."""
+    got = np.asarray(B(np.array([complex(x, CS_STEP)])))[0].imag / CS_STEP
+
+    assert relative_error(got, dB_reference(x)) < 1e-13

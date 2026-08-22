@@ -65,6 +65,13 @@ from __future__ import annotations
 import numpy as np
 import numpy.typing as npt
 
+Argument = float | complex | npt.NDArray[np.float64] | npt.NDArray[np.complex128]
+"""What B accepts and returns [1].
+
+Complex is here for the complex step Jacobian verification, not for physics.
+The device never has a complex potential.
+"""
+
 SERIES_CUTOFF_B = 1e-4
 """Half width of the Taylor window for B [1].
 
@@ -122,6 +129,71 @@ def _B_positive_branch(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     return -x * np.exp(-x) / np.expm1(-x)
 
 
+def _complex_expm1(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
+    """exp(z) - 1 for complex z, for Re(z) <= 0 [1].
+
+    numpy and math provide no complex expm1, and the naive exp(z) - 1 loses
+    three orders of magnitude near the origin.
+
+        exp(x + iy) - 1 = (expm1(x) + exp(x)*(cos(y) - 1)) + i*exp(x)*sin(y)
+
+    cos(y) - 1 is evaluated as -2*sin(y/2)^2 rather than by subtracting from
+    one. For the tiny imaginary step of a complex step derivative, cos(y)
+    rounds to exactly 1.0 and the subtraction gives exactly 0.0, which throws
+    away the entire real part when x is also zero. B(ih) then comes back as
+    exactly 1 with no imaginary part and the derivative reads 0.0 instead of
+    -0.5. Squaring after the sine keeps the term at any step size.
+
+    Only called with Re(z) <= 0, so exp(x) is bounded by 1 and cannot
+    overflow. _B_complex arranges that.
+    """
+    x = z.real
+    y = z.imag
+
+    half_sin = np.sin(y / 2.0)
+    cos_minus_one = -2.0 * half_sin * half_sin
+
+    exp_x = np.exp(x)
+    real = np.expm1(x) + exp_x * cos_minus_one
+    imag = exp_x * np.sin(y)
+    return np.asarray(real + 1j * imag, dtype=np.complex128)
+
+
+def _B_complex(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
+    """B for complex arguments [1].
+
+    Exists so that the Scharfetter-Gummel residual preserves the dtype and can
+    be differentiated by complex step, which phases/PHASE-3.md makes the
+    non-negotiable acceptance criterion for every Jacobian block. Without it
+    the residual discards the imaginary part and every continuity block
+    verifies against a Jacobian of exactly zero, which reads as agreement.
+
+    Branched on the real part the same way the real function is, so neither
+    side overflows. There is no series branch: the closed form z/expm1(z)
+    holds full relative accuracy for any nonzero z, and the series in the real
+    path exists only to make B(0) exact, which is filled in directly here.
+    """
+    out = np.empty_like(z)
+
+    # 0/0 at the origin. The limit is exactly 1. A complex step argument is
+    # never exactly zero, so this only fires for a real valued complex array.
+    origin = z == 0.0
+    out[origin] = 1.0
+
+    positive = (z.real > 0.0) & ~origin
+    negative = ~positive & ~origin
+
+    if negative.any():
+        w = z[negative]
+        out[negative] = w / _complex_expm1(w)
+    if positive.any():
+        # B(z) = -z*exp(-z)/expm1(-z), which keeps the exponent negative.
+        w = z[positive]
+        out[positive] = -w * np.exp(-w) / _complex_expm1(-w)
+
+    return out
+
+
 def _dB_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """Taylor series for B' near the origin [1].
 
@@ -158,15 +230,24 @@ def _dB_positive_asymptote(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64
     return np.asarray((1.0 - x) * np.exp(-x))
 
 
-def B(x: float | npt.NDArray[np.float64]) -> float | npt.NDArray[np.float64]:
+def B(x: Argument) -> Argument:
     """Bernoulli function B(x) = x / (exp(x) - 1) [1].
 
     Dimensionless in and dimensionless out. In the Scharfetter-Gummel flux the
     argument is a scaled potential difference across an edge, which is already
     measured in units of V_T, so no thermal voltage appears here.
 
-    Returns a float for scalar input and an array of the same shape otherwise.
+    Returns a scalar for scalar input and an array of the same shape
+    otherwise, and preserves a complex dtype so that a residual built on it
+    can be differentiated by complex step. The real path is untouched by the
+    complex one: one dtype test per call, and every array below is float64.
     """
+    values = np.asarray(x)
+    if np.iscomplexobj(values):
+        is_scalar = values.ndim == 0
+        out = _B_complex(np.atleast_1d(values).astype(np.complex128))
+        return complex(out[0]) if is_scalar else out
+
     values = np.asarray(x, dtype=np.float64)
     is_scalar = values.ndim == 0
     values = np.atleast_1d(values)
