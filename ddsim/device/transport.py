@@ -442,6 +442,113 @@ def solve_bias_newton(
     )
 
 
+def _gummel_prelude(
+    device: Device,
+    models: TransportModels,
+    state: DeviceState,
+    cycles: int,
+) -> DeviceState:
+    """Run a fixed number of Gummel cycles, ignoring whether they converged.
+
+    A prelude is not a solve. It only has to move the iterate into the basin
+    Newton can finish from, and stopping it early on a convergence test would
+    defeat the point, so the update tolerance is set below anything reachable
+    and the cycle count is the only thing that ends it.
+
+    A block that fails outright still ends it, and the state at that point is
+    returned rather than raised. Newton is about to be handed whatever this
+    produced and is allowed to fail on it in its own way.
+    """
+    if cycles <= 0:
+        return state
+
+    steps = [
+        poisson_block(device),
+        electron_block(device, models),
+        hole_block(device, models),
+    ]
+    try:
+        result = gummel_solve(
+            state, steps, update_tol=1e-300, max_iterations=cycles
+        )
+    except TransportError as failure:
+        return failure.state
+    return replace(result.state, gummel=result)
+
+
+def solve_bias_hybrid(
+    device: Device,
+    models: TransportModels | None = None,
+    guess: DeviceState | None = None,
+    gummel_cycles: int = 3,
+    retry_cycles: int = 5,
+    max_psi_step: float = 5.0,
+    max_iterations: int = 30,
+) -> DeviceState:
+    """Gummel for a few cycles to reach the basin, then full Newton.
+
+    Args:
+        device: the device, carrying its contact voltages.
+        models: recombination and diffusivities. Built from the device if None.
+        guess: a previous solution to start from.
+        gummel_cycles: prelude length. docs/02-numerics.md says 3 to 5.
+        retry_cycles: extra cycles to run before one second Newton attempt,
+            when the first fails. Zero disables the retry.
+        max_psi_step: cap on the potential update per Newton step [1], scaled.
+        max_iterations: Newton budget per attempt.
+
+    The strategy docs/02-numerics.md prescribes, built against a case where it
+    is measurably needed rather than on principle. On a 1e15 diode at 1.2 V on
+    41 nodes, Newton from the Poisson guess diverges: thirty steps, twenty
+    eight of them against the limiter, forty two nodes with a negative
+    density, final residual 1.3e5. Two Gummel cycles first turn that into an
+    eight step solve with a clean quadratic tail. Three give seven, five give
+    six.
+
+    Tightening the damping does not fix that case, which is worth knowing
+    before reaching for it. Capping the potential update at 2 V_T instead of 5
+    does converge, in forty seven steps with forty of them limited; capping at
+    1 or at 0.5 does not converge at all inside sixty. docs/05-pitfalls.md
+    says damping hides problems rather than solving them, and here it does not
+    even hide it.
+
+    Continuation remains the better answer where it is available: the same
+    device reaches 1.2 V in seven solves with no retries and no prelude at
+    all. The hybrid is for the case where there is no ramp to come up, which
+    is every first solve of one.
+
+    The retry restarts from the state before Newton ran, never from the state
+    Newton diverged to. A diverged iterate has negative densities in it, and
+    handing those to a Gummel block whose whole positivity argument assumes
+    non-negative input would produce a second failure with a different cause.
+    """
+    if models is None:
+        models = TransportModels.for_device(device)
+
+    start = initial_state(device) if guess is None else guess
+
+    def newton_from(state: DeviceState) -> DeviceState:
+        return solve_bias_newton(
+            device,
+            models=models,
+            guess=state,
+            max_psi_step=max_psi_step,
+            max_iterations=max_iterations,
+        )
+
+    warmed = _gummel_prelude(device, models, start, gummel_cycles)
+    result = newton_from(warmed)
+
+    # solve_bias_newton always attaches a NewtonResult, converged or not.
+    assert result.newton is not None
+    if result.newton.converged or retry_cycles <= 0:
+        return replace(result, gummel=warmed.gummel)
+
+    # From the pre-Newton state, not the diverged one.
+    warmed = _gummel_prelude(device, models, warmed, retry_cycles)
+    return replace(newton_from(warmed), gummel=warmed.gummel)
+
+
 def solve_bias(
     device: Device,
     models: TransportModels | None = None,
