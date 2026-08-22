@@ -24,8 +24,11 @@ import pytest
 from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
 from ddsim.physics.recombination import (
+    AugerRecombination,
     NoRecombination,
+    RecombinationModel,
     SRHRecombination,
+    SumOfRecombination,
     scharfetter_lifetime,
     srh_electron_linearization,
     srh_hole_linearization,
@@ -397,3 +400,212 @@ def test_a_lifetime_floor_above_the_ceiling_raises() -> None:
 def test_a_non_positive_reference_doping_raises() -> None:
     with pytest.raises(ValueError, match="N_ref"):
         scharfetter_lifetime(1e16, tau_max=1e-5, N_ref=0.0)
+
+
+# ---------------------------------------------------------------- Auger
+
+
+AUGER_NI2 = 1.0
+"""n_i^2 in scaled units with C_0 = n_i."""
+
+
+def auger():
+    """Silicon Auger with the coefficients from docs/06-constants.md."""
+    return AugerRecombination(C_n=C.AUGER_C_N, C_p=C.AUGER_C_P)
+
+
+def test_auger_vanishes_at_equilibrium() -> None:
+    """n*p = n_i^2 is the definition of equilibrium and R must be zero there.
+
+    Exactly zero, not nearly. The rate carries (n*p - n_i^2) as a factor, so
+    anything else means the factor is not written that way.
+    """
+    model = auger()
+    for n in (1e-6, 1.0, 1e3, 1e8):
+        assert model.rate(n, AUGER_NI2 / n) == 0.0
+
+
+def test_auger_recombines_above_equilibrium_and_generates_below() -> None:
+    """The sign convention: positive is net recombination.
+
+    Auger runs backwards below equilibrium, which is impact generation, and
+    the same expression covers both. A model that could only recombine would
+    be wrong under reverse bias.
+    """
+    model = auger()
+
+    assert model.rate(1e6, 1e6) > 0.0
+    assert model.rate(1e-3, 1e-3) < 0.0
+
+
+def test_auger_is_cubic_in_the_carrier_density() -> None:
+    """Three particles per event, so R goes as n^3 in high level injection.
+
+    The signature that separates it from SRH, which is linear there, and the
+    reason it is the mechanism that matters at high injection. Ten times the
+    density has to give a thousand times the rate.
+    """
+    model = auger()
+    low = model.rate(1e6, 1e6)
+    high = model.rate(1e7, 1e7)
+
+    assert high / low == pytest.approx(1000.0, rel=1e-3)
+
+
+def test_auger_electron_and_hole_channels_are_separately_visible() -> None:
+    """C_n multiplies n and C_p multiplies p, and they are not equal.
+
+    With C_n about three times C_p, an n-type sample recombines faster than a
+    p-type one at the same excess. Swapping the two coefficients would leave
+    every symmetric test above passing.
+    """
+    n_type = AugerRecombination(C_n=C.AUGER_C_N, C_p=0.0)
+    p_type = AugerRecombination(C_n=0.0, C_p=C.AUGER_C_P)
+
+    assert n_type.rate(1e6, 1e2) > p_type.rate(1e6, 1e2)
+
+
+@pytest.mark.parametrize("n,p", [(1e6, 1e2), (1e2, 1e6), (1e3, 1e3), (1e-2, 1e-2)])
+def test_auger_derivatives_match_complex_step(n: float, p: float) -> None:
+    """The same criterion Phase 3 applies to every other derivative.
+
+    The rate is a polynomial, so complex step is exact here rather than merely
+    good, and any disagreement at all is an algebra error.
+    """
+    model = auger()
+    step = 1e-20
+
+    dn = (model.rate(complex(n, step), p)).imag / step
+    dp = (model.rate(n, complex(p, step))).imag / step
+
+    assert model.d_rate_dn(n, p) == pytest.approx(dn, rel=1e-12)
+    assert model.d_rate_dp(n, p) == pytest.approx(dp, rel=1e-12)
+
+
+def test_the_auger_electron_tangent_goes_negative_in_depletion() -> None:
+    """Unlike SRH, whose tangent is strictly positive at every density.
+
+    Worth pinning because it is the assumption the Gummel linearization rests
+    on. dR/dn = C_n*(n*p - n_i^2) + (C_n*n + C_p*p)*p, and in deep depletion
+    the first term is a bare -C_n*n_i^2 with nothing to offset it. Newton does
+    not care, since the coupled matrix is not an M-matrix anyway. The frozen
+    linearization below is what keeps Gummel safe.
+    """
+    model = auger()
+
+    assert model.d_rate_dn(1e-8, 1e-8) < 0.0
+    assert model.d_rate_dn(1e6, 1e6) > 0.0
+
+
+@pytest.mark.parametrize("n,p", [(1e6, 1e2), (1e-3, 1e-3), (1e3, 1e3)])
+def test_the_auger_linearization_keeps_both_coefficients_non_negative(
+    n: float, p: float
+) -> None:
+    """What makes the Gummel right hand side non-negative, and so the density.
+
+    R = c*n - g with the triple product coefficient frozen gives c = K*p and
+    g = K*n_i^2 with K = C_n*n + C_p*p, and all three are non-negative for
+    non-negative densities. Same argument as the frozen SRH denominator.
+    """
+    model = auger()
+    for c, g in (model.electron_linearization(n, p), model.hole_linearization(n, p)):
+        assert c >= 0.0
+        assert g >= 0.0
+
+
+@pytest.mark.parametrize("n,p", [(1e6, 1e2), (1e-3, 1e-3), (1e3, 1e3)])
+def test_the_auger_linearization_is_exact_at_the_current_state(
+    n: float, p: float
+) -> None:
+    """c*n - g has to equal the true rate where it was linearized.
+
+    That is what makes the converged fixed point solve the true equation
+    rather than a linearized substitute.
+    """
+    model = auger()
+
+    c_n, g_n = model.electron_linearization(n, p)
+    c_p, g_p = model.hole_linearization(n, p)
+
+    assert c_n * n - g_n == pytest.approx(model.rate(n, p), rel=1e-12, abs=1e-30)
+    assert c_p * p - g_p == pytest.approx(model.rate(n, p), rel=1e-12, abs=1e-30)
+
+
+# ------------------------------------------------------------ summed models
+
+
+def test_a_sum_of_models_adds_their_rates() -> None:
+    """Recombination mechanisms act in parallel, so the rates add."""
+    srh = SRHRecombination(tau_n=1e3, tau_p=1e3)
+    total = SumOfRecombination((srh, auger()))
+
+    n, p = 1e5, 1e4
+    assert total.rate(n, p) == pytest.approx(
+        srh.rate(n, p) + auger().rate(n, p), rel=1e-14
+    )
+
+
+def test_a_sum_of_models_adds_their_derivatives() -> None:
+    """Differentiation is linear, and the Jacobian depends on it being so."""
+    srh = SRHRecombination(tau_n=1e3, tau_p=1e3)
+    total = SumOfRecombination((srh, auger()))
+
+    n, p = 1e5, 1e4
+    assert total.d_rate_dn(n, p) == pytest.approx(
+        srh.d_rate_dn(n, p) + auger().d_rate_dn(n, p), rel=1e-14
+    )
+    assert total.d_rate_dp(n, p) == pytest.approx(
+        srh.d_rate_dp(n, p) + auger().d_rate_dp(n, p), rel=1e-14
+    )
+
+
+def test_a_sum_of_models_adds_their_linearizations() -> None:
+    """R = (sum c)*n - (sum g), so both coefficients add and stay signed."""
+    srh = SRHRecombination(tau_n=1e3, tau_p=1e3)
+    total = SumOfRecombination((srh, auger()))
+
+    n, p = 1e5, 1e4
+    c, g = total.electron_linearization(n, p)
+    c_srh, g_srh = srh.electron_linearization(n, p)
+    c_aug, g_aug = auger().electron_linearization(n, p)
+
+    assert c == pytest.approx(c_srh + c_aug, rel=1e-14)
+    assert g == pytest.approx(g_srh + g_aug, rel=1e-14)
+    assert c * n - g == pytest.approx(total.rate(n, p), rel=1e-12)
+
+
+def test_an_empty_sum_is_no_recombination() -> None:
+    """Degenerate but reachable, and it must not divide by anything."""
+    total = SumOfRecombination(())
+
+    assert total.rate(np.full(4, 1e5), np.full(4, 1e4)).tolist() == [0.0] * 4
+    assert total.d_rate_dn(np.full(4, 1e5), np.full(4, 1e4)).tolist() == [0.0] * 4
+
+
+def test_a_sum_of_one_model_is_that_model() -> None:
+    """No special casing anywhere, so the one element case has to just work."""
+    srh = SRHRecombination(tau_n=1e3, tau_p=1e3)
+    total = SumOfRecombination((srh,))
+
+    assert total.rate(1e5, 1e4) == pytest.approx(srh.rate(1e5, 1e4), rel=1e-15)
+
+
+def test_a_summed_model_satisfies_the_protocol() -> None:
+    """It is handed to the assembly in place of a single model."""
+    assert isinstance(SumOfRecombination((auger(),)), RecombinationModel)
+    assert isinstance(auger(), RecombinationModel)
+
+
+def test_a_sum_of_models_adds_their_hole_linearizations() -> None:
+    """The mirror of the electron case, and the one Gummel's hole block uses."""
+    srh = SRHRecombination(tau_n=1e3, tau_p=1e3)
+    total = SumOfRecombination((srh, auger()))
+
+    n, p = 1e5, 1e4
+    c, g = total.hole_linearization(n, p)
+    c_srh, g_srh = srh.hole_linearization(n, p)
+    c_aug, g_aug = auger().hole_linearization(n, p)
+
+    assert c == pytest.approx(c_srh + c_aug, rel=1e-14)
+    assert g == pytest.approx(g_srh + g_aug, rel=1e-14)
+    assert c * p - g == pytest.approx(total.rate(n, p), rel=1e-12)

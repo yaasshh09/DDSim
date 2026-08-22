@@ -26,6 +26,8 @@ from ddsim.discretize.coupled import (
     limit_psi_step,
     pack,
 )
+from ddsim.extract.iv import terminal_currents
+from ddsim.physics.recombination import SumOfRecombination
 
 
 @pytest.fixture
@@ -322,3 +324,135 @@ def test_a_prelude_that_fails_still_hands_its_state_to_newton():
 
     assert state.newton is not None
     assert not state.newton.converged
+
+
+# ------------------------------------------------ the Phase 3 physics models
+
+
+def test_doping_dependent_mobility_lowers_the_diffusivity(diode):
+    """Arora at 1e16 gives about 1230 against the constant model's 1417.
+
+    The seam works the way physics/mobility.py says it does: Dn becomes an
+    array over edges and nothing in the assembly changes.
+    """
+    constant = TransportModels.for_device(diode)
+    arora = TransportModels.for_device(diode, mobility="arora")
+
+    assert np.isscalar(constant.Dn) or np.ndim(constant.Dn) == 0
+    assert np.ndim(arora.Dn) == 1
+    assert np.size(arora.Dn) == diode.mesh.n_edges
+    assert np.all(np.asarray(arora.Dn) < constant.Dn)
+
+
+def test_doping_dependent_mobility_still_converges(diode):
+    """A per edge diffusivity has to solve exactly as a scalar one does."""
+    state = solve_bias_newton(
+        diode, models=TransportModels.for_device(diode, mobility="arora")
+    )
+
+    assert state.newton is not None
+    assert state.newton.converged, state.newton.message
+    assert np.all(state.n.data > 0.0)
+
+
+def test_lower_mobility_gives_less_current(diode):
+    """The whole reason the model matters, and a sign check on the wiring.
+
+    Arora reduces the mobility at 1e16, so it has to reduce the current. If it
+    raised it, the model would be inverted somewhere between the doping and
+    the diffusivity and every quantitative result downstream would be wrong in
+    a way no convergence check would notice.
+    """
+    biased = diode.with_bias(anode=0.4, cathode=0.0)
+
+    constant = TransportModels.for_device(biased)
+    arora = TransportModels.for_device(biased, mobility="arora")
+
+    with_constant = terminal_currents(
+        biased, solve_bias_newton(biased, models=constant), constant
+    )["anode"]
+    with_arora = terminal_currents(
+        biased, solve_bias_newton(biased, models=arora), arora
+    )["anode"]
+
+    assert 0.0 < with_arora < with_constant
+
+
+def test_auger_can_be_switched_on(diode):
+    """Phase 3 scope item 6. SRH and Auger act in parallel, so they add."""
+    models = TransportModels.for_device(diode, auger=True)
+
+    assert isinstance(models.recombination, SumOfRecombination)
+    assert len(models.recombination.models) == 2
+
+
+def test_auger_raises_the_recombination_rate(diode):
+    """Adding a parallel path can only add rate, never remove it."""
+    plain = TransportModels.for_device(diode)
+    with_auger = TransportModels.for_device(diode, auger=True)
+
+    n = np.full(diode.mesh.n_nodes, 1e6)
+    p = np.full(diode.mesh.n_nodes, 1e6)
+
+    assert np.all(
+        np.asarray(with_auger.recombination.rate(n, p))
+        > np.asarray(plain.recombination.rate(n, p))
+    )
+
+
+def test_auger_overtakes_srh_as_the_square_of_the_density(diode):
+    """Cubic against linear, which is why Auger is a high injection mechanism.
+
+    The physical content of the model is not that Auger is large or small, it
+    is how fast it takes over. SRH at high injection goes as n and Auger goes
+    as n^3, so their ratio has to go as n^2: exactly a hundredfold per decade
+    of density. Measured across nine decades it is 99.1, 99.9, then 100.0 to
+    four figures the whole way, and the crossover where Auger overtakes SRH
+    lands at about 6e17 cm^-3.
+
+    A coefficient wrong by orders of magnitude would move the crossover and
+    leave every other test here passing. A coefficient with the wrong power of
+    the density scale would break this one.
+    """
+    models = TransportModels.for_device(diode, auger=True)
+    srh, auger = models.recombination.models
+
+    def ratio(density: float) -> float:
+        srh_rate = float(np.max(np.asarray(srh.rate(density, density))))
+        return float(np.asarray(auger.rate(density, density))) / srh_rate
+
+    decades = [ratio(10.0**e) for e in range(3, 11)]
+
+    for lower, upper in zip(decades[:-1], decades[1:], strict=True):
+        assert upper / lower == pytest.approx(100.0, rel=0.02)
+
+    # Negligible at low injection, dominant well above the crossover.
+    assert ratio(1e2) < 1e-9
+    assert ratio(1e10) > 1e3
+
+
+def test_auger_still_converges(diode):
+    """The exact Auger tangent is not sign definite, so this is worth running."""
+    state = solve_bias_newton(
+        diode, models=TransportModels.for_device(diode, auger=True)
+    )
+
+    assert state.newton is not None
+    assert state.newton.converged, state.newton.message
+    assert np.all(state.n.data > 0.0)
+    assert np.all(state.p.data > 0.0)
+
+
+def test_both_models_together_converge(diode):
+    """Scope items 6 and 7 at once, which is how Phase 4 will run."""
+    models = TransportModels.for_device(diode, mobility="arora", auger=True)
+    state = solve_bias_newton(diode, models=models)
+
+    assert state.newton is not None
+    assert state.newton.converged, state.newton.message
+
+
+def test_an_unknown_mobility_model_is_rejected(diode):
+    """A typo must not silently fall back to the constant model."""
+    with pytest.raises(ValueError, match="mobility"):
+        TransportModels.for_device(diode, mobility="arorra")

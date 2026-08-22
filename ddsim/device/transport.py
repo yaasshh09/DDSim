@@ -89,9 +89,12 @@ from ddsim.discretize.coupled import (
     scale_rows,
     unpack,
 )
+from ddsim.physics.mobility import AroraMobility, edge_diffusivity
 from ddsim.physics.recombination import (
+    AugerRecombination,
     RecombinationModel,
     SRHRecombination,
+    SumOfRecombination,
     scharfetter_lifetime,
 )
 from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve
@@ -138,13 +141,27 @@ class TransportModels:
         cls,
         device: Device,
         recombination: RecombinationModel | None = None,
+        mobility: str = "constant",
+        auger: bool = False,
     ) -> TransportModels:
         """Silicon models for a device, scaled to its own scale factors.
 
-        Constant mobility, which is all Phase 2 asks for. Doping dependent
-        mobility arrives in Phase 3 and field dependent mobility in Phase 5,
-        and both slot in by making Dn and Dp arrays over edges instead of
-        scalars, which the assembly already accepts.
+        Args:
+            device: the device, for its doping, temperature and scaling.
+            recombination: an explicit model, which overrides both the SRH
+                default and the auger flag.
+            mobility: "constant" for the Phase 1 and 2 value, or "arora" for
+                the doping dependent model docs/01-physics.md puts in Phase 3.
+            auger: add band to band Auger alongside SRH. Off by default
+                because it changes nothing measurable below high injection
+                and every Phase 2 number was taken without it.
+
+        Doping dependent mobility slots in by making Dn and Dp arrays over
+        edges instead of scalars, which every assembly already accepts, and it
+        adds nothing to the Jacobian because the doping does not change during
+        a solve. Field dependent mobility in Phase 5 will not be free in the
+        same way: it depends on the potential difference across the edge and
+        so puts a dmu/dpsi term into every flux derivative.
 
         The SRH lifetimes come from the Scharfetter relation evaluated on the
         local doping. It wants the total doping Na + Nd and only the net is
@@ -154,7 +171,6 @@ class TransportModels:
         that has to learn about it.
         """
         scale = device.scale
-        temperature = device.material.T
         total_doping = np.abs(device.net_doping.data)
 
         if recombination is None:
@@ -171,12 +187,59 @@ class TransportModels:
                 n1=device.material.n_i / scale.C_0,
                 p1=device.material.n_i / scale.C_0,
             )
+            if auger:
+                # Scaled by C_0^2 * t_0 rather than by C_0: the coefficient
+                # multiplies a triple product, so it carries two powers of the
+                # density scale and one of time.
+                recombination = SumOfRecombination(
+                    (
+                        recombination,
+                        AugerRecombination(
+                            C_n=C.AUGER_C_N * scale.C_0**2 * scale.t_0,
+                            C_p=C.AUGER_C_P * scale.C_0**2 * scale.t_0,
+                            ni2=(device.material.n_i / scale.C_0) ** 2,
+                        ),
+                    )
+                )
 
         return cls(
             recombination=recombination,
-            Dn=C.D_n(temperature) / scale.D_0,
-            Dp=C.D_p(temperature) / scale.D_0,
+            Dn=_scaled_diffusivity(device, Carrier.ELECTRON, mobility),
+            Dp=_scaled_diffusivity(device, Carrier.HOLE, mobility),
         )
+
+
+def _scaled_diffusivity(
+    device: Device, carrier: Carrier, mobility: str
+) -> Diffusivity:
+    """Scaled diffusivity for one carrier, from the chosen mobility model.
+
+    Constant comes back as a scalar and Arora as one value per edge. The
+    assembly takes either, so the two are not different code paths anywhere
+    downstream; only this function knows which was asked for.
+    """
+    scale = device.scale
+    temperature = device.material.T
+    electrons = carrier is Carrier.ELECTRON
+
+    if mobility == "constant":
+        constant = C.D_n(temperature) if electrons else C.D_p(temperature)
+        return constant / scale.D_0
+
+    if mobility != "arora":
+        raise ValueError(
+            f"unknown mobility model {mobility!r}. Use 'constant' or 'arora'."
+        )
+
+    model = (
+        AroraMobility.electrons(temperature)
+        if electrons
+        else AroraMobility.holes(temperature)
+    )
+    # Total doping, of which only the net is available. Same caveat and same
+    # reason as the Scharfetter lifetime above.
+    nodal = model(np.abs(device.net_doping.data))
+    return edge_diffusivity(nodal, C.V_T(temperature)) / scale.D_0
 
 
 def _node_field(values: npt.NDArray[np.float64], unit: str, name: str) -> Field:

@@ -226,6 +226,20 @@ def eps_ox() -> float:
 # Constant stubs only. The real mobility models are Phase 2 and live in
 # physics/mobility.py. Do not add doping or field dependence here.
 
+AUGER_C_N: float = 2.8e-31
+"""Auger coefficient for the electron channel [cm^6/s].
+
+docs/06-constants.md. Three particles per event, so the units carry two
+volumes: the rate is C_n * n * (n*p - n_i^2).
+"""
+
+AUGER_C_P: float = 9.9e-32
+"""Auger coefficient for the hole channel [cm^6/s].
+
+About a third of C_n, so an n-type sample recombines faster than a p-type one
+at the same excess.
+"""
+
 MU_N_300: float = 1417.0
 """Undoped silicon electron mobility at 300 K [cm^2/(V s)]."""
 

@@ -49,8 +49,9 @@ the diagonal rather than threatening it.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
@@ -232,6 +233,7 @@ def srh_hole_linearization(
 # ------------------------------------------------------------------- models
 
 
+@runtime_checkable
 class RecombinationModel(Protocol):
     """What the continuity assembly needs from a recombination model.
 
@@ -353,3 +355,135 @@ class NoRecombination:
     def hole_linearization(self, n: Density, p: Density) -> tuple[Density, Density]:
         """Zero coefficient and zero generation."""
         return self._zeros(n, p), self._zeros(n, p)
+
+
+@dataclass(frozen=True)
+class AugerRecombination:
+    """Band to band Auger recombination.
+
+        R = (C_n*n + C_p*p) * (n*p - n_i^2)
+
+    A three particle process: an electron and a hole recombine and give their
+    energy to a third carrier rather than to a photon or a trap. That is why
+    the rate is cubic in the density where SRH is linear, and why Auger is the
+    mechanism that limits high level injection and heavily doped emitters
+    while SRH dominates everywhere quieter.
+
+    Same sign convention as SRH, positive for net recombination, and the same
+    (n*p - n_i^2) factor, so it vanishes exactly at equilibrium and runs
+    backwards as impact generation below it.
+
+    **Its exact tangent is not sign definite, unlike the SRH one.**
+
+        dR/dn = C_n*(n*p - n_i^2) + (C_n*n + C_p*p)*p
+
+    In deep depletion the first term is a bare -C_n*n_i^2 with nothing to
+    offset it, so dR/dn is negative there. Newton does not care: the coupled
+    matrix is not an M-matrix under any linearization. Gummel does care, and
+    what protects it is the frozen linearization below rather than a property
+    of the derivative.
+    """
+
+    C_n: Lifetime
+    """Electron channel coefficient [cm^6/s], or scaled. Scalar or per node."""
+
+    C_p: Lifetime
+    """Hole channel coefficient [cm^6/s], or scaled. Scalar or per node."""
+
+    ni2: float = 1.0
+    """n_i^2 in the units of n*p [1]."""
+
+    def _coefficient(self, n: Density, p: Density) -> Density:
+        """C_n*n + C_p*p, the triple product coefficient. Non-negative."""
+        return self.C_n * n + self.C_p * p
+
+    def rate(self, n: Density, p: Density) -> Density:
+        """Net Auger rate, positive for net recombination."""
+        return self._coefficient(n, p) * (n * p - self.ni2)
+
+    def d_rate_dn(self, n: Density, p: Density) -> Density:
+        """Exact dR/dn. Not sign definite; see the class docstring."""
+        return self.C_n * (n * p - self.ni2) + self._coefficient(n, p) * p
+
+    def d_rate_dp(self, n: Density, p: Density) -> Density:
+        """Exact dR/dp. Not sign definite either."""
+        return self.C_p * (n * p - self.ni2) + self._coefficient(n, p) * n
+
+    def electron_linearization(
+        self, n: Density, p: Density
+    ) -> tuple[Density, Density]:
+        """(c, g) with R = c*n - g, the triple product coefficient frozen.
+
+        c = (C_n*n + C_p*p)*p and g = (C_n*n + C_p*p)*n_i^2, both non-negative
+        for non-negative densities. Same argument as the frozen SRH
+        denominator: a non-negative right hand side against an M-matrix gives
+        a non-negative density with no clamping.
+        """
+        coefficient = self._coefficient(n, p)
+        return coefficient * p, coefficient * self.ni2
+
+    def hole_linearization(self, n: Density, p: Density) -> tuple[Density, Density]:
+        """(c, g) with R = c*p - g."""
+        coefficient = self._coefficient(n, p)
+        return coefficient * n, coefficient * self.ni2
+
+
+@dataclass(frozen=True)
+class SumOfRecombination:
+    """Several mechanisms acting in parallel.
+
+    Recombination paths are independent, so their rates add, and so do their
+    derivatives and their frozen linearizations. SRH plus Auger is the Phase 3
+    combination; radiative would be a third term and slots in unchanged.
+
+    An empty sum is exactly NoRecombination, and is allowed rather than
+    special cased, because a caller assembling a model list should not have to
+    check whether it ended up empty.
+    """
+
+    models: tuple[RecombinationModel, ...]
+    """The mechanisms to add. Order does not matter."""
+
+    def _sum(
+        self, values: Iterable[Density], n: Density, p: Density
+    ) -> npt.NDArray[np.float64]:
+        """Add contributions, starting from zeros of the broadcast shape.
+
+        Zeros of the right shape rather than a scalar 0.0, for the same reason
+        NoRecombination does it: a scalar would broadcast into the residual
+        correctly and then silently collapse the Jacobian diagonal.
+        """
+        total = np.zeros(np.broadcast_shapes(np.shape(n), np.shape(p)))
+        for value in values:
+            total = total + value
+        return total
+
+    def rate(self, n: Density, p: Density) -> Density:
+        """Sum of the rates."""
+        return self._sum((model.rate(n, p) for model in self.models), n, p)
+
+    def d_rate_dn(self, n: Density, p: Density) -> Density:
+        """Sum of the tangents. Differentiation is linear."""
+        return self._sum((model.d_rate_dn(n, p) for model in self.models), n, p)
+
+    def d_rate_dp(self, n: Density, p: Density) -> Density:
+        """Sum of the tangents."""
+        return self._sum((model.d_rate_dp(n, p) for model in self.models), n, p)
+
+    def electron_linearization(
+        self, n: Density, p: Density
+    ) -> tuple[Density, Density]:
+        """(sum c, sum g). R = (sum c)*n - (sum g) follows term by term."""
+        pairs = [model.electron_linearization(n, p) for model in self.models]
+        return (
+            self._sum((c for c, _ in pairs), n, p),
+            self._sum((g for _, g in pairs), n, p),
+        )
+
+    def hole_linearization(self, n: Density, p: Density) -> tuple[Density, Density]:
+        """(sum c, sum g)."""
+        pairs = [model.hole_linearization(n, p) for model in self.models]
+        return (
+            self._sum((c for c, _ in pairs), n, p),
+            self._sum((g for _, g in pairs), n, p),
+        )
