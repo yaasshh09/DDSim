@@ -57,9 +57,14 @@ from ddsim.discretize.coupled import (
     Unknown,
     apply_ohmic_contacts_coupled,
     assemble_coupled,
+    assemble_coupled_arrays,
+    assemble_coupled_terms,
     coupled_jacobian,
     coupled_residual,
     pack,
+    residual_term_scales,
+    row_weights,
+    scale_rows,
     unknown_index,
     unpack,
 )
@@ -702,3 +707,142 @@ def test_two_contacts_sharing_a_name_are_rejected(device, models, perturbed_x):
             ),
             device.scale,
         )
+
+
+# ------------------------------------------------------------- row scaling
+
+
+def test_the_poisson_term_scale_counts_the_carriers_not_only_the_doping():
+    """An intrinsic bar has no doping and its Poisson terms are not zero.
+
+    The residual carries -(p - n + N)*volume. On intrinsic material that sum
+    is exactly zero, but the terms going into it are n*volume and p*volume,
+    both equal to one dual cell in scaled units. A scale built from the net
+    doping alone reports zero there, and dividing by it makes every row nan.
+
+    Measured before the fix: an undoped 41 node bar came back with a residual
+    of nan and the message blamed the LU factorization for being singular,
+    which sends you debugging the linear algebra instead of the scale.
+    """
+    h = np.full(4, 0.1)
+    volume = np.full(5, 0.1)
+    x = pack(np.zeros(5), np.ones(5), np.ones(5))
+
+    psi_scale, _, _ = residual_term_scales(
+        h, volume, x, np.zeros(5), Dn=1.0, Dp=1.0
+    )
+
+    assert psi_scale > 0.0
+
+
+def test_every_term_scale_is_strictly_positive_on_a_real_device(
+    device, geometry, models, perturbed_x
+):
+    """Nothing downstream can divide by these safely otherwise."""
+    h, volume = geometry
+    scales = residual_term_scales(
+        h, volume, perturbed_x, device.net_doping_scaled.data, models.Dn, models.Dp
+    )
+
+    assert all(scale > 0.0 for scale in scales)
+
+
+def test_row_scaling_keeps_the_system_finite(device, geometry, models, perturbed_x):
+    """The whole point of the scaling is defeated if it introduces a nan."""
+    h, volume = geometry
+    scales = residual_term_scales(
+        h, volume, perturbed_x, device.net_doping_scaled.data, models.Dn, models.Dp
+    )
+    system = assemble_coupled_arrays(
+        h=h,
+        volume=volume,
+        x=perturbed_x,
+        net_doping=device.net_doping_scaled.data,
+        Dn=models.Dn,
+        Dp=models.Dp,
+        recombination=models.recombination,
+    )
+
+    scaled = scale_rows(system, row_weights(scales, device.mesh.n_nodes))
+
+    assert np.all(np.isfinite(scaled.residual))
+    assert np.all(np.isfinite(scaled.values))
+
+
+def test_a_state_with_no_carriers_anywhere_is_refused():
+    """Not a physical state, and silently producing nan hides where it came from.
+
+    A density of exactly zero everywhere leaves every term in every equation
+    at zero, so there is no scale to measure against. Refusing names the
+    problem; dividing by zero renames it as a singular matrix three call
+    frames later.
+    """
+    h = np.full(4, 0.1)
+    volume = np.full(5, 0.1)
+    x = pack(np.zeros(5), np.zeros(5), np.zeros(5))
+
+    with pytest.raises(ValueError, match="no terms"):
+        residual_term_scales(h, volume, x, np.zeros(5), Dn=1.0, Dp=1.0)
+
+
+def test_the_shared_path_reproduces_the_standalone_functions_exactly(
+    device, geometry, models, perturbed_x
+):
+    """assemble_coupled_terms and the two public functions must not diverge.
+
+    This is what keeps the block verification meaningful. Those tests
+    differentiate coupled_residual and compare against coupled_jacobian, but a
+    solve runs assemble_coupled_terms, which shares one Bernoulli pair between
+    the three. Two code paths where only one is verified is how a verification
+    stops being one.
+
+    Found by mutation rather than by inspection: after the shared path was
+    introduced, replacing the exact SRH tangent with the Gummel frozen slope
+    inside it left every block test passing, because no test executed it.
+
+    Bit for bit, not to a tolerance. The two do the same operations in the
+    same order on the same inputs, so anything less than exact equality means
+    they have genuinely drifted apart.
+    """
+    h, volume = geometry
+    doping = device.net_doping_scaled.data
+
+    shared = assemble_coupled_terms(
+        h, volume, perturbed_x, doping, models.Dn, models.Dp, models.recombination
+    ).assembly
+
+    residual = coupled_residual(
+        h, volume, perturbed_x, doping, models.Dn, models.Dp, models.recombination
+    )
+    rows, cols, values = coupled_jacobian(
+        h, volume, perturbed_x, models.Dn, models.Dp, models.recombination
+    )
+
+    np.testing.assert_array_equal(shared.residual, residual)
+    np.testing.assert_array_equal(shared.rows, rows)
+    np.testing.assert_array_equal(shared.cols, cols)
+    np.testing.assert_array_equal(shared.values, values)
+
+
+def test_the_shared_path_scales_match_the_standalone_scales(
+    device, geometry, models, perturbed_x
+):
+    """The third output of the shared path needs the same guard."""
+    h, volume = geometry
+    doping = device.net_doping_scaled.data
+    psi, n, p = unpack(perturbed_x)
+
+    _, shared = assemble_coupled_terms(
+        h, volume, perturbed_x, doping, models.Dn, models.Dp, models.recombination
+    )
+    standalone = residual_term_scales(
+        h,
+        volume,
+        perturbed_x,
+        doping,
+        models.Dn,
+        models.Dp,
+        R=np.asarray(models.recombination.rate(n, p), dtype=np.float64),
+    )
+
+    assert shared == standalone

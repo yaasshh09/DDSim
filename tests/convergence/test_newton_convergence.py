@@ -31,6 +31,7 @@ from ddsim.device.transport import (
     solve_bias,
     solve_bias_newton,
 )
+from ddsim.discretize.coupled import pack, residual_term_scales
 from ddsim.solve.continuation import continue_to
 
 N_NODES = 201
@@ -277,3 +278,69 @@ def test_no_carrier_density_is_negative_at_any_bias(voltage):
     assert state.newton.converged, state.newton.message
     assert np.all(state.n.data > 0.0)
     assert np.all(state.p.data > 0.0)
+
+
+# ------------------------------------------------- the scale follows the state
+
+
+def test_a_six_decade_asymmetric_junction_converges():
+    """1e20 / 1e14 at 1 V, which the first row scaling could not solve.
+
+    It stalled at a scaled residual of 2.8e-9 against a threshold of 1e-10
+    while the potential and hole families sat at 1e-16. The cause was not the
+    solver and not the conditioning: the row scale was computed once at the
+    starting guess, and on this device the electron term scale grows by a
+    factor of 6.6e5 between the guess and the answer, because the minority
+    electron density on the 1e20 side is injected up by exp(V/V_T) at forward
+    bias. The threshold was therefore 660000 times too strict and the solve
+    was already converged to 4.5e-15 against the terms it actually had.
+
+    Boltzmann statistics are still invalid at 1e20 and no quantitative claim
+    is made here. What is claimed is that the solver reports convergence
+    honestly.
+    """
+    unbiased = pn_diode(Na=1e20, Nd=1e14, n_nodes=N_NODES, h_min=1e-8)
+    device = unbiased.with_bias(anode=1.0, cathode=0.0)
+
+    state = solve_bias_newton(device, guess=initial_state(unbiased))
+
+    assert state.newton is not None
+    assert state.newton.converged, state.newton.message
+    assert np.all(state.n.data > 0.0)
+    assert np.all(state.p.data > 0.0)
+
+
+def test_the_row_scale_is_measured_at_the_iterate_not_at_the_guess():
+    """The terms a residual is built from are a property of the state.
+
+    docs/02-numerics.md asks for a scale that does not depend on the starting
+    iterate, meaning it must not depend on how converged the start is. That is
+    not the same as freezing it at the guess. On a forward biased junction the
+    flux terms grow with the injected density, so a scale frozen at
+    equilibrium describes a different problem from the one being solved.
+
+    Measured on the 1e16 diode at 1 V the electron term scale grows 28 times
+    between guess and answer, and on a 1e20 / 1e14 junction 660000 times.
+    """
+    unbiased = pn_diode(Na=1e20, Nd=1e14, n_nodes=N_NODES, h_min=1e-8)
+    device = unbiased.with_bias(anode=1.0, cathode=0.0)
+    guess = initial_state(unbiased)
+    models = TransportModels.for_device(device)
+
+    h = device.mesh.h / device.scale.x_0
+    volume = device.mesh.volume / device.scale.x_0
+    doping = device.net_doping_scaled.data
+
+    state = solve_bias_newton(device, models=models, guess=guess)
+    assert state.newton is not None and state.newton.converged
+
+    at_guess = residual_term_scales(
+        h, volume, pack(guess.psi.data, guess.n.data, guess.p.data),
+        doping, models.Dn, models.Dp,
+    )
+    at_answer = residual_term_scales(
+        h, volume, state.newton.x, doping, models.Dn, models.Dp
+    )
+
+    growth = at_answer[1] / at_guess[1]
+    assert growth > 1e4, f"electron term scale grew only {growth:.3g}"

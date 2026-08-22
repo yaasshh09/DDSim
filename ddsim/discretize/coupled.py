@@ -86,8 +86,10 @@ agreement with any block that happens to be missing a term.
 
 from __future__ import annotations
 
-from enum import IntEnum
-from typing import TypeVar, cast
+import math
+from enum import Enum, IntEnum
+from functools import lru_cache
+from typing import NamedTuple, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -230,13 +232,44 @@ def coupled_residual(
     on this function. That is how every Jacobian block below is verified.
     """
     psi, n, p = unpack(x)
-    bernoulli = _bernoulli_pair(psi)
-    b_plus, b_minus = bernoulli
     # The protocol is typed for the physical case, which is float64. Every
     # implementation is dtype preserving and the complex step verification
     # depends on that, but declaring it in the protocol would put complex in
     # every signature in physics/recombination.py to serve this one line.
-    R = recombination.rate(cast(Density, n), cast(Density, p))
+    # The cast back is the same statement in the other direction: the rate has
+    # whatever dtype the densities had, and only the annotation says float64.
+    R = cast(
+        "npt.NDArray[Number]",
+        recombination.rate(cast(Density, n), cast(Density, p)),
+    )
+    return _residual_from(
+        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi), R
+    )
+
+
+def _residual_from(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    x: npt.NDArray[Number],
+    net_doping: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    Dp: Diffusivity,
+    bernoulli: tuple[npt.NDArray[Number], npt.NDArray[Number]],
+    R: npt.NDArray[Number],
+) -> npt.NDArray[Number]:
+    """coupled_residual with the Bernoulli pair and the rate already in hand.
+
+    The pair is the most expensive thing in an assembly, and the residual, the
+    Jacobian and the row scales all need the same one. Evaluating it once and
+    handing it round is the pattern poisson.py and continuity.py already use;
+    the coupled module was evaluating B four times per Newton step before this
+    existed, which was a quarter of the assembly cost.
+
+    Private because the pair has to be the one belonging to this psi and
+    nothing outside can check that.
+    """
+    psi, n, p = unpack(x)
+    b_plus, b_minus = bernoulli
 
     out = np.zeros_like(x)
     F_psi, F_n, F_p = unpack(out)
@@ -268,6 +301,50 @@ def coupled_residual(
 # ----------------------------------------------------------------- Jacobian
 
 
+class NodeRange(Enum):
+    """Which nodes a block of Jacobian entries attaches to.
+
+    In 1D there are only three: every node, and the left and right endpoint of
+    every edge. Naming them rather than passing arange arrays around is what
+    lets the index arrays be cached, and it reads better at the call site than
+    a bare slice would.
+    """
+
+    ALL = "all"
+    """Every node. The diagonal blocks."""
+
+    LEFT = "left"
+    """Node e of edge e, for every edge."""
+
+    RIGHT = "right"
+    """Node e+1 of edge e, for every edge."""
+
+
+@lru_cache(maxsize=32)
+def _indices(
+    which: NodeRange, component: Unknown, n_nodes: int
+) -> npt.NDArray[np.int64]:
+    """Unknown indices for one component over one node range.
+
+    Cached, and the cached arrays are handed out directly rather than copied,
+    so they are marked read only. There are nine of these per mesh size and
+    they do not depend on the state, while a Newton solve rebuilds the
+    Jacobian once per step. Before caching, the index arithmetic in the
+    accumulator was ten percent of the whole coupled solve, measured, which is
+    more than the triangular solve costs.
+    """
+    if which is NodeRange.ALL:
+        base = np.arange(n_nodes, dtype=np.int64)
+    elif which is NodeRange.LEFT:
+        base = np.arange(n_nodes - 1, dtype=np.int64)
+    else:
+        base = np.arange(1, n_nodes, dtype=np.int64)
+
+    out = UNKNOWNS_PER_NODE * base + int(component)
+    out.flags.writeable = False
+    return out
+
+
 class _Triplets:
     """A COO accumulator that names the block every entry belongs to.
 
@@ -277,7 +354,8 @@ class _Triplets:
     to check against the residual by eye.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, n_nodes: int) -> None:
+        self._n_nodes = n_nodes
         self._rows: list[npt.NDArray[np.int64]] = []
         self._cols: list[npt.NDArray[np.int64]] = []
         self._values: list[npt.NDArray[np.float64]] = []
@@ -285,14 +363,14 @@ class _Triplets:
     def add(
         self,
         equation: Unknown,
-        at_nodes: npt.NDArray[np.int64],
+        at_nodes: NodeRange,
         unknown: Unknown,
-        of_nodes: npt.NDArray[np.int64],
+        of_nodes: NodeRange,
         values: npt.NDArray[np.float64],
     ) -> None:
         """dF_equation at at_nodes, with respect to unknown at of_nodes."""
-        self._rows.append(UNKNOWNS_PER_NODE * at_nodes + int(equation))
-        self._cols.append(UNKNOWNS_PER_NODE * of_nodes + int(unknown))
+        self._rows.append(_indices(at_nodes, equation, self._n_nodes))
+        self._cols.append(_indices(of_nodes, unknown, self._n_nodes))
         self._values.append(np.asarray(values, dtype=np.float64))
 
     def build(
@@ -324,20 +402,42 @@ def coupled_jacobian(
     tests/unit/test_coupled.py, which phases/PHASE-3.md makes non-negotiable.
     """
     psi, n, p = unpack(x)
+    return _jacobian_from(
+        h,
+        volume,
+        x,
+        Dn,
+        Dp,
+        _bernoulli_pair(psi),
+        _bernoulli_derivative_pair(psi),
+        np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64),
+        np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64),
+    )
+
+
+def _jacobian_from(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    x: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    Dp: Diffusivity,
+    bernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    dbernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    dR_dn: npt.NDArray[np.float64],
+    dR_dp: npt.NDArray[np.float64],
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    """coupled_jacobian with both Bernoulli pairs and both tangents in hand."""
+    psi, n, p = unpack(x)
     n_nodes = psi.size
 
-    b_plus, b_minus = _bernoulli_pair(psi)
-    db_plus, db_minus = _bernoulli_derivative_pair(psi)
+    b_plus, b_minus = bernoulli
+    db_plus, db_minus = dbernoulli
 
-    dR_dn = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
-    dR_dp = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
+    nodes = NodeRange.ALL
+    left = NodeRange.LEFT
+    right = NodeRange.RIGHT
 
-
-    nodes = np.arange(n_nodes, dtype=np.int64)
-    left = np.arange(h.size, dtype=np.int64)
-    right = left + 1
-
-    J = _Triplets()
+    J = _Triplets(n_nodes)
 
     # --- dF_psi/dpsi. The bare Laplacian. No charge term: see the module
     # docstring, this is the block the Phase 1 Jacobian would corrupt.
@@ -475,20 +575,78 @@ def assemble_coupled_arrays(
 ) -> SparseAssembly:
     """assemble_coupled with the scaling and location already checked.
 
-    This is what a Newton loop calls. The Field level checks belong once at
-    the entry to a solve, not once per iteration, and building three Fields
-    per step only to unwrap them again is work the solver does not need.
+    The Field level checks belong once at the entry to a solve, not once per
+    iteration, and building three Fields per step only to unwrap them again is
+    work a solver does not need.
+
+    Unscaled. A Newton loop wants assemble_coupled_scaled instead; this is the
+    form the block verification checks and the form the Field level wrapper
+    returns.
     """
-    residual = coupled_residual(h, volume, x, net_doping, Dn, Dp, recombination)
-    rows, cols, values = coupled_jacobian(h, volume, x, Dn, Dp, recombination)
+    return assemble_coupled_terms(
+        h, volume, x, net_doping, Dn, Dp, recombination
+    ).assembly
+
+
+class CoupledAssembly(NamedTuple):
+    """An assembled coupled system and the term scales of the same state."""
+
+    assembly: SparseAssembly
+    """Residual and Jacobian, unscaled."""
+
+    scales: tuple[float, float, float]
+    """Term scale for the psi, n and p families at this state [1]."""
+
+
+def assemble_coupled_terms(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    x: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    Dp: Diffusivity,
+    recombination: RecombinationModel,
+) -> CoupledAssembly:
+    """Residual, Jacobian and term scales, with the shared work done once.
+
+    What a Newton loop calls. The residual, the Jacobian and the scales all
+    want the same Bernoulli pair and the same recombination rate at the same
+    state, and going through the three public functions separately evaluates B
+    four times per Newton step and the SRH denominator three times. Measured,
+    that was a quarter of the cost of a coupled solve.
+
+    Returns the assembly unscaled and the scales beside it, rather than a
+    scaled assembly, because the contacts have to be applied in between: a
+    pinned row has to become the identity and then be divided like every other
+    row. Scaling first would leave the pinned rows at one while everything
+    around them moved.
+    """
+    psi, n, p = unpack(x)
+
+    bernoulli = _bernoulli_pair(psi)
+    dbernoulli = _bernoulli_derivative_pair(psi)
+    R = np.asarray(recombination.rate(n, p), dtype=np.float64)
+    dR_dn = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
+    dR_dp = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
+
+    residual = _residual_from(h, volume, x, net_doping, Dn, Dp, bernoulli, R)
+    rows, cols, values = _jacobian_from(
+        h, volume, x, Dn, Dp, bernoulli, dbernoulli, dR_dn, dR_dp
+    )
+    scales = _term_scales_from(
+        h, volume, x, net_doping, Dn, Dp, bernoulli, R
+    )
 
     size = x.size
-    return SparseAssembly(
-        residual=np.asarray(residual, dtype=np.float64),
-        rows=rows,
-        cols=cols,
-        values=values,
-        shape=(size, size),
+    return CoupledAssembly(
+        assembly=SparseAssembly(
+            residual=np.asarray(residual, dtype=np.float64),
+            rows=rows,
+            cols=cols,
+            values=values,
+            shape=(size, size),
+        ),
+        scales=scales,
     )
 
 
@@ -592,14 +750,41 @@ def residual_term_scales(
     net_doping: npt.NDArray[np.float64],
     Dn: Diffusivity,
     Dp: Diffusivity,
+    R: npt.NDArray[np.float64] | None = None,
 ) -> tuple[float, float, float]:
     """The size of the terms each equation family is assembled from [1].
 
+    Args:
+        h: scaled edge lengths [1].
+        volume: scaled dual cell widths [1].
+        x: the interleaved unknown vector [1].
+        net_doping: scaled net doping on nodes [1].
+        Dn: scaled electron diffusivity [1].
+        Dp: scaled hole diffusivity [1].
+        R: scaled net recombination rate on nodes [1]. None leaves it out,
+            which only ever lowers a scale and is right for a caller that has
+            not built a model. A solve always passes it.
+
     Returns (psi, n, p). docs/02-numerics.md asks for a residual threshold
-    built from exactly this, and for a scale that does not depend on how
-    converged the starting iterate is. Densities and potentials are set by the
-    doping and the bias rather than by the state of the solve, so evaluating
-    this once at the starting guess and holding it fixed satisfies that.
+    built from exactly this, and for a scale that does not depend on the
+    starting iterate.
+
+    **That means it must not depend on how converged the start is. It does not
+    mean freezing it at the guess, and freezing it at the guess is wrong.** The
+    terms a residual is built from are a property of the state, and on a
+    forward biased junction they grow with the injected density. Measured on a
+    1e16 diode at 1 V the electron term scale is 28 times larger at the answer
+    than at the equilibrium guess; on a 1e20 / 1e14 junction it is 660000 times
+    larger, because the minority electron density on the heavily doped side is
+    injected up by exp(V/V_T). A scale frozen at the guess describes a
+    different problem from the one being solved, and it made that device
+    report failure at a residual of 2.8e-9 while it was in fact converged to
+    4.5e-15 against the terms it actually had.
+
+    So a coupled solve re-evaluates this at every iterate. The threshold itself
+    stays fixed, at residual_rtol against a scale of one, so nothing drifts:
+    what is held constant is the question being asked, which is how large the
+    residual is next to the terms it is currently made of.
 
     Why three numbers and not one. The Poisson residual is a charge, of order
     N*volume, and the continuity residuals are currents, of order (D/h)*n.
@@ -613,24 +798,63 @@ def residual_term_scales(
     below machine epsilon times the things being differenced, so the terms are
     what sets the floor.
     """
-    psi, n, p = unpack(x)
-    b_plus, b_minus = _bernoulli_pair(psi)
+    psi, _, _ = unpack(x)
+    return _term_scales_from(
+        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi), R
+    )
 
-    # Poisson: the face fluxes psi/h, differenced, and the charge N*volume.
+
+def _term_scales_from(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    x: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    Dp: Diffusivity,
+    bernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    R: npt.NDArray[np.float64] | None,
+) -> tuple[float, float, float]:
+    """residual_term_scales with the Bernoulli pair already in hand."""
+    psi, n, p = unpack(x)
+    b_plus, b_minus = bernoulli
+
+    # Poisson: the face fluxes psi/h, and the three charges that make up
+    # -(p - n + N)*volume. All three, not only the doping. On intrinsic
+    # material the sum p - n + N is exactly zero while n*volume and p*volume
+    # are a whole dual cell each, and a scale built from the doping alone
+    # reports zero there and makes every row nan on division. Measured before
+    # this counted the carriers: an undoped 41 node bar returned a residual of
+    # nan and a message blaming the LU factorization for being singular.
     psi_scale = max(
         float(np.max(np.abs(psi)) * np.max(1.0 / h)),
-        float(np.max(np.abs(net_doping) * volume)),
+        float(np.max((np.abs(p) + np.abs(n) + np.abs(net_doping)) * volume)),
     )
 
-    # Continuity: the two halves of each Scharfetter-Gummel flux.
-    electron_scale = float(
-        np.max(np.maximum((Dn / h) * b_plus * n[1:], (Dn / h) * b_minus * n[:-1]))
+    # Continuity: the two halves of each Scharfetter-Gummel flux, and the
+    # recombination that sits alongside them in the same row.
+    recombined = 0.0 if R is None else float(np.max(np.abs(R) * volume))
+    electron_scale = max(
+        float(
+            np.max(np.maximum((Dn / h) * b_plus * n[1:], (Dn / h) * b_minus * n[:-1]))
+        ),
+        recombined,
     )
-    hole_scale = float(
-        np.max(np.maximum((Dp / h) * b_plus * p[:-1], (Dp / h) * b_minus * p[1:]))
+    hole_scale = max(
+        float(
+            np.max(np.maximum((Dp / h) * b_plus * p[:-1], (Dp / h) * b_minus * p[1:]))
+        ),
+        recombined,
     )
 
-    return psi_scale, electron_scale, hole_scale
+    scales = (psi_scale, electron_scale, hole_scale)
+    if not all(scale > 0.0 and math.isfinite(scale) for scale in scales):
+        raise ValueError(
+            f"the state has no terms to measure a residual against: term "
+            f"scales {scales} for (psi, n, p). Every equation is identically "
+            "zero, which a device never is. Dividing by these would rename the "
+            "problem as a singular matrix three call frames later."
+        )
+    return scales
 
 
 def row_weights(

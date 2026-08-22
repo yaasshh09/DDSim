@@ -221,6 +221,7 @@ def iv_sweep(
     voltages: list[float],
     models: TransportModels | None = None,
     step: float = 0.05,
+    min_step: float | None = None,
     start: float = 0.0,
     max_iterations: int = 200,
     update_tol: float = 1e-8,
@@ -233,6 +234,14 @@ def iv_sweep(
         voltages: the biases wanted [V], in the order they should be walked.
         models: transport models, built from the device if None.
         step: first continuation step between requested points [V].
+        min_step: give up once the continuation step falls below this [V].
+            None leaves it at the continuation default of a thousandth of
+            step, which is about ten halvings. That is the right default for a
+            sweep that is expected to succeed, and expensive for one that is
+            expected to stall: every one of those ten halvings is a full
+            failed solve at the Gummel budget. A caller who already knows the
+            sweep may stall, or who only wants to know roughly where, should
+            raise this.
         start: bias to begin from [V], solved directly rather than ramped to.
         max_iterations: Gummel budget at each point.
         update_tol: Gummel convergence threshold.
@@ -297,6 +306,7 @@ def iv_sweep(
             target=target,
             initial=state,
             step=step,
+            min_step=min_step,
             max_step=step,
         )
         state = ramp.solution

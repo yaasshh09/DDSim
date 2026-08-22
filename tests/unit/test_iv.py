@@ -219,13 +219,28 @@ def test_a_sweep_carries_the_state_at_every_point() -> None:
 
 
 def test_a_sweep_stops_and_says_where_when_it_stalls() -> None:
-    """Gummel gives up somewhere above 0.6 V, and the sweep has to report it.
+    """A stalled sweep returns everything it reached plus the reason.
 
-    phases/PHASE-2.md asks for that bias to be documented rather than fought,
-    so a stalled sweep returns everything it reached plus the reason.
+    phases/PHASE-2.md asks for the bias where Gummel gives up to be documented
+    rather than fought, and this is the reporting half of that. Where it
+    actually gives up, and the fact that it degrades rather than failing, is
+    measured in tests/analytic/test_shockley_diode.py.
+
+    Deliberately cheap. Inducing a stall costs one failed solve per
+    continuation halving, and the default min_step is ten of them; on a 201
+    node mesh with a 40 cycle budget this one test was 14 s of a 17 s suite,
+    which is 84 percent of it to reach an assertion about a message. A coarse
+    mesh, a small budget and a floor on the step reproduce the same path, the
+    same two accepted points and the same stall at 0.4 V, in under a tenth of
+    the time.
     """
     curve = iv_sweep(
-        diode(), "anode", [0.2, 0.4, 5.0], step=0.05, max_iterations=40
+        diode(n_nodes=41, h_min=2e-6),
+        "anode",
+        [0.2, 0.4, 5.0],
+        step=0.05,
+        min_step=0.01,
+        max_iterations=8,
     )
 
     assert not curve.complete
@@ -274,3 +289,36 @@ def test_a_sweep_whose_first_point_stalls_raises() -> None:
         iv_sweep(
             diode(), "anode", [0.1], max_iterations=1, update_tol=1e-30
         )
+
+
+def test_a_floor_on_the_continuation_step_bounds_the_cost_of_a_stall() -> None:
+    """min_step decides how hard a failing sweep tries before giving up.
+
+    Every halving below the floor is one more full failed solve at the Gummel
+    budget, and the default floor is a thousandth of the first step, which is
+    ten of them. A caller who only wants to know roughly where a sweep dies
+    should not have to pay for ten refinements of the answer.
+
+    The coarse sweep has to stop no later than the fine one, and both have to
+    report the same kind of failure.
+    """
+    coarse = iv_sweep(
+        diode(n_nodes=41, h_min=2e-6),
+        "anode",
+        [0.2, 5.0],
+        step=0.05,
+        min_step=0.025,
+        max_iterations=8,
+    )
+    fine = iv_sweep(
+        diode(n_nodes=41, h_min=2e-6),
+        "anode",
+        [0.2, 5.0],
+        step=0.05,
+        min_step=0.0005,
+        max_iterations=8,
+    )
+
+    assert not coarse.complete and not fine.complete
+    assert coarse.message and fine.message
+    assert coarse.voltage[-1] <= fine.voltage[-1]

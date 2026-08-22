@@ -81,11 +81,10 @@ from ddsim.discretize.continuity import (
 )
 from ddsim.discretize.coupled import (
     apply_ohmic_contacts_coupled,
-    assemble_coupled_arrays,
+    assemble_coupled_terms,
     coupled_update_norm,
     limit_psi_step,
     pack,
-    residual_term_scales,
     row_weights,
     scale_rows,
     unpack,
@@ -383,9 +382,13 @@ def solve_bias_newton(
     Without it one threshold has to serve a charge and a current, and on a
     1e16 device those differ by six decades.
 
-    **The scales are computed once, at the guess.** A threshold that moves
-    with the iterate is not a threshold. It also has to not depend on how
-    converged the start is, which is the warm start trap PROGRESS.md records.
+    **The scales are measured at each iterate, not frozen at the guess.** The
+    threshold itself never moves: it stays residual_rtol against a scale of
+    one. What is re-measured is the size of the terms the residual is made of,
+    which is a property of the state and not of how converged it is. Freezing
+    it at the guess made a 1e20 / 1e14 junction report failure at 2.8e-9 while
+    it was converged to 4.5e-15, because its electron term scale grows by
+    660000 between equilibrium and 1 V. See coupled.residual_term_scales.
 
     **Only psi is damped.** docs/02-numerics.md and docs/05-pitfalls.md both
     say to cap the potential update and take the density updates in full.
@@ -402,25 +405,24 @@ def solve_bias_newton(
     net_doping = device.net_doping_scaled.data
 
     x0 = pack(start.psi.data, start.n.data, start.p.data)
-    weights = row_weights(
-        residual_term_scales(h, volume, x0, net_doping, models.Dn, models.Dp),
-        mesh.n_nodes,
-    )
 
     def assemble(x: npt.NDArray[np.float64]) -> SparseAssembly:
-        system = assemble_coupled_arrays(
-            h=h,
-            volume=volume,
-            x=x,
-            net_doping=net_doping,
-            Dn=models.Dn,
-            Dp=models.Dp,
-            recombination=models.recombination,
+        assembly, scales = assemble_coupled_terms(
+            h,
+            volume,
+            x,
+            net_doping,
+            models.Dn,
+            models.Dp,
+            models.recombination,
         )
-        system = apply_ohmic_contacts_coupled(
-            system, x, net_doping, device.contacts, scale
+        # Contacts before the scaling, so a pinned row becomes the identity
+        # and then gets divided like any other. Scaling first would leave the
+        # pinned rows at one while everything around them moved.
+        assembly = apply_ohmic_contacts_coupled(
+            assembly, x, net_doping, device.contacts, scale
         )
-        return scale_rows(system, weights)
+        return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
 
     result = newton_solve(
         assemble,
