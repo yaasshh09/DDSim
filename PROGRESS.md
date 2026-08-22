@@ -5,11 +5,52 @@ session. Newest entry at the top.
 
 ## Current state
 
-**Active phase:** Phase 2 complete, Phase 3 not started
-**Blocked on:** nothing. The remote is
-[yaasshh09/DDSim](https://github.com/yaasshh09/DDSim) and CI is green on the
-current tip.
-**Next action:** start Phase 3, full Newton on the coupled 3N system
+**Active phase:** Phase 3 in progress. Scope items 1 to 5 land, 6 and 7 are
+open, 8 is dropped with a reason.
+**Blocked on:** nothing.
+**Next action:** Auger recombination, then doping dependent mobility, Arora or
+Masetti. Both are physics models and the seams are already built: TransportModels
+accepts any RecombinationModel, and every assembly already takes Dn and Dp as
+per edge arrays rather than scalars.
+
+Phase 3 scope, against phases/PHASE-3.md:
+
+| # | Item | State |
+|---|---|---|
+| 1 | Full 3N Jacobian for (psi, n, p) | done |
+| 2 | Node interleaved ordering | done |
+| 3 | Jacobian verification against complex step | done, all nine blocks |
+| 4 | Damping, psi limited to 5 V_T per step | done |
+| 5 | Hybrid Gummel to Newton driver with fallback | done |
+| 6 | Auger recombination | not started |
+| 7 | Doping dependent mobility | not started |
+| 8 | Symbolic factorization reuse | dropped, see deviations |
+
+Phase 3 headline numbers. 1e16 / 1e16 diode, 12 um, 201 nodes, cold from the
+Poisson guess with no continuation at all:
+
+| Bias | Newton steps | Final residual | Steps limited | Negative densities |
+|---|---|---|---|---|
+| 0.6 V | 4 | 2.8e-15 | 0 | none |
+| 0.8 V | 8 | 6.2e-16 | 0 | none |
+| 1.0 V | 9 | 1.2e-16 | 0 | none |
+| 1.2 V | 11 | 1.6e-16 | 1 | none |
+
+Jacobian verification on a 20 node mesh. Worst relative disagreement per block
+against complex step differentiation, against a criterion of 1e-10:
+
+| State | Worst block | Error |
+|---|---|---|
+| Diode at equilibrium | dF_p/dpsi | 3.5e-14 |
+| Diode perturbed in psi, n and p at once | dF_p/dpsi | 1.9e-15 |
+| Uniform bar, X = 0 on every edge | all nine | 0.0 |
+
+Local verification, Python 3.14.6, numpy 2.5.2, scipy 1.18.0:
+
+    pytest   897 passed in 17 s
+    coverage 99 percent, gate is 95
+    ruff     clean
+    mypy     clean
 
 Remote verification, run 32516425400 on 21ecf00, all four jobs green:
 
@@ -70,6 +111,14 @@ these; add a new entry instead.
 | 2026-08-21 | The ideality crossover is demonstrated on a 1e18 device, not the 1e16 one | At 1e16 with the documented lifetimes the diode is diffusion limited and its ideality is 1 above 50 mV, which is correct rather than a shortfall. Depletion recombination has to dominate somewhere for n = 2 to exist, and raising the doping does that by cutting minority injection and raising the recombination rate at once. Nothing else changes between the two |
 | 2026-08-21 | newton_solve gives up once the residual is frozen to the last bit and the update is already inside tolerance | Both criteria still have to pass and the result is still converged=False, so the outcome is unchanged and only the iteration count moves. The check runs after the convergence test, so a warm start that arrives with a frozen residual and a zero update is still reported as the success it is. A frozen residual under a still moving iterate is deliberately not caught: that is a solver taking real steps that happen not to help, which is a different failure and gets the whole budget. Verified bit for bit inert on psi, n, p and the terminal currents at seven biases |
 | 2026-08-21 | extract/params.py and device/transport.py and device/state.py added to the layout | docs/03-architecture.md names params.py and puts ideality extraction in it. transport.py is the Gummel wiring, which cannot live in solve/ without breaking the module boundary. state.py holds DeviceState, which both equilibrium.py and transport.py return |
+| 2026-08-22 | The coupled dF_psi/dpsi carries no Boltzmann charge term | In Phase 1 n and p are functions of psi, so the diagonal picks up (n + p)*volume, which is what makes that matrix an M-matrix. Coupled, they are separate unknowns and the same physics lives in dF_psi/dn = +volume and dF_psi/dp = -volume. Carrying it in both places is the most natural way to get this wrong, because the Phase 1 Jacobian is sitting right there to copy from, and Newton would still converge, slower, to the right answer. The block verification catches it and nothing else does |
+| 2026-08-22 | The coupled Jacobian uses the exact SRH tangent, not the Gummel frozen denominator | The frozen form exists to keep the continuity matrix an M-matrix so a solved density cannot go negative. The coupled matrix is not an M-matrix under any linearization, so that guarantee is not available to give up. Positivity comes from damping psi instead. Measured: the two give residual histories identical to three significant figures on a 1e16 diode at 0.8 and 1.0 V, so the exact tangent is not bought for convergence, it is bought for being right |
+| 2026-08-22 | The coupled system is row scaled by equation family before the solve | One residual threshold cannot serve a charge and a current. The Poisson rows are order N*volume and the continuity rows are order (D/h)*n, six decades apart on a 1e16 device, so a single max abs(F) is set by the larger and declares Poisson converged a million times above its own floor. Each family is divided by the largest single term that goes into it. It is a diagonal left preconditioner, so it changes no answer, and it is applied outside the assembly so the Jacobian the block verification checks is the unweighted one |
+| 2026-08-22 | The coupled update is measured per family, absolutely on psi and relative on the densities | max abs(dx) over the raw vector cannot fall below 1e-9 when n is 1e6 in scaled units, so no threshold suits both. docs/02-numerics.md already asks for the carrier change as max abs(dn)/(n + n_i). The floor at n_i matters as much as the ratio: without it the measure is dominated by nodes where the density is 1e-15 and carries no charge |
+| 2026-08-22 | Only psi is damped in the coupled Newton, and the psi sub-vector is scaled rather than clipped entry by entry | Both docs/02-numerics.md and docs/05-pitfalls.md prescribe capping psi and taking the full n and p updates. One factor over the whole vector would be set entirely by the density update and would freeze psi. Within psi the direction is preserved, so the rotation is only between psi and the densities and only while the cap is active |
+| 2026-08-22 | physics/bernoulli.py grew a complex branch, in production rather than in the test tree | phases/PHASE-3.md makes complex step verification a permanent CI requirement, so a residual that survives a complex argument is a property the code has to have, not test scaffolding. The real path is untouched: one dtype test per call and every array on it is still float64 |
+| 2026-08-22 | solve/newton.py takes a limit callable and an update_norm callable rather than learning about components | Both are the same shape of problem: a scalar rule that cannot express a system whose unknowns differ by decades. Injecting them keeps solve/ free of semiconductor knowledge, which the import graph test enforces |
+| 2026-08-22 | Phase 3 scope item 8, symbolic factorization reuse, is dropped rather than attempted | Phase 0 already measured it. scipy exposes no symbolic and numeric split, and the standard workaround gives 6.1x fill and a 46x slowdown in 2D. Nothing has changed since. The interface still lets a UMFPACK or KLU backend deliver it later |
 
 ## Known deviations from reference
 
@@ -90,6 +139,9 @@ are not rediscovered as bugs later.
 | Where Gummel gives up | phases/PHASE-2.md expects degradation above roughly 0.6 V and asks for the bias at which it fails. It does not fail. Continued in 0.05 V steps it takes 4 cycles at 0.3 V, 12 at 0.7 V, 25 at 0.9 V, 60 at 1.1 V, and the per cycle convergence rate climbs from 0.51 at 0.9 V to 0.95 at 1.8 V | The degradation is exactly as predicted, it is just graceful. Two things help: the Poisson block is solved nonlinearly at fixed quasi-Fermi levels rather than with frozen densities, and continuation hands each solve a good guess. Where a solve does exceed its budget the continuation driver halves the step and the retry succeeds | Yes, and better than the phase expected. The rate curve is the honest answer to the question and it is what motivates Phase 3 |
 | Peak ideality factor | 1.79 rather than 2.0, at 0.16 V on the 1e18 device | Two reasons, both physical. The depletion region narrows under forward bias, so the recombination volume shrinks and the current rises slightly faster than exp(V/2V_T), which pulls the apparent ideality below 2. And diffusion current still contributes a few percent at the peak. A sum of two mechanisms has an apparent ideality strictly between theirs | Yes. 2.0 is the limit of a single idealized mechanism, and a solver that reported exactly 2 would be reporting the formula rather than the device |
 | Boltzmann statistics at 1e18 | The ideality crossover device runs at 1e18, where n/Nc is 0.035 and Joyce-Dixon puts the Fermi level correction at about 0.3 mV | docs/01-physics.md defers Fermi-Dirac to Phase 5. The correction shifts I_s slightly and leaves a slope alone, and the ideality is a slope | Yes for this use. It would not be acceptable for a quantitative I_s claim at that doping, and no such claim is made |
+| "Gummel failed at 1.0 V" | phases/PHASE-3.md makes converging at 1.0 V "where Gummel failed" the headline criterion of the phase. Gummel does not fail at 1.0 V, and it does not fail at 2.0 V either | Measured on the 1e16 diode, warm started along 0.05 V continuation steps with a 2000 cycle budget: Gummel takes 3 cycles at 0.1 V, 6 at 0.6 V, 46 at 1.0 V, 101 at 1.2 V, 224 at 1.5 V and 466 at 2.0 V, converging every time. Newton takes 4 to 6 across that whole range and does not grow. An earlier reading that Gummel stalled at 1.63 V was the 200 cycle default budget in solve_bias, not a divergence | The criterion is restated rather than dropped. What is tested is that Newton reaches 1.0 V in under a third of the cycles and reaches it cold. The real answer to the phase's question is that Gummel degrades without bound instead of failing, and by 2.0 V it costs 116 times more |
+| Cold start above roughly 1.3 V | initial_state, which is the Phase 1 Poisson solve at frozen quasi-Fermi levels, does not converge on a 1e16 diode above about 1.3 V, or on a coarse 1e15 diode above about 1.1 V. It raises rather than returning | The limit is in the guess, not in the coupled Newton. Newton converges at 1.4 V on a 1e18 device and at 2.0 V on a 1e16 one whenever it is handed any state to start from | Yes, and it is what docs/05-pitfalls.md already prescribes: continue from equilibrium, always. Continuation reaches 2.0 V in 8 solves with no retries. Where there is no ramp to come up, the Gummel prelude covers it |
+| Asymmetric junction at 1e20 / 1e14 | The electron continuity family stalls at a scaled residual of 2.8e-9 against a threshold of 1.0e-10. The Poisson and hole families reach 1.9e-16 and 3.7e-15 at the same iterate | The term scale is one number per equation family over the whole device. Across six decades of doping the global electron flux scale, 6.9e6, is far larger than the local terms at the lightly doped end, so the threshold there is effectively absolute rather than relative. Per node row scaling is the obvious fix and has not been tried | Not yet, and not urgent. Boltzmann statistics are documented as invalid at 1e20 and Fermi-Dirac is deferred to Phase 5, so no quantitative claim is made at that doping. Recorded so it is not rediscovered as a solver bug |
 
 ## Session log
 
@@ -105,6 +157,142 @@ Write the "Broke" field carefully even when it is embarrassing. The debugging
 narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
+
+### 2026-08-22, Phase 3, the coupled Newton
+
+**Landed:** Scope items 1 to 5 of phases/PHASE-3.md. The full 3N Jacobian, node
+interleaved, verified block by block; damping; the coupled driver; the Gummel
+prelude. Item 8 is dropped and 6 and 7 are untouched.
+
+- `discretize/coupled.py`. Nine blocks, each written against the residual so a
+  device engineer can check it by eye, plus the row scaling, the psi limiter
+  and the contact application. The only new algebra in the whole phase is the
+  potential derivative of the two fluxes, and the thing to see there is that
+  the minus sign in front of the second Bernoulli factor cancels against the
+  minus from d(-X)/dX, so the two terms add rather than subtract:
+
+      dJn_e/dX_e = (Dn/h_e) * ( B'(X_e)*n_{e+1} + B'(-X_e)*n_e )
+
+  That makes dF_n/dpsi a Laplacian shaped stencil with conductance G_e, and
+  dF_p/dpsi the same stencil negated, which is the statement that raising the
+  potential at one end of an edge pushes electrons one way and holes the other.
+
+- `tests/reference/complexstep.py` and the nine block verification. Worst
+  disagreement 3.5e-14 against a 1e-10 criterion, and exactly 0.0 on a flat
+  bar. Three states: the diode at equilibrium, the diode perturbed in all
+  three variables, and a uniform bar constructed to put X = 0 on every edge.
+
+- `solve_bias_newton` and `solve_bias_hybrid` in `device/transport.py`, and two
+  new injection points in `solve/newton.py`.
+
+Cold from the Poisson guess with no continuation, the 1e16 diode on 201 nodes
+takes 4 steps at 0.6 V, 8 at 0.8 V, 9 at 1.0 V and 11 at 1.2 V, with the
+residual reaching 1e-16 and no density going negative anywhere. Continuation
+from 0 to 1 V takes 6 solves against a budget of 40, and never has to retry a
+step; to 2.0 V it takes 8. Newton and Gummel agree to better than 1e-9
+everywhere both converge.
+
+**Broke:** Seven things. The first four are the interesting ones and three of
+them were my own reasoning rather than the code.
+
+1. **The complex step reference reported B'(0) as 0.0 instead of -0.5, and the
+   thing that made it a real problem is that x = 0 is the common case.** The
+   Phase 0 scalar reference writes the real part of expm1(x + iy) as
+   `expm1(x)*cos(y) + (cos(y) - 1)` and notes in its own docstring that cos(y)
+   rounds to exactly 1.0 for a 1e-20 step. That is true. What follows from it
+   is that the second term is exactly 0.0, which is harmless everywhere except
+   at x = 0, where that term is the entire real part. B(ih) then comes back as
+   exactly 1 with no imaginary part. Writing it as `-2*sin(y/2)^2` squares
+   after the sine instead of subtracting against one and it survives at any
+   step size. A uniformly doped region at equilibrium has X = 0 on every edge,
+   so this is not a corner, and without the fix the two flux-versus-potential
+   blocks would have been checked against nothing on exactly the states the
+   solver starts from.
+
+   This does not rescue the range Phase 0 documented as untrustworthy. The loss
+   near the origin is inside B's own algebra, `h*expm1(x) - x*h*exp(x)` forming
+   a result of order `h*x^2/2`, and that is still about `2*eps/abs(x)`. It
+   rescues the single point x = 0 and nothing between there and about 1e-5.
+
+2. **I asserted in a docstring that the diode at equilibrium has X = 0 across
+   the quasi neutral regions, then measured it and found no edge at zero at
+   all.** The smallest edge potential difference is 2.2e-3 and the largest is
+   6.5. An abrupt junction on a 20 node mesh leaves structure in psi
+   everywhere, so those regions are flat to a few parts in a thousand rather
+   than flat exactly. The fix was to construct a uniform bar from the closed
+   form instead, which does have X exactly zero, and to say so in the test. It
+   is the same failure this file keeps recording: a claim that sounds right,
+   written into a docstring, never measured.
+
+3. **One residual threshold cannot serve two equation families.** The Poisson
+   rows carry a charge of order N*volume and the continuity rows carry a
+   current of order (D/h)*n, and on a 1e16 device in scaled units those are
+   9.4e6 and 6.9e6 against a hole scale of 7.9e14. A single max abs(F) is set
+   by the largest and declares the other two converged when they are millions
+   of times above their own floors. Each family is now divided by the largest
+   single term that goes into it, which is a diagonal left preconditioner and
+   changes no answer.
+
+4. **Every solve above 0.2 V reported failure while sitting on the exact
+   answer, and the cause was the update measure, not the solver.** The residual
+   was at 1.8e-16 and the reported update was 8.9e-10 against a threshold of
+   1e-10, forever. `newton_solve` measures `max abs(dx)` over the whole vector,
+   and n is 1e6 in scaled units, so its last representable bit is 1e-10 and the
+   measure has a floor six decades above the potential's. docs/02-numerics.md
+   already says to measure the carrier change as `max abs(dn)/(n + n_i)`; I had
+   read that as a Gummel convenience and it is a requirement. The 1.0 V solve
+   was converging in 9 steps the whole time and being reported as a 30 step
+   failure.
+
+5. **The complex step size 1e-20 injects a rounding of its own.** A linear
+   function differentiated with it comes back one ulp low on any coefficient
+   needing more mantissa bits than fl(1e-20) has to spare: a coefficient of -7
+   returns -6.999999999999999. `2**-70` makes both the multiply inside the
+   function and the divide outside it exact, so a linear function comes back
+   bit for bit. One ulp is nothing against a 1e-10 criterion; a reference that
+   is exact where it can be is worth more when a block does disagree.
+
+6. **I nearly wrote up a wrong conclusion because a diagnostic script applied
+   the wrong contacts.** Investigating a stall on a 1e20 / 1e14 junction I
+   reassembled the residual at the converged state with `base.contacts`, which
+   are at 0 V, rather than the biased device's, and got numbers that disagreed
+   with the solver's own by eleven decades. The first instinct was that the
+   solver was inconsistent. It was the script. Rerun properly it reproduced the
+   solver's residual to the last digit and pointed cleanly at the electron
+   family, which is the finding recorded in the deviations table.
+
+7. **The convergence tests catch five of seven deliberate Jacobian errors, and
+   the two they miss are the ones about recombination.** Mutating the exact SRH
+   tangent back to the Gummel frozen slope, and deleting the dF_n/dp cross term
+   entirely, both leave the residual history identical to three significant
+   figures on a 1e16 diode. The block verification catches both. This is the
+   measured argument for why phases/PHASE-3.md makes the block check
+   non-negotiable and separate from the convergence check, and it is worth more
+   than the argument by assertion I would otherwise have written: a Jacobian
+   error that does not show up in the convergence rate is not hypothetical, two
+   of the seven I tried are exactly that.
+
+All seven deliberate mutations are caught by the block verification. The list
+is in the commit for the assembly.
+
+**Open:**
+
+- Scope items 6 and 7, Auger recombination and doping dependent mobility. Both
+  seams exist already. Doping dependent mobility is on the critical path to the
+  project's success criterion, since velocity saturation and threshold roll-off
+  cannot emerge from a constant mobility.
+- The 1e20 / 1e14 electron family stall, in the deviations table. Per node row
+  scaling is the obvious fix. Not urgent, because Boltzmann statistics are
+  already documented as invalid at that doping.
+- `initial_state` gives up above roughly 1.3 V, in the deviations table.
+  Continuation and the Gummel prelude both cover it and docs/05-pitfalls.md
+  already says to continue from equilibrium always, so this is a limit rather
+  than a defect. It is worth knowing that it is the guess and not the coupled
+  solve, because the symptom looks identical.
+- The two unchanged Phase 2 deferrals, the junction half cell offset and n_i
+  against Nc and Nv. Still deliberate, still not backlog.
+
+**Next:** Auger recombination, then Arora or Masetti mobility.
 
 ### 2026-08-21, night, CI is green
 

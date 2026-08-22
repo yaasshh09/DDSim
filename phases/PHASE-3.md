@@ -15,15 +15,22 @@ This is where the project stops being a homework exercise.
    fallback to Gummel on Newton stall
 6. Auger recombination
 7. Doping-dependent mobility (Arora or Masetti)
-8. Symbolic factorization reuse across Newton steps
+8. ~~Symbolic factorization reuse across Newton steps~~ **Dropped.** Phase 0
+   measured this. scipy exposes no symbolic and numeric split, and the standard
+   workaround gives 6.1x fill and a 46x slowdown in 2D. See PROGRESS.md.
 
 ## Acceptance criteria
 
 - **Every Jacobian block** matches complex-step differentiation to 1e-10 on a
   20 node mesh. All nine blocks, individually tested. Non-negotiable.
 - Newton converges quadratically. Residual history shows the characteristic drop.
-- **Converges at 1.0 V forward bias**, high injection, where Gummel failed.
-  This is the headline result of the phase.
+- **Converges at 1.0 V forward bias**, high injection. This is the headline
+  result of the phase. **The "where Gummel failed" clause is wrong and was
+  removed.** Gummel does not fail at 1.0 V or at 2.0 V; it degrades without
+  bound, taking 46 cycles at 1.0 V and 466 at 2.0 V against Newton's 4. The
+  tested claim is that Newton gets there in under a third of the cycles and
+  gets there cold, from the Poisson guess, with no continuation. See the
+  deviations table in PROGRESS.md for the measurement.
 - Gummel and Newton produce identical solutions to solver tolerance at every
   bias where both converge
 - Continuation from 0 to 1 V in under 40 total solves
