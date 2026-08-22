@@ -5,13 +5,12 @@ session. Newest entry at the top.
 
 ## Current state
 
-**Active phase:** Phase 3 in progress. Scope items 1 to 5 land, 6 and 7 are
-open, 8 is dropped with a reason.
+**Active phase:** Phase 3 complete. Items 1 to 7 land, 8 is dropped with a
+reason.
 **Blocked on:** nothing.
-**Next action:** Auger recombination, then doping dependent mobility, Arora or
-Masetti. Both are physics models and the seams are already built: TransportModels
-accepts any RecombinationModel, and every assembly already takes Dn and Dp as
-per edge arrays rather than scalars.
+**Next action:** Phase 4, two dimensions, MOS capacitor and C-V. The small
+signal AC solve reuses the DC Jacobian this phase built, which
+docs/02-numerics.md puts at roughly sixty lines once Phase 3 works.
 
 Phase 3 scope, against phases/PHASE-3.md:
 
@@ -22,8 +21,8 @@ Phase 3 scope, against phases/PHASE-3.md:
 | 3 | Jacobian verification against complex step | done, all nine blocks |
 | 4 | Damping, psi limited to 5 V_T per step | done |
 | 5 | Hybrid Gummel to Newton driver with fallback | done |
-| 6 | Auger recombination | not started |
-| 7 | Doping dependent mobility | not started |
+| 6 | Auger recombination | done |
+| 7 | Doping dependent mobility, Arora | done |
 | 8 | Symbolic factorization reuse | dropped, see deviations |
 
 Phase 3 headline numbers. 1e16 / 1e16 diode, 12 um, 201 nodes, cold from the
@@ -47,10 +46,21 @@ against complex step differentiation, against a criterion of 1e-10:
 
 Local verification, Python 3.14.6, numpy 2.5.2, scipy 1.18.0:
 
-    pytest   897 passed in 17 s
+    pytest   965 passed in 8 s
     coverage 99 percent, gate is 95
     ruff     clean
     mypy     clean
+
+Gummel against Newton, warm started along 0.05 V continuation steps with a
+2000 cycle budget. This is the comparison the phase was really asking for:
+
+| Bias | Gummel cycles | Newton steps |
+|---|---|---|
+| 0.1 V | 3 | 5 |
+| 0.5 V | 5 | 5 |
+| 1.0 V | 46 | 4 |
+| 1.5 V | 224 | 4 |
+| 2.0 V | 466 | 4 |
 
 Remote verification, run 32516425400 on 21ecf00, all four jobs green:
 
@@ -119,6 +129,11 @@ these; add a new entry instead.
 | 2026-08-22 | physics/bernoulli.py grew a complex branch, in production rather than in the test tree | phases/PHASE-3.md makes complex step verification a permanent CI requirement, so a residual that survives a complex argument is a property the code has to have, not test scaffolding. The real path is untouched: one dtype test per call and every array on it is still float64 |
 | 2026-08-22 | solve/newton.py takes a limit callable and an update_norm callable rather than learning about components | Both are the same shape of problem: a scalar rule that cannot express a system whose unknowns differ by decades. Injecting them keeps solve/ free of semiconductor knowledge, which the import graph test enforces |
 | 2026-08-22 | Phase 3 scope item 8, symbolic factorization reuse, is dropped rather than attempted | Phase 0 already measured it. scipy exposes no symbolic and numeric split, and the standard workaround gives 6.1x fill and a 46x slowdown in 2D. Nothing has changed since. The interface still lets a UMFPACK or KLU backend deliver it later |
+| 2026-08-22 | The row scale is measured at every iterate, not frozen at the starting guess | "Does not depend on the starting iterate" means it must not depend on how converged the start is. It does not mean freezing it. The terms a residual is built from are a property of the state, and on a forward biased junction they grow with the injected density: 28 times between guess and answer on a 1e16 diode at 1 V, 660000 times on a 1e20 / 1e14 one. The threshold itself never moves, at residual_rtol against a scale of one; what is re-measured is the question |
+| 2026-08-22 | The Poisson term scale counts the carriers, not only the doping | The residual carries -(p - n + N)*volume, and on intrinsic material that sum is exactly zero while n*volume and p*volume are a dual cell each. A scale built from the doping alone is zero there and every row divides by it. An undoped bar returned a residual of nan and a message blaming the LU factorization for being singular |
+| 2026-08-22 | Arora mobility is opt in, and the constant model stays the default | Every Phase 1 and 2 number was taken with the constant model, and Arora moves the current by five percent even at doping too low for it to be doing anything, because its N -> 0 limit is 1340 rather than the tabulated 1417. Making it the default would silently invalidate every measurement already in this file |
+| 2026-08-22 | Mobility is averaged from nodes to edges arithmetically | Scharfetter-Gummel derives its edge flux assuming the coefficients are constant along the edge, so one value per edge is what the scheme asks for and the only question is which. The mean is the honest reading of a quantity that is genuinely varying, and on a mesh graded to a junction the two endpoints sit in nearly the same doping anyway |
+| 2026-08-22 | Auger is opt in as well, and off by default | It changes nothing measurable below high injection, and the same argument about invalidating recorded numbers applies. Its exact tangent is also not sign definite, unlike the SRH one, so turning it on by default would quietly remove a property the Gummel path documents relying on |
 
 ## Known deviations from reference
 
@@ -141,7 +156,8 @@ are not rediscovered as bugs later.
 | Boltzmann statistics at 1e18 | The ideality crossover device runs at 1e18, where n/Nc is 0.035 and Joyce-Dixon puts the Fermi level correction at about 0.3 mV | docs/01-physics.md defers Fermi-Dirac to Phase 5. The correction shifts I_s slightly and leaves a slope alone, and the ideality is a slope | Yes for this use. It would not be acceptable for a quantitative I_s claim at that doping, and no such claim is made |
 | "Gummel failed at 1.0 V" | phases/PHASE-3.md makes converging at 1.0 V "where Gummel failed" the headline criterion of the phase. Gummel does not fail at 1.0 V, and it does not fail at 2.0 V either | Measured on the 1e16 diode, warm started along 0.05 V continuation steps with a 2000 cycle budget: Gummel takes 3 cycles at 0.1 V, 6 at 0.6 V, 46 at 1.0 V, 101 at 1.2 V, 224 at 1.5 V and 466 at 2.0 V, converging every time. Newton takes 4 to 6 across that whole range and does not grow. An earlier reading that Gummel stalled at 1.63 V was the 200 cycle default budget in solve_bias, not a divergence | The criterion is restated rather than dropped. What is tested is that Newton reaches 1.0 V in under a third of the cycles and reaches it cold. The real answer to the phase's question is that Gummel degrades without bound instead of failing, and by 2.0 V it costs 116 times more |
 | Cold start above roughly 1.3 V | initial_state, which is the Phase 1 Poisson solve at frozen quasi-Fermi levels, does not converge on a 1e16 diode above about 1.3 V, or on a coarse 1e15 diode above about 1.1 V. It raises rather than returning | The limit is in the guess, not in the coupled Newton. Newton converges at 1.4 V on a 1e18 device and at 2.0 V on a 1e16 one whenever it is handed any state to start from | Yes, and it is what docs/05-pitfalls.md already prescribes: continue from equilibrium, always. Continuation reaches 2.0 V in 8 solves with no retries. Where there is no ramp to come up, the Gummel prelude covers it |
-| Asymmetric junction at 1e20 / 1e14 | The electron continuity family stalls at a scaled residual of 2.8e-9 against a threshold of 1.0e-10. The Poisson and hole families reach 1.9e-16 and 3.7e-15 at the same iterate | The term scale is one number per equation family over the whole device. Across six decades of doping the global electron flux scale, 6.9e6, is far larger than the local terms at the lightly doped end, so the threshold there is effectively absolute rather than relative. Per node row scaling is the obvious fix and has not been tried | Not yet, and not urgent. Boltzmann statistics are documented as invalid at 1e20 and Fermi-Dirac is deferred to Phase 5, so no quantitative claim is made at that doping. Recorded so it is not rediscovered as a solver bug |
+| Asymmetric junction at 1e20 / 1e14 | Was: the electron continuity family stalled at a scaled residual of 2.8e-9 against a threshold of 1.0e-10. **Fixed on 2026-08-22.** | The diagnosis in the row this replaces was wrong. It blamed a single term scale spanning six decades of doping and proposed per node row scaling. The actual cause was that the scale was measured once at the starting guess, and the electron term scale on this device grows by 660000 between equilibrium and 1 V because the minority density on the 1e20 side is injected up by exp(V/V_T). The solve was converged to 4.5e-15 against the terms it actually had, and the threshold was 660000 times too strict | Fixed, and the device converges at 1 V in 14 steps. Boltzmann statistics are still invalid at 1e20 and no quantitative claim is made there; what is claimed is that the solver reports convergence honestly. A test pins it |
+| Arora against the tabulated undoped mobility | docs/06-constants.md lists mu_n = 1417 and mu_p = 470 for undoped silicon, and separately gives Arora parameters whose N -> 0 limit is 88 + 1252 = 1340 and 54.3 + 407 = 461.3. 5.4 percent apart for electrons, 1.8 for holes | Both are measured, from different fits to different data. Arora is fitted over the doped range where it gets used rather than at an intrinsic limit nobody measures | Yes, and the reason the constant model stays the default. Switching a device to Arora moves its current by five percent even at doping low enough that the model should be doing nothing, and that would otherwise read as a bug. A test pins both numbers |
 
 ## Session log
 
@@ -157,6 +173,126 @@ Write the "Broke" field carefully even when it is embarrassing. The debugging
 narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
+
+### 2026-08-22, later, the fix and finish pass on Phase 3
+
+**Landed:** The phase is complete. Scope items 6 and 7 arrived, three real
+defects were fixed, and the suite got twice as fast.
+
+- `physics/mobility.py`. Arora, checked against its four analytic limits and
+  then against two literature numbers, because the limits would pass for any
+  parameter set with the right shape: 1230 cm^2/Vs at 1e16 and 280 at 1e18.
+  Doping dependent mobility costs the Jacobian nothing, since the doping does
+  not move during a solve, and it slots in by making Dn and Dp arrays over
+  edges, which every assembly already accepted. Caughey-Thomas in Phase 5 will
+  not be free the same way: it depends on the potential across the edge and so
+  puts a dmu/dpsi term into every flux derivative.
+- Auger, and a `SumOfRecombination` so mechanisms compose. Checked by the thing
+  that actually identifies Auger rather than by a threshold: SRH goes as n at
+  high injection and Auger as n^3, so their ratio has to go as n^2, which is a
+  hundredfold per decade of density. Measured across eight decades it is 99.1,
+  99.9, then 100.0 to four figures, and the crossover where Auger overtakes SRH
+  lands at about 6e17 cm^-3.
+- The Gummel against Newton table in the Current state section, which is the
+  honest answer to what the phase was asking.
+
+**Broke:** Four, and none of them had a failing test to announce them. Three
+were found by reading the code for edge cases and one by mutation.
+
+1. **An intrinsic bar returned a residual of nan and blamed the LU
+   factorization.** The Poisson term scale was built from the net doping alone,
+   and on undoped material that is exactly zero, so every row divided by zero
+   and the factorization then reported a singular matrix three call frames
+   later. That is the worst kind of diagnostic: it sends you debugging the
+   linear algebra when the problem is a divide by zero in the row weights.
+
+   The residual carries -(p - n + N)*volume. On intrinsic material the sum is
+   zero but the terms going into it are n*volume and p*volume, a whole dual
+   cell each, and the scale has to count the terms rather than the sum. That
+   is the same principle the rest of the scaling already rests on and I had
+   applied it to the continuity rows and not to this one. An undoped bar now
+   converges with a residual of exactly 0.0 and n = p = n_i everywhere.
+
+2. **The row scale was frozen at the starting guess, and that was wrong on
+   every device, not just the one where it showed.** docs/02-numerics.md asks
+   for a scale that does not depend on the starting iterate. I read that as
+   "compute it once at the guess". It means "must not depend on how converged
+   the start is", which is a different statement. The terms a residual is built
+   from are a property of the state, and on a forward biased junction the flux
+   terms grow with the injected density.
+
+   Measured: on the 1e16 diode at 1 V the electron term scale is 28 times
+   larger at the answer than at the guess. On the 1e20 / 1e14 junction it is
+   660000 times larger, because the minority electron density on the heavily
+   doped side is injected up by exp(V/V_T). So the threshold there was 660000
+   times too strict and the solve reported failure at 2.8e-9 while sitting at
+   4.5e-15 against the terms it actually had.
+
+   The diagnosis in the previous entry's deviations table was also wrong, and I
+   have replaced rather than annotated that row. It blamed one global scale
+   spanning six decades of doping and proposed per node row scaling. I built
+   the per node version far enough to measure it before noticing that the per
+   node and per family numbers agreed to within a factor of two at the
+   converged state, which is not what a six decade problem looks like. The
+   difference was entirely guess against answer.
+
+   The threshold itself still never moves. It stays residual_rtol against a
+   scale of one, and what gets re-measured is the size of the terms. Iteration
+   counts on the 1e16 diode are unchanged at 4, 8, 9 and 11 for 0.6 to 1.2 V.
+
+3. **The block verification had stopped covering the code that runs.** Sharing
+   the Bernoulli pair created a second assembly path, the tests still
+   differentiated the standalone functions, and a mutation of the exact SRH
+   tangent inside the shared path left every block test green. Two code paths
+   where only one is verified is how a verification stops being one.
+
+   Found by re-running the seven mutations after the refactor and getting six.
+   Not by reading, and I had read that code twice. A bit for bit equality test
+   between the two paths now pins them together, and the mutation set is back
+   to seven of seven.
+
+4. **I asserted a threshold for the Auger crossover instead of measuring it.**
+   The first version of that test said Auger must exceed SRH by more than a
+   thousandfold at a scaled density of 1e9. It is 411 times. Nothing was wrong
+   with the model; the number was a guess written as if it were a measurement,
+   which is the same failure as the seven digit printout in the previous entry.
+   The test now asserts the scaling law, which is both true and much more
+   specific about what Auger is.
+
+**Efficiency, all measured before and after.**
+
+The coupled solve was evaluating B four times per Newton step. The residual,
+the Jacobian and the row scales all want the same pair, and going through the
+three public functions computed it three times over. Sharing it, and caching
+the triplet index arrays that never change between steps, took the assembly
+overhead from forty percent of a solve to about half that. A coupled solve is
+fourteen percent faster and the factorization is now the largest single cost,
+which is where it should be.
+
+The test suite went from 17 s to 8 s. Almost all of that was one test that
+spent 14 s reaching an assertion about an error message: it induced a Gummel
+stall on a 201 node mesh, and inducing a stall costs one full failed solve per
+continuation halving, of which the default is ten. `iv_sweep` gained a
+`min_step` so a caller who already knows a sweep may stall does not have to pay
+for ten refinements of where. That is a real gap in the API rather than a test
+convenience, and the test now runs in 0.13 s.
+
+**Open:**
+
+- `initial_state` still gives up above roughly 1.3 V, in the deviations table.
+  Continuation and the Gummel prelude both cover it.
+- `apply_dirichlet_nodes` is now the largest remaining assembly overhead at
+  about six percent of a solve. It masks over every triplet each step, and for
+  a fixed contact set and a fixed sparsity pattern that work is constant. Worth
+  a cached plan if 1D solve time ever matters, which it does not yet: at the
+  10k to 100k unknowns Phase 4 brings, the factorization dominates completely
+  and this is noise.
+- The two unchanged Phase 2 deferrals, the junction half cell offset and n_i
+  against Nc and Nv.
+
+**Next:** Phase 4. Two dimensions, the MOS capacitor, and C-V by small signal
+AC around the converged DC solution, which reuses the Jacobian this phase
+built.
 
 ### 2026-08-22, Phase 3, the coupled Newton
 

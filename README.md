@@ -14,17 +14,17 @@ eventually be computed by a layer below it.
 
 ## Where it is
 
-Phase 2 of 6. A PN diode that passes current: Scharfetter-Gummel transport,
-SRH recombination, Gummel iteration and bias continuation, validated against
-closed form device physics.
+Phase 3 of 6. A PN diode solved two ways: Gummel block iteration, and full
+Newton on the coupled 3N system with every Jacobian block verified against
+complex step differentiation.
 
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Scaling, the Field type, Bernoulli, meshes, linear solver | done |
 | 1 | Equilibrium Poisson in 1D, PN diode | done |
 | 2 | Scharfetter-Gummel continuity, Gummel iteration, I-V | done |
-| 3 | Full Newton, coupled 3N system | next |
-| 4 | 2D, MOS capacitor, C-V | |
+| 3 | Full Newton, coupled 3N system, Arora mobility, Auger | done |
+| 4 | 2D, MOS capacitor, C-V | next |
 | 5 | MOSFET, gate length sweep | |
 | 6 | Compact model extraction for SPICE | |
 
@@ -98,6 +98,47 @@ Gummel converges in 4 cycles at 0.3 V, 12 at 0.7 V, 25 at 0.9 V and 60 at
 injection passes the doping. That degradation is expected, is linear
 convergence doing what linear convergence does, and is the reason Phase 3
 exists.
+
+## Full Newton on the coupled system
+
+The three equations solved simultaneously instead of in a cycle, with the full
+3N Jacobian for (psi, n, p) interleaved by node.
+
+The phase brief said the headline result would be converging at 1 V "where
+Gummel failed". Gummel does not fail at 1 V. It does not fail at 2 V either.
+Measured along 0.05 V continuation steps with a large cycle budget, it
+converges every single time and simply costs more and more:
+
+| Bias | Gummel cycles | Newton steps |
+|---|---|---|
+| 0.1 V | 3 | 5 |
+| 0.5 V | 5 | 5 |
+| 1.0 V | 46 | 4 |
+| 1.5 V | 224 | 4 |
+| 2.0 V | 466 | 4 |
+
+Linear convergence degrading without bound, against quadratic convergence that
+does not care. By 2 V Gummel costs 116 times more. That is the honest answer to
+the question the phase asked, and it is a better one than the question assumed.
+
+Cold from the Poisson guess with no continuation at all, the 1e16 diode takes
+4 Newton steps at 0.6 V, 8 at 0.8 V, 9 at 1.0 V and 11 at 1.2 V, with the
+residual reaching 1e-16 and no carrier density going negative anywhere.
+Continuation from 0 to 1 V takes 6 solves against a budget of 40 and never has
+to retry a step.
+
+**Every one of the nine Jacobian blocks is verified against complex step
+differentiation**, individually, on three states including one constructed so
+that every Bernoulli argument sits exactly on its removable singularity. Worst
+disagreement 3.5e-14 against a criterion of 1e-10.
+
+That test is not decoration. Seven deliberate errors were introduced into the
+Jacobian to see what would catch them: a copied charge term, a flipped sign, a
+swapped Bernoulli factor, a dropped cross term, and so on. The block
+verification caught all seven. The convergence tests caught five, and the two
+they missed were both about recombination, where a wrong derivative leaves the
+residual history identical to three significant figures. A Jacobian error that
+does not show up in the convergence rate is not hypothetical.
 
 ## Running it
 

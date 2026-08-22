@@ -13,8 +13,10 @@ This is where the project stops being a homework exercise.
 4. Damping: Bank-Rose or step limiting on psi at 5*V_T per iteration
 5. Hybrid driver: Gummel for 3 to 5 iterations, then switch to Newton, with
    fallback to Gummel on Newton stall
-6. Auger recombination
-7. Doping-dependent mobility (Arora or Masetti)
+6. Auger recombination **(done, with SumOfRecombination so mechanisms compose)**
+7. Doping-dependent mobility **(done, Arora. Off by default: its N -> 0 limit
+   is 1340 against the tabulated 1417, so switching a device to it moves the
+   current by five percent even where the model should do nothing.)**
 8. ~~Symbolic factorization reuse across Newton steps~~ **Dropped.** Phase 0
    measured this. scipy exposes no symbolic and numeric split, and the standard
    workaround gives 6.1x fill and a 46x slowdown in 2D. See PROGRESS.md.
