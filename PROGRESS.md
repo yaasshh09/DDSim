@@ -5,9 +5,16 @@ session. Newest entry at the top.
 
 ## Current state
 
-**Active phase:** Phase 3 complete. Items 1 to 7 land, 8 is dropped with a
-reason.
-**Blocked on:** nothing.
+**Active phase:** Phase 3 complete on every criterion that can be checked
+here. Items 1 to 7 land, 8 is dropped with a reason.
+**Blocked on:** nothing for Phase 4. One Phase 3 acceptance criterion is
+**not met and cannot be met in this working copy**: "Diode #1 and #2 in the
+DEVSIM regression set pass at stated tolerance". DEVSIM is not installed and
+`data/golden/` holds nothing but a `.gitkeep`, so tier 4 of
+docs/04-validation.md has never run, in this phase or any earlier one. Every
+tier 4 claim anywhere in this repo is therefore unverified. That is worth
+stating plainly, because docs/04-validation.md opens by saying the project's
+entire credibility rests on it.
 **Next action:** Phase 4, two dimensions, MOS capacitor and C-V. The small
 signal AC solve reuses the DC Jacobian this phase built, which
 docs/02-numerics.md puts at roughly sixty lines once Phase 3 works.
@@ -289,6 +296,14 @@ convenience, and the test now runs in 0.13 s.
   and this is noise.
 - The two unchanged Phase 2 deferrals, the junction half cell offset and n_i
   against Nc and Nv.
+- **Tier 4 has never run.** `data/golden/` is empty and DEVSIM is not
+  installed. The Phase 3 brief asks for diodes 1 and 2 of the benchmark set to
+  pass, and that criterion is unmet rather than passed. Nothing in this repo
+  has ever been compared against an independent solver: everything is checked
+  against closed form limits, invariants, and the two internal solvers agreeing
+  with each other, which is a real body of evidence and is not the same claim.
+  Installing DEVSIM and generating `data/golden/*.csv` is the single largest
+  remaining gap in the project's validation.
 
 **Next:** Phase 4. Two dimensions, the MOS capacitor, and C-V by small signal
 AC around the converged DC solution, which reuses the Jacobian this phase
