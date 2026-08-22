@@ -95,6 +95,13 @@ import numpy.typing as npt
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
+from ddsim.discretize.boundary import (
+    Carrier,
+    OhmicContact,
+    apply_dirichlet_nodes,
+    ohmic_density_scaled,
+    ohmic_psi_scaled,
+)
 from ddsim.discretize.continuity import Diffusivity
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.physics.bernoulli import B, dB_dx
@@ -445,20 +452,253 @@ def assemble_coupled(
                 f"{mesh.n_nodes} nodes."
             )
 
-    h = mesh.h / scale.x_0
-    volume = mesh.volume / scale.x_0
     x: npt.NDArray[np.float64] = pack(psi.data, n.data, p.data)
-
-    residual = coupled_residual(
-        h, volume, x, net_doping.data, Dn, Dp, recombination
+    return assemble_coupled_arrays(
+        h=mesh.h / scale.x_0,
+        volume=mesh.volume / scale.x_0,
+        x=x,
+        net_doping=net_doping.data,
+        Dn=Dn,
+        Dp=Dp,
+        recombination=recombination,
     )
+
+
+def assemble_coupled_arrays(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    x: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    Dp: Diffusivity,
+    recombination: RecombinationModel,
+) -> SparseAssembly:
+    """assemble_coupled with the scaling and location already checked.
+
+    This is what a Newton loop calls. The Field level checks belong once at
+    the entry to a solve, not once per iteration, and building three Fields
+    per step only to unwrap them again is work the solver does not need.
+    """
+    residual = coupled_residual(h, volume, x, net_doping, Dn, Dp, recombination)
     rows, cols, values = coupled_jacobian(h, volume, x, Dn, Dp, recombination)
 
-    size = UNKNOWNS_PER_NODE * mesh.n_nodes
+    size = x.size
     return SparseAssembly(
         residual=np.asarray(residual, dtype=np.float64),
         rows=rows,
         cols=cols,
         values=values,
         shape=(size, size),
+    )
+
+
+def limit_psi_step(
+    delta: npt.NDArray[np.float64], max_psi_step: float
+) -> npt.NDArray[np.float64]:
+    """Cap the potential update and take the density updates in full.
+
+    docs/02-numerics.md prescribes exactly this: dpsi_max of 5*V_T per Newton
+    step, which is 5.0 in scaled units, with the full n and p updates
+    accepted. docs/05-pitfalls.md says the same thing from the other side,
+    that damping the density updates slows convergence without buying
+    robustness.
+
+    The psi sub-vector is scaled by one factor rather than clipped entry by
+    entry, so the potential update keeps its own direction. Between psi and
+    the densities the direction does rotate, and that is deliberate: they
+    differ by six decades in scaled units, so one factor over the whole vector
+    would be set entirely by the density update and would leave psi frozen.
+
+    Returns the argument itself when nothing needs capping, so that
+    newton_solve does not count an inactive limiter as a limited step.
+    """
+    dpsi = delta[Unknown.PSI :: UNKNOWNS_PER_NODE]
+    peak = float(np.max(np.abs(dpsi)))
+    if peak <= max_psi_step:
+        return delta
+
+    limited = delta.copy()
+    limited[Unknown.PSI :: UNKNOWNS_PER_NODE] = dpsi * (max_psi_step / peak)
+    return limited
+
+
+# ------------------------------------------------------------------ contacts
+
+
+def apply_ohmic_contacts_coupled(
+    assembly: SparseAssembly,
+    x: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    contacts: tuple[OhmicContact, ...],
+    scale: ScaleFactors,
+) -> SparseAssembly:
+    """Pin psi, n and p at every ohmic contact, returning a new assembly.
+
+    Args:
+        assembly: the assembled coupled system.
+        x: the current interleaved unknown vector [1].
+        net_doping: scaled net doping on nodes [1].
+        contacts: the contacts to apply.
+        scale: scale factors, used to convert contact voltages from V.
+
+    Three Dirichlet conditions per contact rather than one. In the uncoupled
+    solve the potential and the two densities are pinned in three separate
+    systems, by three separate calls; here they are three unknowns of one
+    system and go in together.
+
+    The values are the same ones the uncoupled path uses, and they have to be,
+    or the two solvers would answer different problems and their agreement at
+    every bias would mean nothing. psi carries the applied bias, both
+    densities are at their equilibrium values whatever the terminal voltage,
+    which is what makes an ohmic contact a perfect sink.
+
+    apply_dirichlet_nodes does the work and needs nothing taught about the
+    coupling: it takes unknown indices, not node indices, so the contact
+    simply hands it three indices per node. It eliminates the column as well
+    as the row, which is what makes the pinned value come back exactly rather
+    than to within the conditioning of the whole system. See its docstring for
+    the measurement that forced that.
+    """
+    names = [contact.name for contact in contacts]
+    if len(set(names)) != len(names):
+        raise ValueError(f"contact names must be unique, got {names}")
+
+    indices: list[int] = []
+    targets: list[float] = []
+
+    for contact in contacts:
+        doping = float(net_doping[contact.node])
+        applied = contact.voltage / scale.psi_0
+
+        indices.append(unknown_index(contact.node, Unknown.PSI))
+        targets.append(ohmic_psi_scaled(doping, applied))
+
+        indices.append(unknown_index(contact.node, Unknown.N))
+        targets.append(ohmic_density_scaled(doping, Carrier.ELECTRON))
+
+        indices.append(unknown_index(contact.node, Unknown.P))
+        targets.append(ohmic_density_scaled(doping, Carrier.HOLE))
+
+    return apply_dirichlet_nodes(assembly, x, indices, targets)
+
+
+# ------------------------------------------------------------- row scaling
+
+
+def residual_term_scales(
+    h: npt.NDArray[np.float64],
+    volume: npt.NDArray[np.float64],
+    x: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    Dn: Diffusivity,
+    Dp: Diffusivity,
+) -> tuple[float, float, float]:
+    """The size of the terms each equation family is assembled from [1].
+
+    Returns (psi, n, p). docs/02-numerics.md asks for a residual threshold
+    built from exactly this, and for a scale that does not depend on how
+    converged the starting iterate is. Densities and potentials are set by the
+    doping and the bias rather than by the state of the solve, so evaluating
+    this once at the starting guess and holding it fixed satisfies that.
+
+    Why three numbers and not one. The Poisson residual is a charge, of order
+    N*volume, and the continuity residuals are currents, of order (D/h)*n.
+    On a 1e16 diode in scaled units those differ by six decades. A single
+    threshold over the whole vector is set by the larger one, and then the
+    Poisson equation is declared converged at a residual a million times above
+    its own floor. Every family is measured against its own terms instead.
+
+    Each scale is the largest single term that goes into the sum, not the
+    largest sum. A residual is a difference of terms and cannot be resolved
+    below machine epsilon times the things being differenced, so the terms are
+    what sets the floor.
+    """
+    psi, n, p = unpack(x)
+    b_plus, b_minus = _bernoulli_pair(psi)
+
+    # Poisson: the face fluxes psi/h, differenced, and the charge N*volume.
+    psi_scale = max(
+        float(np.max(np.abs(psi)) * np.max(1.0 / h)),
+        float(np.max(np.abs(net_doping) * volume)),
+    )
+
+    # Continuity: the two halves of each Scharfetter-Gummel flux.
+    electron_scale = float(
+        np.max(np.maximum((Dn / h) * b_plus * n[1:], (Dn / h) * b_minus * n[:-1]))
+    )
+    hole_scale = float(
+        np.max(np.maximum((Dp / h) * b_plus * p[:-1], (Dp / h) * b_minus * p[1:]))
+    )
+
+    return psi_scale, electron_scale, hole_scale
+
+
+def row_weights(
+    scales: tuple[float, float, float], n_nodes: int
+) -> npt.NDArray[np.float64]:
+    """One weight per unknown, from the three per family term scales [1]."""
+    weights = np.empty(UNKNOWNS_PER_NODE * n_nodes)
+    for component, scale in zip(Unknown, scales, strict=True):
+        weights[component::UNKNOWNS_PER_NODE] = scale
+    return weights
+
+
+def scale_rows(
+    assembly: SparseAssembly, weights: npt.NDArray[np.float64]
+) -> SparseAssembly:
+    """Divide every equation by its own term scale, returning a new assembly.
+
+    A diagonal left preconditioner. J*dx = -F row-divided by w is the same
+    linear system with the same solution, so this changes no answer; it makes
+    max |F| a number that means the same thing in every row, and it takes six
+    decades out of the row norms, which the factorization is happier with.
+
+    Applied outside assemble_coupled_arrays rather than inside it, so that the
+    Jacobian the block verification checks is the unweighted one.
+    """
+    return SparseAssembly(
+        residual=assembly.residual / weights,
+        rows=assembly.rows,
+        cols=assembly.cols,
+        values=assembly.values / weights[assembly.rows],
+        shape=assembly.shape,
+    )
+
+
+def coupled_update_norm(
+    delta: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+) -> float:
+    """Size of a coupled Newton update, measured per family [1].
+
+        max( |dpsi|,  |dn|/(n + 1),  |dp|/(p + 1) )
+
+    docs/02-numerics.md asks for the potential update absolutely and the
+    carrier change as max |dn| / (n + n_i), which is n + 1 in scaled units
+    with C_0 = n_i. The three are combined by taking the largest, so one
+    threshold still means one thing.
+
+    Absolute for psi and relative for the densities is not an inconsistency.
+    psi is a logarithmic quantity already, order ten across a whole device, so
+    an absolute change in it is a relative change in everything it drives. The
+    densities run over twenty five decades and an absolute change in them
+    means nothing at all.
+
+    The floor at 1 matters as much as the ratio. Without it the measure is
+    dominated by nodes where the density is 1e-15 and physically irrelevant,
+    and a solve that has converged everywhere that carries charge reports a
+    huge update from a node that carries none.
+
+    max |dx| over the raw vector, which is what newton_solve does by default,
+    cannot work here. Measured on a 1e16 diode at 1 V: the residual reaches
+    1.8e-16 at step eight and the raw update sits at 8.9e-10 forever, because
+    n is 1e6 in scaled units and its last bit is 1e-10. Every solve above
+    0.2 V reported failure while sitting on the exact answer.
+    """
+    dpsi, dn, dp = unpack(delta)
+    _, n, p = unpack(x)
+
+    return max(
+        float(np.max(np.abs(dpsi))),
+        float(np.max(np.abs(dn) / (np.abs(n) + 1.0))),
+        float(np.max(np.abs(dp) / (np.abs(p) + 1.0))),
     )

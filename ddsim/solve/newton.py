@@ -124,10 +124,14 @@ def newton_solve(
     assemble: Callable[[npt.NDArray[np.float64]], Assembly],
     x0: npt.NDArray[np.float64],
     max_step: float | None = None,
+    limit: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None = None,
     residual_atol: float = 1e-12,
     residual_rtol: float = 1e-10,
     residual_scale: float | None = None,
     update_tol: float = 1e-10,
+    update_norm: (
+        Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float] | None
+    ) = None,
     max_iterations: int = 50,
     stagnation_window: int | None = 4,
     solver: SparseLU | None = None,
@@ -138,7 +142,18 @@ def newton_solve(
         assemble: given x, returns the residual and Jacobian at x.
         x0: initial guess. Not modified.
         max_step: largest allowed max |dx| per step, or None for no limit.
-            5.0 is the scaled value docs/02-numerics.md prescribes for psi.
+            Scales the whole update by one factor, which preserves the Newton
+            direction. Right for a single unknown per node; wrong for a system
+            whose components differ in size by decades, because max |dx| is
+            then set by the largest component and the cap shrinks every other
+            one along with it.
+        limit: a caller supplied damping rule, given the raw update and
+            returning the damped one. Mutually exclusive with max_step. This
+            is what a coupled solve needs: docs/02-numerics.md prescribes
+            capping the psi update at 5*V_T and taking the full n and p
+            updates, and no single scalar over the whole vector expresses
+            that. A limiter that returns its argument unchanged is not
+            counted in limited_steps.
         residual_atol: absolute floor on the residual threshold, for problems
             that start at or near zero residual.
         residual_rtol: residual threshold relative to residual_scale.
@@ -149,7 +164,17 @@ def newton_solve(
             below that floor can never be met. Any caller that starts from a
             previous solution should pass a scale that does not depend on the
             starting iterate.
-        update_tol: convergence threshold on max |dx|.
+        update_tol: convergence threshold on the update measure below.
+        update_norm: how to measure the size of an update, given the damped
+            update and the iterate it is about to be added to. Defaults to
+            max |dx|, which is right when every unknown is the same kind of
+            quantity and wrong when they are not. A coupled solve carries psi
+            of order ten beside a density of order 1e6 in scaled units, so
+            max |dx| bottoms out six decades above the potential's own floor
+            and no threshold suits both. docs/02-numerics.md asks for the
+            carrier change as max |dn| / (n + n_i) for that reason. Whatever
+            this returns is also what lands in update_history, so the reported
+            number and the applied criterion cannot drift apart.
         max_iterations: give up after this many steps.
         stagnation_window: give up early once the residual has been identical
             to the last bit across this many consecutive entries of the
@@ -176,6 +201,12 @@ def newton_solve(
     singular. A failed solve is information the caller usually wants to inspect
     rather than an exception to catch.
     """
+    if max_step is not None and limit is not None:
+        raise ValueError(
+            "max_step and limit are two damping rules for one update. Pass "
+            "one. Letting either win silently makes the other look ineffective."
+        )
+
     x = np.array(x0, dtype=np.float64, copy=True)
     if solver is None:
         solver = SparseLU()
@@ -214,13 +245,34 @@ def newton_solve(
             message = f"non-finite Newton update at iteration {iteration}"
             break
 
-        step_norm = float(np.max(np.abs(delta)))
+        raw_norm = float(np.max(np.abs(delta)))
+        step_norm = raw_norm
         if max_step is not None and step_norm > max_step:
             # Scale the whole vector by one factor. Clamping entry by entry
             # would rotate the direction and break quadratic convergence.
             delta = delta * (max_step / step_norm)
             step_norm = max_step
             limited_steps += 1
+        elif limit is not None:
+            limited = np.asarray(limit(delta), dtype=np.float64)
+            if limited.shape != delta.shape:
+                raise ValueError(
+                    f"limit returned shape {limited.shape} for an update of "
+                    f"shape {delta.shape}. Dropping entries would freeze "
+                    "those unknowns at their starting values."
+                )
+            if not np.array_equal(limited, delta):
+                limited_steps += 1
+            delta = limited
+
+        # Measured on the damped update, which is the one actually taken, and
+        # against the iterate it is being added to rather than the one it
+        # produces. A relative measure divides by where the solve is now.
+        step_norm = (
+            float(np.max(np.abs(delta)))
+            if update_norm is None
+            else float(update_norm(delta, x))
+        )
 
         x = x + delta
         update_history.append(step_norm)

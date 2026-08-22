@@ -68,6 +68,7 @@ from ddsim.device.equilibrium import (
     solve_poisson,
 )
 from ddsim.device.state import DeviceState
+from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import (
     Carrier,
     apply_ohmic_densities,
@@ -78,6 +79,17 @@ from ddsim.discretize.continuity import (
     assemble_electron_continuity,
     assemble_hole_continuity,
 )
+from ddsim.discretize.coupled import (
+    apply_ohmic_contacts_coupled,
+    assemble_coupled_arrays,
+    coupled_update_norm,
+    limit_psi_step,
+    pack,
+    residual_term_scales,
+    row_weights,
+    scale_rows,
+    unpack,
+)
 from ddsim.physics.recombination import (
     RecombinationModel,
     SRHRecombination,
@@ -85,6 +97,7 @@ from ddsim.physics.recombination import (
 )
 from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve
 from ddsim.solve.linear import SparseLU
+from ddsim.solve.newton import newton_solve
 
 DENSITY_REFERENCE = 1.0
 """Floor in the density update norm [1], which is n_i in scaled units.
@@ -332,6 +345,101 @@ def initial_state(device: Device) -> DeviceState:
     is what continuation is for.
     """
     return solve_equilibrium(device, frozen_quasi_fermi(device))
+
+
+def solve_bias_newton(
+    device: Device,
+    models: TransportModels | None = None,
+    guess: DeviceState | None = None,
+    max_psi_step: float = 5.0,
+    max_iterations: int = 30,
+    residual_rtol: float = 1e-10,
+    update_tol: float = 1e-10,
+) -> DeviceState:
+    """Solve the coupled system at the device's biases by full Newton.
+
+    Args:
+        device: the device, carrying its contact voltages.
+        models: recombination and diffusivities. Built from the device if None.
+        guess: a previous solution to start from. Continuation lives on this.
+        max_psi_step: cap on the potential update per step [1], scaled.
+            5.0 is the 5*V_T that docs/02-numerics.md prescribes.
+        max_iterations: Newton budget. Small on purpose: a coupled Newton that
+            needs thirty steps from a decent guess is not converging
+            quadratically and the budget should not hide that.
+        residual_rtol: residual threshold, relative to each equation family's
+            own term scale after row scaling.
+        update_tol: threshold on the update, measured per family by
+            coupled.coupled_update_norm rather than as max |dx|.
+
+    The same equations as solve_bias, solved together instead of in a cycle.
+    Returns the state with its NewtonResult attached, converged or not, and
+    does not raise: a failed solve is what continuation reads to decide to
+    halve its step.
+
+    Three things this does that a textbook Newton loop does not.
+
+    **The rows are scaled by their own terms.** See coupled.residual_term_scales.
+    Without it one threshold has to serve a charge and a current, and on a
+    1e16 device those differ by six decades.
+
+    **The scales are computed once, at the guess.** A threshold that moves
+    with the iterate is not a threshold. It also has to not depend on how
+    converged the start is, which is the warm start trap PROGRESS.md records.
+
+    **Only psi is damped.** docs/02-numerics.md and docs/05-pitfalls.md both
+    say to cap the potential update and take the density updates in full.
+    """
+    if models is None:
+        models = TransportModels.for_device(device)
+
+    start = initial_state(device) if guess is None else guess
+    scale = device.scale
+    mesh = device.mesh
+
+    h = mesh.h / scale.x_0
+    volume = mesh.volume / scale.x_0
+    net_doping = device.net_doping_scaled.data
+
+    x0 = pack(start.psi.data, start.n.data, start.p.data)
+    weights = row_weights(
+        residual_term_scales(h, volume, x0, net_doping, models.Dn, models.Dp),
+        mesh.n_nodes,
+    )
+
+    def assemble(x: npt.NDArray[np.float64]) -> SparseAssembly:
+        system = assemble_coupled_arrays(
+            h=h,
+            volume=volume,
+            x=x,
+            net_doping=net_doping,
+            Dn=models.Dn,
+            Dp=models.Dp,
+            recombination=models.recombination,
+        )
+        system = apply_ohmic_contacts_coupled(
+            system, x, net_doping, device.contacts, scale
+        )
+        return scale_rows(system, weights)
+
+    result = newton_solve(
+        assemble,
+        x0,
+        limit=lambda delta: limit_psi_step(delta, max_psi_step),
+        residual_scale=1.0,
+        residual_rtol=residual_rtol,
+        update_tol=update_tol,
+        update_norm=coupled_update_norm,
+        max_iterations=max_iterations,
+    )
+
+    psi, n, p = unpack(result.x)
+    return DeviceState(
+        psi=_node_field(psi.copy(), "V", "psi"),
+        n=_node_field(n.copy(), "cm^-3", "n"),
+        p=_node_field(p.copy(), "cm^-3", "p"),
+        newton=result,
+    )
 
 
 def solve_bias(

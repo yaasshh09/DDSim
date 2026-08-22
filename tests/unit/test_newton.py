@@ -552,3 +552,192 @@ def test_a_converged_solve_is_never_turned_into_a_stall() -> None:
     )
 
     assert result.converged
+
+
+# ------------------------------------------------- a caller supplied limiter
+
+
+def test_a_limit_callable_replaces_the_uniform_scaling() -> None:
+    """The coupled system needs a limit on one component, not on the vector.
+
+    max_step scales everything by max|dx|, which on a coupled solve is
+    dominated by the density updates: n is 1e6 in scaled units and psi is a
+    few, so a cap of 5 on the whole vector shrinks the potential update by
+    five decades and nothing moves.
+    """
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(x - np.array([100.0, 2.0]), np.ones(2))
+
+    def limit(delta: np.ndarray) -> np.ndarray:
+        capped = delta.copy()
+        capped[0] = np.clip(capped[0], -5.0, 5.0)
+        return capped
+
+    result = newton_solve(assemble, np.zeros(2), limit=limit, max_iterations=1)
+
+    assert result.x[0] == pytest.approx(5.0)
+    assert result.x[1] == pytest.approx(2.0)
+
+
+def test_a_limit_that_changes_nothing_is_not_counted_as_limited() -> None:
+    """limited_steps has to keep meaning what it means.
+
+    A converged solve is supposed to end with several unlimited steps. If a
+    limiter that never fires still counted, that diagnostic would read as a
+    solve permanently against its cap.
+    """
+
+    def limit(delta: np.ndarray) -> np.ndarray:
+        return delta
+
+    result = newton_solve(
+        square_root_problem(np.array([4.0])), np.array([1.0]), limit=limit
+    )
+
+    assert result.converged
+    assert result.limited_steps == 0
+
+
+def test_a_limit_that_fires_is_counted() -> None:
+    """And one that does fire has to show up in the diagnostic."""
+
+    def limit(delta: np.ndarray) -> np.ndarray:
+        return np.clip(delta, -5.0, 5.0)
+
+    result = newton_solve(
+        exponential_problem(1.0), np.array([-40.0]), limit=limit
+    )
+
+    assert result.converged
+    assert result.limited_steps > 0
+
+
+def test_a_limit_rescues_the_stiff_exponential_like_max_step_does() -> None:
+    """Same rescue, different mechanism, so the two are known to agree."""
+
+    def limit(delta: np.ndarray) -> np.ndarray:
+        return np.clip(delta, -5.0, 5.0)
+
+    result = newton_solve(exponential_problem(1.0), np.array([-40.0]), limit=limit)
+
+    assert result.converged
+    assert result.x[0] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_passing_both_a_limit_and_a_max_step_is_rejected() -> None:
+    """Two damping rules on one update is a caller who means one of them.
+
+    Silently letting one win would make the other look ineffective, which is
+    a long debugging session over a keyword argument.
+    """
+    with pytest.raises(ValueError, match="max_step"):
+        newton_solve(
+            square_root_problem(np.array([4.0])),
+            np.array([1.0]),
+            max_step=5.0,
+            limit=lambda delta: delta,
+        )
+
+
+def test_a_limit_that_returns_the_wrong_shape_is_rejected() -> None:
+    """A limiter that drops entries would silently freeze those unknowns."""
+
+    def limit(delta: np.ndarray) -> np.ndarray:
+        return delta[:1]
+
+    with pytest.raises(ValueError, match="shape"):
+        newton_solve(
+            square_root_problem(np.array([4.0, 9.0])),
+            np.array([1.0, 1.0]),
+            limit=limit,
+        )
+
+
+# ------------------------------------------- a caller supplied update measure
+
+
+def test_an_update_norm_callable_replaces_max_abs_delta() -> None:
+    """max |dx| is the wrong measure when the unknowns differ by decades.
+
+    A coupled solve carries a potential of order 10 next to a density of
+    order 1e6 in scaled units. Once the density is converged to the last bit
+    its update is still 1e-10 in absolute terms, so max |dx| has a floor six
+    decades above the potential's, and a threshold that suits psi can never
+    be met. docs/02-numerics.md asks for the carrier change relative to
+    n + n_i for exactly this reason.
+    """
+
+    # Roots 1 and sqrt(2e16) = 1.414e8. The second cannot settle to better
+    # than its own ulp, 3e-8, so max |dx| has a floor two decades above
+    # update_tol while the same update is 2e-16 relative.
+    #
+    # 2e16 rather than a round 1e16, because sqrt(1e16) is exactly 1e8 and
+    # the residual there reaches exactly 0.0, which makes the next update
+    # exactly zero and lets any measure pass. A test of a floor needs a
+    # problem that actually has one.
+    assemble = square_root_problem(np.array([1.0, 2e16]))
+    start = np.array([1.0, 1e7])
+
+    def relative(delta: np.ndarray, x: np.ndarray) -> float:
+        return float(np.max(np.abs(delta) / (np.abs(x) + 1.0)))
+
+    strict = newton_solve(assemble, start, update_tol=1e-10)
+    relaxed = newton_solve(
+        assemble, start, update_tol=1e-10, update_norm=relative
+    )
+
+    assert not strict.converged
+    assert relaxed.converged
+    assert relaxed.x[1] == pytest.approx(np.sqrt(2e16), rel=1e-15)
+
+
+def test_the_update_norm_sees_the_iterate_before_the_step() -> None:
+    """A relative measure divides by where the solve is, not where it lands."""
+    seen: list[float] = []
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(x - np.array([4.0]), np.ones(1))
+
+    def record(delta: np.ndarray, x: np.ndarray) -> float:
+        seen.append(float(x[0]))
+        return float(np.max(np.abs(delta)))
+
+    newton_solve(
+        assemble, np.array([1.0]), update_norm=record, max_iterations=1
+    )
+
+    assert seen[0] == 1.0
+
+
+def test_the_update_norm_is_what_gets_recorded_in_the_history() -> None:
+    """Otherwise the reported history and the applied criterion disagree."""
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(x - np.array([8.0]), np.ones(1))
+
+    def halved(delta: np.ndarray, x: np.ndarray) -> float:
+        return float(np.max(np.abs(delta))) / 2.0
+
+    result = newton_solve(
+        assemble, np.zeros(1), update_norm=halved, max_iterations=1
+    )
+
+    assert result.update_history[0] == pytest.approx(4.0)
+
+
+def test_the_update_norm_is_measured_after_the_limiter() -> None:
+    """A limited step is smaller than the raw one, and it is the one taken."""
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(x - np.array([100.0]), np.ones(1))
+
+    result = newton_solve(
+        assemble,
+        np.zeros(1),
+        limit=lambda delta: np.clip(delta, -5.0, 5.0),
+        update_norm=lambda delta, x: float(np.max(np.abs(delta))),
+        max_iterations=1,
+    )
+
+    assert result.update_history[0] == pytest.approx(5.0)

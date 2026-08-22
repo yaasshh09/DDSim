@@ -42,7 +42,12 @@ from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import build_device
 from ddsim.device.doping import Uniform, abrupt_junction
 from ddsim.device.transport import TransportModels, initial_state
-from ddsim.discretize.boundary import OhmicContact
+from ddsim.discretize.boundary import (
+    Carrier,
+    OhmicContact,
+    ohmic_density_scaled,
+    ohmic_psi_scaled,
+)
 from ddsim.discretize.continuity import (
     electron_continuity_residual,
     hole_continuity_residual,
@@ -50,6 +55,7 @@ from ddsim.discretize.continuity import (
 from ddsim.discretize.coupled import (
     UNKNOWNS_PER_NODE,
     Unknown,
+    apply_ohmic_contacts_coupled,
     assemble_coupled,
     coupled_jacobian,
     coupled_residual,
@@ -59,6 +65,7 @@ from ddsim.discretize.coupled import (
 )
 from ddsim.discretize.poisson import poisson_residual
 from ddsim.mesh.mesh1d import uniform_mesh_1d
+from ddsim.solve.linear import SparseLU
 from tests.reference.complexstep import complex_step_jacobian
 
 N_NODES = 20
@@ -178,6 +185,29 @@ def dense_jacobian(geometry, x, models):
 def block(matrix, row: Unknown, col: Unknown):
     """One N x N block, gathered out of the node-interleaved ordering."""
     return matrix[row::UNKNOWNS_PER_NODE, col::UNKNOWNS_PER_NODE]
+
+
+def node_field(values, unit, name):
+    """A scaled node Field, which is the only kind an assembly accepts."""
+    return Field(
+        values.copy(), unit, ScalingState.SCALED, Location.NODE, name=name
+    )
+
+
+def assemble_state(device, models, x):
+    """The Field level assembly at a packed state, without the boilerplate."""
+    psi, n, p = unpack(x)
+    return assemble_coupled(
+        mesh=device.mesh,
+        psi=node_field(psi, "V", "psi"),
+        n=node_field(n, "cm^-3", "n"),
+        p=node_field(p, "cm^-3", "p"),
+        net_doping=device.net_doping_scaled,
+        recombination=models.recombination,
+        scale=device.scale,
+        Dn=models.Dn,
+        Dp=models.Dp,
+    )
 
 
 # ------------------------------------------------------------------ ordering
@@ -492,24 +522,7 @@ def test_assemble_coupled_agrees_with_the_array_level_functions(
     device, geometry, models, perturbed_x
 ):
     """The Field wrapper must not change a single number."""
-    psi, n, p = unpack(perturbed_x)
-
-    def node(values, unit, name):
-        return Field(
-            values.copy(), unit, ScalingState.SCALED, Location.NODE, name=name
-        )
-
-    assembly = assemble_coupled(
-        mesh=device.mesh,
-        psi=node(psi, "V", "psi"),
-        n=node(n, "cm^-3", "n"),
-        p=node(p, "cm^-3", "p"),
-        net_doping=device.net_doping_scaled,
-        recombination=models.recombination,
-        scale=device.scale,
-        Dn=models.Dn,
-        Dp=models.Dp,
-    )
+    assembly = assemble_state(device, models, perturbed_x)
 
     expected = residual_at(geometry, device, models)(perturbed_x)
 
@@ -596,4 +609,96 @@ def test_assemble_coupled_rejects_a_field_of_the_wrong_length(
             scale=device.scale,
             Dn=models.Dn,
             Dp=models.Dp,
+        )
+
+
+# ------------------------------------------------------------------ contacts
+
+
+def test_contacts_pin_all_three_unknowns_at_the_contact_node(
+    device, models, perturbed_x
+):
+    """A coupled ohmic contact is three Dirichlet conditions, not one."""
+    assembly = assemble_state(device, models, perturbed_x)
+
+    pinned = apply_ohmic_contacts_coupled(
+        assembly,
+        perturbed_x,
+        device.net_doping_scaled.data,
+        device.contacts,
+        device.scale,
+    )
+
+    solver = SparseLU()
+    solver.factorize(pinned.rows, pinned.cols, pinned.values, pinned.shape)
+    delta = solver.solve(-pinned.residual)
+    solved = perturbed_x + delta
+
+    doping = device.net_doping_scaled.data
+    for contact in device.contacts:
+        node = contact.node
+        assert solved[unknown_index(node, Unknown.PSI)] == pytest.approx(
+            ohmic_psi_scaled(
+                float(doping[node]), contact.voltage / device.scale.psi_0
+            ),
+            rel=1e-14,
+        )
+        assert solved[unknown_index(node, Unknown.N)] == pytest.approx(
+            ohmic_density_scaled(float(doping[node]), Carrier.ELECTRON), rel=1e-14
+        )
+        assert solved[unknown_index(node, Unknown.P)] == pytest.approx(
+            ohmic_density_scaled(float(doping[node]), Carrier.HOLE), rel=1e-14
+        )
+
+
+def test_the_contact_densities_agree_with_the_contact_potential(device):
+    """n = exp(psi - phi_n) at a contact, with phi_n = phi_p = the bias.
+
+    The two boundary conditions are written from different physics, one from
+    neutrality plus mass action and one from asinh of the doping, so their
+    agreeing is a real check rather than a restatement. If they disagreed the
+    solver would be pulled between two incompatible statements at one node
+    and the terminal current would come out wrong with everything converged.
+    """
+    biased = device.with_bias(anode=0.35, cathode=0.0)
+    doping = biased.net_doping_scaled.data
+
+    for contact in biased.contacts:
+        applied = contact.voltage / biased.scale.psi_0
+        psi = ohmic_psi_scaled(float(doping[contact.node]), applied)
+        n = ohmic_density_scaled(float(doping[contact.node]), Carrier.ELECTRON)
+        p = ohmic_density_scaled(float(doping[contact.node]), Carrier.HOLE)
+
+        assert n == pytest.approx(np.exp(psi - applied), rel=1e-12)
+        assert p == pytest.approx(np.exp(applied - psi), rel=1e-12)
+        assert n * p == pytest.approx(1.0, rel=1e-12)
+
+
+def test_the_applied_bias_moves_psi_and_leaves_the_densities_alone(device):
+    """An ohmic contact stays in equilibrium whatever the terminal voltage."""
+    doping = device.net_doping_scaled.data[0]
+
+    unbiased = ohmic_psi_scaled(float(doping), 0.0)
+    biased = ohmic_psi_scaled(float(doping), 1.0)
+
+    assert biased - unbiased == pytest.approx(1.0, rel=1e-14)
+    assert ohmic_density_scaled(
+        float(doping), Carrier.ELECTRON
+    ) == ohmic_density_scaled(float(doping), Carrier.ELECTRON)
+
+
+def test_two_contacts_sharing_a_name_are_rejected(device, models, perturbed_x):
+    """Mirrors the Poisson path. A duplicate name breaks current reporting."""
+    assembly = assemble_state(device, models, perturbed_x)
+
+    with pytest.raises(ValueError, match="unique"):
+        apply_ohmic_contacts_coupled(
+            assembly,
+            perturbed_x,
+            device.net_doping_scaled.data,
+            (
+                OhmicContact(name="anode", node=0, voltage=0.0),
+                OhmicContact(name="anode", node=N_NODES - 1, voltage=0.0),
+            ),
+            device.scale,
         )
