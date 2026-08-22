@@ -189,8 +189,12 @@ Cold from the Poisson guess with no continuation, the 1e16 diode on 201 nodes
 takes 4 steps at 0.6 V, 8 at 0.8 V, 9 at 1.0 V and 11 at 1.2 V, with the
 residual reaching 1e-16 and no density going negative anywhere. Continuation
 from 0 to 1 V takes 6 solves against a budget of 40, and never has to retry a
-step; to 2.0 V it takes 8. Newton and Gummel agree to better than 1e-9
-everywhere both converge.
+step; to 2.0 V it takes 8.
+
+Current continuity holds on the coupled solutions. With recombination off the
+spread of Jn + Jp is 6.9e-8 at 0.4 V, 1.4e-9 at 0.5 V and 8.6e-13 at 1.0 V,
+against a gate of 1e-6, and the terminal currents sum to zero to better than
+1e-8 of the largest from 0.5 V up.
 
 **Broke:** Seven things. The first four are the interesting ones and three of
 them were my own reasoning rather than the code.
@@ -261,7 +265,27 @@ them were my own reasoning rather than the code.
    solver's residual to the last digit and pointed cleanly at the electron
    family, which is the finding recorded in the deviations table.
 
-7. **The convergence tests catch five of seven deliberate Jacobian errors, and
+7. **I claimed Newton and Gummel agree to better than 1e-9 and the number was
+   read off a truncated printout.** Both solvers reported an anode current of
+   `1.550886e+04` at 1.0 V, seven digits, identical, so I wrote the agreement
+   down as better than 1e-9 and moved on. Written as a test at that tolerance
+   it fails: the real agreement on the validation diode is 3.6e-9 at 1.0 V and
+   1.4e-7 at 0.3 V.
+
+   Chasing it turned out to be worth it, because the answer is not what the
+   symptom suggests. Tightening Gummel's `update_tol` from its default 1e-8 to
+   1e-10 moves the 1.0 V agreement to 1.9e-11, and tightening it further to
+   1e-12 or 1e-14 does not move it again. Gummel stops when its density update
+   falls below 1e-8 and the terminal current is very nearly proportional to
+   that density, so the disagreement is Gummel's stopping rule and Newton is
+   the more accurate of the two at its own defaults. The test now runs Gummel
+   tight and asserts 1e-10, which measures agreement instead of measuring
+   Gummel's tolerance.
+
+   The lesson is the printout, not the tolerance. Seven digits of agreement is
+   evidence of seven digits of agreement and I recorded it as nine.
+
+8. **The convergence tests catch five of seven deliberate Jacobian errors, and
    the two they miss are the ones about recombination.** Mutating the exact SRH
    tangent back to the Gummel frozen slope, and deleting the dF_n/dp cross term
    entirely, both leave the residual history identical to three significant
@@ -274,6 +298,16 @@ them were my own reasoning rather than the code.
 
 All seven deliberate mutations are caught by the block verification. The list
 is in the commit for the assembly.
+
+The coupled solve also sits consistently about eight times further into the
+cancellation noise than Gummel on the Jn + Jp invariant, so its gate starts one
+continuation step later, at 0.4 V rather than 0.3 V. Both fall off the same
+cliff as the bias rises, which is the signature of the cancellation the Phase 2
+deviations table describes rather than of a conservation error in either:
+
+    V      0.2      0.3      0.4      0.5      0.6      1.0
+    newton 1.4e-4   3.4e-6   6.9e-8   1.4e-9   4.8e-11  8.6e-13
+    gummel 2.3e-5   3.4e-7   8.8e-9   4.2e-10  8.2e-12  5.3e-14
 
 **Open:**
 

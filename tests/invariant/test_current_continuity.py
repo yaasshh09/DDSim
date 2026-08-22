@@ -27,7 +27,11 @@ import numpy as np
 import pytest
 
 from ddsim.device.pn_diode import pn_diode
-from ddsim.device.transport import TransportModels, solve_bias
+from ddsim.device.transport import (
+    TransportModels,
+    solve_bias,
+    solve_bias_newton,
+)
 from ddsim.extract.iv import current_densities, terminal_currents
 from ddsim.physics.bernoulli import B
 from ddsim.physics.recombination import NoRecombination
@@ -53,11 +57,11 @@ def diode(voltage: float = 0.0, **overrides: float):
     return pn_diode(**settings).with_bias(anode=voltage)
 
 
-def solved(voltage: float, recombination=None):
+def solved(voltage: float, recombination=None, update_tol: float = 1e-8):
     """A converged device and state at one bias, with the models used."""
     device = diode(voltage)
     models = TransportModels.for_device(device, recombination=recombination)
-    state = solve_bias(device, models=models)
+    state = solve_bias(device, models=models, update_tol=update_tol)
     assert state.gummel is not None and state.gummel.converged, (
         f"the solve at {voltage:+g} V did not converge: {state.gummel}"
     )
@@ -276,3 +280,107 @@ def test_the_recombination_rate_vanishes_at_zero_bias() -> None:
     spurious = abs(float(np.sum(rate * volume))) * device.scale.J_0
     assert spurious < 1e-23
 
+
+
+# --------------------------------------------- the same invariants on Newton
+
+
+def solved_by_newton(voltage: float, recombination=None):
+    """The same thing as solved(), through the coupled Newton solver."""
+    device = diode(voltage)
+    models = TransportModels.for_device(device, recombination=recombination)
+    state = solve_bias_newton(device, models=models)
+    assert state.newton is not None and state.newton.converged, (
+        f"the solve at {voltage:+g} V did not converge: {state.newton.message}"
+    )
+    return device, state, models
+
+
+@pytest.mark.parametrize("voltage", [0.4, 0.5])
+def test_the_newton_solution_conserves_current(voltage: float) -> None:
+    """The Phase 2 gate, applied to the Phase 3 solver.
+
+    docs/02-numerics.md lists this as the third convergence criterion and says
+    it is physical rather than algebraic and catches failures the other two
+    miss. It is the check that would notice a Jacobian that converges cleanly
+    to the wrong answer, which is the failure mode the whole phase exists to
+    avoid.
+
+    Gated from 0.4 V where the Gummel version of this is gated from 0.3 V, one
+    continuation step later, because the coupled solve lands consistently about
+    eight times further into the cancellation noise. Measured, both with
+    recombination off:
+
+        V      0.2       0.3       0.4       0.5       0.6       1.0
+        newton 1.4e-4    3.4e-6    6.9e-8    1.4e-9    4.8e-11   8.6e-13
+        gummel 2.3e-5    3.4e-7    8.8e-9    4.2e-10   8.2e-12   5.3e-14
+
+    Both fall off a cliff together as the bias rises, which is the signature of
+    the cancellation the Phase 2 deviations table describes and not of a
+    conservation error in either. The factor of eight between them is where
+    each happens to land on that floor.
+    """
+    device, state, models = solved_by_newton(voltage, NoRecombination())
+    Jn, Jp = current_densities(device, state, models)
+
+    deviation = spread(Jn.data + Jp.data)
+    assert deviation < 1e-6, f"Jn + Jp varies by {deviation:.2e} at {voltage} V"
+
+
+@pytest.mark.parametrize("voltage", [0.5, 0.6, 0.8, 1.0])
+def test_newton_and_gummel_report_the_same_terminal_current(
+    voltage: float,
+) -> None:
+    """The strongest agreement check there is, because it is what is measured.
+
+    Two solvers, two convergence criteria, two damping strategies, and the
+    number the device actually reports has to be the same. Comparing state
+    vectors is weaker: a difference in psi deep in a quasi neutral region moves
+    nothing observable, while the same difference at the junction moves the
+    current exponentially.
+
+    **Gummel is run tighter than its default here, and that is the point of the
+    test rather than a thumb on the scale.** At the default update_tol of 1e-8
+    the two disagree by 3.6e-9 at 1.0 V, and it is Gummel that is short: it
+    stops when its density update falls below 1e-8 and the current is very
+    nearly proportional to that density. Tightening it to 1e-10 moves the
+    agreement to 1.9e-11, and tightening to 1e-12 or 1e-14 does not move it
+    again. So the residual disagreement is Gummel's stopping rule, not either
+    solver's discretization, and the way to measure agreement is to take that
+    term out. Newton is the more accurate of the two at its own defaults.
+
+    Below 0.5 V this stops measuring agreement and starts measuring the
+    cancellation floor of terminal_currents: 1.4e-7 at 0.3 V and 6.1e-6 at
+    0.2 V, for both solvers, for the reason in the Phase 2 deviations table.
+    """
+    device_g, gummel, models = solved(voltage, update_tol=1e-10)
+    device_n, newton, _ = solved_by_newton(voltage)
+
+    from_gummel = terminal_currents(device_g, gummel, models)
+    from_newton = terminal_currents(device_n, newton, models)
+
+    for name, value in from_gummel.items():
+        assert from_newton[name] == pytest.approx(value, rel=1e-10), (
+            f"{name} current differs at {voltage} V: "
+            f"gummel {value:.12e}, newton {from_newton[name]:.12e}"
+        )
+
+
+@pytest.mark.parametrize("voltage", [0.5, 0.8, 1.0])
+def test_the_newton_terminal_currents_sum_to_zero(voltage: float) -> None:
+    """Kirchhoff, at the biases where the measurement is not cancellation.
+
+    The gate starts at 0.5 V here rather than at 0.3 V as it does for Gummel.
+    That is not a defect in the coupled solver and tightening its tolerances
+    does not move it: measured at 0.3 V the residual is already at 2.0e-15 and
+    the terminal sum sits at 1.4e-7 whether the threshold is 1e-10, 1e-14 or
+    switched off entirely. Both solvers are on the arithmetic floor of the
+    measurement and they simply land at different points on it, 1.4e-7 against
+    5.7e-8. The Phase 2 deviations table records the same effect and the same
+    cause. Above 0.5 V the cancellation is gone and both clear 1e-8 easily.
+    """
+    device, state, models = solved_by_newton(voltage)
+    currents = terminal_currents(device, state, models)
+
+    largest = max(abs(value) for value in currents.values())
+    assert abs(sum(currents.values())) < 1e-8 * largest
