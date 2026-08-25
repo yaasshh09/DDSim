@@ -18,15 +18,18 @@ import numpy as np
 import pytest
 import scipy.sparse as sp
 
+from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import (
     Carrier,
+    GateContact,
     OhmicContact,
     apply_dirichlet,
     apply_dirichlet_nodes,
     apply_ohmic_contacts,
     apply_ohmic_densities,
+    gate_psi_scaled,
     ohmic_psi_scaled,
 )
 from ddsim.discretize.poisson import poisson_jacobian, poisson_residual
@@ -450,3 +453,102 @@ def test_pinning_many_nodes_rejects_one_outside_the_mesh() -> None:
 
     with pytest.raises(IndexError, match="outside the mesh"):
         apply_dirichlet_nodes(assembly, psi, [0, 9], [0.0, 1.0])
+
+
+# --------------------------------------------------------------- MOS gate
+
+
+class TestGateContact:
+    """The MOS gate: a Dirichlet on psi over a set of nodes, not one node.
+
+    docs/01-physics.md writes the condition as psi_gate = V_gate - Phi_MS. That
+    is stated against the semiconductor's own work function, which depends on
+    the doping under the gate. Written that way a contact would have to know
+    the substrate, which it does not and should not.
+
+    The equivalent form used here folds the doping out. The gate is a metal
+    whose Fermi level sits at Phi_M below vacuum, and psi in this codebase is
+    measured from the intrinsic level, whose work function is chi + Eg/2. So
+
+        psi_gate = V_gate + (chi + Eg/2 - Phi_M)
+
+    with no reference to the substrate at all. The two agree, and the test that
+    they agree is the flatband one below, which is the only one that really
+    matters.
+    """
+
+    def test_a_midgap_gate_at_zero_bias_sits_at_zero_psi(self) -> None:
+        """psi is measured from the intrinsic level, and midgap is that level."""
+        assert gate_psi_scaled(0.0, C.PHI_M_MIDGAP) == pytest.approx(
+            0.0, abs=1e-12
+        )
+
+    def test_an_n_poly_gate_sits_half_a_gap_above_intrinsic(self) -> None:
+        """Its Fermi level is at the conduction edge, Eg/2 above midgap."""
+        expected = (C.Eg() / 2.0) / C.V_T()
+
+        assert gate_psi_scaled(0.0, C.PHI_M_N_POLY) == pytest.approx(
+            expected, rel=1e-12
+        )
+
+    def test_bias_moves_the_gate_potential_one_for_one(self) -> None:
+        """A scaled volt of bias is a scaled volt of psi. Nothing else moves."""
+        at_zero = gate_psi_scaled(0.0, C.PHI_M_N_POLY)
+
+        assert gate_psi_scaled(3.0, C.PHI_M_N_POLY) == pytest.approx(
+            at_zero + 3.0, rel=1e-12
+        )
+
+    @pytest.mark.parametrize("Na", [1e15, 1e16, 1e17])
+    @pytest.mark.parametrize(
+        "metal", [C.PHI_M_N_POLY, C.PHI_M_MIDGAP, C.PHI_M_P_POLY]
+    )
+    def test_at_flatband_the_gate_sits_at_the_bulk_potential(
+        self, Na: float, metal: float
+    ) -> None:
+        """The load bearing test, and the reason the form above is equivalent.
+
+        Flatband means no field anywhere, so the potential at the gate equals
+        the potential in the neutral bulk. It happens at V_gate = Phi_MS. If
+        the two ways of writing the gate potential disagree by any amount, the
+        whole C-V curve slides along the voltage axis while still looking
+        entirely reasonable, which is exactly the failure phases/PHASE-4.md
+        gates at 20 mV.
+
+        Checked across three substrate dopings and all three gate materials,
+        because the doping cancels only if the algebra is right.
+        """
+        scale = ScaleFactors.for_silicon()
+        net_doping = -Na / scale.C_0
+
+        flatband = float(C.work_function_difference(metal, -Na))
+        gate = gate_psi_scaled(flatband / scale.psi_0, metal)
+        bulk = ohmic_psi_scaled(net_doping, 0.0)
+
+        assert gate == pytest.approx(bulk, abs=1e-9)
+
+    def test_a_gate_contact_holds_a_set_of_nodes(self) -> None:
+        """Unlike an ohmic contact, which is pinned to one."""
+        gate = GateContact(
+            name="gate", nodes=(4, 5, 6), voltage=1.0, work_function=C.PHI_M_N_POLY
+        )
+
+        assert gate.nodes == (4, 5, 6)
+        assert gate.voltage == 1.0
+
+    def test_a_gate_with_no_nodes_is_refused(self) -> None:
+        """A contact that touches nothing pins nothing and is a modelling slip."""
+        with pytest.raises(ValueError, match="at least one node"):
+            GateContact(
+                name="gate", nodes=(), voltage=0.0, work_function=C.PHI_M_N_POLY
+            )
+
+    def test_a_gate_that_names_a_node_twice_is_refused(self) -> None:
+        """apply_dirichlet_nodes would refuse it later, with less context."""
+        with pytest.raises(ValueError, match="more than once"):
+            GateContact(
+                name="gate",
+                nodes=(4, 5, 4),
+                voltage=0.0,
+                work_function=C.PHI_M_N_POLY,
+            )

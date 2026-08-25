@@ -49,6 +49,7 @@ from functools import lru_cache
 import numpy as np
 import numpy.typing as npt
 
+from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.physics.statistics import equilibrium_densities_scaled
@@ -66,6 +67,68 @@ class OhmicContact:
 
     voltage: float
     """Applied bias [V]. Physical volts, converted to scaled units on use."""
+
+
+@dataclass(frozen=True)
+class GateContact:
+    """A MOS gate: one Dirichlet value on psi, over a set of nodes.
+
+    Not an OhmicContact with more nodes. A gate pins only psi: it is a metal
+    plate on an insulator, so there are no carrier densities to pin and no
+    charge neutrality condition to solve. The nodes it names are metal, not
+    semiconductor.
+    """
+
+    name: str
+    """Terminal name, for reporting terminal currents later."""
+
+    nodes: tuple[int, ...]
+    """Mesh node indices the gate covers. A gate is a plate, not a point."""
+
+    voltage: float
+    """Applied bias [V]. Physical volts, converted to scaled units on use."""
+
+    work_function: float
+    """Work function of the gate metal [eV]. See core/constants.py."""
+
+    def __post_init__(self) -> None:
+        if not self.nodes:
+            raise ValueError(
+                f"gate {self.name!r} covers at least one node, got none. A "
+                "contact that touches nothing pins nothing."
+            )
+        if len(set(self.nodes)) != len(self.nodes):
+            raise ValueError(
+                f"gate {self.name!r} names the same node more than once: "
+                f"{self.nodes}. One unknown cannot hold two Dirichlet values."
+            )
+
+
+def gate_psi_scaled(
+    applied: float, work_function: float, T: float = C.T_ROOM
+) -> float:
+    """Potential at a gate metal [1], scaled.
+
+    Args:
+        applied: applied bias in scaled units [1], that is V_gate / V_T.
+        work_function: work function of the gate metal [eV].
+        T: temperature [K].
+
+        psi_gate = V_gate + (chi + Eg/2 - Phi_M)
+
+    docs/01-physics.md writes the condition as `psi_gate = V_gate - Phi_MS`,
+    against the semiconductor's work function and therefore against the doping
+    under the gate. This is the same statement with the doping folded out, so
+    that a contact does not have to know what it is sitting on.
+
+    The two agree because psi here is measured from the intrinsic level, whose
+    work function is chi + Eg/2 exactly. At flatband, V_gate = Phi_MS, this
+    returns the neutral bulk potential asinh(N/2) for any doping and any gate
+    material, which is what tests/unit/test_boundary.py checks. Getting it
+    wrong slides the whole C-V curve sideways with every regime still looking
+    correct.
+    """
+    return applied + (C.PHI_M_MIDGAP - work_function) / C.V_T(T)
 
 
 def ohmic_psi_scaled(net_doping: float, applied: float) -> float:
