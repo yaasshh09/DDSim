@@ -92,6 +92,49 @@ is where it has to be settled.
 | Eg_ox | 9.0 | eV |
 | barrier to Si CB | 3.1 | eV |
 
+## Work functions, for the MOS gate
+
+The gate is a Dirichlet condition on psi with the work function difference
+folded in, `psi_gate = V_gate - Phi_MS`. A wrong Phi_MS slides the whole C-V
+curve along the voltage axis without changing its shape, so all three regimes
+still look right. That is why Phase 4 gates flatband at 20 mV rather than
+trusting the curve.
+
+| Name | Value | Units | Note |
+|---|---|---|---|
+| chi_Si | 4.05 | eV | electron affinity, Si conduction edge below vacuum |
+| Phi_M, n+ poly | 4.05 | eV | Fermi level at the conduction edge |
+| Phi_M, midgap | 4.6121 | eV | chi + Eg/2, the usual tungsten model |
+| Phi_M, p+ poly | 5.1741 | eV | chi + Eg, Fermi level at the valence edge |
+
+The semiconductor side is
+
+    Phi_S = chi + Eg/2 - phi_F,     phi_F = V_T * asinh(N / (2*n_i))
+
+**asinh, not `V_T * ln(N/n_i)`.** Same reason as the contact potential in
+docs/05-pitfalls.md: the log form is -inf at zero doping and nan for the other
+sign, and both occur in a real substrate. asinh is smooth through zero and
+antisymmetric, so intrinsic silicon lands exactly at midgap and equal n and p
+doping give exactly opposite offsets. The two agree to twelve digits wherever
+the log form is valid.
+
+Computed values, for checking against a textbook worked example:
+
+| Gate | Substrate | Phi_MS |
+|---|---|---|
+| n+ poly | p-type 1e15 | -0.8597 V |
+| n+ poly | p-type 1e16 | -0.9192 V |
+| n+ poly | p-type 1e17 | -0.9787 V |
+| p+ poly | n-type 1e16 | +0.9192 V |
+
+The -0.92 V at 1e16 is the standard NMOS number. The sign is the easy thing to
+get wrong and it moves flatband by nearly two volts.
+
+The two polysilicon values are idealisations: real degenerate poly sits a few
+tens of meV inside the gap rather than exactly on the band edge, and heavy
+doping narrows the gap as well. Both are far below the 20 mV gate, so this is
+recorded rather than modelled.
+
 ## Mobility, undoped silicon at 300 K
 
 | Name | Value | Units |

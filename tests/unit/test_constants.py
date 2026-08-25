@@ -7,6 +7,7 @@ PROGRESS.md.
 
 import math
 
+import numpy as np
 import pytest
 
 from ddsim.core import constants as C
@@ -223,3 +224,82 @@ def test_effective_mass_model_satisfies_the_band_density_protocol() -> None:
     model: C.BandDensityModel = C.EffectiveMassBandDensity(m_e=0.328, m_h=1.15)
     assert model.Nc(300.0) > 0.0
     assert model.Nv(300.0) > 0.0
+
+
+# ------------------------------------------------------- MOS work functions
+
+
+class TestWorkFunctions:
+    """Phi_MS, which the MOS gate boundary condition is written in terms of.
+
+    docs/01-physics.md gives the gate condition as psi_gate = V_gate - Phi_MS,
+    so a wrong Phi_MS shifts the whole C-V curve sideways without changing its
+    shape, and every regime still looks qualitatively right. phases/PHASE-4.md
+    wants flatband to within 20 mV, which is what pins it.
+    """
+
+    def test_intrinsic_silicon_has_the_midgap_work_function(self) -> None:
+        """No doping means the Fermi level sits at midgap, by definition."""
+        assert C.semiconductor_work_function(0.0) == pytest.approx(
+            C.CHI_SI + C.Eg() / 2.0, rel=1e-12
+        )
+
+    def test_n_type_lowers_the_work_function_and_p_type_raises_it(self) -> None:
+        """Doping moves E_F towards the nearer band edge, symmetrically."""
+        midgap = C.CHI_SI + C.Eg() / 2.0
+        n_type = C.semiconductor_work_function(1e16)
+        p_type = C.semiconductor_work_function(-1e16)
+
+        assert n_type < midgap < p_type
+        assert midgap - n_type == pytest.approx(p_type - midgap, rel=1e-12)
+
+    def test_the_fermi_offset_matches_the_logarithmic_form_when_it_is_valid(
+        self,
+    ) -> None:
+        """asinh(N/2n_i) is V_T*ln(N/n_i) wherever the log form is usable.
+
+        The asinh form is used everywhere per docs/05-pitfalls.md, because the
+        log form breaks at or below intrinsic doping. Away from there the two
+        have to agree, and at 1e16 they agree to twelve digits.
+        """
+        offset = C.CHI_SI + C.Eg() / 2.0 - C.semiconductor_work_function(1e16)
+
+        assert offset == pytest.approx(
+            C.V_T() * math.log(1e16 / C.n_i()), rel=1e-12
+        )
+
+    def test_n_poly_on_p_type_gives_the_textbook_flatband_voltage(self) -> None:
+        """The number this is all for.
+
+        An n+ polysilicon gate on a 1e16 p-type substrate is the standard
+        worked example and comes out near -0.9 V. Getting the sign wrong is
+        the easy mistake and it is worth having a test that would notice.
+        """
+        phi_ms = C.work_function_difference(C.PHI_M_N_POLY, -1e16)
+
+        assert phi_ms == pytest.approx(-0.92, abs=0.02)
+
+    def test_a_midgap_gate_on_intrinsic_silicon_has_no_offset(self) -> None:
+        """Both work functions are midgap, so the difference is exactly zero."""
+        assert C.work_function_difference(C.PHI_M_MIDGAP, 0.0) == pytest.approx(
+            0.0, abs=1e-12
+        )
+
+    def test_the_polysilicon_gates_straddle_the_silicon_gap(self) -> None:
+        """n+ poly sits at the conduction edge, p+ poly at the valence edge."""
+        assert C.PHI_M_N_POLY == pytest.approx(C.CHI_SI, rel=1e-12)
+        assert C.PHI_M_P_POLY == pytest.approx(C.CHI_SI + C.Eg(), rel=1e-12)
+        assert C.PHI_M_MIDGAP == pytest.approx(C.CHI_SI + C.Eg() / 2.0, rel=1e-12)
+
+    def test_it_works_on_an_array_of_doping(self) -> None:
+        """The substrate doping is a per node field in a real device."""
+        doping = np.array([-1e16, 0.0, 1e16])
+        got = C.semiconductor_work_function(doping)
+
+        assert got.shape == (3,)
+        assert got[0] > got[1] > got[2]
+
+    def test_it_survives_doping_far_below_intrinsic(self) -> None:
+        """Where V_T*ln(N/n_i) would return -inf or nan."""
+        assert math.isfinite(float(C.semiconductor_work_function(1.0)))
+        assert math.isfinite(float(C.semiconductor_work_function(-1.0)))

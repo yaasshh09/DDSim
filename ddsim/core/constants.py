@@ -16,6 +16,9 @@ from __future__ import annotations
 import math
 from typing import Protocol
 
+import numpy as np
+import numpy.typing as npt
+
 # ---------------------------------------------------------------- fundamental
 # These are genuinely constant, so they are module level values.
 
@@ -307,3 +310,82 @@ N_REF_SRH: float = 5e16
 
 GAMMA_SRH: float = 1.0
 """Sharpness of the Scharfetter lifetime transition [1]."""
+
+
+# ------------------------------------------------------- MOS work functions
+#
+# The MOS gate is a Dirichlet condition on psi with the work function
+# difference folded in, per docs/01-physics.md:
+#
+#     psi_gate = V_gate - Phi_MS
+#
+# so Phi_MS translates the whole C-V curve along the voltage axis without
+# changing its shape. Every regime still looks qualitatively correct with a
+# wrong value, which is why phases/PHASE-4.md pins flatband to 20 mV rather
+# than trusting the curve to look right.
+
+CHI_SI: float = 4.05
+"""Electron affinity of silicon [eV], the conduction band edge below vacuum."""
+
+PHI_M_N_POLY: float = CHI_SI
+"""Work function of degenerate n+ polysilicon [eV].
+
+Its Fermi level sits at the silicon conduction band edge, so the work function
+is the electron affinity. An idealisation: real n+ poly is a few tens of meV
+into the gap, and heavy doping shifts the band edge as well.
+"""
+
+PHI_M_P_POLY: float = CHI_SI + Eg()
+"""Work function of degenerate p+ polysilicon [eV], at the valence band edge.
+
+Frozen at 300 K, because a module level constant cannot follow temperature.
+Anything that has to move with T should compute it from Eg(T) directly. The
+same applies to PHI_M_MIDGAP.
+"""
+
+PHI_M_MIDGAP: float = CHI_SI + Eg() / 2.0
+"""Work function of a midgap metal [eV], the usual model for tungsten."""
+
+
+def semiconductor_work_function(
+    net_doping: float | npt.NDArray[np.float64], T: float = T_ROOM
+) -> npt.NDArray[np.float64]:
+    """Work function of doped silicon [eV], vacuum level to Fermi level.
+
+    Args:
+        net_doping: net doping N = Nd - Na [cm^-3], positive for n-type.
+        T: temperature [K].
+
+        Phi_S = chi + Eg/2 - phi_F,     phi_F = V_T * asinh(N / (2*n_i))
+
+    The Fermi potential uses the asinh form, not V_T*ln(N/n_i), for the reason
+    docs/05-pitfalls.md gives about contact potentials: the log form returns
+    -inf at zero doping and nan for the other sign, and both happen in a real
+    substrate. asinh is smooth through zero and antisymmetric, so intrinsic
+    silicon lands exactly at midgap and equal n and p doping give offsets that
+    are exact negatives of each other. Where the log form is valid the two
+    agree to twelve digits.
+    """
+    phi_F = V_T(T) * np.arcsinh(
+        np.asarray(net_doping, dtype=np.float64) / (2.0 * n_i(T))
+    )
+    return np.asarray(CHI_SI + Eg(T) / 2.0 - phi_F)
+
+
+def work_function_difference(
+    metal: float,
+    net_doping: float | npt.NDArray[np.float64],
+    T: float = T_ROOM,
+) -> npt.NDArray[np.float64]:
+    """Phi_MS, gate metal minus semiconductor [eV, numerically volts].
+
+    Args:
+        metal: work function of the gate material [eV].
+        net_doping: net doping of the substrate under the gate [cm^-3].
+        T: temperature [K].
+
+    Negative for an n+ poly gate on a p-type substrate, which is the ordinary
+    NMOS case and comes out near -0.92 V at 1e16. The sign is the easy thing
+    to get wrong and it moves flatband by nearly two volts.
+    """
+    return np.asarray(metal - semiconductor_work_function(net_doping, T))
