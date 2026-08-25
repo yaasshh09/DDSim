@@ -339,3 +339,104 @@ def test_a_system_with_no_triplets_is_reported_as_singular() -> None:
 
     with pytest.raises(RuntimeError, match="singular"):
         solver.factorize(empty, empty, np.array([]), (3, 3))
+
+
+# ------------------------------------------------- complex, for the AC solve
+
+
+def _complex_system() -> tuple[
+    np.ndarray, np.ndarray, np.ndarray, tuple[int, int]
+]:
+    """A small complex system with a duplicate triplet to be summed."""
+    rows = np.array([0, 0, 1, 1, 2, 2, 0], dtype=np.int64)
+    cols = np.array([0, 1, 0, 2, 1, 2, 0], dtype=np.int64)
+    values = np.array(
+        [1.0 + 1.0j, 2.0, 3.0, 4.0 - 2.0j, 0.5j, 5.0, 0.25 - 0.75j]
+    )
+    return rows, cols, values, (3, 3)
+
+
+def test_a_complex_system_solves() -> None:
+    """Phase 4 needs this: the AC solve is (J_dc + i*omega*M) x = b.
+
+    docs/02-numerics.md puts C-V on a complex linearization around the DC
+    solution rather than on time stepping, so the same factorization machinery
+    has to carry complex numbers. splu handles them natively; what did not was
+    this wrapper, which forced float64 in three places.
+    """
+    rows, cols, values, shape = _complex_system()
+    dense = sp.coo_matrix((values, (rows, cols)), shape=shape).toarray()
+    b = np.array([1.0 + 0.0j, 0.0 - 2.0j, 3.0])
+
+    solver = SparseLU()
+    solver.factorize(rows, cols, values, shape)
+    x = solver.solve(b)
+
+    assert np.iscomplexobj(x)
+    np.testing.assert_allclose(x, np.linalg.solve(dense, b), rtol=1e-12)
+
+
+def test_duplicate_complex_triplets_are_summed() -> None:
+    """np.bincount refuses complex weights, so the replay path needs care.
+
+    The duplicate at (0, 0) is the point of the fixture: if the summation
+    silently dropped the imaginary part the residual would still look
+    plausible and the capacitance would come out real.
+    """
+    rows, cols, values, shape = _complex_system()
+    solver = SparseLU()
+    solver.factorize(rows, cols, values, shape)
+
+    expected = sp.coo_matrix((values, (rows, cols)), shape=shape).tocsc()
+    np.testing.assert_allclose(solver._matrix.data, expected.data, rtol=1e-14)
+
+
+def test_the_same_pattern_replayed_with_complex_values_still_works() -> None:
+    """The cached pattern path, which is the one a sweep actually uses."""
+    rows, cols, values, shape = _complex_system()
+    solver = SparseLU()
+    solver.factorize(rows, cols, values, shape)
+
+    moved = values * (2.0 + 0.5j) + 0.25
+    solver.factorize(rows, cols, moved, shape)
+    assert solver.pattern_unchanged is True
+
+    dense = sp.coo_matrix((moved, (rows, cols)), shape=shape).toarray()
+    b = np.array([1.0, 1.0j, -1.0])
+    np.testing.assert_allclose(
+        solver.solve(b), np.linalg.solve(dense, b), rtol=1e-12
+    )
+
+
+def test_switching_from_real_to_complex_on_one_solver_is_safe() -> None:
+    """The DC solve runs real, then the AC solve reuses the same pattern.
+
+    The cached matrix is float64 after the DC step, and writing complex values
+    into it would discard the imaginary part without complaining. The dtype
+    has to be part of what counts as an unchanged pattern.
+    """
+    rows, cols, values, shape = _complex_system()
+    real_values = values.real.copy()
+
+    solver = SparseLU()
+    solver.factorize(rows, cols, real_values, shape)
+    assert solver.solve(np.array([1.0, 2.0, 3.0])).dtype == np.float64
+
+    solver.factorize(rows, cols, values, shape)
+    dense = sp.coo_matrix((values, (rows, cols)), shape=shape).toarray()
+    b = np.array([1.0 + 0.0j, 0.0 - 2.0j, 3.0])
+    np.testing.assert_allclose(
+        solver.solve(b), np.linalg.solve(dense, b), rtol=1e-12
+    )
+
+
+def test_a_real_system_still_comes_back_real() -> None:
+    """No dtype creep. The DC path is unchanged by any of this."""
+    rows = np.array([0, 1, 2], dtype=np.int64)
+    cols = np.array([0, 1, 2], dtype=np.int64)
+    solver = SparseLU()
+    solver.factorize(rows, cols, np.array([2.0, 4.0, 8.0]), (3, 3))
+
+    x = solver.solve(np.array([2.0, 4.0, 8.0]))
+    assert x.dtype == np.float64
+    np.testing.assert_allclose(x, [1.0, 1.0, 1.0], rtol=1e-14)

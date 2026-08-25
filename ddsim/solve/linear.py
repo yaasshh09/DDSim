@@ -65,11 +65,21 @@ scipy's canonical form does, so the summed values agree bit for bit.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
 import scipy.sparse as sp
 from scipy.sparse.linalg import SuperLU, splu
+
+Number = TypeVar("Number", np.float64, np.complex128)
+"""The dtype of a right hand side.
+
+Constrained to the two that occur, matching discretize/coupled.py. A DC solve
+is float64; complex128 appears only in the Phase 4 AC solve, where the system
+is (J_dc + i*omega*M). Writing it as a TypeVar rather than a union is what
+keeps a float64 solve typed as returning float64.
+"""
 
 
 @dataclass(frozen=True)
@@ -107,10 +117,33 @@ class _CSCPattern:
             and np.array_equal(cols, self.cols)
         )
 
-    def data(self, values: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """The CSC data array for these values, duplicates summed."""
-        return np.bincount(
-            self.group, weights=values[self.order], minlength=self.n_entries
+    def data(self, values: npt.NDArray[Number]) -> npt.NDArray[Number]:
+        """The CSC data array for these values, duplicates summed.
+
+        Real values go through np.bincount, which is the fast path and the one
+        every Newton step takes. Complex values cannot: bincount refuses a
+        complex weights array outright rather than silently dropping the
+        imaginary part, which is the better of the two failures but still
+        leaves the AC solve with nowhere to go. np.add.at does the same
+        accumulation for any dtype.
+        """
+        gathered = values[self.order]
+
+        if np.iscomplexobj(gathered):
+            summed = np.zeros(self.n_entries, dtype=gathered.dtype)
+            np.add.at(summed, self.group, gathered)
+            return cast("npt.NDArray[Number]", summed)
+
+        # The branch above has already ruled out complex, so the weights are
+        # real here. The stubs cannot see that, hence the cast rather than a
+        # runtime conversion.
+        return cast(
+            "npt.NDArray[Number]",
+            np.bincount(
+                self.group,
+                weights=cast("npt.NDArray[np.float64]", gathered),
+                minlength=self.n_entries,
+            ),
         )
 
 
@@ -211,11 +244,24 @@ class SparseLU:
             raise ValueError(f"matrix must be square, got shape {shape}")
 
         shape = (int(shape[0]), int(shape[1]))
-        entries = np.asarray(values, dtype=np.float64)
+
+        # The dtype is whatever came in, so that the Phase 4 AC solve can hand
+        # this a complex system. Anything not already floating or complex is
+        # promoted, which keeps an integer Jacobian working as it always did.
+        entries = np.asarray(values)
+        if not np.issubdtype(entries.dtype, np.inexact):
+            entries = entries.astype(np.float64)
+
         pattern = self._pattern
         unchanged = (
             pattern is not None
             and self._matrix is not None
+            # The dtype is part of what counts as unchanged. The replay path
+            # writes into the matrix already built for this pattern, and
+            # writing complex values into a float64 buffer discards the
+            # imaginary part with only a warning. A DC solve followed by an AC
+            # solve on the same solver is exactly that sequence.
+            and self._matrix.dtype == entries.dtype
             and pattern.matches(rows, cols, shape)
         )
 
@@ -257,16 +303,24 @@ class SparseLU:
         self._matrix = matrix
         self._size = shape[0]
 
-    def solve(self, b: npt.NDArray[np.floating]) -> npt.NDArray[np.float64]:
-        """Solve A x = b using the stored factorization."""
+    def solve(self, b: npt.NDArray[Number]) -> npt.NDArray[Number]:
+        """Solve A x = b using the stored factorization.
+
+        Dtype preserving in the same sense as factorize: a real system returns
+        float64 exactly as before, and a complex one returns complex128 rather
+        than throwing the imaginary part away on the way out.
+        """
         if self._lu is None:
             raise RuntimeError("no factorization available, call factorize first")
 
-        rhs = np.asarray(b, dtype=np.float64)
+        rhs = np.asarray(b)
+        if not np.issubdtype(rhs.dtype, np.inexact):
+            rhs = rhs.astype(np.float64)
+
         if rhs.shape[0] != self._size:
             raise ValueError(
                 f"right hand side has length {rhs.shape[0]}, "
                 f"expected {self._size} to match the factorized matrix"
             )
 
-        return np.asarray(self._lu.solve(rhs), dtype=np.float64)
+        return cast("npt.NDArray[Number]", np.asarray(self._lu.solve(rhs)))
