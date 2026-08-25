@@ -181,6 +181,79 @@ narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
 
+### 2026-08-25, a debugging pass over the whole codebase
+
+**Landed:** Nothing in `ddsim/` changed. I went looking for defects across the
+whole solver and did not find one, which is worth recording as a measurement
+rather than as a mood. What I checked, independently of the existing tests:
+the three gates (965 passed, ruff and mypy clean); coverage, which reports zero
+missed statements and three partial branch arcs; a full suite run under
+`np.seterr(divide, invalid, over = "raise")`, which passes, so nothing is
+quietly producing a NaN and recovering from it; the tier 3 invariants
+re-implemented from docs/04-validation.md against my own code rather than the
+project helpers; and the extremes, 77 to 500 K, 1e12 to 1e21 cm^-3, 11 to 1001
+nodes, and forward bias to 1.40 V, all of which converge with no non-finite or
+non-positive density anywhere.
+
+Two of those deserve their numbers written down. Current continuity came out at
+3.32e-10 at 0.5 V against the 3.3e-10 this file already records, so the low bias
+spread really is the subtraction-out-of-digits model and not a broken scheme.
+And the exactly round minimum densities that made me suspect a clamp, 1.000e-06
+on the reference diode and 1.000e-10 at 1e20, are the Dirichlet pinned
+equilibrium minority values `n_i/Na`. Physical, not a floor.
+
+What did land is in `tests/unit/test_coupled.py`. The nine block Jacobian
+acceptance criterion was only ever running with scalar `Dn`, because the
+`models` fixture took the default `mobility="constant"`. Two separate holes
+came out of that, and they needed two separate fixes.
+
+**Broke:** The interesting failure was my own first fix. I parametrized the
+`models` fixture over constant and Arora, ran the suite, saw it green, and
+nearly stopped there. It has no teeth on that axis. The shared `device` fixture
+is a 1e16 / 1e16 junction, so `abs(net doping)` is 1e16 on every node, and Arora
+reads only the total doping: `Dn` comes back with **one unique value across all
+nineteen edges**. A constant array broadcasts exactly like a scalar, so the
+"array" case verified the array code path while verifying nothing about whether
+the array is aligned to the edges it belongs to. I only found this because I
+injected a reversed per-edge `Dn` to prove the new test could fail, and it did
+not.
+
+That mutation also went to the wrong function twice before it landed, which is
+its own note: `discretize/coupled.py` assembles the coupled 3N Jacobian itself
+and never calls `continuity.electron_continuity_jacobian`. Mutating the latter
+does nothing to the block tests. The two Jacobians are genuinely separate code,
+and I had assumed one fed the other.
+
+The fix is a second fixture, `lopsided_bar`, on a 1e18 / 1e15 profile where
+`Dn` takes three distinct values with a factor of 4.7 across the device and is
+not symmetric under reversal. With the reversed `Dn` mutation in
+`coupled.py`, that test fails on `dF_N/dN` and all four variants of the old one
+still pass, which is the demonstration that it earns its place.
+
+The Auger axis turned out to matter more than I expected. Scaling
+`AugerRecombination.d_rate_dn` by 1.5 is caught by exactly four tests in the
+suite, and all four are the `+auger` variants added here. Before this, a fifty
+percent error in the Auger electron linearization passed all 965 tests. The
+existing Auger test at `test_coupled_transport.py:448` exercises the model but
+never differentiates it.
+
+Also fixed: `README.md` was sitting modified in the working tree, reverted to
+the Phase 1 text and missing the whole I-V results section. It was not a partial
+edit. The working copy was 5 diff lines from `fdc16dd`, the oldest committed
+README, and 156 from the committed Phase 3 one, so it had been overwritten
+wholesale with a stale revision. Restored from HEAD.
+
+**Open:** Tier 4 is still the real gap and none of this touched it. Everything
+above is the code agreeing with itself and with closed form limits, which is
+exactly what tier 4 exists to be independent of. Also unpinned, and left that
+way deliberately: the Gummel path's own `electron_continuity_jacobian` has no
+per-edge `Dn` alignment test. Nothing caught the reversal mutation there. It is
+a linear solve for `n` at fixed `psi`, so a wrong coefficient gives a wrong
+answer rather than slow convergence, and doping dependent mobility through the
+Gummel path is currently untested.
+
+**Next:** Phase 4 as before, unchanged by this pass.
+
 ### 2026-08-22, later, the fix and finish pass on Phase 3
 
 **Landed:** The phase is complete. Scope items 6 and 7 arrived, three real

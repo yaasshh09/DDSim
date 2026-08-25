@@ -102,10 +102,33 @@ def device():
     )
 
 
-@pytest.fixture
-def models(device):
-    """SRH recombination and constant diffusivities, in scaled units."""
-    return TransportModels.for_device(device)
+@pytest.fixture(
+    params=[
+        ("constant", False),
+        ("arora", False),
+        ("constant", True),
+        ("arora", True),
+    ],
+    ids=["constant", "arora", "constant+auger", "arora+auger"],
+)
+def models(request, device):
+    """Recombination and diffusivities, in scaled units.
+
+    Parametrized over both the mobility model and the Auger flag, because the
+    two change the *shape* of what the assemblies receive rather than only the
+    numbers. Constant mobility makes Dn and Dp scalars, and a scalar broadcasts
+    against an edge array no matter how the edges are indexed. Arora makes them
+    one value per edge, where an off by one or a node/edge mixup stops being
+    invisible. Verifying the nine blocks only against the scalar case leaves
+    the alignment of the array case unpinned, which is the one thing the array
+    case exists to get right.
+
+    Auger is carried here for the same reason on the recombination side: it is
+    the only model whose rate is not linear in a single carrier, so its
+    derivative blocks are the ones a wrong linearization would show up in.
+    """
+    mobility, auger = request.param
+    return TransportModels.for_device(device, mobility=mobility, auger=auger)
 
 
 @pytest.fixture
@@ -421,6 +444,77 @@ def test_every_jacobian_block_matches_complex_step_at_a_flat_potential(
 
     psi, _, _ = unpack(x)
     assert np.all(psi[1:] - psi[:-1] == 0.0), "the fixture is not flat"
+
+    reference = complex_step_jacobian(residual_at(geometry, device, models), x)
+    assembled = dense_jacobian(geometry, x, models)
+
+    got = block(assembled, row, col)
+    expected = block(reference, row, col)
+    floor = np.max(np.abs(expected))
+
+    np.testing.assert_allclose(
+        got, expected, rtol=1e-10, atol=1e-10 * max(floor, 1e-300)
+    )
+
+
+@pytest.fixture
+def lopsided_bar():
+    """A device whose Arora diffusivity genuinely differs from edge to edge.
+
+    The shared device fixture cannot do this job. It is a 1e16 / 1e16
+    junction, so abs(net doping) is 1e16 on every node, and Arora reads only
+    the total doping: Dn comes back with a single unique value across all
+    nineteen edges. A constant array is indistinguishable from a scalar under
+    broadcasting, so running the nine blocks against it verifies the array
+    code path without verifying that the array is *aligned* to the edges it
+    belongs to. Measured on the 1e18 / 1e15 profile used here, Dn takes three
+    distinct values with a factor of 4.7 between the ends, and is not
+    symmetric under reversal, which is what makes an off by one or a reversed
+    gather visible.
+
+    Returns (device, models, geometry, x).
+    """
+    mesh = uniform_mesh_1d(length=1e-4, n_nodes=N_NODES)
+    device = build_device(
+        mesh=mesh,
+        doping=abrupt_junction(Na=1e18, Nd=1e15, position=0.5e-4),
+        contacts=(
+            OhmicContact(name="anode", node=0, voltage=0.0),
+            OhmicContact(name="cathode", node=N_NODES - 1, voltage=0.0),
+        ),
+    )
+    models = TransportModels.for_device(device, mobility="arora")
+    scale = device.scale
+    geometry = (mesh.h / scale.x_0, mesh.volume / scale.x_0)
+
+    state = initial_state(device)
+    k = np.linspace(0.0, 3.0 * np.pi, mesh.n_nodes)
+    x = pack(
+        state.psi.data + 0.35 * np.cos(k),
+        state.n.data * np.exp(0.3 * np.sin(k)),
+        state.p.data * np.exp(-0.3 * np.sin(k)),
+    )
+    return device, models, geometry, x
+
+
+@pytest.mark.parametrize("row,col", ALL_BLOCKS, ids=lambda u: u.name)
+def test_every_jacobian_block_matches_complex_step_per_edge_diffusivity(
+    lopsided_bar, row, col
+):
+    """The nine blocks again, with a diffusivity that varies along the device.
+
+    Doping dependent mobility turns Dn and Dp from scalars into one value per
+    edge. Every other block test here runs with scalars, which broadcast
+    correctly no matter how the edges are indexed, so this is the only place
+    that pins the per-edge alignment of the flux coefficients and their
+    derivatives.
+    """
+    device, models, geometry, x = lopsided_bar
+
+    Dn = np.asarray(models.Dn)
+    assert Dn.size == device.mesh.n_edges, "Dn is not per edge"
+    assert np.unique(Dn).size > 1, "Dn does not vary, so alignment is untested"
+    assert not np.array_equal(Dn, Dn[::-1]), "Dn is reversal symmetric"
 
     reference = complex_step_jacobian(residual_at(geometry, device, models), x)
     assembled = dense_jacobian(geometry, x, models)
