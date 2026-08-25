@@ -186,9 +186,9 @@ now.
 
 ### 2026-08-25, later, Phase 4 starts: the 1D code stops being 1D
 
-**Landed:** Stages 1 and 2 of the Phase 4 plan, plus one Stage 5 prerequisite.
-The suite went 1097 to 1135 tests, coverage 99.88, ruff and mypy clean
-throughout. Every new module is at 100 percent.
+**Landed:** Stages 1 and 2 of the Phase 4 plan, most of Stage 3, and one
+Stage 5 prerequisite. The suite went 1097 to 1175 tests, coverage 99.89, ruff
+and mypy clean throughout. Every new module is at 100 percent.
 
 **The edge list refactor.** `Mesh1D` has carried `edge_nodes` and `node_edges`
 since Phase 0 and nothing ever read them. All 41 assembly sites worked out
@@ -222,7 +222,50 @@ grading the axis. Structured rather than Delaunay, per the phase doc.
 has to exist before the first unstructured mesh, not after the symptom.
 
 **Complex linear algebra.** `solve/linear.py` forced float64 in three places,
-so it could not have factorized the AC system at all.
+so it could not have factorized the AC system at all. The one that would have
+been hard to find is the pattern replay: the cached CSC matrix is float64 after
+a DC solve, and writing complex values into it drops the imaginary part with
+only a warning, which is exactly the DC-then-AC sequence a C-V sweep does on
+one solver. The dtype is now part of what counts as an unchanged pattern.
+
+**Stage 3, most of it.** Three pieces, none of them wired into a Device yet.
+
+*Work functions.* There was no electron affinity and no metal work function
+anywhere, and the gate condition is written in terms of Phi_MS, so nothing
+could be built without them. The semiconductor side uses `asinh(N/(2 n_i))`,
+the same choice docs/05-pitfalls.md already forces on the contact potential and
+for the same reason. n+ poly on p-type 1e16 comes out at -0.9192 V, the
+textbook number.
+
+*Regions.* `device/regions.py` maps materials onto **cells**, not nodes, and
+that distinction is the substance of it. Putting the interface on a node line
+makes every edge lie wholly in one material, but the face a horizontal edge
+crosses spans half a cell above and half below, and at the interface those are
+different materials. So permittivity is an area weighted sum over the cells
+either side, and an interface node's dual cell is only half semiconductor.
+Classifying nodes instead hands the whole interface row one material, which
+moves the effective oxide thickness by half a mesh cell, and t_ox is exactly
+what the accumulation capacitance is measured against.
+
+`semiconductor_volume` replaces the plain dual volume wherever the equations
+integrate something that only exists in silicon. An oxide node gets zero, which
+turns its Poisson row into a bare Laplacian, which is what an insulator is.
+
+*The gate.* `apply_dirichlet_nodes` already took a node list, so most of the
+gate contact is a data type. The gate potential is deliberately written without
+reference to the substrate: docs/01-physics.md gives `psi_gate = V_gate -
+Phi_MS`, which depends on the doping under the gate, and a contact has no
+business knowing that. Since psi here is measured from the intrinsic level,
+whose work function is exactly `chi + Eg/2`, the same statement is
+`psi_gate = V_gate + (chi + Eg/2 - Phi_M)`. That the two agree is checked
+across three substrate dopings and all three gate materials, because the doping
+only cancels if the algebra is right.
+
+*One keystone.* Both meshes now answer `scaled(scale)` with the same three
+things. Callers used to write `mesh.volume / scale.x_0` by hand, which is wrong
+in 2D where the dual volume is an area and wants x_0 squared. That error is
+silent: the device comes out the wrong size by a factor of the Debye length,
+converges, and reports a capacitance off by orders of magnitude.
 
 **Broke:** Two real mistakes, one of them expensive.
 
@@ -254,8 +297,18 @@ Phase 0 acceptance case, which is where the "exactly zero relative error" in
 this file comes from, and off by a bit on other node counts. The existing 1D
 tests always used a tolerance. Only my new test and my docstring overclaimed.
 
-**Open:** Stage 0 of the plan, the DEVSIM golden data, is deliberately not
-started. It needs an interpreter that is not this one, since the venv is Python
+**Open:** The three Stage 3 pieces exist and are tested but nothing composes
+them yet: `build_device` is still typed to Mesh1D and there is no `Device` that
+holds a Mesh2D, a RegionMap and a gate. That is the next thing, and it is what
+Stage 4 needs before a MOS capacitor can be solved at all.
+
+One design smell worth recording rather than churning on: `EdgeGeometry` and
+`ScaledMesh` live in `discretize/`, and `mesh/` now imports them, which inverts
+the layering docs/03-architecture.md describes. There is no import cycle and
+the `solve/` import test still passes, so nothing is broken. If it starts to
+grate, the fix is to move `geometry.py` into `mesh/`.
+
+Stage 0 of the plan, the DEVSIM golden data, is deliberately not started. It needs an interpreter that is not this one, since the venv is Python
 3.14 and DEVSIM will have no wheel for it, and it is the one piece of the plan
 that reaches outside this machine. Tier 4 remains exactly as unverified as it
 was. Stages 3 to 6, regions and the oxide, the MOS capacitor, and `extract/cv.py`,
