@@ -105,3 +105,81 @@ def test_per_edge_weights_are_allowed():
     np.testing.assert_allclose(
         np.asarray(geometry.eps_r) * np.asarray(geometry.dual_face), [2.0, 0.999]
     )
+
+
+# --------------------------------------------- what a mesh hands an assembly
+
+
+class TestScaledMesh:
+    """Both meshes have to present the assemblies with the same three things.
+
+    Every caller of an assembly currently writes `mesh.h / scale.x_0` and
+    `mesh.volume / scale.x_0` by hand. That second one is wrong in 2D, where
+    the volume is an area and needs x_0 squared, and it is wrong silently:
+    the device just comes out the wrong size by a factor of the Debye length.
+
+    So the mesh is asked instead. It knows its own dimension and nobody else
+    has to.
+    """
+
+    def test_a_1d_mesh_reproduces_what_callers_compute_by_hand(self):
+        """Bit for bit, or every existing 1D number moves."""
+        from ddsim.core.scaling import ScaleFactors
+        from ddsim.mesh.mesh1d import uniform_mesh_1d
+
+        scale = ScaleFactors.for_silicon()
+        mesh = uniform_mesh_1d(length=1e-4, n_nodes=11)
+        scaled = mesh.scaled(scale)
+
+        np.testing.assert_array_equal(scaled.h, mesh.h / scale.x_0)
+        np.testing.assert_array_equal(scaled.volume, mesh.volume / scale.x_0)
+        assert scaled.geometry is UNIFORM_1D
+
+    def test_a_2d_mesh_scales_its_areas_by_x_0_squared(self):
+        """volume / x_0^d and face / x_0^(d-1), evaluated at d = 2."""
+        from ddsim.core.scaling import ScaleFactors
+        from ddsim.mesh.mesh2d import uniform_mesh_2d
+
+        scale = ScaleFactors.for_silicon()
+        mesh = uniform_mesh_2d(width=2e-4, height=1e-4, nx=5, ny=4)
+        scaled = mesh.scaled(scale)
+
+        np.testing.assert_array_equal(scaled.h, mesh.h / scale.x_0)
+        np.testing.assert_array_equal(
+            scaled.volume, mesh.volume / scale.x_0**2
+        )
+        np.testing.assert_array_equal(
+            np.asarray(scaled.geometry.dual_face), mesh.dual_face / scale.x_0
+        )
+
+    def test_the_2d_geometry_carries_the_edge_list(self):
+        from ddsim.core.scaling import ScaleFactors
+        from ddsim.mesh.mesh2d import uniform_mesh_2d
+
+        mesh = uniform_mesh_2d(width=2e-4, height=1e-4, nx=5, ny=4)
+        scaled = mesh.scaled(ScaleFactors.for_silicon())
+
+        np.testing.assert_array_equal(
+            scaled.geometry.edge_nodes, mesh.edge_nodes
+        )
+
+    def test_a_2d_mesh_can_be_given_permittivities(self):
+        """A two material device hands its eps_r in here."""
+        from ddsim.core.scaling import ScaleFactors
+        from ddsim.mesh.mesh2d import uniform_mesh_2d
+
+        mesh = uniform_mesh_2d(width=2e-4, height=1e-4, nx=5, ny=4)
+        eps_r = np.full(mesh.n_edges, 0.3333)
+        scaled = mesh.scaled(ScaleFactors.for_silicon(), eps_r=eps_r)
+
+        np.testing.assert_array_equal(np.asarray(scaled.geometry.eps_r), eps_r)
+
+    def test_the_bundle_reports_the_node_and_edge_counts(self):
+        from ddsim.core.scaling import ScaleFactors
+        from ddsim.mesh.mesh2d import uniform_mesh_2d
+
+        mesh = uniform_mesh_2d(width=2e-4, height=1e-4, nx=5, ny=4)
+        scaled = mesh.scaled(ScaleFactors.for_silicon())
+
+        assert scaled.n_nodes == mesh.n_nodes
+        assert scaled.n_edges == mesh.n_edges

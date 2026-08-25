@@ -69,7 +69,8 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
-from ddsim.discretize.geometry import EdgeGeometry
+from ddsim.core.scaling import ScaleFactors
+from ddsim.discretize.geometry import EdgeGeometry, ScaledMesh
 from ddsim.mesh.mesh1d import Mesh1D, uniform_mesh_1d
 
 
@@ -145,6 +146,32 @@ class Mesh2D:
         """
         return EdgeGeometry(
             edge_nodes=self.edge_nodes, dual_face=self.dual_face, eps_r=eps_r
+        )
+
+    def scaled(
+        self,
+        scale: ScaleFactors,
+        eps_r: npt.NDArray[np.float64] | float = 1.0,
+    ) -> ScaledMesh:
+        """This mesh in the units the assemblies work in.
+
+        Args:
+            scale: the de Mari scale factors.
+            eps_r: permittivity of each edge relative to the scaling
+                permittivity [1]. A single material device leaves it at 1.0;
+                a MOS stack passes what device/regions.py worked out.
+
+        The two powers of x_0 differ, and that is the whole point of asking
+        the mesh instead of doing it at the call site. See ScaledMesh.
+        """
+        return ScaledMesh(
+            h=self.h / scale.x_0,
+            volume=self.volume / scale.x_0**2,
+            geometry=EdgeGeometry(
+                edge_nodes=self.edge_nodes,
+                dual_face=self.dual_face / scale.x_0,
+                eps_r=eps_r,
+            ),
         )
 
     def __repr__(self) -> str:

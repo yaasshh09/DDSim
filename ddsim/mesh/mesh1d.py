@@ -31,6 +31,9 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
+from ddsim.core.scaling import ScaleFactors
+from ddsim.discretize.geometry import UNIFORM_1D, ScaledMesh
+
 _RATIO_TOLERANCE = 1e-14
 """Relative tolerance for the geometric ratio solve [1]."""
 
@@ -66,6 +69,19 @@ class Mesh1D:
     node_edges: tuple[tuple[int, ...], ...]
     """node_edges[i] lists the edges touching node i. One entry at each
     boundary, two in the interior."""
+
+    def scaled(self, scale: ScaleFactors) -> ScaledMesh:
+        """This mesh in the units the assemblies work in.
+
+        In 1D the dual face is the unit cross section, so it stays exactly
+        1.0 and the geometry is the shared UNIFORM_1D default. That is what
+        keeps every number this project has ever produced where it is.
+        """
+        return ScaledMesh(
+            h=self.h / scale.x_0,
+            volume=self.volume / scale.x_0,
+            geometry=UNIFORM_1D,
+        )
 
     @property
     def n_nodes(self) -> int:

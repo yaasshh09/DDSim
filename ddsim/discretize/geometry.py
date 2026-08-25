@@ -145,3 +145,39 @@ UNIFORM_1D = EdgeGeometry()
 The default argument of every assembly. Named rather than written inline so
 that a call site reads as a deliberate choice of geometry.
 """
+
+
+@dataclass(frozen=True)
+class ScaledMesh:
+    """What an assembly needs from a mesh, already in scaled units.
+
+    Every caller used to write `mesh.h / scale.x_0` and `mesh.volume /
+    scale.x_0` by hand. The second is wrong in 2D, where the dual volume is an
+    area and wants x_0 squared, and it is wrong quietly: the device simply
+    comes out the wrong size by a factor of the Debye length, converges, and
+    reports a capacitance that is off by orders of magnitude with no symptom
+    pointing at the cause.
+
+    The general rule is `volume / x_0^d` and `face / x_0^(d-1)`. Rather than
+    write d anywhere, each mesh answers for itself, and no caller has to know
+    which dimension it is in.
+    """
+
+    h: npt.NDArray[np.float64]
+    """Edge lengths [1], scaled by x_0."""
+
+    volume: npt.NDArray[np.float64]
+    """Dual cell volumes [1], scaled by x_0^d."""
+
+    geometry: EdgeGeometry
+    """Edge list, dual faces and permittivities, all scaled."""
+
+    @property
+    def n_nodes(self) -> int:
+        """Number of nodes."""
+        return int(self.volume.size)
+
+    @property
+    def n_edges(self) -> int:
+        """Number of edges."""
+        return int(self.h.size)
