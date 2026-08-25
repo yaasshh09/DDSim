@@ -140,6 +140,26 @@ def test_a_mesh_needs_at_least_two_nodes_on_each_axis():
         uniform_mesh_2d(width=1e-4, height=1e-4, nx=4, ny=1)
 
 
+def test_node_at_agrees_with_the_row_major_numbering(mesh):
+    """The accessor and the actual node positions have to tell one story."""
+    for j in range(mesh.ny):
+        for i in range(mesh.nx):
+            node = mesh.node_at(i, j)
+            assert mesh.node_x[node] == mesh.x_axis.x[i]
+            assert mesh.node_y[node] == mesh.y_axis.x[j]
+
+    assert mesh.node_at(0, 0) == 0
+    assert mesh.node_at(mesh.nx - 1, mesh.ny - 1) == mesh.n_nodes - 1
+
+
+def test_the_repr_says_the_shape_and_the_size(mesh):
+    text = repr(mesh)
+
+    assert "5x4" in text
+    assert "20 nodes" in text
+    assert f"{mesh.n_edges} edges" in text
+
+
 def test_the_geometry_it_hands_the_assemblies_is_consistent(mesh):
     """edge_geometry packages the edge list and the dual faces together."""
     geometry = mesh.edge_geometry()
