@@ -88,7 +88,6 @@ from __future__ import annotations
 
 import math
 from enum import Enum, IntEnum
-from functools import lru_cache
 from typing import NamedTuple, TypeVar, cast
 
 import numpy as np
@@ -105,6 +104,7 @@ from ddsim.discretize.boundary import (
     ohmic_psi_scaled,
 )
 from ddsim.discretize.continuity import Diffusivity
+from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.physics.bernoulli import B, dB_dx
 from ddsim.physics.recombination import Density, RecombinationModel
@@ -176,26 +176,28 @@ def unpack(
 
 
 def _bernoulli_pair(
-    psi: npt.NDArray[Number],
+    psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D
 ) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
     """(B(X), B(-X)) on every edge, with X = psi_right - psi_left [1].
 
     Unlike the one in continuity.py this does not force float64, because the
     residual it feeds has to survive a complex step.
     """
-    X = psi[1:] - psi[:-1]
+    node_left, node_right = geometry.ends_of(psi.size)
+    X = psi[node_right] - psi[node_left]
     return np.asarray(B(X)), np.asarray(B(-X))
 
 
 def _bernoulli_derivative_pair(
-    psi: npt.NDArray[np.float64],
+    psi: npt.NDArray[np.float64], geometry: EdgeGeometry = UNIFORM_1D
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     """(B'(X), B'(-X)) on every edge [1].
 
     Real only. The Jacobian is assembled at a real state; it is the residual
     that gets differentiated, never this.
     """
-    X = psi[1:] - psi[:-1]
+    node_left, node_right = geometry.ends_of(psi.size)
+    X = psi[node_right] - psi[node_left]
     return (
         np.asarray(dB_dx(X), dtype=np.float64),
         np.asarray(dB_dx(-X), dtype=np.float64),
@@ -213,6 +215,7 @@ def coupled_residual(
     Dn: Diffusivity,
     Dp: Diffusivity,
     recombination: RecombinationModel,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[Number]:
     """Residual of the coupled system, interleaved by node [1].
 
@@ -224,6 +227,8 @@ def coupled_residual(
         Dn: scaled electron diffusivity [1], scalar or per edge.
         Dp: scaled hole diffusivity [1], scalar or per edge.
         recombination: net recombination model, in scaled units.
+        geometry: which nodes each edge joins and what it carries. The
+            default is the contiguous 1D chain in silicon.
 
     Reflecting at both ends, by having no face on the outward side. Contacts
     overwrite those rows afterwards, in discretize/boundary.py.
@@ -243,7 +248,8 @@ def coupled_residual(
         recombination.rate(cast(Density, n), cast(Density, p)),
     )
     return _residual_from(
-        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi), R
+        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi, geometry), R,
+        geometry,
     )
 
 
@@ -256,6 +262,7 @@ def _residual_from(
     Dp: Diffusivity,
     bernoulli: tuple[npt.NDArray[Number], npt.NDArray[Number]],
     R: npt.NDArray[Number],
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[Number]:
     """coupled_residual with the Bernoulli pair and the rate already in hand.
 
@@ -273,27 +280,35 @@ def _residual_from(
 
     out = np.zeros_like(x)
     F_psi, F_n, F_p = unpack(out)
+    node_left, node_right = geometry.ends(h.size)
 
     # Poisson. The flux through each interior face, positive when psi falls to
     # the right, contributing with opposite sign to the two cells it separates.
-    face_flux = (psi[:-1] - psi[1:]) / h
-    F_psi[:-1] += face_flux
-    F_psi[1:] -= face_flux
+    # The permittivity rides on the face, which is what makes the normal
+    # component of D continuous across a material interface rather than E.
+    face_flux = geometry.weight * (psi[node_left] - psi[node_right]) / h
+    np.add.at(F_psi, node_left, face_flux)
+    np.add.at(F_psi, node_right, -face_flux)
     F_psi -= (p - n + net_doping) * volume
 
     # Electron continuity. B(X) multiplies the right hand node. See the
-    # docstring of discretize/continuity.py before changing that.
-    Jn = (Dn / h) * (b_plus * n[1:] - b_minus * n[:-1])
+    # docstring of discretize/continuity.py before changing that. Only the
+    # dual face area enters here, never the permittivity: see geometry.py.
+    Jn = (Dn * geometry.dual_face / h) * (
+        b_plus * n[node_right] - b_minus * n[node_left]
+    )
     F_n += R * volume
-    F_n[:-1] -= Jn
-    F_n[1:] += Jn
+    np.add.at(F_n, node_left, -Jn)
+    np.add.at(F_n, node_right, Jn)
 
     # Hole continuity. B(X) multiplies the left hand node, the mirror image,
     # and the divergence enters with the opposite sign.
-    Jp = (Dp / h) * (b_plus * p[:-1] - b_minus * p[1:])
+    Jp = (Dp * geometry.dual_face / h) * (
+        b_plus * p[node_left] - b_minus * p[node_right]
+    )
     F_p += R * volume
-    F_p[:-1] += Jp
-    F_p[1:] -= Jp
+    np.add.at(F_p, node_left, Jp)
+    np.add.at(F_p, node_right, -Jp)
 
     return out
 
@@ -304,10 +319,9 @@ def _residual_from(
 class NodeRange(Enum):
     """Which nodes a block of Jacobian entries attaches to.
 
-    In 1D there are only three: every node, and the left and right endpoint of
-    every edge. Naming them rather than passing arange arrays around is what
-    lets the index arrays be cached, and it reads better at the call site than
-    a bare slice would.
+    Three, in any dimension: every node, and the two endpoints of every edge.
+    Naming them reads better at the call site than a bare slice would, and it
+    is what lets the assembly below stay legible as nine named blocks.
     """
 
     ALL = "all"
@@ -320,31 +334,6 @@ class NodeRange(Enum):
     """Node e+1 of edge e, for every edge."""
 
 
-@lru_cache(maxsize=32)
-def _indices(
-    which: NodeRange, component: Unknown, n_nodes: int
-) -> npt.NDArray[np.int64]:
-    """Unknown indices for one component over one node range.
-
-    Cached, and the cached arrays are handed out directly rather than copied,
-    so they are marked read only. There are nine of these per mesh size and
-    they do not depend on the state, while a Newton solve rebuilds the
-    Jacobian once per step. Before caching, the index arithmetic in the
-    accumulator was ten percent of the whole coupled solve, measured, which is
-    more than the triangular solve costs.
-    """
-    if which is NodeRange.ALL:
-        base = np.arange(n_nodes, dtype=np.int64)
-    elif which is NodeRange.LEFT:
-        base = np.arange(n_nodes - 1, dtype=np.int64)
-    else:
-        base = np.arange(1, n_nodes, dtype=np.int64)
-
-    out = UNKNOWNS_PER_NODE * base + int(component)
-    out.flags.writeable = False
-    return out
-
-
 class _Triplets:
     """A COO accumulator that names the block every entry belongs to.
 
@@ -354,8 +343,15 @@ class _Triplets:
     to check against the residual by eye.
     """
 
-    def __init__(self, n_nodes: int) -> None:
-        self._n_nodes = n_nodes
+    def __init__(
+        self, n_nodes: int, geometry: EdgeGeometry = UNIFORM_1D
+    ) -> None:
+        node_left, node_right = geometry.ends_of(n_nodes)
+        self._nodes = {
+            NodeRange.ALL: np.arange(n_nodes, dtype=np.int64),
+            NodeRange.LEFT: node_left,
+            NodeRange.RIGHT: node_right,
+        }
         self._rows: list[npt.NDArray[np.int64]] = []
         self._cols: list[npt.NDArray[np.int64]] = []
         self._values: list[npt.NDArray[np.float64]] = []
@@ -368,9 +364,21 @@ class _Triplets:
         of_nodes: NodeRange,
         values: npt.NDArray[np.float64],
     ) -> None:
-        """dF_equation at at_nodes, with respect to unknown at of_nodes."""
-        self._rows.append(_indices(at_nodes, equation, self._n_nodes))
-        self._cols.append(_indices(of_nodes, unknown, self._n_nodes))
+        """dF_equation at at_nodes, with respect to unknown at of_nodes.
+
+        The index arithmetic used to be cached across Newton steps, keyed on
+        the node count, which an arbitrary edge list cannot be. It is done per
+        call again. That was measured at ten percent of the coupled solve when
+        it was first cached, so this is a real cost, knowingly paid:
+        correctness in any dimension first, and docs/03-architecture.md says
+        not to optimize before Phase 5.
+        """
+        self._rows.append(
+            UNKNOWNS_PER_NODE * self._nodes[at_nodes] + int(equation)
+        )
+        self._cols.append(
+            UNKNOWNS_PER_NODE * self._nodes[of_nodes] + int(unknown)
+        )
         self._values.append(np.asarray(values, dtype=np.float64))
 
     def build(
@@ -393,6 +401,7 @@ def coupled_jacobian(
     Dn: Diffusivity,
     Dp: Diffusivity,
     recombination: RecombinationModel,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """Jacobian of coupled_residual, in COO form.
 
@@ -408,10 +417,11 @@ def coupled_jacobian(
         x,
         Dn,
         Dp,
-        _bernoulli_pair(psi),
-        _bernoulli_derivative_pair(psi),
+        _bernoulli_pair(psi, geometry),
+        _bernoulli_derivative_pair(psi, geometry),
         np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64),
         np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64),
+        geometry,
     )
 
 
@@ -425,6 +435,7 @@ def _jacobian_from(
     dbernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
     dR_dn: npt.NDArray[np.float64],
     dR_dp: npt.NDArray[np.float64],
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """coupled_jacobian with both Bernoulli pairs and both tangents in hand."""
     psi, n, p = unpack(x)
@@ -437,14 +448,15 @@ def _jacobian_from(
     left = NodeRange.LEFT
     right = NodeRange.RIGHT
 
-    J = _Triplets(n_nodes)
+    J = _Triplets(n_nodes, geometry)
+    node_left, node_right = geometry.ends(h.size)
 
     # --- dF_psi/dpsi. The bare Laplacian. No charge term: see the module
     # docstring, this is the block the Phase 1 Jacobian would corrupt.
-    conductance = 1.0 / h
+    conductance = geometry.weight / h
     diagonal = np.zeros(n_nodes)
-    diagonal[:-1] += conductance
-    diagonal[1:] += conductance
+    np.add.at(diagonal, node_left, conductance)
+    np.add.at(diagonal, node_right, conductance)
     J.add(Unknown.PSI, nodes, Unknown.PSI, nodes, diagonal)
     J.add(Unknown.PSI, left, Unknown.PSI, right, -conductance)
     J.add(Unknown.PSI, right, Unknown.PSI, left, -conductance)
@@ -454,20 +466,22 @@ def _jacobian_from(
     J.add(Unknown.PSI, nodes, Unknown.P, nodes, -volume)
 
     # --- dF_n/dpsi. Laplacian shaped, with conductance G on each edge.
-    G = (Dn / h) * (db_plus * n[1:] + db_minus * n[:-1])
+    G = (Dn * geometry.dual_face / h) * (
+        db_plus * n[node_right] + db_minus * n[node_left]
+    )
     diagonal = np.zeros(n_nodes)
-    diagonal[:-1] += G
-    diagonal[1:] += G
+    np.add.at(diagonal, node_left, G)
+    np.add.at(diagonal, node_right, G)
     J.add(Unknown.N, nodes, Unknown.PSI, nodes, diagonal)
     J.add(Unknown.N, left, Unknown.PSI, right, -G)
     J.add(Unknown.N, right, Unknown.PSI, left, -G)
 
     # --- dF_n/dn. The Scharfetter-Gummel stencil plus the exact SRH tangent.
-    to_right = (Dn / h) * b_plus
-    to_left = (Dn / h) * b_minus
+    to_right = (Dn * geometry.dual_face / h) * b_plus
+    to_left = (Dn * geometry.dual_face / h) * b_minus
     diagonal = dR_dn * volume
-    diagonal[:-1] += to_left
-    diagonal[1:] += to_right
+    np.add.at(diagonal, node_left, to_left)
+    np.add.at(diagonal, node_right, to_right)
     J.add(Unknown.N, nodes, Unknown.N, nodes, diagonal)
     J.add(Unknown.N, left, Unknown.N, right, -to_right)
     J.add(Unknown.N, right, Unknown.N, left, -to_left)
@@ -477,10 +491,12 @@ def _jacobian_from(
 
     # --- dF_p/dpsi. The same stencil as the electron block with the opposite
     # sign, because Jp enters its residual with the opposite sign.
-    H = (Dp / h) * (db_plus * p[:-1] + db_minus * p[1:])
+    H = (Dp * geometry.dual_face / h) * (
+        db_plus * p[node_left] + db_minus * p[node_right]
+    )
     diagonal = np.zeros(n_nodes)
-    diagonal[:-1] -= H
-    diagonal[1:] -= H
+    np.add.at(diagonal, node_left, -H)
+    np.add.at(diagonal, node_right, -H)
     J.add(Unknown.P, nodes, Unknown.PSI, nodes, diagonal)
     J.add(Unknown.P, left, Unknown.PSI, right, H)
     J.add(Unknown.P, right, Unknown.PSI, left, H)
@@ -490,11 +506,11 @@ def _jacobian_from(
 
     # --- dF_p/dp. The mirror of the electron block: the two flux coefficients
     # have swapped nodes, for the same reason the fluxes do.
-    to_left = (Dp / h) * b_plus
-    to_right = (Dp / h) * b_minus
+    to_left = (Dp * geometry.dual_face / h) * b_plus
+    to_right = (Dp * geometry.dual_face / h) * b_minus
     diagonal = dR_dp * volume
-    diagonal[:-1] += to_left
-    diagonal[1:] += to_right
+    np.add.at(diagonal, node_left, to_left)
+    np.add.at(diagonal, node_right, to_right)
     J.add(Unknown.P, nodes, Unknown.P, nodes, diagonal)
     J.add(Unknown.P, left, Unknown.P, right, -to_right)
     J.add(Unknown.P, right, Unknown.P, left, -to_left)
@@ -606,6 +622,7 @@ def assemble_coupled_terms(
     Dn: Diffusivity,
     Dp: Diffusivity,
     recombination: RecombinationModel,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> CoupledAssembly:
     """Residual, Jacobian and term scales, with the shared work done once.
 
@@ -623,18 +640,20 @@ def assemble_coupled_terms(
     """
     psi, n, p = unpack(x)
 
-    bernoulli = _bernoulli_pair(psi)
-    dbernoulli = _bernoulli_derivative_pair(psi)
+    bernoulli = _bernoulli_pair(psi, geometry)
+    dbernoulli = _bernoulli_derivative_pair(psi, geometry)
     R = np.asarray(recombination.rate(n, p), dtype=np.float64)
     dR_dn = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
     dR_dp = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
 
-    residual = _residual_from(h, volume, x, net_doping, Dn, Dp, bernoulli, R)
+    residual = _residual_from(
+        h, volume, x, net_doping, Dn, Dp, bernoulli, R, geometry
+    )
     rows, cols, values = _jacobian_from(
-        h, volume, x, Dn, Dp, bernoulli, dbernoulli, dR_dn, dR_dp
+        h, volume, x, Dn, Dp, bernoulli, dbernoulli, dR_dn, dR_dp, geometry
     )
     scales = _term_scales_from(
-        h, volume, x, net_doping, Dn, Dp, bernoulli, R
+        h, volume, x, net_doping, Dn, Dp, bernoulli, R, geometry
     )
 
     size = x.size
@@ -751,6 +770,7 @@ def residual_term_scales(
     Dn: Diffusivity,
     Dp: Diffusivity,
     R: npt.NDArray[np.float64] | None = None,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[float, float, float]:
     """The size of the terms each equation family is assembled from [1].
 
@@ -800,7 +820,8 @@ def residual_term_scales(
     """
     psi, _, _ = unpack(x)
     return _term_scales_from(
-        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi), R
+        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi, geometry), R,
+        geometry,
     )
 
 
@@ -813,10 +834,12 @@ def _term_scales_from(
     Dp: Diffusivity,
     bernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
     R: npt.NDArray[np.float64] | None,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[float, float, float]:
     """residual_term_scales with the Bernoulli pair already in hand."""
     psi, n, p = unpack(x)
     b_plus, b_minus = bernoulli
+    node_left, node_right = geometry.ends(h.size)
 
     # Poisson: the face fluxes psi/h, and the three charges that make up
     # -(p - n + N)*volume. All three, not only the doping. On intrinsic
@@ -826,7 +849,7 @@ def _term_scales_from(
     # this counted the carriers: an undoped 41 node bar returned a residual of
     # nan and a message blaming the LU factorization for being singular.
     psi_scale = max(
-        float(np.max(np.abs(psi)) * np.max(1.0 / h)),
+        float(np.max(np.abs(psi)) * np.max(geometry.weight / h)),
         float(np.max((np.abs(p) + np.abs(n) + np.abs(net_doping)) * volume)),
     )
 
@@ -835,13 +858,23 @@ def _term_scales_from(
     recombined = 0.0 if R is None else float(np.max(np.abs(R) * volume))
     electron_scale = max(
         float(
-            np.max(np.maximum((Dn / h) * b_plus * n[1:], (Dn / h) * b_minus * n[:-1]))
+            np.max(
+                np.maximum(
+                    (Dn * geometry.dual_face / h) * b_plus * n[node_right],
+                    (Dn * geometry.dual_face / h) * b_minus * n[node_left],
+                )
+            )
         ),
         recombined,
     )
     hole_scale = max(
         float(
-            np.max(np.maximum((Dp / h) * b_plus * p[:-1], (Dp / h) * b_minus * p[1:]))
+            np.max(
+                np.maximum(
+                    (Dp * geometry.dual_face / h) * b_plus * p[node_left],
+                    (Dp * geometry.dual_face / h) * b_minus * p[node_right],
+                )
+            )
         ),
         recombined,
     )
