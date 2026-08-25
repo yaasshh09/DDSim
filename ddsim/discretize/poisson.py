@@ -70,6 +70,7 @@ import numpy.typing as npt
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
+from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
 from ddsim.mesh.mesh1d import Mesh1D
 
 BoltzmannDensities = tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
@@ -101,25 +102,35 @@ def poisson_residual(
     net_doping: npt.NDArray[np.float64],
     phi_n: npt.NDArray[np.float64] | None = None,
     phi_p: npt.NDArray[np.float64] | None = None,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[np.float64]:
     """Residual of the scaled nonlinear Poisson equation [1].
 
     Args:
-        h: scaled edge lengths [1], length n_nodes - 1.
-        volume: scaled dual cell widths [1], length n_nodes.
+        h: scaled edge lengths [1], one per edge.
+        volume: scaled dual cell volumes [1], length n_nodes.
         psi: scaled potential [1], length n_nodes.
         net_doping: scaled net doping N = (Nd - Na)/C_0 [1], length n_nodes.
         phi_n: electron quasi-Fermi potential [1], length n_nodes. None means
             zero, which is true thermal equilibrium.
         phi_p: hole quasi-Fermi potential [1], length n_nodes. None means zero.
+        geometry: which nodes each edge joins and what it carries. The default
+            is the contiguous 1D chain in silicon.
 
-    Reflecting at both ends. Contacts are applied separately.
+    Reflecting on every boundary that is not a contact, which in box
+    integration means doing nothing at all: a node simply has no face on the
+    outward side. Contacts are applied separately.
 
     Does not force a dtype, so passing a complex psi gives a complex residual
     and complex step differentiation works directly on this function.
     """
     return _poisson_residual(
-        h, volume, psi, net_doping, _boltzmann_densities(psi, phi_n, phi_p)
+        h,
+        volume,
+        psi,
+        net_doping,
+        _boltzmann_densities(psi, phi_n, phi_p),
+        geometry,
     )
 
 
@@ -129,6 +140,7 @@ def _poisson_residual(
     psi: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
     densities: BoltzmannDensities,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[np.float64]:
     """poisson_residual with the Boltzmann densities already in hand [1].
 
@@ -141,15 +153,18 @@ def _poisson_residual(
     n, p = densities
 
     residual = np.zeros_like(psi)
+    left, right = geometry.ends(h.size)
 
     # Flux through each interior face, from the left node to the right node.
     # face_flux[e] is the flux across edge e, positive when psi decreases
-    # to the right.
-    face_flux = (psi[:-1] - psi[1:]) / h
+    # towards the right node. The permittivity rides on the face rather than
+    # on the cell, which is what makes the normal component of D continuous
+    # across a material interface instead of E. See docs/01-physics.md.
+    face_flux = geometry.weight * (psi[left] - psi[right]) / h
 
     # Each face contributes with opposite sign to the two cells it separates.
-    residual[:-1] += face_flux
-    residual[1:] -= face_flux
+    np.add.at(residual, left, face_flux)
+    np.add.at(residual, right, -face_flux)
 
     residual -= (p - n + net_doping) * volume
     return residual
@@ -162,6 +177,7 @@ def poisson_jacobian(
     net_doping: npt.NDArray[np.float64],
     phi_n: npt.NDArray[np.float64] | None = None,
     phi_p: npt.NDArray[np.float64] | None = None,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """Jacobian of poisson_residual, in COO form.
 
@@ -173,7 +189,7 @@ def poisson_jacobian(
     still -p and the diagonal keeps its form.
     """
     return _poisson_jacobian(
-        h, volume, psi.size, _boltzmann_densities(psi, phi_n, phi_p)
+        h, volume, psi.size, _boltzmann_densities(psi, phi_n, phi_p), geometry
     )
 
 
@@ -182,28 +198,30 @@ def _poisson_jacobian(
     volume: npt.NDArray[np.float64],
     n_nodes: int,
     densities: BoltzmannDensities,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """poisson_jacobian with the Boltzmann densities already in hand."""
     n, p = densities
 
     nodes = np.arange(n_nodes, dtype=np.int64)
-    edges = np.arange(h.size, dtype=np.int64)
-    conductance = 1.0 / h
+    left, right = geometry.ends(h.size)
+    conductance = geometry.weight / h
 
     # Diagonal: both adjacent face conductances, plus the charge derivative.
     # d/dpsi of -(p - n) is (p + n), and both are positive, so the charge term
     # can only strengthen the diagonal.
-    # Every node picks up the conductance of each face it touches. Edge e sits
-    # between nodes e and e+1, so the two contributions are a pair of slice
-    # additions. Sliced rather than scattered with np.add.at, which exists for
-    # repeated indices and pays for that generality even when there are none.
+    # Every node picks up the conductance of each face it touches. Scattered
+    # rather than sliced: in 1D the edges touching a node are contiguous and a
+    # pair of slice additions would do, but in 2D a node has four of them and
+    # they are not adjacent in the ordering. See geometry.py on why this is
+    # add.at and not bincount.
     diagonal = (n + p) * volume
-    diagonal[:-1] += conductance
-    diagonal[1:] += conductance
+    np.add.at(diagonal, left, conductance)
+    np.add.at(diagonal, right, conductance)
 
     # Off diagonals: one entry per face, in each direction. Symmetric.
-    rows = np.concatenate([nodes, edges, edges + 1])
-    cols = np.concatenate([nodes, edges + 1, edges])
+    rows = np.concatenate([nodes, left, right])
+    cols = np.concatenate([nodes, right, left])
     values = np.concatenate([diagonal, -conductance, -conductance])
 
     return rows, cols, values
@@ -216,6 +234,7 @@ def assemble_poisson(
     scale: ScaleFactors,
     phi_n: Field | None = None,
     phi_p: Field | None = None,
+    geometry: EdgeGeometry = UNIFORM_1D,
 ) -> SparseAssembly:
     """Assemble the equilibrium Poisson system for a 1D mesh.
 
@@ -227,6 +246,8 @@ def assemble_poisson(
         phi_n: electron quasi-Fermi potential on nodes [V], must be SCALED.
             None means true equilibrium.
         phi_p: hole quasi-Fermi potential on nodes [V], must be SCALED.
+        geometry: which nodes each edge joins and what it carries. The default
+            is the contiguous 1D chain in silicon.
 
     Checks the scaling state and mesh location once here, then works on raw
     arrays, which is the pattern docs/03-architecture.md prescribes.
@@ -268,9 +289,11 @@ def assemble_poisson(
     # One pair of exponentials for both halves of the system.
     densities = _boltzmann_densities(psi.data, n_values, p_values)
     residual = _poisson_residual(
-        h, volume, psi.data, net_doping.data, densities
+        h, volume, psi.data, net_doping.data, densities, geometry
     )
-    rows, cols, values = _poisson_jacobian(h, volume, mesh.n_nodes, densities)
+    rows, cols, values = _poisson_jacobian(
+        h, volume, mesh.n_nodes, densities, geometry
+    )
 
     return SparseAssembly(
         residual=residual,
