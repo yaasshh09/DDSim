@@ -440,3 +440,21 @@ def test_a_real_system_still_comes_back_real() -> None:
     x = solver.solve(np.array([2.0, 4.0, 8.0]))
     assert x.dtype == np.float64
     np.testing.assert_allclose(x, [1.0, 1.0, 1.0], rtol=1e-14)
+
+
+def test_integer_triplets_and_an_integer_rhs_are_promoted() -> None:
+    """Dropping the float64 coercion must not start refusing integer input.
+
+    The dtype is now taken from the caller so that complex can get through.
+    Anything not already floating or complex is promoted rather than handed
+    to SuperLU, which has no integer path.
+    """
+    rows = np.array([0, 1, 2], dtype=np.int64)
+    cols = np.array([0, 1, 2], dtype=np.int64)
+
+    solver = SparseLU()
+    solver.factorize(rows, cols, np.array([2, 4, 8], dtype=np.int64), (3, 3))
+
+    x = solver.solve(np.array([2, 4, 8], dtype=np.int64))
+    assert x.dtype == np.float64
+    np.testing.assert_allclose(x, [1.0, 1.0, 1.0], rtol=1e-14)

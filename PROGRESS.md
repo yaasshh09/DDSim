@@ -5,8 +5,10 @@ session. Newest entry at the top.
 
 ## Current state
 
-**Active phase:** Phase 3 complete on every criterion that can be checked
-here. Items 1 to 7 land, 8 is dropped with a reason.
+**Active phase:** Phase 4, in progress. Stages 1 and 2 of the plan land: the
+assemblies are dimension free, Mesh2D and the quality gate exist, and the
+sparse solver carries complex numbers. Phase 3 remains complete on every
+criterion that can be checked here, items 1 to 7, with 8 dropped for a reason.
 **Blocked on:** nothing for Phase 4. One Phase 3 acceptance criterion is
 **not met and cannot be met in this working copy**: "Diode #1 and #2 in the
 DEVSIM regression set pass at stated tolerance". DEVSIM is not installed and
@@ -15,9 +17,10 @@ docs/04-validation.md has never run, in this phase or any earlier one. Every
 tier 4 claim anywhere in this repo is therefore unverified. That is worth
 stating plainly, because docs/04-validation.md opens by saying the project's
 entire credibility rests on it.
-**Next action:** Phase 4, two dimensions, MOS capacitor and C-V. The small
-signal AC solve reuses the DC Jacobian this phase built, which
-docs/02-numerics.md puts at roughly sixty lines once Phase 3 works.
+**Next action:** Phase 4 stage 3, regions and the Si/SiO2 interface, then the
+MOS capacitor and C-V. The small signal AC solve reuses the DC Jacobian Phase 3
+built, which docs/02-numerics.md puts at roughly sixty lines; the one thing
+that blocked it, a float64 only linear solver, is now fixed.
 
 Phase 3 scope, against phases/PHASE-3.md:
 
@@ -180,6 +183,93 @@ Write the "Broke" field carefully even when it is embarrassing. The debugging
 narrative is the most interesting engineering content this project will produce,
 and reconstructing it later from git history is much harder than writing it down
 now.
+
+### 2026-08-25, later, Phase 4 starts: the 1D code stops being 1D
+
+**Landed:** Stages 1 and 2 of the Phase 4 plan, plus one Stage 5 prerequisite.
+The suite went 1097 to 1135 tests, coverage 99.88, ruff and mypy clean
+throughout. Every new module is at 100 percent.
+
+**The edge list refactor.** `Mesh1D` has carried `edge_nodes` and `node_edges`
+since Phase 0 and nothing ever read them. All 41 assembly sites worked out
+their neighbours by slicing, which is a statement that edge e joins node e and
+node e+1: true in 1D, false in 2D. `discretize/geometry.py` now carries the
+truth instead, as an `EdgeGeometry` holding the edge list, the dual face area
+the flux crosses, and the permittivity of the edge. It is one optional
+argument on each assembly, defaulting to the 1D contiguous silicon chain, so
+no existing call site changed.
+
+The defaults are **exactly** 1.0, which is the whole trick. Multiplying by 1.0
+is exact in IEEE754, so `eps_r * dual_face * d / h` collapses back to `d / h`
+with the same bit pattern. That claim is measured, not argued: the residual,
+all 370 Jacobian nonzeros and the three term scales, computed on a 1e18 / 1e15
+device with Arora array diffusivity and Auger at a perturbed state, are
+**bit for bit identical** to the pre-refactor code, checked by running the same
+script in a worktree at 80ddbec.
+
+Two things worth keeping. Permittivity belongs to the Poisson flux only and
+never to a carrier flux, since an electron crossing an edge does not care what
+the edge is made of. And the scatter is `np.add.at`, not `np.bincount`, which
+is faster on paper but refuses complex weights, and `coupled.py` is
+deliberately generic over complex128 so complex step and the AC solve both run
+through it. Measured, `add.at` was the quicker of the two anyway, 0.51 ms
+against 0.80 on 200k edges.
+
+**Mesh2D.** The tensor product of two `Mesh1D` axes, so the grading solver and
+the dual grid are inherited and grading a 2D mesh at a junction is just
+grading the axis. Structured rather than Delaunay, per the phase doc.
+`mesh/quality.py` is written and tested anyway, because it is the gate that
+has to exist before the first unstructured mesh, not after the symptom.
+
+**Complex linear algebra.** `solve/linear.py` forced float64 in three places,
+so it could not have factorized the AC system at all.
+
+**Broke:** Two real mistakes, one of them expensive.
+
+1. **I ran `git checkout --` on a file whose refactor was uncommitted** and
+   destroyed the whole `coupled.py` half of the work. It was cleanup after a
+   mutation experiment and the file looked like it only held the mutation. It
+   held four hours of refactor. Recovered by replaying the refactor scripts I
+   happened to have saved in the scratchpad. The rule now is commit before the
+   mutation experiment, not after. Worth noting that another session offered
+   `git reset --hard HEAD~1` as the fix, which would have made it strictly
+   worse: nothing was committed to reset back to, so it would have thrown away
+   the good poisson and continuity commit as well.
+
+2. **My first attempt at the Arora Jacobian test had no teeth and passed
+   anyway.** Recorded in the entry below. Same failure mode showed up again
+   here and was caught the same way: the first version of the edge list tests
+   would have passed a mutation that scattered with `arange` instead of the
+   edge list, because in 1D those are the same array. Every new test in this
+   session was checked by injecting the fault it claims to guard. The one that
+   matters most is edge reversal: four things flip when an edge turns round,
+   the sign of X, which Bernoulli factor is which, which node each multiplies,
+   and the sign of the scatter, and all four have to cancel.
+
+Two smaller corrections, both from measuring instead of assuming. The 2D dual
+cells do **not** sum to the domain area exactly, only to about 1e-16, because
+summing an outer product is a different association from multiplying the two
+1D sums. And the 1D sum is not unconditionally exact either: it is exact on the
+Phase 0 acceptance case, which is where the "exactly zero relative error" in
+this file comes from, and off by a bit on other node counts. The existing 1D
+tests always used a tolerance. Only my new test and my docstring overclaimed.
+
+**Open:** Stage 0 of the plan, the DEVSIM golden data, is deliberately not
+started. It needs an interpreter that is not this one, since the venv is Python
+3.14 and DEVSIM will have no wheel for it, and it is the one piece of the plan
+that reaches outside this machine. Tier 4 remains exactly as unverified as it
+was. Stages 3 to 6, regions and the oxide, the MOS capacitor, and `extract/cv.py`,
+are untouched.
+
+One thing given up knowingly: the Jacobian index arithmetic used to be cached
+across Newton steps, keyed on the node count, which an arbitrary edge list
+cannot be. That was ten percent of the coupled solve when it was first cached.
+The suite time did not move and docs/03-architecture.md says not to optimize
+before Phase 5.
+
+**Next:** Stage 3, regions and the Si/SiO2 interface. The interface condition
+falls out of box integration for free once each edge carries its own
+permittivity, which is the main reason for choosing that discretization.
 
 ### 2026-08-25, a debugging pass over the whole codebase
 
