@@ -186,9 +186,10 @@ now.
 
 ### 2026-08-25, later, Phase 4 starts: the 1D code stops being 1D
 
-**Landed:** Stages 1 and 2 of the Phase 4 plan, most of Stage 3, and one
-Stage 5 prerequisite. The suite went 1097 to 1175 tests, coverage 99.89, ruff
-and mypy clean throughout. Every new module is at 100 percent.
+**Landed:** Stages 1 and 2 of the Phase 4 plan, Stage 3 in substance, and one
+Stage 5 prerequisite. The suite went 1097 to 1183 tests, coverage 99.89, ruff
+and mypy clean throughout. Every new module is at 100 percent. A MOS capacitor
+now solves and gets flatband right to machine precision.
 
 **The edge list refactor.** `Mesh1D` has carried `edge_nodes` and `node_edges`
 since Phase 0 and nothing ever read them. All 41 assembly sites worked out
@@ -261,6 +262,29 @@ whose work function is exactly `chi + Eg/2`, the same statement is
 across three substrate dopings and all three gate materials, because the doping
 only cancels if the algebra is right.
 
+*The first MOS stack.* All of the above composes and solves.
+`tests/analytic/test_mos_electrostatics.py` puts a 10 nm oxide on 100 nm of
+1e16 p-type silicon with an n+ poly gate and solves equilibrium Poisson on it.
+
+| Check | Result |
+|---|---|
+| Flatband at V_gate = Phi_MS | psi spread 1.8e-15, Newton takes 0 steps |
+| Oxide potential linear in y | 1e-15 relative, so Laplace with no charge |
+| Slope ratio across the interface | 0.3310 against eps_ox/eps_Si = 0.3333 |
+| Control, oxide given eps_Si | ratio moves to 0.857 |
+
+The flatband result is the one that matters. The flat profile goes in as the
+guess and is already the solution, so the gate work function, the substrate
+contact potential and the intrinsic reference agree exactly rather than
+approximately, and those are computed by three pieces of code that never
+otherwise meet.
+
+The 0.7 percent on the slope ratio is physical. The discrete statement at the
+interface node is Gauss over its dual cell, half of which is silicon holding
+depletion charge, so the displacement genuinely jumps by that charge. It
+widens exactly where the charge grows, to 0.12 in accumulation where a sheet
+of holes sits at the surface, which is why the check is made in depletion.
+
 *One keystone.* Both meshes now answer `scaled(scale)` with the same three
 things. Callers used to write `mesh.volume / scale.x_0` by hand, which is wrong
 in 2D where the dual volume is an area and wants x_0 squared. That error is
@@ -297,10 +321,12 @@ Phase 0 acceptance case, which is where the "exactly zero relative error" in
 this file comes from, and off by a bit on other node counts. The existing 1D
 tests always used a tolerance. Only my new test and my docstring overclaimed.
 
-**Open:** The three Stage 3 pieces exist and are tested but nothing composes
-them yet: `build_device` is still typed to Mesh1D and there is no `Device` that
-holds a Mesh2D, a RegionMap and a gate. That is the next thing, and it is what
-Stage 4 needs before a MOS capacitor can be solved at all.
+**Open:** The Stage 3 physics works, but only when assembled by hand in a
+test. `build_device` and `assemble_poisson` are still typed to Mesh1D, and
+there is no `Device` holding a Mesh2D, a RegionMap and a gate. That wiring is
+Stage 4 and it is deliberately not started: the physics was proved first so
+the device API can be designed against something that already runs, rather
+than the other way round.
 
 One design smell worth recording rather than churning on: `EdgeGeometry` and
 `ScaledMesh` live in `discretize/`, and `mesh/` now imports them, which inverts
