@@ -65,6 +65,30 @@ N_REF_SRH = 5e16
 GAMMA_SRH = 1.0
 """Sharpness of the Scharfetter lifetime transition [1]."""
 
+EPS_R_OX: float = 3.9
+"""Relative permittivity of silicon dioxide [1]."""
+
+CHI_SI: float = 4.05
+"""Electron affinity of silicon [eV], vacuum level to conduction band edge."""
+
+_EG_0: float = 1.1696
+_EG_ALPHA: float = 4.73e-4
+_EG_BETA: float = 636.0
+
+EG: float = _EG_0 - _EG_ALPHA * T * T / (T + _EG_BETA)
+"""Silicon band gap at T [eV], Varshni. 1.124119 eV at 300 K."""
+
+PHI_M_N_POLY: float = CHI_SI
+"""Work function of n+ polysilicon [eV]. Fermi level at the conduction edge."""
+
+PHI_M_MIDGAP: float = CHI_SI + EG / 2.0
+"""Work function of a midgap metal [eV].
+
+Also the work function of intrinsic silicon, which is why the gate potential
+can be written without reference to the substrate: psi is measured from the
+intrinsic level in both codes, so psi_gate = V_gate + (PHI_M_MIDGAP - Phi_M).
+"""
+
 V_T = K_B * T / Q
 """Thermal voltage [V]. 0.02585199 V at 300 K."""
 
@@ -295,3 +319,195 @@ def read_golden(path: str) -> GoldenCurve:
             curve.cathode_current.append(float(c))
     curve.name = curve.header.get("device", "")
     return curve
+
+
+@dataclass(frozen=True)
+class MosBenchmark:
+    """One MOS capacitor from the tier 4 benchmark set of docs/04-validation.md.
+
+    An ideal capacitor: no fixed oxide charge, no poly depletion, an ideal metal
+    gate described by a work function alone. Both codes are told the same thing.
+    """
+
+    name: str
+    """Short name, also the golden file stem."""
+
+    number: int
+    """Row in the docs/04-validation.md benchmark table."""
+
+    substrate_doping: float
+    """Net doping of the substrate [cm^-3], negative for p-type."""
+
+    t_ox: float
+    """Oxide thickness [cm]."""
+
+    t_si: float
+    """Silicon thickness [cm]. Several times the maximum depletion width, so
+    the body contact sits in neutral material."""
+
+    work_function: float
+    """Gate metal work function [eV]."""
+
+    voltages: tuple[float, ...]
+    """Gate biases to record [V], ascending and evenly spaced.
+
+    Evenly spaced on purpose: the capacitance is taken from the charge by a
+    central difference applied identically to both codes, and an uneven grid
+    would make that two different operators.
+    """
+
+    tolerance: float
+    """Agreement required on gate charge and capacitance [1], as a fraction."""
+
+    n_silicon: int = 121
+    """ddsim node count through the silicon."""
+
+    n_oxide: int = 5
+    """ddsim node count through the oxide."""
+
+    h_min: float = 5e-8
+    """ddsim mesh spacing at the silicon surface [cm]."""
+
+    devsim_h_surface: float = 5e-9
+    """devsim mesh spacing at the silicon surface [cm].
+
+    0.05 nm. The inversion layer is a nanometre or so thick and is the only
+    structure on this device that a mesh can miss, so this is the one spacing
+    the answer is actually sensitive to. Measured on a refinement ladder at
+    +2 V, where the layer is thinnest: 8e-8 cm is 4.3e-4 off the converged
+    charge, 2e-8 is 9e-5, 5e-9 is 6.8e-5, and 1.25e-9 is where it stops moving.
+    5e-9 is two hundred times under the tolerance being asserted and still
+    coarser than a lattice constant, which is as far as a continuum model has
+    any business being refined.
+    """
+
+    devsim_h_bulk: float = 1e-6
+    """devsim mesh spacing at the body contact [cm].
+
+    Resolves the depletion edge, which is the only thing out here that moves.
+    Contributes 3.6e-6 at the next halving, against 1.2e-5 at 2e-6.
+    """
+
+    devsim_oxide_cells: int = 8
+    """devsim cells through the oxide.
+
+    With no charge in it the oxide potential is a straight line, which any
+    number of cells resolves exactly. Measured rather than assumed: the gate
+    charge is identical from 2 cells to 32 to within 8e-15, which is round off.
+    Kept at 8 because it costs nothing.
+    """
+
+    notes: str = ""
+    """What this device is for, carried into the golden file header."""
+
+
+def _gate_sweep(low: float, high: float, step: float) -> tuple[float, ...]:
+    """Gate biases from low to high inclusive [V], evenly spaced."""
+    count = round((high - low) / step)
+    return tuple(round(low + index * step, 10) for index in range(count + 1))
+
+
+MOS_BENCHMARKS: tuple[MosBenchmark, ...] = (
+    MosBenchmark(
+        name="mos_cap_5nm",
+        number=4,
+        substrate_doping=-1e16,
+        t_ox=5e-7,
+        t_si=2e-4,
+        work_function=PHI_M_N_POLY,
+        voltages=_gate_sweep(-2.0, 2.0, 0.1),
+        tolerance=0.02,
+        notes=(
+            "Thin oxide, so the oxide drop is small and most of the bias lands "
+            "on the silicon surface. That puts the weight of the comparison on "
+            "the semiconductor charge rather than on the parallel plate."
+        ),
+    ),
+    MosBenchmark(
+        name="mos_cap_20nm",
+        number=5,
+        substrate_doping=-1e16,
+        t_ox=2e-6,
+        t_si=2e-4,
+        work_function=PHI_M_N_POLY,
+        voltages=_gate_sweep(-2.0, 2.0, 0.1),
+        tolerance=0.02,
+        notes=(
+            "Four times the oxide of device 4 and otherwise identical, so the "
+            "pair separates an error in the oxide from an error in the "
+            "silicon: only the first moves with t_ox."
+        ),
+    ),
+)
+
+MOS_MODEL_SUMMARY: tuple[str, ...] = (
+    "statistics:      Boltzmann",
+    "carriers:        equilibrium, phi_n = phi_p = body bias, no transport",
+    "oxide:           Poisson only, no carriers, no fixed interface charge",
+    "interface:       continuity of normal D, which box integration gives for "
+    "free once each edge carries its own permittivity",
+    "gate:            ideal metal, Dirichlet on psi at V_gate + "
+    "(PHI_M_MIDGAP - Phi_M), no poly depletion",
+    "body:            ideal ohmic, psi from charge neutrality",
+    "capacitance:     dQ_gate/dV_gate by central difference on the charge, "
+    "applied identically to both codes",
+    f"constants:       q = {Q} C, k = {K_B} J/K, eps_0 = {EPS_0} F/cm, "
+    f"eps_r(Si) = {EPS_R_SI}, eps_r(ox) = {EPS_R_OX}, n_i = {N_I:.6e} cm^-3, "
+    f"T = {T} K, chi = {CHI_SI} eV, Eg = {EG:.6f} eV",
+)
+"""The model choices for the MOS benchmarks, verbatim into the golden header."""
+
+
+@dataclass
+class MosGoldenCurve:
+    """A golden C-V curve read back from disk."""
+
+    name: str
+    header: dict[str, str] = field(default_factory=dict)
+    gate_voltage: list[float] = field(default_factory=list)
+    charge: list[float] = field(default_factory=list)
+
+    @property
+    def tolerance(self) -> float:
+        """The agreement the header asks for [1]."""
+        return float(self.header["tolerance"])
+
+
+def read_mos_golden(path: str) -> MosGoldenCurve:
+    """Read one golden C-V CSV, header comments and all."""
+    curve = MosGoldenCurve(name="")
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.rstrip("\n")
+            if line.startswith("#"):
+                body = line[1:].strip()
+                if ":" in body:
+                    key, _, value = body.partition(":")
+                    curve.header.setdefault(key.strip(), value.strip())
+                continue
+            if not line or line.startswith("gate_voltage"):
+                continue
+            v, q = line.split(",")[:2]
+            curve.gate_voltage.append(float(v))
+            curve.charge.append(float(q))
+    curve.name = curve.header.get("device", "")
+    return curve
+
+
+def central_difference(
+    voltage: list[float] | tuple[float, ...],
+    charge: list[float] | tuple[float, ...],
+) -> tuple[list[float], list[float]]:
+    """dQ/dV at the interior points of an evenly spaced sweep [V, F/cm^2].
+
+    The same operator on both codes, so its truncation error cancels out of the
+    comparison instead of being one more thing to argue about. The endpoints
+    have no centred neighbour and are dropped.
+    """
+    midpoints: list[float] = []
+    slopes: list[float] = []
+    for index in range(1, len(voltage) - 1):
+        span = voltage[index + 1] - voltage[index - 1]
+        midpoints.append(voltage[index])
+        slopes.append((charge[index + 1] - charge[index - 1]) / span)
+    return midpoints, slopes
