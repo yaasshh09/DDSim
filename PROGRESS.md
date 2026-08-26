@@ -1481,3 +1481,87 @@ edited without regenerating. All fail on the line they guard.
   superseded n_i = 1.45e10. Unchanged from the earlier entry.
 
 **Next:** Phase 5, the C-V extraction work, or benchmark 6, the 1 um NMOS.
+
+### 2026-08-26, later still: a debugging pass over the Phase 4 code
+
+**Landed:** One real bug and three things that were saying something untrue.
+Suite 1378 to 1384, ruff and mypy clean. The DEVSIM agreement is unchanged at
+0.440 percent and 0.053 percent, which is the check that says none of this
+moved the physics.
+
+**Broke: the gate charge was a silent nan above 18.3 V.**
+
+`_boltzmann_densities` evaluated exp(psi) on every node, insulator included,
+and left the zero charge volume to cancel the result afterwards. It does not
+cancel it. psi in a thick oxide passes the exp overflow at scaled 709, which is
+18.3 V, and `inf * 0` is nan rather than the zero the volume was meant to give.
+
+The reason this survived is worth writing down. The overflow lands on the
+topmost oxide row, because that is where psi is largest, and on a MOS stack
+that row is the gate contact. `apply_dirichlet_nodes` overwrites it, so the
+nonlinear solve never sees the nan and converges and reports success. But
+`terminal_charge` assembles through `_bare_poisson`, which applies no contacts
+on purpose, since a pinned row throws away the flux balance that is the charge.
+So the solve is clean and the extraction returns nan, and it returns it for
+exactly the nodes being summed over. A 100 nm oxide swept to 20 V is an
+ordinary measurement; it produced a nan charge and a nan capacitance and no
+error.
+
+Two sites, not one. The assembly was the first. The second was the state
+`solve_equilibrium` hands back, which was carrying 1e43 electrons per cubic
+centimetre in silicon dioxide at two volts, on its way to inf at eighteen. Both
+now say the thing that is true: an insulator holds no free carriers, so those
+nodes are zero. Single material devices are bit for bit unchanged, because
+their charge volume is positive everywhere and the mask is all true.
+
+**The fix broke something, which is how I found the third thing.** With n
+exactly zero, `psi - ln(n)` is -inf plus a divide warning, where before it was
+ln of finite nonsense. Neither is a quasi-Fermi level. There is no carrier in
+an insulator to take a Boltzmann factor of, so the level does not exist, and
+-inf is the worse of the two wrong answers because it orders against a real
+level and reads as the deepest point on the device. Both properties now return
+nan there. This is not only a diagnostic: `device/transport.py` hands both
+levels straight to the coupled solve, and a MOSFET is this stack with transport
+on it.
+
+**And `terminal_charge` documented an invariant it does not have.** The
+docstring said the gate and the body sum to zero. They do not, and
+`test_the_body_contact_is_not_the_other_plate` has been asserting the opposite
+the whole time: the body is an ohmic contact in neutral bulk and holds about
+1e-18 of the gate charge. The gate's partner is the volume charge in the
+silicon. A docstring that contradicts a passing test is worse than one that
+says nothing.
+
+**Verified rather than assumed, in both directions.** Every new test was
+mutated and required to fail on the line it guards. One mutation, replacing the
+insulator exponent with 0 instead of -inf, does not fail anything, and that is
+correct rather than a gap: inside the assembly the density is always multiplied
+by a zero volume, so any finite value is equivalent there and only the
+overflow ever mattered. I also checked the complex step path through the new
+mask, which the existing complex step test cannot reach because it runs on a
+single material device where the mask is all true, and pinned it.
+
+Also worth recording: I lost this work once and had to redo it. The mutation
+harness ended each case with `git checkout -- ddsim/ tests/`, which was correct
+in the earlier session where the work was committed first and destructive here
+where it was not. Commit before mutating.
+
+**Open:**
+
+- `_potential_derivative` in `extract/cv.py` identifies the swept terminal by
+  comparing node tuples, `existing.nodes == swept`, rather than by name. Two
+  contacts covering the same nodes would both be handed a unit derivative. Not
+  reachable on any device that exists, since gate and body are disjoint and so
+  are source and drain, so it is noted rather than fixed: there is no failing
+  test to write for it yet.
+- `discretize/coupled.py` multiplies by `volume` in the same shape at lines
+  292, 300 and 309. It is safe today because the coupled path is 1D silicon
+  with no insulator in it, but a MOSFET is a 2D stack with an oxide and
+  transport together, and it will meet this exact trap. Worth fixing when the
+  device arrives and not before.
+- Accumulation reaches C_ox to 1 percent only by about V_FB - 5 V. At
+  V_FB - 2 V it is 2.7 percent below, which is physical rather than a defect,
+  since the accumulation layer has a finite thickness. Stated because the
+  acceptance criterion does not name a bias.
+
+**Next:** unchanged. Phase 5, or benchmark 6, the 1 um NMOS.
