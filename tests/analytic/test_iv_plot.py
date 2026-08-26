@@ -1,8 +1,8 @@
 """Generates the diode I-V plot named in the Phase 2 definition of done.
 
-Headless matplotlib, per CLAUDE.md. The figure goes into docs/images so the
-README can point at it, and it is produced by a test rather than a script so
-that it cannot drift away from the code that makes it.
+Headless matplotlib. The figure goes into docs/images so the README can point
+at it, and it is produced by a test rather than a script so that it cannot
+drift away from the code that makes it.
 
 Two devices, one figure. The 1e16 diode is diffusion limited and has an
 ideality of 1 across the whole useful range. The 1e18 diode has enough

@@ -1,8 +1,8 @@
 """Generates the PN diode band diagram named in the Phase 1 definition of done.
 
-Headless matplotlib, per CLAUDE.md. The figure is written into docs/images so
-the README can point at it. It is produced by a test rather than a script so
-that it cannot drift away from the code that makes it.
+Headless matplotlib. The figure is written into docs/images so the README can
+point at it. It is produced by a test rather than a script so that it cannot
+drift away from the code that makes it.
 """
 
 from __future__ import annotations

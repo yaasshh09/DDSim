@@ -1,8 +1,8 @@
 """Generates the MOS C-V plot named in the Phase 4 definition of done.
 
-Headless matplotlib, per CLAUDE.md. The figure goes into docs/images so the
-README can point at it, and it is produced by a test rather than a script so
-that it cannot drift away from the code that makes it.
+Headless matplotlib. The figure goes into docs/images so the README can point
+at it, and it is produced by a test rather than a script so that it cannot
+drift away from the code that makes it.
 
 Both curves come from the same DC solves. The low frequency one lets every
 carrier follow the small signal, which is exact for this formulation; the high

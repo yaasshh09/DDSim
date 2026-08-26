@@ -48,8 +48,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "N"]
-# Physics symbols win over PEP8 naming. CLAUDE.md requires names to match
-# docs/01-physics.md exactly: V_T, Eg, Nc, Nv, B, Nd, Na, psi.
+# Physics symbols win over PEP8 naming. Names match docs/01-physics.md
+# exactly: V_T, Eg, Nc, Nv, B, Nd, Na, psi.
 ignore = ["N802", "N803", "N806", "N812", "N815", "N816"]
 
 [tool.mypy]

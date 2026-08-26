@@ -406,9 +406,10 @@ def coupled_jacobian(
     """Jacobian of coupled_residual, in COO form.
 
     Returns (rows, cols, values). Written as nine named blocks, each one
-    checkable against the residual above by eye, per the working agreement in
-    CLAUDE.md. Every block is verified against complex step differentiation in
-    tests/unit/test_coupled.py, which phases/PHASE-3.md makes non-negotiable.
+    checkable against the residual above by eye, which is the whole point of
+    spelling it out. Every block is verified against complex step
+    differentiation in tests/unit/test_coupled.py, which phases/PHASE-3.md
+    makes non-negotiable.
     """
     psi, n, p = unpack(x)
     return _jacobian_from(

@@ -35,8 +35,8 @@ preserved by scaling the whole vector by one factor. Clamping entries
 individually would rotate the search direction and destroy the quadratic tail.
 
 Damping only ever slows convergence, it does not fix a wrong sign. If a solve
-diverges, check signs before touching max_step. docs/05-pitfalls.md and
-CLAUDE.md both say so.
+diverges, check signs before touching max_step. docs/05-pitfalls.md says the
+same thing.
 """
 
 from __future__ import annotations

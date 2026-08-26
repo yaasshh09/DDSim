@@ -1,7 +1,7 @@
 """Tests for mesh/mesh1d.py.
 
-All lengths are in cm, per the CGS-adjacent convention in CLAUDE.md. A 1 um
-device is 1e-4 cm and 1 nm spacing is 1e-7 cm.
+All lengths are in cm, per the CGS-adjacent convention in
+docs/06-constants.md. A 1 um device is 1e-4 cm and 1 nm spacing is 1e-7 cm.
 
 The invariant that catches the most mistakes is that the dual cell widths sum
 to the domain length. Get the boundary half cells wrong and every integrated

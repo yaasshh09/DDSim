@@ -42,9 +42,9 @@ difference at all, which is what makes it dangerous. Test on a rectangle.
 
 Units and depth
 ---------------
-Lengths in cm, following CLAUDE.md. A 2D simulation is per unit depth, so
-`dual_face` is a length [cm] and `volume` is an area [cm^2]. The scaling that
-the assemblies want is therefore
+Lengths in cm, following docs/06-constants.md. A 2D simulation is per unit
+depth, so `dual_face` is a length [cm] and `volume` is an area [cm^2]. The
+scaling that the assemblies want is therefore
 
     h          / x_0
     dual_face  / x_0
