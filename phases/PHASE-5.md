@@ -43,14 +43,13 @@ Vth versus Lg from 1 um to 50 nm, your solver against DEVSIM. This single plot i
 the argument that the project worked. Nothing in it was fitted; it came out of
 Poisson plus two continuity equations plus a doping profile.
 
-## Optional, after acceptance criteria pass
+## After acceptance criteria pass
 
-- FastAPI backend and lab-instrument frontend. See `docs/03-architecture.md`.
-  Reuse AtomSIM's binary point transmission. Contour plots, current streamlines,
-  draggable cutline producing a band diagram.
-- CSS constraint carried over from AtomSIM: `text-transform: uppercase` only on
-  section headings. It corrupts unit strings and scientific notation everywhere
-  else.
+The frontend. It is no longer an optional appendix to this phase; it is
+`phases/PHASE-7.md`, with its own scope and its own acceptance criteria. The one
+thing worth knowing here is that Phase 7 wants a per-iteration callback on
+`newton_solve` so a browser can watch the residual fall live. Do not build it
+early and do not let it change a solved number.
 
 ## Honest limits, state these in the README
 

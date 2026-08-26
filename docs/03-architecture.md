@@ -35,8 +35,8 @@
         cv.py               # small-signal C-V
         params.py           # Vth, SS, DIBL, ideality extraction
         compact.py          # Phase 6: fit EKV/BSIM params for SPICE
-      api/                  # Phase 5+, FastAPI. Do not build early.
-      cli.py
+      api/                  # Phase 7, FastAPI. Do not build early.
+      cli.py                # Phase 7, includes `ddsim serve`
     tests/
       unit/                 # bernoulli, statistics, scaling, mobility
       analytic/             # depletion, Shockley, ideal MOS C-V
@@ -126,19 +126,30 @@ config sweep, not a code change.
 
 Every run writes its resolved config next to its results. Reproducibility.
 
-## Frontend, Phase 5 and later
+## Frontend, Phase 7
 
-Deferred deliberately. A solver with a beautiful UI and a sign error is worse
-than a CLI that is correct.
+A real deliverable with its own phase and its own acceptance criteria, in
+`phases/PHASE-7.md`. Deferred until Phase 5 passes, not because it is optional
+but because a solver with a beautiful UI and a sign error is worse than a CLI
+that is correct.
 
-When it comes:
+The shape of it:
 
 - FastAPI backend, same binary point transmission architecture as AtomSIM. A 2D
   field of psi, n, p plus a vector field of current density is the same shape of
   payload as isosurface data. Reuse that code.
+- A solve is a job, not a request. It is submitted over HTTP, streams telemetry
+  over a WebSocket while it runs, and can be cancelled. A MOSFET sweep is minutes
+  of Newton solves and request-response cannot express that.
+- Live telemetry is the point. Residual per equation family per Newton iteration,
+  each continuation step as it lands, each sweep point as it finishes, so the
+  curve draws itself and the convergence is visible rather than hidden behind a
+  spinner. `solve/newton.py` takes an optional per-iteration callback for this,
+  defaulting to None and bit for bit inert when unused.
 - Frontend idiom: lab instrument, matching AtomSIM. Real TCAD viewers look like
   this. Filled contour plots, current density streamlines, a draggable cutline
   producing a band diagram along it, log-scale toggles everywhere.
+- No physics in the client. It draws what the solver sends and computes nothing.
 - Reuse the AtomSIM CSS constraint: `text-transform: uppercase` only on section
   headings. It will corrupt scientific notation and unit strings everywhere else.
 

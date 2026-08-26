@@ -14,7 +14,7 @@ eventually be computed by a layer below it.
 
 ## Where it is
 
-Phase 4 of 6. A PN diode solved two ways, Gummel block iteration and full
+Phase 4 of 7. A PN diode solved two ways, Gummel block iteration and full
 Newton on the coupled 3N system, and a two material MOS capacitor in 2D whose
 C-V curve comes out of the same solver with nothing fitted anywhere in it.
 
@@ -24,9 +24,10 @@ C-V curve comes out of the same solver with nothing fitted anywhere in it.
 | 1 | Equilibrium Poisson in 1D, PN diode | done |
 | 2 | Scharfetter-Gummel continuity, Gummel iteration, I-V | done |
 | 3 | Full Newton, coupled 3N system, Arora mobility, Auger | done |
-| 4 | 2D, MOS capacitor, C-V | in progress |
+| 4 | 2D, MOS capacitor, C-V | done, two criteria open |
 | 5 | MOSFET, gate length sweep | |
 | 6 | Compact model extraction for SPICE | |
+| 7 | Browser frontend, live solver telemetry | |
 
 ## PN diode at equilibrium
 

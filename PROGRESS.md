@@ -5,21 +5,27 @@ session. Newest entry at the top.
 
 ## Current state
 
-**Active phase:** Phase 4, in progress. Stages 1 and 2 of the plan land: the
-assemblies are dimension free, Mesh2D and the quality gate exist, and the
-sparse solver carries complex numbers. Phase 3 remains complete on every
-criterion that can be checked here, items 1 to 7, with 8 dropped for a reason.
-**Blocked on:** nothing. Tier 4 now runs. DEVSIM 2.11 is installed in
+**Active phase:** Phase 5, the MOSFET. Phase 4 is complete in substance: the
+assemblies are dimension free, Mesh2D sits behind a quality gate, regions and
+the Si/SiO2 interface work, a MOS capacitor solves, and C-V is differentiated
+exactly through the DC Jacobian. DEVSIM agreement is 0.440 and 0.053 percent.
+Two Phase 4 acceptance items are still open and they are named under Next
+action.
+**Blocked on:** nothing. Tier 4 runs. DEVSIM 2.11 is installed in
 `.venv-devsim`, `data/golden/` holds five curves, and benchmarks 1 to 5 of
-docs/04-validation.md all pass at their stated tolerance. The Phase 3
-acceptance criterion that could not be met in this working copy, "Diode #1 and
-#2 in the DEVSIM regression set pass at stated tolerance", is met. Benchmarks
-6 to 9 are the MOSFETs and have no golden data, which is a Phase 4 gap rather
-than an unverified claim.
-**Next action:** Phase 4 stage 3, regions and the Si/SiO2 interface, then the
-MOS capacitor and C-V. The small signal AC solve reuses the DC Jacobian Phase 3
-built, which docs/02-numerics.md puts at roughly sixty lines; the one thing
-that blocked it, a float64 only linear solver, is now fixed.
+docs/04-validation.md all pass at their stated tolerance. Benchmarks 6 to 9 are
+the MOSFETs, they have no golden data, and they are Phase 5 work.
+**Next action:** close the Phase 4 residue first, because one item of it is on
+the critical path for Phase 5 anyway. In order: the `discretize/coupled.py`
+volume multiplication at lines 292, 300 and 309, which breaks the moment an
+oxide and transport meet and a MOSFET is exactly that; current continuity in
+2D, which is a Phase 4 acceptance criterion that has never run because no
+device has solved transport on a Mesh2D yet; and the README C-V plot overlaid
+on the DEVSIM golden curve with the three regimes annotated, which is Phase 4's
+definition of done. Then Phase 5 proper, starting with `device/mosfet.py` and a
+2D mesh graded to the local Debye length at every junction.
+**Phase count:** seven, not six. Phase 7 is the browser frontend, added
+2026-08-27, with its own scope and acceptance criteria in phases/PHASE-7.md.
 
 Phase 3 scope, against phases/PHASE-3.md:
 
@@ -1565,3 +1571,40 @@ where it was not. Commit before mutating.
   acceptance criterion does not name a bias.
 
 **Next:** unchanged. Phase 5, or benchmark 6, the 1 um NMOS.
+
+### 2026-08-27, repo hygiene and the frontend becomes a phase
+
+**Landed:** No physics moved. Three things did.
+
+`.gitignore` was six lines and let `CLAUDE.md` sit tracked in the repo. It now
+covers what this project actually produces, and only that: bytecode, the
+editable install's egg-info, the two virtualenvs by name, the pytest, coverage,
+mypy and ruff caches, editor state, folder cruft, and local assistant notes. I
+deliberately did not paste in a generic Python ignore list. Every line maps to
+something that exists on this machine. `CLAUDE.md` is untracked now and stays on
+disk. That left eight docstrings citing a file a cloner would not have, so they
+now cite docs/06-constants.md, docs/01-physics.md and docs/05-pitfalls.md, which
+carry the same rules. Verified with `git ls-files | git check-ignore --stdin`
+printing nothing, so nothing a clone needs got hidden.
+
+**The frontend stopped being an appendix.** It was one optional bullet at the
+bottom of phases/PHASE-5.md and one paragraph in docs/03-architecture.md. It is
+now phases/PHASE-7.md with scope, acceptance criteria and honest limits, because
+"someone can open this in a browser and watch it solve" is a deliverable and a
+bullet is not a deliverable.
+
+The decision inside it worth recording: a solve is a job, not a request. A
+MOSFET Id-Vg sweep is minutes of wall clock across dozens of bias points, each
+one a continuation ladder of Newton solves, so request and response cannot
+express it. Submit over HTTP, stream telemetry over a WebSocket, allow cancel.
+That drives the rest of the phase, including the one change it needs inside the
+solver: an optional per-iteration callback on `newton_solve`, defaulting to
+None, which has to be bit for bit inert when unused and is measured the way the
+edge list refactor was measured. The histories are already appended inside that
+loop, so the hook has an obvious home.
+
+**Open:** unchanged from the previous entry, plus the Phase 4 residue now named
+explicitly in Current state above.
+
+**Next:** the coupled.py volume guard, then current continuity in 2D, then the
+C-V overlay plot. Then Phase 5.
