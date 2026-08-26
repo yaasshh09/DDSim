@@ -434,3 +434,34 @@ def test_adding_columns_changes_nothing():
     coarse_column = coarse.psi.data.reshape(-1, 3)[:, 0]
     fine_column = fine.psi.data.reshape(-1, 7)[:, 0]
     np.testing.assert_allclose(fine_column, coarse_column, rtol=1e-10)
+
+
+def test_the_quasi_fermi_levels_are_undefined_in_the_oxide():
+    """psi - ln(n) has no meaning where there is no n, so it must not be a
+    number, and it must not be reached by way of a warning either.
+
+    An insulator holds no carriers, so its nodes carry n = p = 0 exactly, and
+    ln of that is -inf. The level is genuinely undefined there: a quasi-Fermi
+    potential is the argument of a Boltzmann factor and there is no carrier to
+    take the factor of. nan says that; -inf says the band edge is infinitely
+    far away, which orders against a real level and would compare as the
+    deepest point on the device.
+
+    It matters more than a diagnostic, because device/transport.py hands these
+    two straight to the coupled solve. On a 1D diode every node has carriers
+    and the question never arises, but a MOSFET is this stack with transport on
+    it, and a level that is quietly finite nonsense is worse there than one
+    that is loudly not a number.
+    """
+    device, state = solved(gate_voltage=1.0)
+    carriers = np.asarray(device.charge_volume_scaled) > 0.0
+    insulator = ~carriers
+    assert np.any(insulator), "this device has no oxide, so it checks nothing"
+
+    phi_n = state.phi_n.data
+    phi_p = state.phi_p.data
+
+    assert np.all(np.isfinite(phi_n[carriers]))
+    assert np.all(np.isfinite(phi_p[carriers]))
+    assert np.all(np.isnan(phi_n[insulator]))
+    assert np.all(np.isnan(phi_p[insulator]))

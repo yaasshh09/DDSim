@@ -20,10 +20,29 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import numpy.typing as npt
 
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.solve.gummel import GummelResult
 from ddsim.solve.newton import NewtonResult
+
+
+def _quiet_log(density: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """ln of a density [1], without complaining about the zeros.
+
+    A zero density is an insulator node, and the caller replaces the -inf it
+    produces with nan. Only the divide is silenced, so a negative density,
+    which would be a real failure, still warns on its way to nan.
+    """
+    with np.errstate(divide="ignore"):
+        return np.asarray(np.log(density))
+
+
+def _undefined_without_carriers(
+    level: npt.NDArray[np.float64], density: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """A quasi-Fermi level [1], nan on the nodes that hold no carriers."""
+    return np.asarray(np.where(density > 0.0, level, np.nan))
 
 
 @dataclass(frozen=True)
@@ -49,9 +68,20 @@ class DeviceState:
 
     @property
     def phi_n(self) -> Field:
-        """Electron quasi-Fermi potential [V], scaled. psi - ln(n)."""
+        """Electron quasi-Fermi potential [V], scaled. psi - ln(n).
+
+        nan where there are no electrons at all, which is an insulator. The
+        level is undefined there rather than large: a quasi-Fermi potential is
+        the argument of a Boltzmann factor, and there is no carrier to take the
+        factor of. ln(0) offers -inf, which would order against a real level
+        and read as a band edge infinitely far away, so it is replaced. nan is
+        the value that does not compare and does not travel quietly, which
+        matters because device/transport.py hands these to the coupled solve.
+        """
         return Field(
-            self.psi.data - np.log(self.n.data),
+            _undefined_without_carriers(
+                self.psi.data - _quiet_log(self.n.data), self.n.data
+            ),
             "V",
             ScalingState.SCALED,
             Location.NODE,
@@ -60,9 +90,14 @@ class DeviceState:
 
     @property
     def phi_p(self) -> Field:
-        """Hole quasi-Fermi potential [V], scaled. psi + ln(p)."""
+        """Hole quasi-Fermi potential [V], scaled. psi + ln(p).
+
+        nan where there are no holes at all. See phi_n.
+        """
         return Field(
-            self.psi.data + np.log(self.p.data),
+            _undefined_without_carriers(
+                self.psi.data + _quiet_log(self.p.data), self.p.data
+            ),
             "V",
             ScalingState.SCALED,
             Location.NODE,
