@@ -14,9 +14,9 @@ eventually be computed by a layer below it.
 
 ## Where it is
 
-Phase 3 of 6. A PN diode solved two ways: Gummel block iteration, and full
-Newton on the coupled 3N system with every Jacobian block verified against
-complex step differentiation.
+Phase 4 of 6. A PN diode solved two ways, Gummel block iteration and full
+Newton on the coupled 3N system, and a two material MOS capacitor in 2D whose
+C-V curve comes out of the same solver with nothing fitted anywhere in it.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -24,7 +24,7 @@ complex step differentiation.
 | 1 | Equilibrium Poisson in 1D, PN diode | done |
 | 2 | Scharfetter-Gummel continuity, Gummel iteration, I-V | done |
 | 3 | Full Newton, coupled 3N system, Arora mobility, Auger | done |
-| 4 | 2D, MOS capacitor, C-V | next |
+| 4 | 2D, MOS capacitor, C-V | in progress |
 | 5 | MOSFET, gate length sweep | |
 | 6 | Compact model extraction for SPICE | |
 
@@ -140,6 +140,74 @@ they missed were both about recombination, where a wrong derivative leaves the
 residual history identical to three significant figures. A Jacobian error that
 does not show up in the convergence rate is not hypothetical.
 
+## MOS capacitor C-V
+
+Two dimensions, two materials. 10 nm oxide on 2 um of 1e16 p-type silicon with
+an n+ poly gate, box integration on a structured mesh graded to 0.5 nm at the
+surface.
+
+![MOS capacitor C-V](docs/images/mos_cap_cv.png)
+
+Every line drawn on that figure is a closed form with nothing fitted in it, and
+each one is asserted in the test that draws it:
+
+| Quantity | Simulated | Closed form | Error |
+|---|---|---|---|
+| Flatband voltage | -0.9192182 V | Phi_MS = -0.9192182 V | 2.4e-10 V |
+| Threshold voltage, 1e15 | -0.223715 V | -0.223720 V | 0.004 mV |
+| Threshold voltage, 1e16 | -0.063867 V | -0.063885 V | 0.018 mV |
+| Threshold voltage, 1e17 | 0.336417 V | 0.336288 V | 0.129 mV |
+| Flatband capacitance | 146.161 nF/cm^2 | C_ox in series with eps_Si/L_D, 146.145 | 1.1e-4 |
+| Accumulation capacitance | 342.485 nF/cm^2 at V_FB - 5 V | C_ox = 345.313 nF/cm^2 | 0.82 %, gate is 1 % |
+| High frequency capacitance at V_TH | 31.560 nF/cm^2 | C_ox in series with eps_Si/W_max, 31.023 | 1.7 % |
+
+The phase gates flatband and threshold at 20 mV. They come out three orders
+inside that, and the reason is worth stating because it is not luck.
+
+**The depletion approximation is exact at threshold, by cancellation.** It is
+several percent wrong on either side: at a quarter of the way to threshold it
+undercounts the surface charge by 7.5 percent. At psi_s = 2 phi_F exactly, the
+inversion term in the Poisson-Boltzmann charge is (n_i/Na)^2 exp(2 phi_F/V_T),
+and 2 phi_F is defined as V_T ln((Na/n_i)^2), so that term is exactly 1. It
+cancels the 1 that the Debye tail at the depletion edge subtracts, identically,
+at every doping. The textbook threshold expression is the exact answer at the
+one point it is evaluated at. Measured, the ratio is 1.000000 at 1e15, 1e16 and
+1e17.
+
+Away from that point the solver is checked against the full Poisson-Boltzmann
+charge instead, and tracks it to 0.2 percent while the depletion approximation
+is 2.4 to 7.5 percent out.
+
+**Flatband is the sharpest single number.** Bias the gate at Phi_MS and the
+whole stack sits at one potential, to a spread of 1e-15 in scaled units, with
+Newton taking zero steps because the initial guess is already the answer. It
+needs the gate work function, the body contact potential and the intrinsic
+reference to agree exactly, and those are computed by three pieces of code that
+never otherwise meet.
+
+**There is no interface condition anywhere in this project.** Continuity of
+normal D across Si/SiO2 is not imposed; it is what the flux balance at an
+interface node already says once every edge carries its own permittivity. That
+is the main reason box integration was chosen. Materials are mapped onto cells
+rather than nodes, because the face a horizontal edge crosses spans half a cell
+either side of it, and at the interface those halves are different materials.
+Classifying nodes instead moves the effective oxide thickness by half a mesh
+cell, which is a percent of t_ox and reads as physics rather than bookkeeping.
+
+**The capacitance is a derivative, not a difference.** Differentiating
+F(psi; V) = 0 with respect to the terminal bias gives one linear system on the
+DC Jacobian whose solution is dpsi/dV exactly, so there is no step size and no
+truncation error. It agrees with a 10 mV central difference to a part in ten
+thousand, which is the central difference's own second order error. This is the
+omega to zero limit of the small signal system docs/02-numerics.md asks for;
+the mass matrix is empty because Boltzmann statistics have already eliminated n
+and p as unknowns.
+
+The high frequency curve is the same solve with the minority carrier response
+held fixed, which is what a signal faster than minority carrier generation
+does. It is the only approximation on the figure and it is the reason the two
+curves separate exactly at threshold and nowhere else.
+
 ## Running it
 
 ```bash
@@ -205,12 +273,12 @@ and regression against DEVSIM. See `docs/04-validation.md`.
 ## Layout
 
     ddsim/core/        constants, de Mari scaling, the Field type
-    ddsim/mesh/        1D meshes, uniform and graded
+    ddsim/mesh/        1D meshes uniform, graded and stacked; 2D tensor meshes
     ddsim/physics/     pure functions: Bernoulli, carrier statistics, recombination
     ddsim/discretize/  residual and Jacobian assembly, boundary conditions
     ddsim/solve/       Newton, Gummel, continuation, no semiconductor knowledge
     ddsim/device/      composition: geometry and doping in, a Device out
-    ddsim/extract/     post processing: terminal current, I-V, extracted parameters
+    ddsim/extract/     post processing: terminal current and charge, I-V, C-V
     docs/              physics, numerics, architecture, validation, constants
     phases/            scope and acceptance criteria per phase
 
