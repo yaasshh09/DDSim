@@ -181,3 +181,35 @@ def test_an_interface_that_misses_every_node_line_is_refused(mesh):
 def test_a_region_map_reports_what_it_is(mesh, regions):
     assert "silicon" in repr(regions).lower()
     assert isinstance(regions, RegionMap)
+
+
+# ----------------------------------------------------------- interface nodes
+
+
+def test_the_interface_nodes_are_the_row_the_two_materials_share(mesh, regions):
+    """Row j = 2 is the interface, which is where INTERFACE was put."""
+    expected = [mesh.node_at(i, 2) for i in range(mesh.nx)]
+    np.testing.assert_array_equal(regions.interface_nodes(mesh), expected)
+
+
+def test_an_interface_node_is_a_semiconductor_node(mesh, regions):
+    """It has silicon under it and it is where the inversion layer forms, so
+    it must not appear in oxide_nodes, whose n and p rows get pinned."""
+    interface = regions.interface_nodes(mesh)
+    assert not set(interface.tolist()) & set(regions.oxide_nodes.tolist())
+    assert np.all(regions.semiconductor_volume[interface] > 0.0)
+
+
+def test_an_interface_node_holds_less_than_its_whole_dual_cell(mesh, regions):
+    """That is the definition: partly semiconductor and partly not. A bulk
+    node holds all of its cell and an oxide node holds none of it, so neither
+    qualifies."""
+    interface = regions.interface_nodes(mesh)
+    np.testing.assert_array_less(
+        regions.semiconductor_volume[interface], mesh.volume[interface]
+    )
+
+
+def test_a_single_material_device_has_no_interface(mesh):
+    regions = stacked_regions(mesh, interface_y=HEIGHT)
+    assert regions.interface_nodes(mesh).size == 0

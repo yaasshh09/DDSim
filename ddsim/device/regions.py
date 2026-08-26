@@ -68,6 +68,21 @@ existed. Oxide is about 0.333.
 """
 
 
+_FULL_CELL_TOL = 1e-9
+"""How far below a whole cell still counts as a whole cell [1].
+
+The two volumes are summed by different associations, the dual volume from the
+mesh axes and the semiconductor volume from quarters of cells, so on an all
+silicon device they agree to rounding rather than exactly. Measured worst case
+1.3e-16 relative on a uniform 4 by 5 mesh, which without a tolerance made two
+bulk nodes report themselves as interface nodes.
+
+The margin is enormous compared to anything real. A genuine interface node in a
+structured stack holds about half its cell, and no grading takes that above
+0.999, so nine orders of magnitude separate the tolerance from the physics.
+"""
+
+
 @dataclass(frozen=True)
 class RegionMap:
     """Which material every cell is, and everything that follows from it."""
@@ -93,6 +108,21 @@ class RegionMap:
     has silicon underneath it, and it is where the inversion layer forms, which
     is the entire point of the device.
     """
+
+    def interface_nodes(self, mesh: Mesh2D) -> npt.NDArray[np.int64]:
+        """Semiconductor nodes sitting on the boundary with the insulator.
+
+        Defined by what their dual cell is made of rather than by where they
+        are: an interface node holds some semiconductor and not all of it. A
+        bulk node holds all of its cell and an oxide node holds none, so
+        neither qualifies, and no geometry has to be described twice.
+
+        This is the surface. It is where the inversion layer forms, so it is
+        what a surface potential is read at and what a C-V curve is about.
+        """
+        fraction = self.semiconductor_volume / mesh.volume
+        partial = (fraction > 0.0) & (fraction < 1.0 - _FULL_CELL_TOL)
+        return np.flatnonzero(partial).astype(np.int64)
 
     def edge_geometry(self, mesh: Mesh2D) -> EdgeGeometry:
         """The geometry the assemblies take, carrying these permittivities."""

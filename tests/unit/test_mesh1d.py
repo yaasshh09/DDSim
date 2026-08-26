@@ -13,7 +13,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from ddsim.mesh.mesh1d import Mesh1D, graded_mesh_1d, uniform_mesh_1d
+from ddsim.mesh.mesh1d import (
+    Mesh1D,
+    graded_mesh_1d,
+    stacked_mesh_1d,
+    uniform_mesh_1d,
+)
 from tests.reference.grading import solve_ratio as reference_solve_ratio
 
 MICRON = 1e-4
@@ -379,3 +384,101 @@ class TestRatioSolveMatchesTheScalarReference:
         from ddsim.mesh.mesh1d import _solve_ratios
 
         assert np.isnan(_solve_ratios(MICRON, NANOMETRE, np.array([0]))[0])
+
+
+# --------------------------------------------------------------- stacked mesh
+
+
+class TestStackedMesh:
+    """Layers laid end to end, which is what a material stack is.
+
+    A MOS capacitor is silicon with oxide on top of it, and the two want
+    different meshes: the silicon is graded hard to the surface where the
+    inversion layer sits, the oxide holds no charge at all and its potential is
+    exactly linear, so a handful of uniform cells resolves it exactly. One
+    graded axis over the whole height cannot express that, and it also has to
+    be argued rather than guaranteed that a node lands on the interface.
+    Stacking two axes guarantees it, because the join is a node by
+    construction.
+    """
+
+    def test_the_layers_span_their_total_length(self) -> None:
+        stack = stacked_mesh_1d(
+            uniform_mesh_1d(2 * MICRON, 5), uniform_mesh_1d(MICRON, 3)
+        )
+        assert stack.x[0] == 0.0
+        assert stack.length == pytest.approx(3 * MICRON, rel=1e-15)
+
+    def test_the_join_is_a_node_and_is_not_duplicated(self) -> None:
+        """The shared node belongs to both layers and is stored once.
+
+        Storing it twice makes a zero width cell, whose 1/h is infinite.
+        """
+        stack = stacked_mesh_1d(
+            uniform_mesh_1d(2 * MICRON, 5), uniform_mesh_1d(MICRON, 3)
+        )
+        assert stack.n_nodes == 5 + 3 - 1
+        assert np.count_nonzero(stack.x == 2 * MICRON) == 1
+        assert np.all(stack.h > 0.0)
+
+    def test_the_join_lands_exactly_on_the_layer_boundary(self) -> None:
+        """Exactly, not nearly. stacked_regions refuses an interface that
+        misses a node line, and half a cell of oxide is a percent of t_ox."""
+        stack = stacked_mesh_1d(
+            graded_mesh_1d(
+                length=5 * MICRON, n_nodes=41, refine_at=5 * MICRON,
+                h_min=NANOMETRE,
+            ),
+            uniform_mesh_1d(10 * NANOMETRE, 5),
+        )
+        assert stack.x[40] == 5 * MICRON
+
+    def test_each_layer_keeps_its_own_spacing(self) -> None:
+        fine = uniform_mesh_1d(MICRON, 11)
+        coarse = uniform_mesh_1d(MICRON, 3)
+        stack = stacked_mesh_1d(fine, coarse)
+        np.testing.assert_allclose(stack.h[:10], fine.h, rtol=1e-15)
+        np.testing.assert_allclose(stack.h[10:], coarse.h, rtol=1e-15)
+
+    def test_a_single_layer_is_returned_unchanged(self) -> None:
+        one = graded_mesh_1d(
+            length=MICRON, n_nodes=81, refine_at=0.5 * MICRON, h_min=NANOMETRE
+        )
+        np.testing.assert_array_equal(stacked_mesh_1d(one).x, one.x)
+
+    def test_the_dual_cells_still_sum_to_the_total_length(self) -> None:
+        """The invariant that catches boundary half cell mistakes, now across
+        a join where two half cells of different sizes meet."""
+        stack = stacked_mesh_1d(
+            uniform_mesh_1d(2 * MICRON, 5), uniform_mesh_1d(MICRON, 9)
+        )
+        assert stack.volume.sum() == pytest.approx(3 * MICRON, rel=1e-14)
+
+    def test_the_cell_across_the_join_is_not_averaged(self) -> None:
+        """The two layers meet at a node, so the last cell of one and the first
+        cell of the next stay their own sizes. The node between them gets a
+        dual cell that is half of each, which is what the join means."""
+        stack = stacked_mesh_1d(
+            uniform_mesh_1d(2 * MICRON, 3), uniform_mesh_1d(MICRON, 3)
+        )
+        assert stack.h[1] == pytest.approx(MICRON, rel=1e-15)
+        assert stack.h[2] == pytest.approx(0.5 * MICRON, rel=1e-15)
+        assert stack.volume[2] == pytest.approx(0.75 * MICRON, rel=1e-14)
+
+    def test_no_layers_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="at least one layer"):
+            stacked_mesh_1d()
+
+    def test_a_layer_that_does_not_start_at_zero_is_refused(self) -> None:
+        """Every constructor here returns a mesh on [0, length]. A layer that
+        does not is one somebody has already translated, and stacking it would
+        translate it twice."""
+        shifted = Mesh1D(
+            x=np.array([1.0, 2.0]),
+            h=np.array([1.0]),
+            volume=np.array([0.5, 0.5]),
+            edge_nodes=np.array([[0, 1]], dtype=np.int64),
+            node_edges=((0,), (0,)),
+        )
+        with pytest.raises(ValueError, match="starts at"):
+            stacked_mesh_1d(uniform_mesh_1d(MICRON, 3), shifted)

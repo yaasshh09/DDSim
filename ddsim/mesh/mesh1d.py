@@ -427,3 +427,46 @@ def graded_mesh_1d(
     x[-1] = length
 
     return _assemble(x)
+
+
+def stacked_mesh_1d(*layers: Mesh1D) -> Mesh1D:
+    """Several meshes laid end to end, sharing one node at every join.
+
+    Args:
+        layers: the meshes to stack, in order, each on [0, its own length].
+
+    A material stack is what this is for. A MOS capacitor is silicon with
+    oxide on top, and the two layers want different meshes: the silicon is
+    graded hard to the surface, where the inversion layer sits inside a few
+    nanometres, while the oxide holds no charge at all, so its potential is
+    exactly linear and a handful of uniform cells resolves it exactly. One
+    graded axis over the whole height cannot say that.
+
+    The join is a node by construction, which is the other half of the reason.
+    device/regions.py refuses an interface that does not lie on a line of mesh
+    nodes, because a cell that is half oxide and half silicon has no single
+    permittivity. Stacking makes that a property of how the mesh was built
+    rather than something to check afterwards.
+
+    The shared node is stored once. Storing it twice would make a cell of zero
+    width, and every flux across it carries 1/h.
+    """
+    if not layers:
+        raise ValueError("a stack needs at least one layer, got none")
+
+    for index, layer in enumerate(layers):
+        if layer.x[0] != 0.0:
+            raise ValueError(
+                f"layer {index} starts at x={layer.x[0]:g} cm rather than 0. "
+                "Every constructor here returns a mesh on [0, length], so a "
+                "layer that does not is one somebody has already translated, "
+                "and stacking would translate it twice."
+            )
+
+    x = layers[0].x
+    for layer in layers[1:]:
+        # Drop the layer's own first node: it is the one already sitting at the
+        # top of the stack so far, and it is the join.
+        x = np.concatenate([x, x[-1] + layer.x[1:]])
+
+    return _assemble(x)

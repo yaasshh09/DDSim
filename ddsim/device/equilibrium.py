@@ -50,7 +50,11 @@ from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import GateContact, apply_contacts
+from ddsim.discretize.boundary import (
+    GateContact,
+    apply_contacts,
+    apply_dirichlet_nodes,
+)
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.physics.statistics import (
     n_boltzmann_scaled,
@@ -130,6 +134,83 @@ def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
         name="phi_p",
     )
     return phi_n, phi_p
+
+
+def insulator_guess(
+    device: Device, psi: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """Fill in the starting potential wherever there is no semiconductor [1].
+
+    Args:
+        device: the device. Returned unchanged if it is all semiconductor.
+        psi: the charge neutral starting guess on nodes [1], scaled.
+
+    The charge neutral guess is meaningless in an insulator. psi = asinh(N/2)
+    with N = 0 is the intrinsic level of a material that has no carriers to be
+    intrinsic about, so the oxide starts at zero while the gate sits tens of
+    scaled units away.
+
+    That is expensive rather than merely inelegant. psi is damped to MAX_PSI_STEP
+    per Newton step and the damping is one factor over the whole vector, so an
+    oxide that has to travel a long way throttles the semiconductor with it.
+    Measured cold on the default MOS capacitor, the iteration count grows at
+    7.7 per volt of gate bias and exhausts a 50 step budget at about 6.5 V.
+
+    With no charge in it, Poisson in an insulator is Laplace, which is linear,
+    so one solve gives the insulator the exact answer to its own equation given
+    everything around it. That is written as a solve rather than as an
+    interpolation between the gate and the surface on purpose: the solve knows
+    nothing about which way the layers stack, and the interpolation would have
+    to. On the MOS stack the two agree to 5.7e-14 on values of order 300.
+
+    Everything that is not insulator is pinned where it is, so the semiconductor
+    comes back bit for bit unchanged and no device without an insulator pays
+    anything at all.
+    """
+    if device.regions is None or device.regions.oxide_nodes.size == 0:
+        return psi
+
+    scale = device.scale
+    net_doping = device.net_doping_scaled
+    field = Field(psi, "V", ScalingState.SCALED, Location.NODE, name="psi")
+
+    assembly = assemble_poisson(
+        device.scaled_mesh,
+        field,
+        net_doping,
+        charge_volume=device.charge_volume_scaled,
+    )
+    assembly = apply_contacts(
+        assembly,
+        psi,
+        net_doping.data,
+        device.contacts,
+        scale,
+        device.material.T,
+    )
+
+    # Hold the semiconductor. The gate is already held by apply_contacts, so
+    # what is left free is exactly the interior of the insulator.
+    held = np.flatnonzero(device.regions.semiconductor_volume > 0.0)
+    assembly = apply_dirichlet_nodes(
+        assembly, psi, held.tolist(), psi[held].tolist()
+    )
+
+    solver = SparseLU()
+    try:
+        solver.factorize(
+            assembly.rows, assembly.cols, assembly.values, assembly.shape
+        )
+        delta = solver.solve(-assembly.residual)
+    except RuntimeError as error:
+        raise RuntimeError(
+            "could not fill the initial guess inside the insulator: "
+            f"{error}. An insulator region that touches neither a contact nor "
+            "any semiconductor has no boundary data, so Laplace in it has no "
+            "unique solution."
+        ) from error
+
+    return psi + delta
 
 
 def solve_poisson(
@@ -265,6 +346,10 @@ def solve_equilibrium(
     if phi_n is not None and phi_p is not None:
         majority = np.where(doping_values >= 0.0, phi_n.data, phi_p.data)
         initial = initial + majority
+
+    # Where there is no semiconductor the neutral guess says nothing, and the
+    # damping makes that expensive rather than merely inaccurate.
+    initial = insulator_guess(device, initial)
 
     result = solve_poisson(
         device,
