@@ -196,21 +196,18 @@ def insulator_guess(
         assembly, psi, held.tolist(), psi[held].tolist()
     )
 
+    # Nonsingular by construction, so there is no special case here to write.
+    # Laplace on the insulator needs boundary data somewhere on every connected
+    # piece of it, and it always has some: build_device refuses a device with
+    # no contacts, tensor_mesh_2d only makes connected meshes, and every node
+    # of an insulator therefore reaches either a pinned contact or a held
+    # semiconductor node through the mesh. A floating insulator island would
+    # break that, and none can be built.
     solver = SparseLU()
-    try:
-        solver.factorize(
-            assembly.rows, assembly.cols, assembly.values, assembly.shape
-        )
-        delta = solver.solve(-assembly.residual)
-    except RuntimeError as error:
-        raise RuntimeError(
-            "could not fill the initial guess inside the insulator: "
-            f"{error}. An insulator region that touches neither a contact nor "
-            "any semiconductor has no boundary data, so Laplace in it has no "
-            "unique solution."
-        ) from error
-
-    return psi + delta
+    solver.factorize(
+        assembly.rows, assembly.cols, assembly.values, assembly.shape
+    )
+    return psi + solver.solve(-assembly.residual)
 
 
 def solve_poisson(
