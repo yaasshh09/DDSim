@@ -105,7 +105,7 @@ def continuity_residuals(
         models = TransportModels.for_device(device)
 
     electrons = assemble_electron_continuity(
-        device.mesh,
+        device.mesh_1d,
         state.psi,
         state.n,
         state.p,
@@ -114,7 +114,7 @@ def continuity_residuals(
         models.Dn,
     )
     holes = assemble_hole_continuity(
-        device.mesh,
+        device.mesh_1d,
         state.psi,
         state.n,
         state.p,
@@ -143,7 +143,7 @@ def terminal_currents(
             (-electron_residual[contact.node] + hole_residual[contact.node])
             * device.scale.J_0
         )
-        for contact in device.contacts
+        for contact in device.ohmic_contacts
     }
 
 
@@ -161,7 +161,7 @@ def total_current(
     """
     currents = terminal_currents(device, state, models)
     if contact is None:
-        contact = device.contacts[0].name
+        contact = device.ohmic_contacts[0].name
     return currents[contact]
 
 
@@ -255,10 +255,10 @@ def iv_sweep(
     than an accident: phases/PHASE-2.md asks for the bias at which Gummel gives
     up, and that number is the last voltage in a curve marked incomplete.
     """
-    if not any(existing.name == contact for existing in device.contacts):
+    if not any(existing.name == contact for existing in device.ohmic_contacts):
         raise KeyError(
             f"no contact named {contact!r} on this device, which has "
-            f"{sorted(existing.name for existing in device.contacts)}"
+            f"{sorted(existing.name for existing in device.ohmic_contacts)}"
         )
 
     if models is None:

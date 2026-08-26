@@ -1,4 +1,4 @@
-"""Nonlinear Poisson at equilibrium, 1D box integration.
+"""Nonlinear Poisson at equilibrium, box integration in any dimension.
 
 One unknown per node. Boltzmann statistics substituted in to eliminate n and p,
 per docs/02-numerics.md:
@@ -39,8 +39,12 @@ around node i turns it into the difference of the two face fluxes:
 
     integral(lap psi) = (psi_{i+1} - psi_i)/h_i - (psi_i - psi_{i-1})/h_{i-1}
 
-and the charge term picks up the cell volume. The residual is written with the
-overall sign that makes the Jacobian diagonal positive:
+and the charge term picks up the cell volume. Written that way the scheme
+never mentions a dimension: 2D differs only in how many faces a cell has and in
+how big they are, which the mesh reports and EdgeGeometry carries.
+
+The residual is written with the overall sign that makes the Jacobian diagonal
+positive:
 
     F_i = (psi_i - psi_{i-1})/h_{i-1} - (psi_{i+1} - psi_i)/h_i
           - (p_i - n_i + N_i) * volume_i
@@ -68,10 +72,8 @@ import numpy as np
 import numpy.typing as npt
 
 from ddsim.core.field import Field, Location, ScalingState
-from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
-from ddsim.mesh.mesh1d import Mesh1D
+from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry, ScaledMesh
 
 BoltzmannDensities = tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
 """(n, p) on nodes [1], from psi at fixed quasi-Fermi levels."""
@@ -228,34 +230,36 @@ def _poisson_jacobian(
 
 
 def assemble_poisson(
-    mesh: Mesh1D,
+    mesh: ScaledMesh,
     psi: Field,
     net_doping: Field,
-    scale: ScaleFactors,
     phi_n: Field | None = None,
     phi_p: Field | None = None,
-    geometry: EdgeGeometry = UNIFORM_1D,
+    charge_volume: npt.NDArray[np.float64] | None = None,
 ) -> SparseAssembly:
-    """Assemble the equilibrium Poisson system for a 1D mesh.
+    """Assemble the equilibrium Poisson system, in any dimension.
 
     Args:
-        mesh: the 1D mesh, positions in cm.
+        mesh: the mesh, already scaled. Ask a Mesh1D or a Mesh2D for it with
+            `mesh.scaled(scale)`, which is where the powers of x_0 live.
         psi: scaled potential on nodes [V], must be SCALED.
         net_doping: scaled net doping on nodes [cm^-3], must be SCALED.
-        scale: the de Mari scale factors, used to put the mesh in units of x_0.
         phi_n: electron quasi-Fermi potential on nodes [V], must be SCALED.
             None means true equilibrium.
         phi_p: hole quasi-Fermi potential on nodes [V], must be SCALED.
-        geometry: which nodes each edge joins and what it carries. The default
-            is the contiguous 1D chain in silicon.
+        charge_volume: the part of each dual cell that carries charge [1],
+            scaled. None means all of it, which is right for a device made of
+            one semiconductor. A MOS stack passes the semiconductor volume
+            from its RegionMap, which is zero in the oxide and turns those
+            rows into the bare Laplacian an insulator wants.
 
     Checks the scaling state and mesh location once here, then works on raw
     arrays, which is the pattern docs/03-architecture.md prescribes.
 
-    The mesh arrives in cm and the equation is in units of the Debye length, so
-    it is divided by x_0 here. Forgetting that is a silent error of several
-    orders of magnitude, since x_0 is 40.9 um at intrinsic doping while a
-    device is 1 um across.
+    The mesh arrives scaled rather than in cm. It used to arrive in cm and be
+    divided by x_0 here, which is right in 1D and wrong in 2D, where the dual
+    volume is an area and wants x_0 squared. Each mesh now answers that for
+    itself. See ScaledMesh in discretize/geometry.py.
     """
     checked = [("psi", psi), ("net_doping", net_doping)]
     if phi_n is not None:
@@ -280,8 +284,12 @@ def assemble_poisson(
                 f"{mesh.n_nodes} nodes."
             )
 
-    h = mesh.h / scale.x_0
-    volume = mesh.volume / scale.x_0
+    volume = mesh.volume if charge_volume is None else charge_volume
+    if volume.size != mesh.n_nodes:
+        raise ValueError(
+            f"charge_volume has length {volume.size} but the mesh has "
+            f"{mesh.n_nodes} nodes."
+        )
 
     n_values = None if phi_n is None else phi_n.data
     p_values = None if phi_p is None else phi_p.data
@@ -289,10 +297,10 @@ def assemble_poisson(
     # One pair of exponentials for both halves of the system.
     densities = _boltzmann_densities(psi.data, n_values, p_values)
     residual = _poisson_residual(
-        h, volume, psi.data, net_doping.data, densities, geometry
+        mesh.h, volume, psi.data, net_doping.data, densities, mesh.geometry
     )
     rows, cols, values = _poisson_jacobian(
-        h, volume, mesh.n_nodes, densities, geometry
+        mesh.h, volume, mesh.n_nodes, densities, mesh.geometry
     )
 
     return SparseAssembly(

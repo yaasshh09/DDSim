@@ -14,12 +14,21 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from functools import cached_property
 
+import numpy as np
+import numpy.typing as npt
+
 from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
 from ddsim.device.doping import DopingProfile
-from ddsim.discretize.boundary import OhmicContact
+from ddsim.device.regions import RegionMap
+from ddsim.discretize.boundary import Contact, OhmicContact
+from ddsim.discretize.geometry import ScaledMesh
 from ddsim.mesh.mesh1d import Mesh1D
+from ddsim.mesh.mesh2d import Mesh2D
+
+AnyMesh = Mesh1D | Mesh2D
+"""A mesh of either dimension. Everything below works on both."""
 
 
 @dataclass(frozen=True)
@@ -46,39 +55,141 @@ class Material:
 
 @dataclass(frozen=True)
 class Device:
-    """A 1D device specification."""
+    """A device specification, in one dimension or two."""
 
-    mesh: Mesh1D
+    mesh: AnyMesh
     """The mesh, positions in cm."""
 
     doping: DopingProfile
-    """Net doping as a callable of position [cm], returning [cm^-3]."""
+    """Net doping as a callable of position [cm], returning [cm^-3].
+
+    Evaluated at the x coordinate of every node, which is the same call in 2D:
+    a Mesh2D reports the x position of each of its nodes under the same name.
+    A profile that varies with depth needs a two argument protocol and does not
+    exist yet. Nothing built so far wants one, since a MOS substrate is uniform
+    and the source and drain of a MOSFET vary along x.
+    """
 
     material: Material
     """Material parameters."""
 
-    contacts: tuple[OhmicContact, ...]
-    """Ohmic contacts, each pinned to a mesh node."""
+    contacts: tuple[Contact, ...]
+    """The device terminals: ohmic points, ohmic plates and gates."""
 
     scale: ScaleFactors
     """The de Mari scale factors this device is solved in."""
 
+    regions: RegionMap | None = None
+    """Which cell is which material, on a device made of more than one.
+
+    None means the whole device is the one semiconductor, which is every 1D
+    device built so far and every single material 2D one. A MOS stack passes
+    the map, and both things that follow from it, the per edge permittivity
+    and the semiconductor volume, are read from here.
+    """
+
     @cached_property
     def net_doping(self) -> Field:
         """Net doping on the mesh nodes [cm^-3], physical units.
+
+        Zero wherever there is no semiconductor. The zero charge volume there
+        already makes that true in the equations, so this is for everything
+        that reads the doping for some other reason: a plot, a lifetime, a
+        contact potential. An array reading 1e16 in the middle of an insulator
+        is a trap laid for all of them.
 
         Cached, because a Device is frozen: the mesh and the profile that this
         is evaluated from cannot change under it. with_bias returns a new
         Device, which starts with an empty cache, so a rebiased device never
         inherits a doping array from the one it was copied from.
         """
+        values = self.doping(self.node_x)
+        if self.regions is not None:
+            values = np.where(self.regions.semiconductor_volume > 0.0, values, 0.0)
         return Field(
-            self.doping(self.mesh.x),
+            values,
             "cm^-3",
             ScalingState.PHYSICAL,
             Location.NODE,
             name="net_doping",
         )
+
+    @property
+    def node_x(self) -> npt.NDArray[np.float64]:
+        """x position of every node [cm].
+
+        The two meshes name it differently, `x` on a line and `node_x` on a
+        grid, because on a grid it is one of two coordinates and calling it x
+        alone would read as the axis. The doping profile wants one array of
+        positions either way, so the difference stops here.
+        """
+        if isinstance(self.mesh, Mesh1D):
+            return self.mesh.x
+        return self.mesh.node_x
+
+    @cached_property
+    def scaled_mesh(self) -> ScaledMesh:
+        """The mesh in the units the assemblies work in.
+
+        The mesh scales itself, because the power of x_0 on the dual volume is
+        the dimension and no call site should have to know which one it is in.
+        See ScaledMesh in discretize/geometry.py.
+        """
+        if isinstance(self.mesh, Mesh1D):
+            return self.mesh.scaled(self.scale)
+        eps_r = 1.0 if self.regions is None else self.regions.eps_r
+        return self.mesh.scaled(self.scale, eps_r=eps_r)
+
+    @cached_property
+    def charge_volume_scaled(self) -> npt.NDArray[np.float64]:
+        """The part of each dual cell that carries charge [1], scaled.
+
+        The whole dual cell in a single material device. In a MOS stack it is
+        zero in the oxide, which turns those Poisson rows into the bare
+        Laplacian an insulator wants, and half a cell at the interface, where
+        half the cell is silicon and holds the inversion layer.
+        """
+        if self.regions is None:
+            return self.scaled_mesh.volume
+        power = 1 if isinstance(self.mesh, Mesh1D) else 2
+        return np.asarray(self.regions.semiconductor_volume / self.scale.x_0**power)
+
+    @cached_property
+    def ohmic_contacts(self) -> tuple[OhmicContact, ...]:
+        """The contacts, if every one of them is a point ohmic contact.
+
+        The coupled 3N transport path pins psi, n and p at one node per
+        contact and has no notion of a gate or of a plate. Rather than let it
+        assemble a system with a terminal quietly left out, which would
+        converge and mean nothing, that path asks through here and gets a
+        refusal it can read.
+        """
+        for contact in self.contacts:
+            if not isinstance(contact, OhmicContact):
+                raise TypeError(
+                    f"contact {contact.name!r} is a {type(contact).__name__}, "
+                    "and this path handles point ohmic contacts only. The "
+                    "coupled transport solve pins psi, n and p at one node per "
+                    "contact, which is not what a gate or a plate is."
+                )
+        return tuple(self.contacts)  # type: ignore[arg-type]
+
+    @property
+    def mesh_1d(self) -> Mesh1D:
+        """The mesh, if it is a line.
+
+        The transport and current extraction paths slice edges contiguously and
+        assume every node has at most two neighbours, which is a 1D mesh and
+        nothing else. They ask through here so that handing them a grid is a
+        refusal rather than an index error somewhere deep in an assembly.
+        """
+        if not isinstance(self.mesh, Mesh1D):
+            raise TypeError(
+                "this path is 1D and the device carries a "
+                f"{type(self.mesh).__name__}. Transport in 2D is Phase 6; "
+                "Poisson already works in both."
+            )
+        return self.mesh
 
     @cached_property
     def net_doping_scaled(self) -> Field:
@@ -113,27 +224,37 @@ class Device:
         names = ", ".join(
             f"{contact.name}={contact.voltage:g}V" for contact in self.contacts
         )
+        if isinstance(self.mesh, Mesh1D):
+            extent = f"length={self.mesh.length:.3e} cm"
+        else:
+            extent = (
+                f"size={self.mesh.x_axis.length:.3e} by "
+                f"{self.mesh.y_axis.length:.3e} cm"
+            )
         return (
             f"Device {self.material.name} {self.mesh.n_nodes} nodes "
-            f"length={self.mesh.length:.3e} cm contacts=({names})"
+            f"{extent} contacts=({names})"
         )
 
 
 def build_device(
-    mesh: Mesh1D,
+    mesh: AnyMesh,
     doping: DopingProfile,
-    contacts: tuple[OhmicContact, ...],
+    contacts: tuple[Contact, ...],
     material: Material | None = None,
     C_0: float | None = None,
+    regions: RegionMap | None = None,
 ) -> Device:
     """Assemble a Device and check that it is self consistent.
 
     Args:
-        mesh: the 1D mesh.
+        mesh: the mesh, 1D or 2D.
         doping: net doping profile, a callable of position.
-        contacts: at least one ohmic contact.
+        contacts: at least one contact.
         material: defaults to silicon at 300 K.
         C_0: reference concentration for scaling [cm^-3], defaults to n_i.
+        regions: the material map, on a device made of more than one material.
+            None means the whole mesh is the one semiconductor.
 
     C_0 is exposed here so that Phase 5 can switch to max|net doping| in one
     place if conditioning demands it, per docs/02-numerics.md.
@@ -145,10 +266,25 @@ def build_device(
         raise ValueError("a device needs at least one contact")
 
     for contact in contacts:
-        if not 0 <= contact.node < mesh.n_nodes:
-            raise IndexError(
-                f"contact {contact.name!r} sits on node {contact.node}, "
-                f"but the mesh has {mesh.n_nodes} nodes"
+        for node in contact.nodes:
+            if not 0 <= node < mesh.n_nodes:
+                raise IndexError(
+                    f"contact {contact.name!r} sits on node {node}, "
+                    f"but the mesh has {mesh.n_nodes} nodes"
+                )
+
+    if regions is not None:
+        if regions.semiconductor_volume.size != mesh.n_nodes:
+            raise ValueError(
+                f"the region map covers {regions.semiconductor_volume.size} "
+                f"nodes but the mesh has {mesh.n_nodes}. A region map belongs "
+                "to the mesh it was built on."
+            )
+        if np.asarray(regions.eps_r).size != mesh.n_edges:
+            raise ValueError(
+                f"the region map carries {np.asarray(regions.eps_r).size} edge "
+                f"permittivities but the mesh has {mesh.n_edges} edges. A "
+                "region map belongs to the mesh it was built on."
             )
 
     names = [contact.name for contact in contacts]
@@ -167,4 +303,5 @@ def build_device(
         material=material,
         contacts=contacts,
         scale=scale,
+        regions=regions,
     )

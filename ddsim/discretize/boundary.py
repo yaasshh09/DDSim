@@ -68,6 +68,55 @@ class OhmicContact:
     voltage: float
     """Applied bias [V]. Physical volts, converted to scaled units on use."""
 
+    @property
+    def nodes(self) -> tuple[int, ...]:
+        """The nodes this contact covers, which is the one it sits on.
+
+        Here so that anything applying contacts can loop over nodes without
+        first asking which kind of contact it is holding.
+        """
+        return (self.node,)
+
+
+@dataclass(frozen=True)
+class OhmicPlate:
+    """An ideal ohmic contact over a set of nodes.
+
+    The same physics as OhmicContact, spread over a surface. A 1D diode
+    contact is a point because the device is a line; the substrate contact of
+    a 2D MOS capacitor is the whole bottom edge, and it has to be. Pinning one
+    node of that edge and leaving the rest reflecting is a different device,
+    one whose bottom boundary imposes dpsi/dy = 0 everywhere except at a
+    single point, and it does not have the same solution.
+
+    Each node is read against the doping underneath it, so a plate that spans
+    a doping gradient gets a different potential at each of its nodes, which is
+    what an equipotential metal would not do. That is a real limitation and it
+    is the same one OhmicContact has: this is the ideal contact of
+    docs/01-physics.md, not a resistive metal with its own equation.
+    """
+
+    name: str
+    """Terminal name, for reporting terminal currents later."""
+
+    nodes: tuple[int, ...]
+    """Mesh node indices the contact covers."""
+
+    voltage: float
+    """Applied bias [V]. Physical volts, converted to scaled units on use."""
+
+    def __post_init__(self) -> None:
+        if not self.nodes:
+            raise ValueError(
+                f"contact {self.name!r} covers at least one node, got none. A "
+                "contact that touches nothing pins nothing."
+            )
+        if len(set(self.nodes)) != len(self.nodes):
+            raise ValueError(
+                f"contact {self.name!r} names the same node more than once: "
+                f"{self.nodes}. One unknown cannot hold two Dirichlet values."
+            )
+
 
 @dataclass(frozen=True)
 class GateContact:
@@ -102,6 +151,20 @@ class GateContact:
                 f"gate {self.name!r} names the same node more than once: "
                 f"{self.nodes}. One unknown cannot hold two Dirichlet values."
             )
+
+
+SemiconductorContact = OhmicContact | OhmicPlate
+"""A contact that touches semiconductor and reads the doping underneath it."""
+
+Contact = OhmicContact | OhmicPlate | GateContact
+"""Any terminal a device can carry.
+
+Written as a union rather than a base class because the three share no
+behaviour, only a role. An ohmic contact solves neutrality against the doping
+under it, a gate reads its own work function and never looks down, and the
+difference between a point and a plate is how many nodes it covers. A common
+base would have nothing in it but the name.
+"""
 
 
 def gate_psi_scaled(
@@ -359,7 +422,7 @@ def apply_ohmic_contacts(
     assembly: SparseAssembly,
     psi: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    contacts: tuple[OhmicContact, ...],
+    contacts: Sequence[SemiconductorContact],
     scale: ScaleFactors,
 ) -> SparseAssembly:
     """Apply every ohmic contact to an assembled system.
@@ -368,26 +431,76 @@ def apply_ohmic_contacts(
         assembly: the assembled Poisson system.
         psi: current scaled potential on nodes [1].
         net_doping: scaled net doping on nodes [1].
-        contacts: the contacts to apply.
+        contacts: the contacts to apply, points or plates.
         scale: scale factors, used to convert contact voltages from V.
 
-    Each contact reads the doping at its own node, so a diode with a p side
-    anode and an n side cathode gets the right potential at each end without
-    the caller having to work them out.
+    Each node reads the doping under itself, so a diode with a p side anode and
+    an n side cathode gets the right potential at each end without the caller
+    having to work them out, and a plate spanning a doping gradient gets the
+    right potential at each of its nodes.
     """
     names = [contact.name for contact in contacts]
     if len(set(names)) != len(names):
         raise ValueError(f"contact names must be unique, got {names}")
 
-    psi_0 = scale.psi_0
-    return apply_dirichlet_nodes(
-        assembly,
-        psi,
-        [contact.node for contact in contacts],
-        [
-            ohmic_psi_scaled(
-                float(net_doping[contact.node]), contact.voltage / psi_0
+    nodes, targets = _ohmic_targets(net_doping, contacts, scale)
+    return apply_dirichlet_nodes(assembly, psi, nodes, targets)
+
+
+def _ohmic_targets(
+    net_doping: npt.NDArray[np.float64],
+    contacts: Sequence[SemiconductorContact],
+    scale: ScaleFactors,
+) -> tuple[list[int], list[float]]:
+    """The nodes an ohmic contact pins and the potential it pins each one to."""
+    nodes: list[int] = []
+    targets: list[float] = []
+    for contact in contacts:
+        applied = contact.voltage / scale.psi_0
+        for node in contact.nodes:
+            nodes.append(node)
+            targets.append(ohmic_psi_scaled(float(net_doping[node]), applied))
+    return nodes, targets
+
+
+def apply_contacts(
+    assembly: SparseAssembly,
+    psi: npt.NDArray[np.float64],
+    net_doping: npt.NDArray[np.float64],
+    contacts: Sequence[Contact],
+    scale: ScaleFactors,
+    T: float = C.T_ROOM,
+) -> SparseAssembly:
+    """Apply every contact on a device, of whatever kind, in one pass.
+
+    Args:
+        assembly: the assembled Poisson system.
+        psi: current scaled potential on nodes [1].
+        net_doping: scaled net doping on nodes [1].
+        contacts: the device's contacts, ohmic points, ohmic plates and gates.
+        scale: scale factors, used to convert contact voltages from V.
+        T: temperature [K], which the gate potential needs for the band gap.
+
+    The two kinds differ in where their target comes from and in nothing else.
+    An ohmic node reads the doping underneath it and solves neutrality; a gate
+    node reads its own work function and never looks at the semiconductor,
+    because there is none under it. Both end as Dirichlet rows, applied
+    together so that two contacts landing on one node is caught rather than
+    resolved by whichever went last.
+    """
+    names = [contact.name for contact in contacts]
+    if len(set(names)) != len(names):
+        raise ValueError(f"contact names must be unique, got {names}")
+
+    ohmic = [c for c in contacts if not isinstance(c, GateContact)]
+    nodes, targets = _ohmic_targets(net_doping, ohmic, scale)
+
+    for contact in contacts:
+        if isinstance(contact, GateContact):
+            target = gate_psi_scaled(
+                contact.voltage / scale.psi_0, contact.work_function, T
             )
-            for contact in contacts
-        ],
-    )
+            nodes.extend(contact.nodes)
+            targets.extend([target] * len(contact.nodes))
+
+    return apply_dirichlet_nodes(assembly, psi, nodes, targets)

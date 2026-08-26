@@ -25,6 +25,8 @@ from ddsim.discretize.boundary import (
     Carrier,
     GateContact,
     OhmicContact,
+    OhmicPlate,
+    apply_contacts,
     apply_dirichlet,
     apply_dirichlet_nodes,
     apply_ohmic_contacts,
@@ -59,6 +61,25 @@ def sample_assembly(n_nodes: int = 11, doping: float = 1e6) -> tuple:
         shape=(n_nodes, n_nodes),
     )
     return assembly, psi
+
+
+def _poisson_assembly(
+    mesh: object, scale: ScaleFactors, psi: np.ndarray, net_doping: np.ndarray
+) -> SparseAssembly:
+    """An assembled Poisson system on a given psi and doping profile.
+
+    Unlike sample_assembly this takes the profile rather than a single level,
+    which is what a plate over nodes of differing doping needs.
+    """
+    scaled = mesh.scaled(scale)  # type: ignore[attr-defined]
+    rows, cols, values = poisson_jacobian(scaled.h, scaled.volume, psi, net_doping)
+    return SparseAssembly(
+        residual=poisson_residual(scaled.h, scaled.volume, psi, net_doping),
+        rows=rows,
+        cols=cols,
+        values=values,
+        shape=(psi.size, psi.size),
+    )
 
 
 def dense(assembly: SparseAssembly) -> np.ndarray:
@@ -551,4 +572,170 @@ class TestGateContact:
                 nodes=(4, 5, 4),
                 voltage=0.0,
                 work_function=C.PHI_M_N_POLY,
+            )
+
+
+class TestOhmicPlate:
+    """An ohmic contact spread over a set of nodes rather than pinned to one.
+
+    A 1D diode contact is a point because the device is a line. The substrate
+    contact of a 2D MOS capacitor is the whole bottom edge, and it has to be:
+    pinning one node of that edge and leaving the rest reflecting is a
+    different device, one whose bottom boundary says dpsi/dy = 0 everywhere
+    except at a single point.
+
+    There is no new physics here. Every node of a plate gets the same condition
+    an OhmicContact gives its one node, read against the doping under that
+    node, which is why the two share apply_ohmic_contacts.
+    """
+
+    def test_a_plate_holds_a_set_of_nodes(self) -> None:
+        plate = OhmicPlate(name="body", nodes=(0, 1, 2), voltage=0.5)
+
+        assert plate.nodes == (0, 1, 2)
+        assert plate.voltage == 0.5
+
+    def test_a_point_contact_reports_its_one_node_as_a_set(self) -> None:
+        """So that anything applying contacts can loop without asking which."""
+        assert OhmicContact(name="anode", node=7, voltage=0.0).nodes == (7,)
+
+    def test_a_plate_with_no_nodes_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="at least one node"):
+            OhmicPlate(name="body", nodes=(), voltage=0.0)
+
+    def test_a_plate_that_names_a_node_twice_is_refused(self) -> None:
+        with pytest.raises(ValueError, match="more than once"):
+            OhmicPlate(name="body", nodes=(3, 4, 3), voltage=0.0)
+
+    def test_a_plate_pins_every_node_it_covers(self) -> None:
+        """And to the potential each node's own doping asks for."""
+        mesh = uniform_mesh_1d(MICRON, 7)
+        scale = ScaleFactors.for_silicon()
+        doping = np.linspace(1e15, 1e17, 7) / scale.C_0
+        psi = np.asarray(psi_equilibrium_scaled(doping))
+        assembly = _poisson_assembly(mesh, scale, psi, doping)
+
+        pinned = apply_ohmic_contacts(
+            assembly,
+            psi,
+            doping,
+            (OhmicPlate(name="body", nodes=(0, 1, 2), voltage=0.0),),
+            scale,
+        )
+        matrix = sp.coo_matrix(
+            (pinned.values, (pinned.rows, pinned.cols)), shape=pinned.shape
+        ).tocsr()
+
+        for node in (0, 1, 2):
+            assert matrix[node, node] == pytest.approx(1.0)
+            assert matrix[node].nnz == 1
+            assert pinned.residual[node] == pytest.approx(
+                psi[node] - ohmic_psi_scaled(float(doping[node]), 0.0), abs=1e-14
+            )
+        assert matrix[3].nnz > 1, "an unpinned node must keep its equation"
+
+    def test_a_plate_and_the_same_nodes_as_point_contacts_agree(self) -> None:
+        """One plate over three nodes is three point contacts, exactly."""
+        mesh = uniform_mesh_1d(MICRON, 7)
+        scale = ScaleFactors.for_silicon()
+        doping = np.full(7, 1e16 / scale.C_0)
+        psi = np.asarray(psi_equilibrium_scaled(doping))
+
+        as_plate = apply_ohmic_contacts(
+            _poisson_assembly(mesh, scale, psi, doping),
+            psi,
+            doping,
+            (OhmicPlate(name="body", nodes=(0, 1, 2), voltage=0.25),),
+            scale,
+        )
+        as_points = apply_ohmic_contacts(
+            _poisson_assembly(mesh, scale, psi, doping),
+            psi,
+            doping,
+            tuple(
+                OhmicContact(name=f"c{node}", node=node, voltage=0.25)
+                for node in (0, 1, 2)
+            ),
+            scale,
+        )
+
+        np.testing.assert_array_equal(as_plate.residual, as_points.residual)
+        np.testing.assert_array_equal(as_plate.values, as_points.values)
+
+
+class TestApplyContacts:
+    """The dispatcher the device layer uses, over every kind of contact."""
+
+    def test_it_applies_an_ohmic_contact_and_a_gate_in_one_pass(self) -> None:
+        mesh = uniform_mesh_1d(MICRON, 5)
+        scale = ScaleFactors.for_silicon()
+        doping = np.full(5, -1e16 / scale.C_0)
+        psi = np.asarray(psi_equilibrium_scaled(doping))
+        contacts = (
+            OhmicContact(name="body", node=0, voltage=0.0),
+            GateContact(
+                name="gate", nodes=(4,), voltage=1.0, work_function=C.PHI_M_N_POLY
+            ),
+        )
+
+        pinned = apply_contacts(
+            _poisson_assembly(mesh, scale, psi, doping),
+            psi,
+            doping,
+            contacts,
+            scale,
+        )
+
+        assert pinned.residual[0] == pytest.approx(
+            psi[0] - ohmic_psi_scaled(float(doping[0]), 0.0), abs=1e-14
+        )
+        assert pinned.residual[4] == pytest.approx(
+            psi[4] - gate_psi_scaled(1.0 / scale.psi_0, C.PHI_M_N_POLY), abs=1e-14
+        )
+
+    def test_a_gate_ignores_the_doping_underneath_it(self) -> None:
+        """It is metal on an insulator. There is no semiconductor there to read."""
+        mesh = uniform_mesh_1d(MICRON, 5)
+        scale = ScaleFactors.for_silicon()
+        psi = np.zeros(5)
+        gate = (
+            GateContact(
+                name="gate", nodes=(4,), voltage=0.0, work_function=C.PHI_M_MIDGAP
+            ),
+        )
+
+        heavy = apply_contacts(
+            _poisson_assembly(mesh, scale, psi, np.full(5, 1e18 / scale.C_0)),
+            psi,
+            np.full(5, 1e18 / scale.C_0),
+            gate,
+            scale,
+        )
+        light = apply_contacts(
+            _poisson_assembly(mesh, scale, psi, np.zeros(5)),
+            psi,
+            np.zeros(5),
+            gate,
+            scale,
+        )
+
+        assert heavy.residual[4] == light.residual[4]
+
+    def test_two_contacts_on_one_node_are_refused(self) -> None:
+        """Two Dirichlet values for one unknown is not a system with a solution."""
+        mesh = uniform_mesh_1d(MICRON, 5)
+        scale = ScaleFactors.for_silicon()
+        psi = np.zeros(5)
+        doping = np.zeros(5)
+
+        with pytest.raises(ValueError, match="more than once"):
+            apply_contacts(
+                _poisson_assembly(mesh, scale, psi, doping),
+                psi,
+                doping,
+                (
+                    OhmicContact(name="body", node=0, voltage=0.0),
+                    OhmicPlate(name="plate", nodes=(0, 1), voltage=0.0),
+                ),
+                scale,
             )

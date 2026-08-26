@@ -310,7 +310,7 @@ def electron_block(
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
         assembly = assemble_electron_continuity(
-            device.mesh,
+            device.mesh_1d,
             state.psi,
             state.n,
             state.p,
@@ -319,14 +319,14 @@ def electron_block(
             models.Dn,
         )
         assembly = apply_ohmic_densities(
-            assembly, state.n.data, doping, device.contacts, Carrier.ELECTRON
+            assembly, state.n.data, doping, device.ohmic_contacts, Carrier.ELECTRON
         )
 
         solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
         updated_n = impose_ohmic_densities(
             state.n.data + solver.solve(-assembly.residual),
             doping,
-            device.contacts,
+            device.ohmic_contacts,
             Carrier.ELECTRON,
         )
 
@@ -346,7 +346,7 @@ def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
         assembly = assemble_hole_continuity(
-            device.mesh,
+            device.mesh_1d,
             state.psi,
             state.n,
             state.p,
@@ -355,14 +355,14 @@ def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState
             models.Dp,
         )
         assembly = apply_ohmic_densities(
-            assembly, state.p.data, doping, device.contacts, Carrier.HOLE
+            assembly, state.p.data, doping, device.ohmic_contacts, Carrier.HOLE
         )
 
         solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
         updated_p = impose_ohmic_densities(
             state.p.data + solver.solve(-assembly.residual),
             doping,
-            device.contacts,
+            device.ohmic_contacts,
             Carrier.HOLE,
         )
 
@@ -483,7 +483,7 @@ def solve_bias_newton(
         # and then gets divided like any other. Scaling first would leave the
         # pinned rows at one while everything around them moved.
         assembly = apply_ohmic_contacts_coupled(
-            assembly, x, net_doping, device.contacts, scale
+            assembly, x, net_doping, device.ohmic_contacts, scale
         )
         return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
 

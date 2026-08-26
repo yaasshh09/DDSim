@@ -50,7 +50,7 @@ from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import apply_ohmic_contacts
+from ddsim.discretize.boundary import GateContact, apply_contacts
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.physics.statistics import (
     n_boltzmann_scaled,
@@ -105,8 +105,12 @@ def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
     doping = device.net_doping.data
     n_nodes = device.mesh.n_nodes
 
-    n_side = [c for c in device.contacts if doping[c.node] >= 0.0]
-    p_side = [c for c in device.contacts if doping[c.node] < 0.0]
+    # A gate has no doping under it to read and no quasi-Fermi level of its
+    # own: it is metal on an insulator. Only the contacts that touch
+    # semiconductor say anything about where phi_n and phi_p sit.
+    ohmic = [c for c in device.contacts if not isinstance(c, GateContact)]
+    n_side = [c for c in ohmic if doping[c.nodes[0]] >= 0.0]
+    p_side = [c for c in ohmic if doping[c.nodes[0]] < 0.0]
 
     n_bias = n_side[0].voltage if n_side else p_side[0].voltage
     p_bias = p_side[0].voltage if p_side else n_side[0].voltage
@@ -162,16 +166,24 @@ def solve_poisson(
     Returns the NewtonResult rather than raising, so a caller inside a Gummel
     cycle can decide what a stalled Poisson solve means.
     """
-    mesh = device.mesh
     scale = device.scale
+    mesh = device.scaled_mesh
+    charge_volume = device.charge_volume_scaled
     net_doping = device.net_doping_scaled
     doping_values = net_doping.data
 
     def assemble(psi_values: npt.NDArray[np.float64]) -> SparseAssembly:
         psi = Field(psi_values, "V", ScalingState.SCALED, Location.NODE, name="psi")
-        assembly = assemble_poisson(mesh, psi, net_doping, scale, phi_n, phi_p)
-        return apply_ohmic_contacts(
-            assembly, psi_values, doping_values, device.contacts, scale
+        assembly = assemble_poisson(
+            mesh, psi, net_doping, phi_n, phi_p, charge_volume=charge_volume
+        )
+        return apply_contacts(
+            assembly,
+            psi_values,
+            doping_values,
+            device.contacts,
+            scale,
+            device.material.T,
         )
 
     # The residual is a charge balance over each dual cell, so the size of its
@@ -180,7 +192,7 @@ def solve_poisson(
     # starts at the answer report success: inside a Gummel cycle the potential
     # arrives already converged, its residual already at the roundoff floor,
     # and a threshold relative to that floor is unreachable by construction.
-    charge = float(np.max(np.abs(doping_values) * mesh.volume / scale.x_0))
+    charge = float(np.max(np.abs(doping_values) * charge_volume))
 
     # The other half of the residual is a difference of face fluxes, each of
     # size psi/h, and a difference cannot be resolved below machine epsilon
@@ -195,9 +207,10 @@ def solve_poisson(
     # whole iteration budget on a residual that stopped moving at step three.
     # Measured on a 1e12 uniform bar: residual pinned at 6.8e-12 for 47
     # iterations against a threshold of 3.4e-12, update 4.4e-16 throughout.
-    edge_psi = np.maximum(np.abs(psi_initial[:-1]), np.abs(psi_initial[1:]))
+    left, right = mesh.geometry.ends(mesh.n_edges)
+    edge_psi = np.maximum(np.abs(psi_initial[left]), np.abs(psi_initial[right]))
     flux_floor = FLUX_FLOOR_MARGIN * EPS * float(
-        np.max(edge_psi / (mesh.h / scale.x_0))
+        np.max(mesh.geometry.weight * edge_psi / mesh.h)
     )
 
     # Raise the scale only when the floor would otherwise bind, so that every

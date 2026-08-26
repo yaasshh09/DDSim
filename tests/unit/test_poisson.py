@@ -245,7 +245,7 @@ def test_assemble_checks_scaling_state_at_entry() -> None:
     doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
 
     with pytest.raises(ValueError, match="SCALED"):
-        assemble_poisson(mesh, psi, doping, scale)
+        assemble_poisson(mesh.scaled(scale), psi, doping)
 
 
 def test_assemble_rejects_edge_located_fields() -> None:
@@ -255,7 +255,7 @@ def test_assemble_rejects_edge_located_fields() -> None:
     doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
 
     with pytest.raises(ValueError, match="NODE"):
-        assemble_poisson(mesh, psi, doping, scale)
+        assemble_poisson(mesh.scaled(scale), psi, doping)
 
 
 def test_assemble_rejects_a_field_of_the_wrong_length() -> None:
@@ -265,7 +265,7 @@ def test_assemble_rejects_a_field_of_the_wrong_length() -> None:
     doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
 
     with pytest.raises(ValueError, match="length|nodes"):
-        assemble_poisson(mesh, psi, doping, scale)
+        assemble_poisson(mesh.scaled(scale), psi, doping)
 
 
 def test_assemble_scales_the_mesh_by_the_debye_length() -> None:
@@ -279,7 +279,7 @@ def test_assemble_scales_the_mesh_by_the_debye_length() -> None:
     psi = Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
     doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
 
-    assembly = assemble_poisson(mesh, psi, doping, scale)
+    assembly = assemble_poisson(mesh.scaled(scale), psi, doping)
     expected = poisson_residual(
         mesh.h / scale.x_0, mesh.volume / scale.x_0, np.zeros(11), np.zeros(11)
     )
@@ -292,7 +292,7 @@ def test_assemble_returns_a_square_system_of_the_right_size() -> None:
     psi = Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
     doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
 
-    assembly = assemble_poisson(mesh, psi, doping, scale)
+    assembly = assemble_poisson(mesh.scaled(scale), psi, doping)
     assert assembly.shape == (11, 11)
     assert assembly.residual.shape == (11,)
 
