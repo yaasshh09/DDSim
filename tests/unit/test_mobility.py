@@ -170,6 +170,37 @@ def test_edge_diffusivity_gives_one_value_per_edge() -> None:
     assert got.shape == (10,)
 
 
+def test_edge_diffusivity_gathers_the_endpoints_an_edge_list_names() -> None:
+    """A 2D mesh has to say which two nodes an edge joins.
+
+    Its edges are not contiguous and a column of it is not a slice, so the
+    1D branch would average node 3 with node 4 when the edge in question runs
+    from node 3 to node 8. Nothing downstream would notice: the array is the
+    right dtype and, on a square mesh, very nearly the right length.
+    """
+    mobility = np.array([100.0, 200.0, 400.0, 800.0])
+    edge_nodes = np.array([[0, 2], [1, 3], [3, 0]], dtype=np.int64)
+
+    got = edge_diffusivity(mobility, V_T=2.0, edge_nodes=edge_nodes)
+
+    np.testing.assert_allclose(got, [500.0, 1000.0, 900.0], rtol=1e-14)
+
+
+def test_the_edge_list_form_reproduces_the_1d_chain_exactly() -> None:
+    """Bit for bit, because the 1D chain is one particular edge list.
+
+    Every current measured in Phases 1 to 3 went through the slice branch, so
+    the two have to be the same arithmetic and not merely the same answer.
+    """
+    mobility = np.linspace(300.0, 1400.0, 9)
+    chain = np.column_stack([np.arange(8), np.arange(8) + 1]).astype(np.int64)
+
+    np.testing.assert_array_equal(
+        edge_diffusivity(mobility, V_T=0.02585, edge_nodes=chain),
+        edge_diffusivity(mobility, V_T=0.02585),
+    )
+
+
 # --------------------------------------- the gap between the two constant sets
 
 

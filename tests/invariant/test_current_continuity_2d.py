@@ -401,6 +401,79 @@ def test_the_capped_terminal_currents_sum_to_zero(capped) -> None:
     assert abs(sum(currents.values())) < 1e-8 * largest
 
 
+def test_the_coupled_solve_reproduces_equilibrium_on_a_capped_device() -> None:
+    """At zero bias the two solvers have to answer the same problem.
+
+    Equilibrium is an exact fixed point of the coupled system: the quasi-Fermi
+    levels are flat, np is one so the recombination rate vanishes, and every
+    edge flux cancels identically. So a device at zero bias comes back from
+    the coupled Newton exactly as the Poisson solve left it, and the check is
+    really on the residual rather than on the iteration.
+
+    That makes it the sharpest statement available about the volume the
+    coupled path integrates charge over. The Poisson path integrates over the
+    semiconductor volume, which at an interface node is half a cell. Hand the
+    coupled path the whole dual cell instead and it counts the oxide half of
+    that cell as if it held charge, the residual at the surface stops being
+    zero, and Newton walks away from a solution that was already correct.
+    Nothing about conservation would notice: the wrong answer conserves
+    current just as well as the right one.
+    """
+    from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
+
+    device = capped_diode_2d(voltage=0.0)
+    reference = solve_equilibrium(device, frozen_quasi_fermi(device))
+    state, _ = solved(device, NoRecombination())
+
+    np.testing.assert_allclose(
+        state.psi.data, reference.psi.data, rtol=1e-10, atol=1e-12
+    )
+    np.testing.assert_allclose(state.n.data, reference.n.data, rtol=1e-10)
+    np.testing.assert_allclose(state.p.data, reference.p.data, rtol=1e-10)
+
+
+def test_a_doping_dependent_mobility_works_on_a_2d_mesh() -> None:
+    """Arora lays one diffusivity per edge, and a 2D mesh has two families.
+
+    The horizontal edges repeat the 1D per edge values row by row and the
+    vertical ones join two nodes of the same column, so the array is longer
+    than the node count and is not the 1D chain averaged. It has never been
+    laid out on a grid before, and a MOSFET is the first device that needs it
+    to be.
+
+    Checked against the 1D device with the same profile, which is the only
+    reference that says the values landed on the right edges rather than
+    merely that there were the right number of them.
+    """
+    device = diode_2d()
+    models = TransportModels.for_device(
+        device, recombination=NoRecombination(), mobility="arora"
+    )
+    state = solve_bias_newton(device, models=models)
+    assert state.newton is not None and state.newton.converged
+
+    one_d = build_device(
+        mesh=x_axis(),
+        doping=abrupt_junction(Na=DOPING, Nd=DOPING, position=JUNCTION),
+        contacts=(
+            OhmicPlate(name="anode", nodes=(0,), voltage=BIAS),
+            OhmicPlate(name="cathode", nodes=(NX - 1,), voltage=0.0),
+        ),
+    )
+    reference_models = TransportModels.for_device(
+        one_d, recombination=NoRecombination(), mobility="arora"
+    )
+    reference = solve_bias_newton(one_d, models=reference_models)
+    assert reference.newton is not None and reference.newton.converged
+
+    rows = state.psi.data.reshape(device.mesh.ny, device.mesh.nx)
+    np.testing.assert_allclose(rows[0], reference.psi.data, rtol=1e-10)
+
+    cuts = cut_currents(device, state, models)
+    expected = terminal_currents(one_d, reference, reference_models)["anode"]
+    assert cuts.mean() == pytest.approx(expected * HEIGHT, rel=1e-8)
+
+
 def test_the_oxide_holds_no_carriers(capped) -> None:
     """Zero, because there is nothing there to hold one.
 
