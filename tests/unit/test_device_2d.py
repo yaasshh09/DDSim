@@ -264,6 +264,22 @@ class TestValidation:
         with pytest.raises(TypeError, match="touch semiconductor"):
             _ = device.ohmic_contacts
 
+    def test_the_gummel_path_refuses_a_grid(self) -> None:
+        """It slices edges contiguously, which is a line and nothing else.
+
+        The coupled Newton solve works in either dimension now, so the
+        refusal has to name which path it is rather than claiming that 2D
+        transport does not exist.
+        """
+        device = build_device(
+            mesh=uniform_mesh_2d(width=1e-4, height=1e-4, nx=3, ny=3),
+            doping=Uniform(1e16),
+            contacts=(OhmicPlate(name="body", nodes=(0,), voltage=0.0),),
+        )
+
+        with pytest.raises(TypeError, match="this is the Gummel"):
+            _ = device.mesh_1d
+
     def test_the_transport_path_accepts_a_plate(self) -> None:
         """A point and a plate differ only in how many nodes they cover.
 

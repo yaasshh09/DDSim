@@ -14,9 +14,12 @@ eventually be computed by a layer below it.
 
 ## Where it is
 
-Phase 4 of 7. A PN diode solved two ways, Gummel block iteration and full
-Newton on the coupled 3N system, and a two material MOS capacitor in 2D whose
-C-V curve comes out of the same solver with nothing fitted anywhere in it.
+Phases 0 to 4 of 7 are done. A PN diode solved two ways, Gummel block
+iteration and full Newton on the coupled 3N system, and a two material MOS
+capacitor in 2D whose C-V curve comes out of the same solver with nothing
+fitted anywhere in it. Transport runs in either dimension, so a 2D diode
+conserves current through every cut and keeps doing it with a dielectric
+layer stacked on top. Phase 5 is the MOSFET.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -24,7 +27,7 @@ C-V curve comes out of the same solver with nothing fitted anywhere in it.
 | 1 | Equilibrium Poisson in 1D, PN diode | done |
 | 2 | Scharfetter-Gummel continuity, Gummel iteration, I-V | done |
 | 3 | Full Newton, coupled 3N system, Arora mobility, Auger | done |
-| 4 | 2D, MOS capacitor, C-V | done, two criteria open |
+| 4 | 2D, MOS capacitor, C-V | done |
 | 5 | MOSFET, gate length sweep | |
 | 6 | Compact model extraction for SPICE | |
 | 7 | Browser frontend, live solver telemetry | |
@@ -143,14 +146,27 @@ does not show up in the convergence rate is not hypothetical.
 
 ## MOS capacitor C-V
 
-Two dimensions, two materials. 10 nm oxide on 2 um of 1e16 p-type silicon with
-an n+ poly gate, box integration on a structured mesh graded to 0.5 nm at the
-surface.
+Two dimensions, two materials, and nothing fitted anywhere.
+
+The figure is benchmark 4 of `docs/04-validation.md`: a 5 nm oxide on 2 um of
+1e16 p-type silicon with an n+ poly gate, box integration on a structured mesh
+graded to 0.5 nm at the surface.
 
 ![MOS capacitor C-V](docs/images/mos_cap_cv.png)
 
-Every line drawn on that figure is a closed form with nothing fitted in it, and
-each one is asserted in the test that draws it:
+The open circles are DEVSIM 2.11 solving the same stack, from `data/golden/`.
+Both sides are the gate charge put through the same central difference, because
+DEVSIM has no exact derivative path here and comparing an exact derivative
+against a difference quotient would measure the operator rather than the
+physics. Worst disagreement across the sweep: 0.562 percent, against a 2
+percent budget. The visible gap near threshold is that difference quotient
+cutting the corner of a curve that turns hard there, which is why the number
+quoted is not taken off the picture.
+
+Every line drawn on the figure is a closed form with nothing fitted in it, and
+each one is asserted in the test that draws it. The table below reports the
+same checks on the 10 nm stack, which is where the doping sweep in
+`tests/analytic/` lives:
 
 | Quantity | Simulated | Closed form | Error |
 |---|---|---|---|
