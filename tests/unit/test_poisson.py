@@ -442,3 +442,37 @@ def test_the_insulator_rows_are_exactly_the_laplacian():
         assert residual[node] == pytest.approx(laplacian, rel=1e-14), (
             f"insulator node {node} carries a charge term it should not"
         )
+
+
+def test_complex_step_survives_the_insulator_mask():
+    """The mask must not break the dtype contract this module documents.
+
+    `_boltzmann_densities` promises it "does not force a dtype, so a complex
+    psi gives complex densities and complex step differentiation works through
+    here", and the mask puts a real -inf into a complex array to get a density
+    of exactly zero. The complex step check above this one runs on a device
+    made of one material, where the mask is all true and never exercises that
+    path, so it is checked here on a mesh that has an insulator in it.
+    """
+    n_nodes = 5
+    h = np.full(n_nodes - 1, 0.5)
+    volume = np.full(n_nodes, 0.5)
+    volume[-2:] = 0.0
+    net_doping = np.zeros(n_nodes)
+    psi = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+
+    rows, cols, values = poisson_jacobian(h, volume, psi, net_doping)
+    assembled = sp.coo_matrix(
+        (values, (rows, cols)), shape=(n_nodes, n_nodes)
+    ).toarray()
+
+    step = 1e-30
+    for column in range(n_nodes):
+        perturbed = psi.astype(np.complex128)
+        perturbed[column] += 1j * step
+        derivative = (
+            poisson_residual(h, volume, perturbed, net_doping).imag / step
+        )
+        np.testing.assert_allclose(
+            assembled[:, column], derivative, rtol=1e-12, atol=1e-12
+        )

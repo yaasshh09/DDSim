@@ -167,8 +167,16 @@ def terminal_charge(
             1D, where the charge is already a density.
 
     Positive means positive charge on that terminal, so a MOS gate biased
-    above flatband reports a positive charge and the body reports the negative
-    of it. The two sum to zero identically on a converged solution.
+    above flatband reports a positive charge.
+
+    What balances it is not the other terminal. This is the flux of D over one
+    contact's own cells, and on a MOS capacitor the body is an ohmic contact
+    sitting in neutral bulk where the field has already died, so it holds
+    almost nothing: measured at 1e-18 of the gate charge. The gate's partner is
+    the depletion and inversion charge spread through the silicon, and it is
+    the gate, the body and that volume charge which sum to zero on a converged
+    solution. See test_the_body_contact_is_not_the_other_plate in
+    tests/analytic/test_mos_cv.py, which is the guard on exactly this.
     """
     assembly = _bare_poisson(device, state, quasi_fermi)
     nodes = list(_contact_nodes(device, contact))
