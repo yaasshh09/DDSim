@@ -88,6 +88,7 @@ agreement with any block that happens to be missing a term.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from enum import Enum, IntEnum
 from typing import NamedTuple, TypeVar, cast
 
@@ -99,7 +100,7 @@ from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import (
     Carrier,
-    OhmicContact,
+    SemiconductorContact,
     apply_dirichlet_nodes,
     ohmic_density_scaled,
     ohmic_psi_scaled,
@@ -222,7 +223,11 @@ def coupled_residual(
 
     Args:
         h: scaled edge lengths [1], length n_nodes - 1.
-        volume: scaled dual cell widths [1], length n_nodes.
+        volume: the part of each dual cell that holds semiconductor [1],
+            scaled, length n_nodes. The whole dual cell on a device made of
+            one material. It multiplies the charge term and the two
+            recombination terms, which are the three things that exist only
+            in silicon, and it is zero in an insulator.
         x: the interleaved unknown vector [1], length 3*n_nodes.
         net_doping: scaled net doping N = (Nd - Na)/C_0 [1], on nodes.
         Dn: scaled electron diffusivity [1], scalar or per edge.
@@ -293,9 +298,10 @@ def _residual_from(
     F_psi -= (p - n + net_doping) * volume
 
     # Electron continuity. B(X) multiplies the right hand node. See the
-    # docstring of discretize/continuity.py before changing that. Only the
-    # dual face area enters here, never the permittivity: see geometry.py.
-    Jn = (Dn * geometry.dual_face / h) * (
+    # docstring of discretize/continuity.py before changing that. The carrier
+    # face enters here, never the permittivity and never the whole dual face:
+    # see geometry.py.
+    Jn = (Dn * geometry.carrier_face / h) * (
         b_plus * n[node_right] - b_minus * n[node_left]
     )
     F_n += R * volume
@@ -304,7 +310,7 @@ def _residual_from(
 
     # Hole continuity. B(X) multiplies the left hand node, the mirror image,
     # and the divergence enters with the opposite sign.
-    Jp = (Dp * geometry.dual_face / h) * (
+    Jp = (Dp * geometry.carrier_face / h) * (
         b_plus * p[node_left] - b_minus * p[node_right]
     )
     F_p += R * volume
@@ -468,7 +474,7 @@ def _jacobian_from(
     J.add(Unknown.PSI, nodes, Unknown.P, nodes, -volume)
 
     # --- dF_n/dpsi. Laplacian shaped, with conductance G on each edge.
-    G = (Dn * geometry.dual_face / h) * (
+    G = (Dn * geometry.carrier_face / h) * (
         db_plus * n[node_right] + db_minus * n[node_left]
     )
     diagonal = np.zeros(n_nodes)
@@ -479,8 +485,8 @@ def _jacobian_from(
     J.add(Unknown.N, right, Unknown.PSI, left, -G)
 
     # --- dF_n/dn. The Scharfetter-Gummel stencil plus the exact SRH tangent.
-    to_right = (Dn * geometry.dual_face / h) * b_plus
-    to_left = (Dn * geometry.dual_face / h) * b_minus
+    to_right = (Dn * geometry.carrier_face / h) * b_plus
+    to_left = (Dn * geometry.carrier_face / h) * b_minus
     diagonal = dR_dn * volume
     np.add.at(diagonal, node_left, to_left)
     np.add.at(diagonal, node_right, to_right)
@@ -493,7 +499,7 @@ def _jacobian_from(
 
     # --- dF_p/dpsi. The same stencil as the electron block with the opposite
     # sign, because Jp enters its residual with the opposite sign.
-    H = (Dp * geometry.dual_face / h) * (
+    H = (Dp * geometry.carrier_face / h) * (
         db_plus * p[node_left] + db_minus * p[node_right]
     )
     diagonal = np.zeros(n_nodes)
@@ -508,8 +514,8 @@ def _jacobian_from(
 
     # --- dF_p/dp. The mirror of the electron block: the two flux coefficients
     # have swapped nodes, for the same reason the fluxes do.
-    to_left = (Dp * geometry.dual_face / h) * b_plus
-    to_right = (Dp * geometry.dual_face / h) * b_minus
+    to_left = (Dp * geometry.carrier_face / h) * b_plus
+    to_right = (Dp * geometry.carrier_face / h) * b_minus
     diagonal = dR_dp * volume
     np.add.at(diagonal, node_left, to_left)
     np.add.at(diagonal, node_right, to_right)
@@ -708,8 +714,9 @@ def apply_ohmic_contacts_coupled(
     assembly: SparseAssembly,
     x: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    contacts: tuple[OhmicContact, ...],
+    contacts: Sequence[SemiconductorContact],
     scale: ScaleFactors,
+    carrier_free_nodes: Sequence[int] = (),
 ) -> SparseAssembly:
     """Pin psi, n and p at every ohmic contact, returning a new assembly.
 
@@ -717,13 +724,17 @@ def apply_ohmic_contacts_coupled(
         assembly: the assembled coupled system.
         x: the current interleaved unknown vector [1].
         net_doping: scaled net doping on nodes [1].
-        contacts: the contacts to apply.
+        contacts: the contacts to apply. A point contact pins one node and a
+            plate pins every node it covers, which is the same statement:
+            both are asked for their `nodes`.
         scale: scale factors, used to convert contact voltages from V.
+        carrier_free_nodes: nodes with no semiconductor in them, whose n and
+            p rows are singular and have to be pinned. See below.
 
-    Three Dirichlet conditions per contact rather than one. In the uncoupled
-    solve the potential and the two densities are pinned in three separate
-    systems, by three separate calls; here they are three unknowns of one
-    system and go in together.
+    Three Dirichlet conditions per contact node rather than one. In the
+    uncoupled solve the potential and the two densities are pinned in three
+    separate systems, by three separate calls; here they are three unknowns of
+    one system and go in together.
 
     The values are the same ones the uncoupled path uses, and they have to be,
     or the two solvers would answer different problems and their agreement at
@@ -731,12 +742,23 @@ def apply_ohmic_contacts_coupled(
     densities are at their equilibrium values whatever the terminal voltage,
     which is what makes an ohmic contact a perfect sink.
 
+    **Why an insulator node needs pinning at all.** Its Poisson row is a
+    perfectly good Laplacian and wants no help. Its two continuity rows are
+    another matter: the charge volume there is zero, so the recombination term
+    goes, and the carrier face there is zero, so every flux goes too. What is
+    left is the row 0 = 0, with nothing on the diagonal, and a singular matrix
+    is not something to discover inside a factorization. Pinning both
+    densities at zero says the true thing, that an insulator holds no free
+    carriers, and leaves the potential alone.
+
     apply_dirichlet_nodes does the work and needs nothing taught about the
     coupling: it takes unknown indices, not node indices, so the contact
     simply hands it three indices per node. It eliminates the column as well
     as the row, which is what makes the pinned value come back exactly rather
     than to within the conditioning of the whole system. See its docstring for
-    the measurement that forced that.
+    the measurement that forced that. Everything goes in one call, so a
+    contact sitting on an insulator node is refused there rather than resolved
+    by whichever pass went last.
     """
     names = [contact.name for contact in contacts]
     if len(set(names)) != len(names):
@@ -746,17 +768,24 @@ def apply_ohmic_contacts_coupled(
     targets: list[float] = []
 
     for contact in contacts:
-        doping = float(net_doping[contact.node])
         applied = contact.voltage / scale.psi_0
+        for node in contact.nodes:
+            doping = float(net_doping[node])
 
-        indices.append(unknown_index(contact.node, Unknown.PSI))
-        targets.append(ohmic_psi_scaled(doping, applied))
+            indices.append(unknown_index(node, Unknown.PSI))
+            targets.append(ohmic_psi_scaled(doping, applied))
 
-        indices.append(unknown_index(contact.node, Unknown.N))
-        targets.append(ohmic_density_scaled(doping, Carrier.ELECTRON))
+            indices.append(unknown_index(node, Unknown.N))
+            targets.append(ohmic_density_scaled(doping, Carrier.ELECTRON))
 
-        indices.append(unknown_index(contact.node, Unknown.P))
-        targets.append(ohmic_density_scaled(doping, Carrier.HOLE))
+            indices.append(unknown_index(node, Unknown.P))
+            targets.append(ohmic_density_scaled(doping, Carrier.HOLE))
+
+    for node in carrier_free_nodes:
+        indices.append(unknown_index(node, Unknown.N))
+        targets.append(0.0)
+        indices.append(unknown_index(node, Unknown.P))
+        targets.append(0.0)
 
     return apply_dirichlet_nodes(assembly, x, indices, targets)
 
@@ -778,7 +807,8 @@ def residual_term_scales(
 
     Args:
         h: scaled edge lengths [1].
-        volume: scaled dual cell widths [1].
+        volume: the part of each dual cell that holds semiconductor [1],
+            scaled. Zero in an insulator. See coupled_residual.
         x: the interleaved unknown vector [1].
         net_doping: scaled net doping on nodes [1].
         Dn: scaled electron diffusivity [1].
@@ -862,8 +892,8 @@ def _term_scales_from(
         float(
             np.max(
                 np.maximum(
-                    (Dn * geometry.dual_face / h) * b_plus * n[node_right],
-                    (Dn * geometry.dual_face / h) * b_minus * n[node_left],
+                    (Dn * geometry.carrier_face / h) * b_plus * n[node_right],
+                    (Dn * geometry.carrier_face / h) * b_minus * n[node_left],
                 )
             )
         ),
@@ -873,8 +903,8 @@ def _term_scales_from(
         float(
             np.max(
                 np.maximum(
-                    (Dp * geometry.dual_face / h) * b_plus * p[node_left],
-                    (Dp * geometry.dual_face / h) * b_minus * p[node_right],
+                    (Dp * geometry.carrier_face / h) * b_plus * p[node_left],
+                    (Dp * geometry.carrier_face / h) * b_minus * p[node_right],
                 )
             )
         ),

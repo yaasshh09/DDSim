@@ -239,7 +239,8 @@ def _scaled_diffusivity(
     # Total doping, of which only the net is available. Same caveat and same
     # reason as the Scharfetter lifetime above.
     nodal = model(np.abs(device.net_doping.data))
-    return edge_diffusivity(nodal, C.V_T(temperature)) / scale.D_0
+    edge_nodes = device.scaled_mesh.geometry.edge_nodes
+    return edge_diffusivity(nodal, C.V_T(temperature), edge_nodes) / scale.D_0
 
 
 def _node_field(values: npt.NDArray[np.float64], unit: str, name: str) -> Field:
@@ -439,6 +440,12 @@ def solve_bias_newton(
     does not raise: a failed solve is what continuation reads to decide to
     halve its step.
 
+    Works in either dimension. Everything that knew it was in 1D is now asked
+    of the device: the mesh scales itself by the right power of x_0, the
+    charge volume is zero where there is no semiconductor, and the geometry
+    carries the edge list, the permittivity and the face a carrier is allowed
+    to cross. The Gummel path in this module is still 1D and says so.
+
     Three things this does that a textbook Newton loop does not.
 
     **The rows are scaled by their own terms.** See coupled.residual_term_scales.
@@ -461,11 +468,13 @@ def solve_bias_newton(
 
     start = initial_state(device) if guess is None else guess
     scale = device.scale
-    mesh = device.mesh
+    mesh = device.scaled_mesh
 
-    h = mesh.h / scale.x_0
-    volume = mesh.volume / scale.x_0
+    h = mesh.h
+    volume = device.charge_volume_scaled
+    geometry = mesh.geometry
     net_doping = device.net_doping_scaled.data
+    carrier_free = device.carrier_free_nodes
 
     x0 = pack(start.psi.data, start.n.data, start.p.data)
 
@@ -478,12 +487,13 @@ def solve_bias_newton(
             models.Dn,
             models.Dp,
             models.recombination,
+            geometry,
         )
         # Contacts before the scaling, so a pinned row becomes the identity
         # and then gets divided like any other. Scaling first would leave the
         # pinned rows at one while everything around them moved.
         assembly = apply_ohmic_contacts_coupled(
-            assembly, x, net_doping, device.ohmic_contacts, scale
+            assembly, x, net_doping, device.ohmic_contacts, scale, carrier_free
         )
         return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
 

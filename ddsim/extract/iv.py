@@ -47,12 +47,10 @@ from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias
-from ddsim.discretize.continuity import (
-    assemble_electron_continuity,
-    assemble_hole_continuity,
-    electron_current,
-    hole_current,
-)
+from ddsim.discretize.continuity import electron_current, hole_current
+from ddsim.discretize.coupled import coupled_residual, pack, unpack
+from ddsim.discretize.geometry import EdgeGeometry
+from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.solve.continuation import continue_to
 
 
@@ -69,17 +67,40 @@ def current_densities(
         models: the transport models used for the solve. Built from the device
             if None, which matches what solve_bias does by default.
 
-    The pair is what the current continuity invariant is measured on: with
-    recombination off, Jn + Jp is the same number on every edge.
+    The pair is what the current continuity invariant is measured on. In 1D,
+    with recombination off, Jn + Jp is the same number on every edge. In 2D it
+    is not, and it should not be: the current spreads out, so what is constant
+    is the total crossing every cut through the device rather than the density
+    on any one edge. See tests/invariant/test_current_continuity_2d.py.
+
+    A density and not a flux, in every dimension. The flux kernels multiply by
+    the face the carrier crosses, because that is what a continuity equation
+    wants, and it is divided back out here so that the number carries the unit
+    its name claims. In 1D that face is exactly 1.0 and the division is exact,
+    so nothing measured before this existed moves.
+
+    An edge with no semiconductor face reports exactly zero rather than a
+    quotient of two zeros. There is no current density in an insulator to
+    report, and zero is the answer every sum over edges wants.
     """
     if models is None:
         models = TransportModels.for_device(device)
 
     scale = device.scale
-    h = device.mesh.h / scale.x_0
+    mesh = device.scaled_mesh
 
-    Jn = electron_current(h, models.Dn, state.psi.data, state.n.data)
-    Jp = hole_current(h, models.Dp, state.psi.data, state.p.data)
+    Jn = _per_unit_face(
+        electron_current(
+            mesh.h, models.Dn, state.psi.data, state.n.data, mesh.geometry
+        ),
+        mesh.geometry,
+    )
+    Jp = _per_unit_face(
+        hole_current(
+            mesh.h, models.Dp, state.psi.data, state.p.data, mesh.geometry
+        ),
+        mesh.geometry,
+    )
 
     return (
         Field(Jn, "A/cm^2", ScalingState.SCALED, Location.EDGE, name="Jn").to_physical(
@@ -91,6 +112,33 @@ def current_densities(
     )
 
 
+def _per_unit_face(
+    flux: npt.NDArray[np.float64], geometry: EdgeGeometry
+) -> npt.NDArray[np.float64]:
+    """Turn an edge flux back into a current density [1], scaled.
+
+    Zero where the face is zero, which is every edge an insulator touches.
+    """
+    face = np.asarray(geometry.carrier_face, dtype=np.float64)
+    return np.divide(
+        flux, face, out=np.zeros_like(flux), where=face > 0.0
+    )
+
+
+def edge_current_face(device: Device) -> npt.NDArray[np.float64]:
+    """The face each edge offers a carrier [cm], physical units.
+
+    What a current density has to be multiplied by to give the current through
+    that edge per unit depth. The whole dual face in the bulk, half of it on an
+    edge lying along a Si/SiO2 interface, and zero on an edge inside an
+    insulator. Summing J times this over the edges crossing a plane is the
+    discrete surface integral that current continuity is a statement about.
+    """
+    face = np.asarray(device.scaled_mesh.geometry.carrier_face, dtype=np.float64)
+    power = 0 if isinstance(device.mesh, Mesh1D) else 1
+    return np.asarray(face * device.scale.x_0**power)
+
+
 def continuity_residuals(
     device: Device,
     state: DeviceState,
@@ -100,29 +148,30 @@ def continuity_residuals(
 
     Interior entries are zero for a converged solution. Contact entries are the
     terminal currents, which is the whole reason to look at them.
+
+    Taken from the coupled residual, which is where the two continuity
+    equations are written in a form that does not care how many dimensions it
+    is in. They are the same two rows the uncoupled assemblies produce, to the
+    bit: the same fluxes, the same recombination rate, accumulated in the same
+    order. What differs between the coupled and uncoupled paths is the
+    Jacobian, and no Jacobian is wanted here.
     """
     if models is None:
         models = TransportModels.for_device(device)
 
-    electrons = assemble_electron_continuity(
-        device.mesh_1d,
-        state.psi,
-        state.n,
-        state.p,
-        models.recombination,
-        device.scale,
-        models.Dn,
+    mesh = device.scaled_mesh
+    residual = coupled_residual(
+        h=mesh.h,
+        volume=device.charge_volume_scaled,
+        x=pack(state.psi.data, state.n.data, state.p.data),
+        net_doping=device.net_doping_scaled.data,
+        Dn=models.Dn,
+        Dp=models.Dp,
+        recombination=models.recombination,
+        geometry=mesh.geometry,
     )
-    holes = assemble_hole_continuity(
-        device.mesh_1d,
-        state.psi,
-        state.n,
-        state.p,
-        models.recombination,
-        device.scale,
-        models.Dp,
-    )
-    return electrons.residual, holes.residual
+    _, electrons, holes = unpack(residual)
+    return np.asarray(electrons), np.asarray(holes)
 
 
 def terminal_currents(
@@ -135,12 +184,20 @@ def terminal_currents(
     Positive means conventional current flowing from the contact into the
     device, so a forward biased diode has a positive anode current. The values
     sum to zero for a converged solution.
+
+    A plate contact is the sum over every node it covers, because the terminal
+    is one piece of metal and the current into it is the current into all of
+    it. A point contact is that sum over one node, so the two are the same
+    statement and there is no 1D branch here.
     """
     electron_residual, hole_residual = continuity_residuals(device, state, models)
 
     return {
         contact.name: float(
-            (-electron_residual[contact.node] + hole_residual[contact.node])
+            sum(
+                -electron_residual[node] + hole_residual[node]
+                for node in contact.nodes
+            )
             * device.scale.J_0
         )
         for contact in device.ohmic_contacts

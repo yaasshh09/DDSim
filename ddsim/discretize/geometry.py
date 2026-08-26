@@ -55,11 +55,15 @@ class EdgeGeometry:
         eps_r: permittivity of each edge relative to the permittivity the
             device is scaled by [1]. 1.0 in silicon, since the scaling uses
             eps_Si, and about 0.333 in silicon dioxide.
+        semiconductor_face: the part of each edge's dual face that carriers
+            can cross [1], scaled. None means all of it, which is right for a
+            device made of one semiconductor. See the `carrier_face` property.
     """
 
     edge_nodes: npt.NDArray[np.int64] | None = None
     dual_face: EdgeQuantity = 1.0
     eps_r: EdgeQuantity = 1.0
+    semiconductor_face: EdgeQuantity | None = None
 
     def __post_init__(self) -> None:
         if self.edge_nodes is None:
@@ -137,6 +141,37 @@ class EdgeGeometry:
         results bit identical.
         """
         return self.eps_r * self.dual_face
+
+    @property
+    def carrier_face(self) -> EdgeQuantity:
+        """The face area a carrier flux crosses [1]. Poisson does not use this.
+
+        An insulator carries no current, so the face an edge offers to
+        electrons and holes is only the part of it made of semiconductor.
+        Three cases, and the third is the one that is easy to miss:
+
+        - an edge with silicon on both sides offers its whole face
+        - an edge inside the oxide offers none of it, so no current crosses
+          the Si/SiO2 interface and none flows through the insulator
+        - **an edge lying along the interface offers half of it**, because the
+          face a horizontal edge crosses spans half a cell above and half a
+          cell below, and at the interface those two halves are different
+          materials. That edge is the channel of a MOSFET, so getting it wrong
+          is not a corner case: it doubles the conductance of the inversion
+          layer.
+
+        Zeroing the volume afterwards does not do this job. The volume
+        multiplies the recombination term, not the flux, so an oxide edge with
+        a full face still moves carriers between the interface node and a node
+        with no carriers in it, and on a MOSFET that drains the inversion layer
+        into the gate dielectric.
+
+        Defaults to the whole dual face, so a single material device is bit
+        for bit what it was before this existed.
+        """
+        if self.semiconductor_face is None:
+            return self.dual_face
+        return self.semiconductor_face
 
 
 UNIFORM_1D = EdgeGeometry()

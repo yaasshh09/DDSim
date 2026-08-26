@@ -159,13 +159,19 @@ class AroraMobility:
 
 
 def edge_diffusivity(
-    mobility: npt.NDArray[np.float64], V_T: float
+    mobility: npt.NDArray[np.float64],
+    V_T: float,
+    edge_nodes: npt.NDArray[np.int64] | None = None,
 ) -> npt.NDArray[np.float64]:
     """Diffusivity on every edge [cm^2/s], from mobility on every node.
 
     Args:
         mobility: mobility at each node [cm^2/(V s)], length n_nodes.
         V_T: thermal voltage [V].
+        edge_nodes: shape (n_edges, 2), the two nodes of each edge. None means
+            the contiguous 1D chain, where edge e joins node e and node e+1.
+            A 2D mesh has to say, because its edges are not contiguous and a
+            column of it is not a slice.
 
     Two steps, both worth stating.
 
@@ -182,5 +188,13 @@ def edge_diffusivity(
     endpoints of an edge sit in nearly the same doping anyway, so the choice
     only shows up on a coarse mesh across an abrupt profile, where every part
     of the answer is already mesh limited.
+
+    The edge list form gathers the same two endpoints the slices name, in the
+    same order, so a 1D device gets the identical arithmetic and the identical
+    bits whichever branch it takes. The argument is taken as a plain array
+    rather than an EdgeGeometry to keep physics/ from importing discretize/.
     """
-    return np.asarray(V_T * 0.5 * (mobility[:-1] + mobility[1:]))
+    if edge_nodes is None:
+        return np.asarray(V_T * 0.5 * (mobility[:-1] + mobility[1:]))
+    left, right = edge_nodes[:, 0], edge_nodes[:, 1]
+    return np.asarray(V_T * 0.5 * (mobility[left] + mobility[right]))

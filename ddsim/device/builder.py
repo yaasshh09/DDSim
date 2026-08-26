@@ -22,7 +22,7 @@ from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
 from ddsim.device.doping import DopingProfile
 from ddsim.device.regions import RegionMap
-from ddsim.discretize.boundary import Contact, OhmicContact
+from ddsim.discretize.boundary import Contact, GateContact, SemiconductorContact
 from ddsim.discretize.geometry import ScaledMesh
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.mesh.mesh2d import Mesh2D
@@ -137,8 +137,13 @@ class Device:
         """
         if isinstance(self.mesh, Mesh1D):
             return self.mesh.scaled(self.scale)
-        eps_r = 1.0 if self.regions is None else self.regions.eps_r
-        return self.mesh.scaled(self.scale, eps_r=eps_r)
+        if self.regions is None:
+            return self.mesh.scaled(self.scale)
+        return self.mesh.scaled(
+            self.scale,
+            eps_r=self.regions.eps_r,
+            semiconductor_face=self.regions.semiconductor_face,
+        )
 
     @cached_property
     def charge_volume_scaled(self) -> npt.NDArray[np.float64]:
@@ -155,24 +160,40 @@ class Device:
         return np.asarray(self.regions.semiconductor_volume / self.scale.x_0**power)
 
     @cached_property
-    def ohmic_contacts(self) -> tuple[OhmicContact, ...]:
-        """The contacts, if every one of them is a point ohmic contact.
+    def ohmic_contacts(self) -> tuple[SemiconductorContact, ...]:
+        """The contacts, if every one of them touches semiconductor.
 
-        The coupled 3N transport path pins psi, n and p at one node per
-        contact and has no notion of a gate or of a plate. Rather than let it
-        assemble a system with a terminal quietly left out, which would
-        converge and mean nothing, that path asks through here and gets a
-        refusal it can read.
+        A point and a plate are the same thing to the coupled transport
+        solve: it pins psi, n and p at every node the contact covers, and a
+        point contact covers one node. A gate is not, and never can be. It
+        sits on an insulator, so there is no doping under it to read and no
+        carrier density to pin, and a transport solve that silently left a
+        terminal out would converge and mean nothing. That path asks through
+        here and gets a refusal it can read.
         """
         for contact in self.contacts:
-            if not isinstance(contact, OhmicContact):
+            if isinstance(contact, GateContact):
                 raise TypeError(
                     f"contact {contact.name!r} is a {type(contact).__name__}, "
-                    "and this path handles point ohmic contacts only. The "
-                    "coupled transport solve pins psi, n and p at one node per "
-                    "contact, which is not what a gate or a plate is."
+                    "and this path handles contacts that touch semiconductor "
+                    "only. The coupled transport solve pins psi, n and p at "
+                    "every node of a contact, and a gate sits on an insulator "
+                    "where there is no doping to read and no carrier to pin."
                 )
         return tuple(self.contacts)  # type: ignore[arg-type]
+
+    @cached_property
+    def carrier_free_nodes(self) -> tuple[int, ...]:
+        """Nodes holding no semiconductor, whose n and p rows have to be pinned.
+
+        Empty on a device made of one semiconductor. On a MOS stack these are
+        the nodes strictly inside the oxide: their charge volume is zero and
+        their carrier face is zero, which leaves both continuity rows reading
+        0 = 0. See apply_ohmic_contacts_coupled.
+        """
+        if self.regions is None:
+            return ()
+        return tuple(int(node) for node in self.regions.oxide_nodes)
 
     @property
     def mesh_1d(self) -> Mesh1D:
@@ -186,8 +207,9 @@ class Device:
         if not isinstance(self.mesh, Mesh1D):
             raise TypeError(
                 "this path is 1D and the device carries a "
-                f"{type(self.mesh).__name__}. Transport in 2D is Phase 6; "
-                "Poisson already works in both."
+                f"{type(self.mesh).__name__}. The coupled Newton solve and "
+                "the current extraction work in both; this is the Gummel "
+                "path, which slices edges contiguously."
             )
         return self.mesh
 

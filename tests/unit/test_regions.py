@@ -213,3 +213,89 @@ def test_an_interface_node_holds_less_than_its_whole_dual_cell(mesh, regions):
 def test_a_single_material_device_has_no_interface(mesh):
     regions = stacked_regions(mesh, interface_y=HEIGHT)
     assert regions.interface_nodes(mesh).size == 0
+
+
+# ------------------------------------------------------- the carrier face
+
+
+def horizontal_edge(mesh, i: int, j: int) -> int:
+    """Index of the horizontal edge from node (i, j) to node (i+1, j)."""
+    return j * (mesh.nx - 1) + i
+
+
+def vertical_edge(mesh, i: int, j: int) -> int:
+    """Index of the vertical edge from node (i, j) to node (i, j+1)."""
+    return mesh.n_horizontal + j * mesh.nx + i
+
+
+def test_an_edge_wholly_in_silicon_offers_its_whole_face(mesh, regions):
+    """Nothing has been taken away where there is nothing to take away."""
+    edge = horizontal_edge(mesh, 0, 1)
+
+    assert regions.semiconductor_face[edge] == pytest.approx(
+        mesh.dual_face[edge], rel=1e-14
+    )
+
+
+def test_an_edge_inside_the_oxide_offers_no_face_at_all(mesh, regions):
+    """An insulator carries no current, so no carrier flux crosses it.
+
+    Zero exactly, not small. The flux term is multiplied by this, so anything
+    else leaves a current running through a dielectric.
+    """
+    assert regions.semiconductor_face[horizontal_edge(mesh, 0, 3)] == 0.0
+    assert regions.semiconductor_face[horizontal_edge(mesh, 0, 4)] == 0.0
+
+
+def test_a_vertical_edge_leaving_the_interface_offers_nothing(mesh, regions):
+    """The one that drains the inversion layer if it is left open.
+
+    It joins the interface node, which holds the channel, to the first node
+    strictly inside the oxide, whose n and p are pinned at zero. Give it a
+    face and every electron at the surface has somewhere to go.
+    """
+    assert regions.semiconductor_face[vertical_edge(mesh, 0, 2)] == 0.0
+
+
+def test_a_vertical_edge_below_the_interface_keeps_its_whole_face(mesh, regions):
+    """Guards the test above from passing because every vertical edge is shut."""
+    edge = vertical_edge(mesh, 0, 1)
+
+    assert regions.semiconductor_face[edge] == pytest.approx(
+        mesh.dual_face[edge], rel=1e-14
+    )
+
+
+def test_an_edge_along_the_interface_offers_half_its_face(mesh, regions):
+    """The channel edge. Its face is half silicon below and half oxide above.
+
+    This is the same area weighting the permittivity gets, for the same
+    reason, and it is the number that decides the conductance of an inversion
+    layer. Handing it the whole face doubles the channel current.
+    """
+    edge = horizontal_edge(mesh, 0, 2)
+
+    assert regions.semiconductor_face[edge] == pytest.approx(
+        0.5 * mesh.dual_face[edge], rel=1e-14
+    )
+
+
+def test_a_single_material_device_offers_every_face_whole(mesh):
+    """Bit for bit, not to a tolerance.
+
+    The carrier flux is multiplied by this, so a value that was merely close
+    to the dual face would move every current in every existing result at the
+    last digit and the suite would light up for no physical reason.
+    """
+    regions = stacked_regions(mesh, interface_y=HEIGHT * 2.0)
+
+    np.testing.assert_array_equal(regions.semiconductor_face, mesh.dual_face)
+
+
+def test_the_geometry_it_produces_carries_the_carrier_face(mesh, regions):
+    """What actually reaches the assembly."""
+    geometry = regions.edge_geometry(mesh)
+
+    np.testing.assert_array_equal(
+        np.asarray(geometry.carrier_face), regions.semiconductor_face
+    )

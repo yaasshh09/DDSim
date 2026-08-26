@@ -252,15 +252,53 @@ class TestValidation:
             )
 
     def test_the_transport_path_refuses_a_gate(self) -> None:
-        """The coupled 3N transport solve is 1D and knows only point contacts.
+        """A gate is not a contact a transport solve can pin.
 
-        Better to say so than to assemble a system with the gate quietly left
-        out of it, which would converge and mean nothing.
+        It sits on an insulator, so there is no doping under it to read and no
+        carrier density to hold at equilibrium. Better to say so than to
+        assemble a system with the gate quietly left out of it, which would
+        converge and mean nothing.
         """
         device = mos_device()
 
-        with pytest.raises(TypeError, match="point ohmic"):
+        with pytest.raises(TypeError, match="touch semiconductor"):
             _ = device.ohmic_contacts
+
+    def test_the_transport_path_accepts_a_plate(self) -> None:
+        """A point and a plate differ only in how many nodes they cover.
+
+        The coupled solve pins psi, n and p at every node of a contact, and a
+        point contact is the case where that is one node.
+        """
+        device = build_device(
+            mesh=uniform_mesh_2d(width=1e-4, height=1e-4, nx=3, ny=3),
+            doping=Uniform(1e16),
+            contacts=(
+                OhmicPlate(name="left", nodes=(0, 3, 6), voltage=0.0),
+                OhmicPlate(name="right", nodes=(2, 5, 8), voltage=0.0),
+            ),
+        )
+
+        assert [c.name for c in device.ohmic_contacts] == ["left", "right"]
+
+    def test_a_single_material_device_has_no_carrier_free_nodes(self) -> None:
+        """Nothing to pin where every node holds semiconductor."""
+        device = build_device(
+            mesh=uniform_mesh_1d(1e-4, 11),
+            doping=Uniform(1e16),
+            contacts=(OhmicContact(name="anode", node=0, voltage=0.0),),
+        )
+
+        assert device.carrier_free_nodes == ()
+
+    def test_the_oxide_nodes_of_a_stack_are_the_ones_pinned(self) -> None:
+        """They are exactly the nodes whose two continuity rows read 0 = 0."""
+        device = mos_device()
+
+        assert device.carrier_free_nodes == tuple(
+            int(node) for node in device.regions.oxide_nodes
+        )
+        assert len(device.carrier_free_nodes) > 0
 
     def test_a_1d_device_still_reports_its_point_contacts(self) -> None:
         device = build_device(

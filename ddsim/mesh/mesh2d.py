@@ -131,27 +131,36 @@ class Mesh2D:
         """The node index at column i, row j."""
         return j * self.nx + i
 
-    def edge_geometry(self, eps_r: npt.NDArray[np.float64] | float = 1.0) -> (
-        EdgeGeometry
-    ):
+    def edge_geometry(
+        self,
+        eps_r: npt.NDArray[np.float64] | float = 1.0,
+        semiconductor_face: npt.NDArray[np.float64] | None = None,
+    ) -> EdgeGeometry:
         """What the assemblies need to work on this mesh.
 
         Args:
             eps_r: permittivity of each edge relative to the scaling
                 permittivity [1]. 1.0 everywhere in a single material device.
+            semiconductor_face: the part of each edge's face a carrier flux
+                can cross [cm]. None means all of it, which is right for a
+                device made of one semiconductor.
 
         The dual faces are handed over unscaled, in cm. The device layer
         divides them by x_0, exactly as it already does for h and volume. See
         the module docstring on why the power of x_0 differs between them.
         """
         return EdgeGeometry(
-            edge_nodes=self.edge_nodes, dual_face=self.dual_face, eps_r=eps_r
+            edge_nodes=self.edge_nodes,
+            dual_face=self.dual_face,
+            eps_r=eps_r,
+            semiconductor_face=semiconductor_face,
         )
 
     def scaled(
         self,
         scale: ScaleFactors,
         eps_r: npt.NDArray[np.float64] | float = 1.0,
+        semiconductor_face: npt.NDArray[np.float64] | None = None,
     ) -> ScaledMesh:
         """This mesh in the units the assemblies work in.
 
@@ -160,6 +169,10 @@ class Mesh2D:
             eps_r: permittivity of each edge relative to the scaling
                 permittivity [1]. A single material device leaves it at 1.0;
                 a MOS stack passes what device/regions.py worked out.
+            semiconductor_face: the part of each edge's face a carrier flux
+                can cross [cm]. None means all of it. A MOS stack passes what
+                device/regions.py worked out, and it is scaled here by the
+                same power of x_0 as the dual face, because it is one.
 
         The two powers of x_0 differ, and that is the whole point of asking
         the mesh instead of doing it at the call site. See ScaledMesh.
@@ -171,6 +184,11 @@ class Mesh2D:
                 edge_nodes=self.edge_nodes,
                 dual_face=self.dual_face / scale.x_0,
                 eps_r=eps_r,
+                semiconductor_face=(
+                    None
+                    if semiconductor_face is None
+                    else semiconductor_face / scale.x_0
+                ),
             ),
         )
 

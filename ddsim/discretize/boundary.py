@@ -356,7 +356,7 @@ def ohmic_density_scaled(net_doping: float, carrier: Carrier) -> float:
 def impose_ohmic_densities(
     density: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    contacts: tuple[OhmicContact, ...],
+    contacts: Sequence[SemiconductorContact],
     carrier: Carrier,
 ) -> npt.NDArray[np.float64]:
     """Write the contact densities into a solved profile, exactly.
@@ -373,9 +373,10 @@ def impose_ohmic_densities(
     """
     imposed = density.copy()
     for contact in contacts:
-        imposed[contact.node] = ohmic_density_scaled(
-            float(net_doping[contact.node]), carrier
-        )
+        for node in contact.nodes:
+            imposed[node] = ohmic_density_scaled(
+                float(net_doping[node]), carrier
+            )
     return imposed
 
 
@@ -383,7 +384,7 @@ def apply_ohmic_densities(
     assembly: SparseAssembly,
     density: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    contacts: tuple[OhmicContact, ...],
+    contacts: Sequence[SemiconductorContact],
     carrier: Carrier,
 ) -> SparseAssembly:
     """Pin one carrier density at every contact to its equilibrium value.
@@ -407,14 +408,12 @@ def apply_ohmic_densities(
     solution pinned here. The two boundary conditions agree by construction
     rather than by coincidence.
     """
+    nodes = [node for contact in contacts for node in contact.nodes]
     return apply_dirichlet_nodes(
         assembly,
         density,
-        [contact.node for contact in contacts],
-        [
-            ohmic_density_scaled(float(net_doping[contact.node]), carrier)
-            for contact in contacts
-        ],
+        nodes,
+        [ohmic_density_scaled(float(net_doping[node]), carrier) for node in nodes],
     )
 
 

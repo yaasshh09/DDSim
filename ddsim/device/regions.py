@@ -21,7 +21,8 @@ the cells either side:
     eps_r[e] * dual_face[e] = sum over adjacent cells of eps_r[cell] * share
 
 and the same argument says an interface node's dual cell is half semiconductor,
-so only half of it carries charge and recombination.
+so only half of it carries charge and recombination, and an edge lying along
+the interface offers half its face to a carrier flux.
 
 Classifying nodes instead of cells is the easy version and it is wrong. It
 gives the whole interface row one material or the other, which moves the
@@ -37,6 +38,16 @@ term in both continuity equations. An oxide node gets zero, which turns its
 Poisson row into a bare Laplacian, exactly right for an insulator. Its two
 continuity rows then say 0 = 0, which is singular, so they are pinned; see
 `oxide_nodes`.
+
+The volume is not enough on its own once there is transport
+-----------------------------------------------------------
+A zero volume kills the terms the equations integrate. It does nothing to the
+terms they differentiate, and a carrier flux is one of those. Leave the dual
+face alone and an edge running from the interface into the oxide still carries
+electrons from the inversion layer to a node whose density is pinned at zero,
+which drains the channel into the gate dielectric. So the face gets the same
+treatment as the volume, by the same area weighting, and that is
+`semiconductor_face`.
 """
 
 from __future__ import annotations
@@ -101,6 +112,16 @@ class RegionMap:
     integrate over, never the plain dual volume.
     """
 
+    semiconductor_face: npt.NDArray[np.float64]
+    """The part of each edge's dual face that is semiconductor [cm].
+
+    The same area weighting as eps_r, over the same cells, and it is what a
+    carrier flux crosses. Equal to the whole dual face in the bulk, zero on an
+    edge with oxide on both sides, and half of it on an edge lying along the
+    interface. See EdgeGeometry.carrier_face for why the zero volume above
+    does not already do this job.
+    """
+
     oxide_nodes: npt.NDArray[np.int64]
     """Nodes with no semiconductor at all, whose n and p rows must be pinned.
 
@@ -130,6 +151,7 @@ class RegionMap:
             edge_nodes=mesh.edge_nodes,
             dual_face=mesh.dual_face,
             eps_r=self.eps_r,
+            semiconductor_face=self.semiconductor_face,
         )
 
     def __repr__(self) -> str:
@@ -161,6 +183,45 @@ def _node_line_index(axis: npt.NDArray[np.float64], position: float) -> int:
     return nearest
 
 
+def _onto_edges(
+    mesh: Mesh2D, cell_value: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """The area weighted mean of a per cell quantity, on every edge [1].
+
+    Args:
+        mesh: the structured mesh.
+        cell_value: one value per cell, shape (ny-1, nx-1).
+
+    The face a horizontal edge crosses spans half a cell above the edge and
+    half a cell below, and at an interface those two halves are different
+    materials, so an edge quantity is a share of the face rather than the
+    value of one cell. Dividing by the dual face at the end turns the sum of
+    areas back into a mean, which is why a single material mesh comes back at
+    exactly 1.0 and every result taken before regions existed stays where it
+    was.
+    """
+    nx, ny = mesh.nx, mesh.ny
+    dx, dy = mesh.x_axis.h, mesh.y_axis.h
+
+    # A horizontal edge at row j is bounded by the cell row below (j-1) and the
+    # cell row above (j), each contributing half its height to the face.
+    below = np.zeros((ny, nx - 1))
+    above = np.zeros((ny, nx - 1))
+    below[1:] = cell_value * (0.5 * dy)[:, None]
+    above[:-1] = cell_value * (0.5 * dy)[:, None]
+    horizontal = (below + above).ravel()
+
+    # A vertical edge at column i is bounded by the cell column to its left
+    # (i-1) and to its right (i), each contributing half its width.
+    left = np.zeros((ny - 1, nx))
+    right = np.zeros((ny - 1, nx))
+    left[:, 1:] = cell_value * (0.5 * dx)[None, :]
+    right[:, :-1] = cell_value * (0.5 * dx)[None, :]
+    vertical = (left + right).ravel()
+
+    return np.asarray(np.concatenate([horizontal, vertical]) / mesh.dual_face)
+
+
 def region_map(
     mesh: Mesh2D, cell_material: npt.NDArray[np.int64]
 ) -> RegionMap:
@@ -179,26 +240,11 @@ def region_map(
     eps_cell = np.vectorize(_RELATIVE_EPS.__getitem__)(cell_material)
     is_silicon = (cell_material == SILICON).astype(np.float64)
 
-    # --- permittivity onto edges.
-    # A horizontal edge at row j is bounded by the cell row below (j-1) and the
-    # cell row above (j), each contributing half its height to the face.
-    below = np.zeros((ny, nx - 1))
-    above = np.zeros((ny, nx - 1))
-    below[1:] = eps_cell * (0.5 * dy)[:, None]
-    above[:-1] = eps_cell * (0.5 * dy)[:, None]
-    horizontal = (below + above).ravel()
-
-    # A vertical edge at column i is bounded by the cell column to its left
-    # (i-1) and to its right (i), each contributing half its width.
-    left = np.zeros((ny - 1, nx))
-    right = np.zeros((ny - 1, nx))
-    left[:, 1:] = eps_cell * (0.5 * dx)[None, :]
-    right[:, :-1] = eps_cell * (0.5 * dx)[None, :]
-    vertical = (left + right).ravel()
-
-    # dual_face already holds the total extent of each face, so dividing gives
-    # the area weighted mean permittivity rather than a sum of areas.
-    eps_r = np.concatenate([horizontal, vertical]) / mesh.dual_face
+    # --- onto edges. The permittivity and the silicon share of the face are
+    # the same sum over the same cells with different weights, so they are the
+    # same call twice.
+    eps_r = _onto_edges(mesh, eps_cell)
+    semiconductor_face = mesh.dual_face * _onto_edges(mesh, is_silicon)
 
     # --- semiconductor volume onto nodes. Every cell hands a quarter of its
     # area to each of its four corners.
@@ -216,6 +262,7 @@ def region_map(
         cell_material=cell_material,
         eps_r=eps_r,
         semiconductor_volume=semiconductor_volume,
+        semiconductor_face=semiconductor_face,
         oxide_nodes=oxide_nodes,
     )
 

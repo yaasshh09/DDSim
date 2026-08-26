@@ -114,6 +114,7 @@ def test_an_all_silicon_2d_device_is_returned_untouched():
         cell_material=np.zeros_like(cap.regions.cell_material),
         eps_r=np.ones_like(cap.regions.eps_r),
         semiconductor_volume=cap.mesh.volume,
+        semiconductor_face=cap.mesh.dual_face,
         oxide_nodes=np.array([], dtype=np.int64),
     )
     import dataclasses

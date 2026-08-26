@@ -151,7 +151,7 @@ def _electron_current(
     b_plus, b_minus = bernoulli
     node_left, node_right = geometry.ends(h.size)
     return np.asarray(
-        (Dn * geometry.dual_face / h)
+        (Dn * geometry.carrier_face / h)
         * (b_plus * n[node_right] - b_minus * n[node_left])
     )
 
@@ -184,7 +184,7 @@ def _hole_current(
     b_plus, b_minus = bernoulli
     node_left, node_right = geometry.ends(h.size)
     return np.asarray(
-        (Dp * geometry.dual_face / h)
+        (Dp * geometry.carrier_face / h)
         * (b_plus * p[node_left] - b_minus * p[node_right])
     )
 
@@ -323,8 +323,8 @@ def _electron_continuity_jacobian(
 
     # Coefficients of the two nodes in the edge flux Jn = right*n_right -
     # left*n_left. Both are strictly positive because B(x) > 0 everywhere.
-    right = np.asarray((Dn * geometry.dual_face / h) * b_plus)
-    left = np.asarray((Dn * geometry.dual_face / h) * b_minus)
+    right = np.asarray((Dn * geometry.carrier_face / h) * b_plus)
+    left = np.asarray((Dn * geometry.carrier_face / h) * b_minus)
 
     nodes = np.arange(n_nodes, dtype=np.int64)
     node_left, node_right = geometry.ends(h.size)
@@ -379,8 +379,8 @@ def _hole_continuity_jacobian(
     b_plus, b_minus = bernoulli
 
     # Jp = left*p_left - right*p_right, the mirror of the electron flux.
-    left = np.asarray((Dp * geometry.dual_face / h) * b_plus)
-    right = np.asarray((Dp * geometry.dual_face / h) * b_minus)
+    left = np.asarray((Dp * geometry.carrier_face / h) * b_plus)
+    right = np.asarray((Dp * geometry.carrier_face / h) * b_minus)
 
     nodes = np.arange(n_nodes, dtype=np.int64)
     node_left, node_right = geometry.ends(h.size)
