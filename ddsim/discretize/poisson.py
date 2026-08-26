@@ -83,18 +83,37 @@ def _boltzmann_densities(
     psi: npt.NDArray[np.float64],
     phi_n: npt.NDArray[np.float64] | None,
     phi_p: npt.NDArray[np.float64] | None,
+    carriers: npt.NDArray[np.bool_] | None = None,
 ) -> BoltzmannDensities:
     """(n, p) from the potential at fixed quasi-Fermi levels [1].
 
     n = exp(psi - phi_n) and p = exp(phi_p - psi), with None meaning a level
     pinned at zero, which is true thermal equilibrium.
 
+    Args:
+        carriers: True on the nodes that hold carriers, False on insulator
+            nodes. None means every node does, which is right for a device
+            made of one semiconductor.
+
+    An insulator has no carriers, and saying so here rather than multiplying
+    by a zero charge volume afterwards is not a tidiness point. psi in a thick
+    oxide at an ordinary gate bias passes the point where exp overflows, which
+    in scaled units is 709 and in volts is 18.3, and inf times a zero volume
+    is nan rather than the zero the volume was meant to give. That nan lands
+    on the insulator's own rows, which on a MOS stack are the gate contact, so
+    the Dirichlet condition overwrites it and the solve converges and reports
+    success while the charge extraction returns nan.
+
     Does not force a dtype, so a complex psi gives complex densities and
     complex step differentiation works through here.
     """
-    n = np.exp(psi if phi_n is None else psi - phi_n)
-    p = np.exp(-psi if phi_p is None else phi_p - psi)
-    return n, p
+    exponent_n = psi if phi_n is None else psi - phi_n
+    exponent_p = -psi if phi_p is None else phi_p - psi
+    if carriers is not None:
+        # exp(-inf) is exactly zero and does not overflow on the way there.
+        exponent_n = np.where(carriers, exponent_n, -np.inf)
+        exponent_p = np.where(carriers, exponent_p, -np.inf)
+    return np.exp(exponent_n), np.exp(exponent_p)
 
 
 def poisson_residual(
@@ -131,7 +150,7 @@ def poisson_residual(
         volume,
         psi,
         net_doping,
-        _boltzmann_densities(psi, phi_n, phi_p),
+        _boltzmann_densities(psi, phi_n, phi_p, volume > 0.0),
         geometry,
     )
 
@@ -191,7 +210,11 @@ def poisson_jacobian(
     still -p and the diagonal keeps its form.
     """
     return _poisson_jacobian(
-        h, volume, psi.size, _boltzmann_densities(psi, phi_n, phi_p), geometry
+        h,
+        volume,
+        psi.size,
+        _boltzmann_densities(psi, phi_n, phi_p, volume > 0.0),
+        geometry,
     )
 
 
@@ -295,7 +318,7 @@ def assemble_poisson(
     p_values = None if phi_p is None else phi_p.data
 
     # One pair of exponentials for both halves of the system.
-    densities = _boltzmann_densities(psi.data, n_values, p_values)
+    densities = _boltzmann_densities(psi.data, n_values, p_values, volume > 0.0)
     residual = _poisson_residual(
         mesh.h, volume, psi.data, net_doping.data, densities, mesh.geometry
     )

@@ -367,21 +367,31 @@ def solve_equilibrium(
     n_level = 0.0 if phi_n is None else phi_n.data
     p_level = 0.0 if phi_p is None else phi_p.data
     psi = Field(result.x, "V", ScalingState.SCALED, Location.NODE, name="psi")
+
+    # An insulator holds no free carriers, so its nodes get zero rather than
+    # whatever Boltzmann says about a potential no carrier is sitting in. The
+    # difference is not cosmetic. psi in a thick oxide at an ordinary gate bias
+    # overflows exp, and the inf then meets the zero charge volume in
+    # extract/cv.py and becomes nan. Reporting 1e43 electrons in silicon
+    # dioxide is the same error one bias earlier, quietly.
+    #
+    # The exponentials on those nodes are computed and thrown away rather than
+    # masked beforehand, which keeps the Boltzmann expression itself in
+    # physics/statistics.py and unduplicated. Their overflow is ignored here
+    # because the values are discarded by construction, and only overflow is
+    # ignored, so a genuine nan in psi still surfaces.
+    carriers = np.asarray(device.charge_volume_scaled) > 0.0
+    with np.errstate(over="ignore"):
+        n_data = np.where(
+            carriers, np.asarray(n_boltzmann_scaled(result.x, n_level)), 0.0
+        )
+        p_data = np.where(
+            carriers, np.asarray(p_boltzmann_scaled(result.x, p_level)), 0.0
+        )
+
     return DeviceState(
         psi=psi,
-        n=Field(
-            np.asarray(n_boltzmann_scaled(result.x, n_level)),
-            "cm^-3",
-            ScalingState.SCALED,
-            Location.NODE,
-            name="n",
-        ),
-        p=Field(
-            np.asarray(p_boltzmann_scaled(result.x, p_level)),
-            "cm^-3",
-            ScalingState.SCALED,
-            Location.NODE,
-            name="p",
-        ),
+        n=Field(n_data, "cm^-3", ScalingState.SCALED, Location.NODE, name="n"),
+        p=Field(p_data, "cm^-3", ScalingState.SCALED, Location.NODE, name="p"),
         newton=result,
     )

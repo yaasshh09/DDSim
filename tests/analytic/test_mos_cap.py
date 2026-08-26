@@ -386,12 +386,28 @@ def test_the_oxide_potential_is_a_straight_line():
 
 @pytest.mark.parametrize("v_gate", [-2.0, 0.0, 1.0], ids=["acc", "zero", "inv"])
 def test_no_carrier_density_is_negative_anywhere(v_gate):
-    """A phases/PHASE-4.md acceptance criterion. Free here, since equilibrium
-    Poisson carries n and p as exponentials, but it stops being free in Phase 6
-    and the check should already exist by then."""
-    _, state = solved(gate_voltage=v_gate)
-    assert np.all(state.n.data > 0.0)
-    assert np.all(state.p.data > 0.0)
+    """A phases/PHASE-4.md acceptance criterion. Nearly free in the silicon,
+    since equilibrium Poisson carries n and p as exponentials, but it stops
+    being free in Phase 6 and the check should already exist by then.
+
+    Split by material rather than asserted over the whole array. An ideal
+    insulator holds no free carriers, so its nodes are exactly zero, and
+    demanding a strictly positive number there would be demanding that the
+    oxide report a carrier density it does not have. It used to report one:
+    exp of the potential in the oxide, which reaches 1e43 at two volts and
+    overflows to inf at eighteen, and the inf then met the zero charge volume
+    in extract/cv.py and turned the gate charge into a silent nan.
+    """
+    device, state = solved(gate_voltage=v_gate)
+    carriers = np.asarray(device.charge_volume_scaled) > 0.0
+
+    assert np.all(state.n.data[carriers] > 0.0)
+    assert np.all(state.p.data[carriers] > 0.0)
+
+    insulator = ~carriers
+    assert np.any(insulator), "this device has no oxide, so it checks nothing"
+    assert np.all(state.n.data[insulator] == 0.0)
+    assert np.all(state.p.data[insulator] == 0.0)
 
 
 # ------------------------------------------------------- the second dimension

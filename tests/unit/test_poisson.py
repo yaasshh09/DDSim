@@ -378,3 +378,67 @@ def test_jacobian_with_quasi_fermi_matches_complex_step() -> None:
         np.testing.assert_allclose(
             assembled[:, column], derivative, rtol=1e-12, atol=1e-12
         )
+
+
+# -------------------------------------------------- carriers where there are none
+
+
+def test_an_insulator_node_contributes_no_charge_however_large_psi_gets():
+    """A zero charge volume has to mean no carriers, not carriers times zero.
+
+    `assemble_poisson` documents `charge_volume` as "zero in the oxide", which
+    "turns those rows into the bare Laplacian an insulator wants". That holds
+    right up until the potential in the insulator is large enough to overflow
+    the exponential, and then `inf * 0` is `nan` rather than the zero the
+    docstring promises. The nan is not loud: it lands on the insulator's own
+    rows, which on a real device are the gate contact and are overwritten by
+    the Dirichlet condition before the solve ever sees them.
+
+    Scaled psi of 800 is exp overflow. That is 20.7 V, which is an ordinary
+    gate bias on a thick oxide.
+    """
+    n_nodes = 5
+    h = np.full(n_nodes - 1, 0.5)
+    volume = np.full(n_nodes, 0.5)
+    volume[-2:] = 0.0  # the last two nodes are insulator
+
+    psi = np.array([0.0, 10.0, 100.0, 500.0, 800.0])
+    net_doping = np.zeros(n_nodes)
+
+    residual = poisson_residual(h, volume, psi, net_doping)
+    assert np.all(np.isfinite(residual)), (
+        "an insulator node produced a non finite residual, so its carrier "
+        f"term was inf * 0: {residual}"
+    )
+
+    rows, cols, values = poisson_jacobian(h, volume, psi, net_doping)
+    assert np.all(np.isfinite(values)), (
+        f"an insulator node produced a non finite Jacobian entry: {values}"
+    )
+
+
+def test_the_insulator_rows_are_exactly_the_laplacian():
+    """Not merely finite. The charge term has to be gone, not small.
+
+    Checked against the box integrated Laplacian written out by hand on the
+    insulator rows, which is what those rows are supposed to reduce to once
+    the carriers are absent.
+    """
+    n_nodes = 5
+    h = np.full(n_nodes - 1, 0.5)
+    volume = np.full(n_nodes, 0.5)
+    volume[-2:] = 0.0
+
+    psi = np.array([0.0, 10.0, 100.0, 500.0, 800.0])
+    net_doping = np.zeros(n_nodes)
+    residual = poisson_residual(h, volume, psi, net_doping)
+
+    for node in (3, 4):
+        laplacian = 0.0
+        if node > 0:
+            laplacian += (psi[node] - psi[node - 1]) / h[node - 1]
+        if node < n_nodes - 1:
+            laplacian -= (psi[node + 1] - psi[node]) / h[node]
+        assert residual[node] == pytest.approx(laplacian, rel=1e-14), (
+            f"insulator node {node} carries a charge term it should not"
+        )

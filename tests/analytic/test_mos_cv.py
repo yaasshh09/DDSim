@@ -397,3 +397,86 @@ def test_a_terminal_that_is_not_being_swept_does_not_move():
         dpsi[list(gate.nodes)] * device.scale.psi_0, 1.0, rtol=1e-14
     )
     np.testing.assert_array_equal(dpsi[list(body.nodes)], 0.0)
+
+
+# ------------------------------------------------- a thick oxide at a real bias
+
+
+THICK_T_OX = 1e-5
+"""A 100 nm oxide [cm]. Older technologies and power devices are thicker."""
+
+
+def thick_oxide_solved(v_gate: float):
+    """A solved capacitor with a thick oxide: (device, state).
+
+    Built here rather than through test_mos_cap.solved, which pins t_ox to the
+    thin oxide every other test in these two files wants.
+    """
+    device = mos_cap(
+        substrate_doping=-NA,
+        t_ox=THICK_T_OX,
+        t_si=T_SI,
+        work_function=C.PHI_M_N_POLY,
+        gate_voltage=v_gate,
+    )
+    return device, solve_equilibrium(device)
+
+
+def test_a_thick_oxide_still_reports_a_charge_at_twenty_volts():
+    """The gate charge has to stay finite when the oxide carries a real bias.
+
+    A 100 nm oxide is swept to twenty volts as a matter of routine, and the
+    potential in it then passes the point where exp overflows in scaled units,
+    which is 709, or 18.3 V. The carrier densities are evaluated on the oxide
+    nodes too, so they overflow, and the zero charge volume that is supposed to
+    make them harmless turns inf into nan rather than into zero.
+
+    Nothing about that is loud. The overflow lands on the topmost oxide row,
+    which is the gate contact, and the Dirichlet condition overwrites it before
+    the nonlinear solve sees it, so the solve converges and reports success.
+    terminal_charge deliberately assembles with no contacts applied, because a
+    Dirichlet row would throw away the flux balance that is the charge, so it
+    is the extraction and not the solve that returns nan.
+    """
+    biases = (10.0, 15.0, 20.0, 25.0)
+    charges = []
+    for v_gate in biases:
+        device, state = thick_oxide_solved(v_gate)
+        charge = terminal_charge(device, state, GATE)
+        assert np.isfinite(charge), (
+            f"gate charge at {v_gate:+g} V is {charge}, so the oxide's own "
+            "carrier term reached the answer"
+        )
+        charges.append(charge)
+
+    # Not merely finite. Deep in inversion the surface potential is pinned, so
+    # every further volt falls across the oxide and the plate charge grows at
+    # exactly C_ox. That is the parallel plate, and it is what says the number
+    # is right rather than just present.
+    c_ox = oxide_capacitance(THICK_T_OX)
+    for index in range(1, len(biases)):
+        span = biases[index] - biases[index - 1]
+        slope = (charges[index] - charges[index - 1]) / span
+        assert slope == pytest.approx(c_ox, rel=0.01), (
+            f"between {biases[index - 1]:+g} and {biases[index]:+g} V the gate "
+            f"charge grows at {slope:.6e} F/cm^2, not the {c_ox:.6e} a "
+            "parallel plate gives"
+        )
+
+
+def test_a_thick_oxide_still_reports_a_capacitance_at_twenty_volts():
+    """The same for the derivative, which goes through the same assembly.
+
+    Separate from the charge test because they fail for the same reason but
+    are different things to lose, and because a capacitance that quietly reads
+    nan is what a C-V plot would show as a gap rather than as an error.
+    """
+    c_ox = oxide_capacitance(THICK_T_OX)
+    for v_gate in (10.0, 15.0, 20.0, 25.0):
+        device, state = thick_oxide_solved(v_gate)
+        measured = small_signal_capacitance(device, state, GATE)
+        assert np.isfinite(measured), f"capacitance at {v_gate:+g} V is {measured}"
+        assert measured == pytest.approx(c_ox, rel=0.02), (
+            f"deep in inversion the stack is the parallel plate, but at "
+            f"{v_gate:+g} V it reads {measured:.6e} against {c_ox:.6e}"
+        )
