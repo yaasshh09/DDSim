@@ -9,14 +9,13 @@ session. Newest entry at the top.
 assemblies are dimension free, Mesh2D and the quality gate exist, and the
 sparse solver carries complex numbers. Phase 3 remains complete on every
 criterion that can be checked here, items 1 to 7, with 8 dropped for a reason.
-**Blocked on:** nothing for Phase 4. One Phase 3 acceptance criterion is
-**not met and cannot be met in this working copy**: "Diode #1 and #2 in the
-DEVSIM regression set pass at stated tolerance". DEVSIM is not installed and
-`data/golden/` holds nothing but a `.gitkeep`, so tier 4 of
-docs/04-validation.md has never run, in this phase or any earlier one. Every
-tier 4 claim anywhere in this repo is therefore unverified. That is worth
-stating plainly, because docs/04-validation.md opens by saying the project's
-entire credibility rests on it.
+**Blocked on:** nothing. Tier 4 now runs. DEVSIM 2.11 is installed in
+`.venv-devsim`, `data/golden/` holds five curves, and benchmarks 1 to 5 of
+docs/04-validation.md all pass at their stated tolerance. The Phase 3
+acceptance criterion that could not be met in this working copy, "Diode #1 and
+#2 in the DEVSIM regression set pass at stated tolerance", is met. Benchmarks
+6 to 9 are the MOSFETs and have no golden data, which is a Phase 4 gap rather
+than an unverified claim.
 **Next action:** Phase 4 stage 3, regions and the Si/SiO2 interface, then the
 MOS capacitor and C-V. The small signal AC solve reuses the DC Jacobian Phase 3
 built, which docs/02-numerics.md puts at roughly sixty lines; the one thing
@@ -1409,3 +1408,76 @@ which is always a length mismatch.
 
 **Next:** Push to a GitHub remote and confirm the workflow goes green, then
 start Phase 1.
+
+### 2026-08-26, later: tier 4 gets its MOS half
+
+**Landed:** Benchmarks 4 and 5 of docs/04-validation.md, the two MOS capacitor
+rows the diode session had to leave out. `data/golden/` now holds five curves
+instead of three, and `tests/regression/test_devsim_mos.py` compares gate
+charge and C-V against them. Suite 1243 to 1378, ruff and mypy clean.
+
+ddsim agrees with DEVSIM to 0.44 percent on the 5 nm device and 0.053 percent
+on the 20 nm one, against a 2 percent budget. Better than that: refining
+ddsim's surface mesh drives the disagreement to 15 ppm, at which point it stops
+falling because it has reached the reference's own mesh error. The two codes
+agree to the joint discretization limit of both, which is as strong a statement
+as this tier can make.
+
+**Broke:** The interface mesh line in the generator had `ps` and `ns` the wrong
+way round. devsim grades between mesh lines and each line names its spacing
+separately per direction, `ps` walking in +x and `ns` walking in -x. The
+interface is the only line on the device with material on both sides, so it is
+the only place the two differ and the only place the mistake is silent: the
+silicon surface got meshed at the oxide spacing and the oxide at the surface
+spacing. The mesh looked refined. It refined the wrong region.
+
+What gave it away was a refinement that did nothing. `devsim_h_surface` was
+five times finer than ddsim's mesh by construction, and dividing it by five
+again moved the converged answer by zero, which is not how a mesh behaves near
+an inversion layer. It was refining the oxide, whose potential is a straight
+line. Meanwhile `devsim_oxide_cells` was the knob that actually resolved the
+inversion layer, entirely by accident, which is why the recorded convergence
+number was a real measurement of the wrong thing.
+
+Two lessons rather than one. The first is that I asserted the convention
+instead of reading it. The second is that the docstring saying "the oxide is
+uniform because a straight line needs no grading" was correct and untested for
+exactly as long as it was wrong in code, because the parameter it described was
+not connected to the oxide. Now measured: the gate charge is identical from 2
+oxide cells to 32 to within 8e-15, which is round off.
+
+The golden mesh is now picked off a ladder rather than by eye. Surface spacing
+is the only knob the answer feels: 8e-8 cm sits 4.3e-4 from converged, 5e-9 is
+6.8e-5, and 1.25e-9 is where it stops moving. Bulk spacing contributes 3.6e-6.
+Mesh convergence went from 3.7e-3 and 1.3e-3 to 5.5e-5 and 4.4e-6, which moves
+the reference from 19 percent of the tolerance budget to 0.27 percent. The
+golden charge itself moved about 0.4 percent in deep inversion, so the old
+files were wrong by a fifth of the tolerance they were about to be asserted
+against.
+
+**A tolerance is a weak test, so there is a second one.** ddsim clears the
+doc's 2 percent by a factor of four and a half, which means a bare 2 percent
+assertion would sit green through a 1 percent error in the permittivity or the
+work function. `test_disagreement_is_ddsim_discretization` runs the comparison
+down a refinement ladder and requires the disagreement to shrink by at least
+2x per step. Nothing in the model refines away: a wrong constant, a missing
+interface term or a sign error all produce a residual that sits exactly where
+it is under refinement. Only discretization moves.
+
+That test earns its place, and I checked rather than assumed it. Perturbing the
+oxide permittivity by 1 percent in `device/regions.py`, which the constants
+mirror does not see and which the 2 percent charge tolerance swallows, fails
+the convergence test. Every other test here was mutated too: the work function,
+the Varshni band gap, the recorded convergence number, and a benchmark geometry
+edited without regenerating. All fail on the line they guard.
+
+**Open:**
+
+- Benchmarks 6 to 9 are the MOSFETs. No golden data and no device yet.
+- The ddsim mesh in the benchmarks stays at 121 nodes and h_min 5e-8, which is
+  where the 0.44 percent comes from. Deliberate: it is the default a user gets,
+  so the benchmark should measure it rather than a mesh chosen to look good.
+- Three numbers in docs/06-constants.md are still wrong, all tracing to a
+  superseded n_i = 1.45e10. Unchanged from the earlier entry.
+
+**Next:** Phase 5, the C-V extraction work, or benchmark 6, the 1 um NMOS.
