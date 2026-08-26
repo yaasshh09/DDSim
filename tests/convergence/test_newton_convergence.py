@@ -14,7 +14,8 @@ is where it belongs: it is a statement about derivatives, not about solving.
 One criterion is restated. The phase says 1.0 V is "where Gummel failed".
 Gummel does not fail there. Phase 2 measured it converging through 1.8 V with
 its per cycle rate improving as the bias rises, and that measurement is in
-PROGRESS.md. The claim tested here is the one that is true and that actually
+docs/07-decisions.md. The claim tested here is the one that is true and that
+actually
 motivates the phase: Newton reaches 1.0 V in far fewer solves, and it reaches
 it cold, from the Poisson guess, with no continuation at all.
 """

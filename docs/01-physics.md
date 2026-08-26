@@ -62,7 +62,8 @@ at 1e20 cm^-3) the generalized form applies:
     Dn / mu_n = (V_T) * F_{1/2}(eta) / F_{-1/2}(eta)
 
 Phase 2 uses the simple form. Phase 5 should use the generalized form in the
-source/drain regions or note the error explicitly in `PROGRESS.md`. Do not
+source/drain regions or note the error explicitly in `docs/07-decisions.md`.
+Do not
 silently keep Boltzmann and claim degenerate accuracy.
 
 ## Carrier statistics

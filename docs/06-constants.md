@@ -55,7 +55,8 @@ which are the analytic targets in Tier 2 validation.
 not accept its default. A silent n_i mismatch will show up as a clean-looking 2x
 discrepancy in diode current that costs a day to track down.
 
-Record any change to this value in `PROGRESS.md`, and regenerate all golden data.
+Record any change to this value in `docs/07-decisions.md`, and regenerate all
+golden data.
 
 ### n_i is not consistent with Nc, Nv and Eg, and that is deliberate
 

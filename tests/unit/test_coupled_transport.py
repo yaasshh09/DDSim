@@ -190,7 +190,8 @@ def hard_case():
     first step of any ramp starts from. It cannot be initial_state of the
     biased device: the Poisson solve at frozen quasi-Fermi levels does not
     itself converge at 1.2 V here, so there is no cold guess at that bias to
-    be had. That is a separate limit and it is recorded in PROGRESS.md.
+    be had. That is a separate limit and it is recorded in
+    docs/07-decisions.md.
 
     Returns (device at 1.2 V, guess at 0 V).
     """

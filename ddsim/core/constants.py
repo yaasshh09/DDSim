@@ -180,11 +180,11 @@ N_I_300: float = 1.0e10
 
 Chosen over 9.65e9 (Sproul and Green) and 1.45e10 (older literature) because it
 matches the textbook worked examples used as analytic validation targets. See
-docs/06-constants.md and the decision log in PROGRESS.md.
+docs/06-constants.md and the decision log in docs/07-decisions.md.
 
 This value is anchored, not derived. sqrt(Nc * Nv) * exp(-Eg / (2 V_T)) with the
 Nc, Nv and Eg above gives 1.0757e10, which is 7.6 percent higher. That deviation
-is recorded in PROGRESS.md and is deliberate.
+is recorded in docs/07-decisions.md and is deliberate.
 """
 
 

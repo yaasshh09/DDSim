@@ -10,7 +10,7 @@ The headline result. Everything before this was infrastructure.
    channel, substrate contact
 2. **Fermi-Dirac statistics** with Joyce-Dixon inversion, required in the 1e20
    source/drain regions. If you keep Boltzmann, document the resulting error
-   explicitly in `PROGRESS.md`. Do not leave it implicit.
+   explicitly in `docs/07-decisions.md`. Do not leave it implicit.
 3. **Caughey-Thomas field-dependent mobility**, using the field component
    parallel to the mesh edge, not the field magnitude. Produces velocity
    saturation.

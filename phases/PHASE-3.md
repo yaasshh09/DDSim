@@ -19,7 +19,8 @@ This is where the project stops being a homework exercise.
    current by five percent even where the model should do nothing.)**
 8. ~~Symbolic factorization reuse across Newton steps~~ **Dropped.** Phase 0
    measured this. scipy exposes no symbolic and numeric split, and the standard
-   workaround gives 6.1x fill and a 46x slowdown in 2D. See PROGRESS.md.
+   workaround gives 6.1x fill and a 46x slowdown in 2D. See
+   docs/07-decisions.md.
 
 ## Acceptance criteria
 
@@ -32,7 +33,7 @@ This is where the project stops being a homework exercise.
   bound, taking 46 cycles at 1.0 V and 466 at 2.0 V against Newton's 4. The
   tested claim is that Newton gets there in under a third of the cycles and
   gets there cold, from the Poisson guess, with no continuation. See the
-  deviations table in PROGRESS.md for the measurement.
+  deviations table in docs/07-decisions.md for the measurement.
 - Gummel and Newton produce identical solutions to solver tolerance at every
   bias where both converge
 - Continuation from 0 to 1 V in under 40 total solves
@@ -55,6 +56,6 @@ with constant mobility and recombination off; that case has a closed-form answer
 ## Definition of done
 
 Converged solution at 1 V forward bias, Jacobian verification test in CI, and a
-`PROGRESS.md` note on what actually broke and how you found it. That note is
-worth writing carefully. It is the most interesting engineering content the
-project will generate.
+written note on what actually broke and how you found it. That note is worth
+writing carefully. It is the most interesting engineering content the project
+will generate.

@@ -14,10 +14,11 @@ What this tier can and cannot say:
 - Both codes run Boltzmann statistics, constant mobility and SRH only, because
   that is what ddsim has. Device 3 is labelled a degeneracy test in the doc,
   and with Boltzmann on both sides it is not one yet.
-- Devices 4 to 9 in the benchmark table are the MOS capacitor and the MOSFETs.
-  ddsim cannot solve them yet, so there is no golden data for them and no test
-  here. The gap is deliberate and is recorded in PROGRESS.md rather than
-  papered over with a skip that reads like a pass.
+- Devices 4 and 5 are the MOS capacitors. They have golden data and tests of
+  their own now, in `test_devsim_mos.py`. Devices 6 to 9 are the MOSFETs, which
+  ddsim cannot solve yet, so there is no golden data for them and no test here.
+  That gap is deliberate and named in docs/04-validation.md rather than papered
+  over with a skip that reads like a pass.
 
 The tolerance policy is the interesting part. Each benchmark carries the
 tolerance from the doc, but at low bias the terminal current is a cancellation

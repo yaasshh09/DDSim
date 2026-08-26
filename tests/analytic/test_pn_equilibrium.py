@@ -93,7 +93,7 @@ def test_built_in_potential_is_not_the_value_quoted_in_the_docs() -> None:
     Both documents now carry 0.7143 V. This test stays anyway, because the
     number it rejects is the one every other reference for silicon prints, and
     a 19 mV offset in V_bi reads exactly like a boundary condition sign error.
-    See the deviations table in PROGRESS.md.
+    See the deviations table in docs/07-decisions.md.
     """
     device = long_diode(1e16, 1e16)
     state = solve_equilibrium(device)

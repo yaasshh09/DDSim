@@ -280,11 +280,13 @@ and regression against DEVSIM. See `docs/04-validation.md`.
     ddsim/solve/       Newton, Gummel, continuation, no semiconductor knowledge
     ddsim/device/      composition: geometry and doping in, a Device out
     ddsim/extract/     post processing: terminal current and charge, I-V, C-V
-    docs/              physics, numerics, architecture, validation, constants
+    docs/              physics, numerics, architecture, validation, constants,
+                       and the decisions and deviations log
     phases/            scope and acceptance criteria per phase
 
-`PROGRESS.md` is the state of the world, including a log of every physics
-decision and every place the code knowingly disagrees with a reference.
+`docs/07-decisions.md` records every physics decision that affects a result and
+every place the code knowingly disagrees with a reference or with one of its own
+docs. Tests cite rows in it to justify what they assert.
 
 ## Success criterion
 

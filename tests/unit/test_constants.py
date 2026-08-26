@@ -2,7 +2,7 @@
 
 Every number asserted here traces to docs/06-constants.md. Where the doc and a
 formula in the doc disagree, the formula wins and the discrepancy is noted in
-PROGRESS.md.
+docs/07-decisions.md.
 """
 
 import math
@@ -126,7 +126,7 @@ def test_n_i_temperature_dependence_obeys_mass_action_shape() -> None:
 
     n_i^2 / (Nc * Nv * exp(-Eg / V_T)) has to be independent of temperature.
     It is not equal to 1 here, because n_i is anchored to 1.0e10 rather than
-    derived from Nc, Nv and Eg. See the known deviation in PROGRESS.md.
+    derived from Nc, Nv and Eg. See the known deviation in docs/07-decisions.md.
     """
 
     def group(T: float) -> float:

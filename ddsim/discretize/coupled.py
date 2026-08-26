@@ -72,7 +72,8 @@ the SRH denominator to keep the continuity matrix an M-matrix and so keep
 solved densities positive. That guarantee does not survive coupling anyway,
 since the coupled matrix is not an M-matrix in any case, and a frozen
 denominator would cost the quadratic convergence that is the entire reason for
-this phase. Positivity is enforced by damping instead. See PROGRESS.md.
+this phase. Positivity is enforced by damping instead. See
+docs/07-decisions.md.
 
 Complex step
 ------------
