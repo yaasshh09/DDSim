@@ -12,6 +12,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from ddsim.device.equilibrium import solve_equilibrium
+from ddsim.device.mos_cap import GATE, mos_cap
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import (
     TransportModels,
@@ -19,7 +21,12 @@ from ddsim.device.transport import (
     solve_bias_hybrid,
     solve_bias_newton,
 )
-from ddsim.discretize.boundary import Carrier, ohmic_density_scaled, ohmic_psi_scaled
+from ddsim.discretize.boundary import (
+    Carrier,
+    gate_psi_scaled,
+    ohmic_density_scaled,
+    ohmic_psi_scaled,
+)
 from ddsim.discretize.coupled import (
     UNKNOWNS_PER_NODE,
     Unknown,
@@ -457,3 +464,105 @@ def test_an_unknown_mobility_model_is_rejected(diode):
     """A typo must not silently fall back to the constant model."""
     with pytest.raises(ValueError, match="mobility"):
         TransportModels.for_device(diode, mobility="arorra")
+
+
+# ------------------------------------------------------- a gate on the coupled path
+
+
+def capacitor(gate_voltage: float = 1.0):
+    """A small MOS capacitor. Coarse on purpose: nothing here is a physics
+    claim about the capacitor, only about what the coupled path does with a
+    contact that pins psi alone."""
+    return mos_cap(gate_voltage=gate_voltage, n_silicon=41, n_oxide=3)
+
+
+def test_the_coupled_solve_reproduces_the_capacitor_at_equilibrium():
+    """The gating test for the gate, and the sharpest form available.
+
+    No current flows through an ideal insulator, so the semiconductor of a MOS
+    capacitor stays in equilibrium with its body contact at every gate bias.
+    Equilibrium is an exact fixed point of the coupled system: the continuity
+    residuals vanish because there is no flux and no net recombination, and
+    what is left is the Poisson equation the equilibrium path already solved.
+
+    So the coupled solve must not move off the equilibrium answer. If the gate
+    row were left out, mispinned, or pinned at the ohmic target instead of the
+    work function one, the coupled residual there would not vanish and Newton
+    would walk away from it. One check covering the gate boundary condition,
+    the carrier free pinning and the charge volume together.
+    """
+    device = capacitor(gate_voltage=1.0)
+    reference = solve_equilibrium(device)
+
+    state = solve_bias_newton(device)
+
+    assert state.newton.converged, state.newton.message
+    np.testing.assert_allclose(
+        state.psi.data, reference.psi.data, rtol=1e-9, atol=1e-12
+    )
+    np.testing.assert_allclose(state.n.data, reference.n.data, rtol=1e-8, atol=1e-12)
+    np.testing.assert_allclose(state.p.data, reference.p.data, rtol=1e-8, atol=1e-12)
+
+
+def test_the_gate_potential_is_imposed_exactly():
+    """A gate pins psi at its own work function, not at the doping under it.
+
+    ohmic_psi_scaled would read the net doping at a node in the middle of an
+    insulator, which is zero, and return the applied bias alone. That is a
+    plausible looking number and it is wrong by Phi_MS, which slides the whole
+    curve sideways with every regime still looking correct.
+    """
+    device = capacitor(gate_voltage=1.0)
+    gate = next(c for c in device.contacts if c.name == GATE)
+
+    state = solve_bias_newton(device)
+
+    expected = gate_psi_scaled(
+        gate.voltage / device.scale.psi_0, gate.work_function
+    )
+    for node in gate.nodes:
+        assert state.psi.data[node] == pytest.approx(expected, rel=1e-14)
+
+
+def test_the_oxide_holds_no_carriers_on_the_coupled_path():
+    """Including the gate nodes, which are metal sitting on the insulator.
+
+    Their continuity rows have no flux and no volume, so they read 0 = 0 and
+    the matrix is singular unless something pins them. carrier_free_nodes
+    already does, and a gate must not fight it for those rows.
+    """
+    device = capacitor(gate_voltage=1.0)
+
+    state = solve_bias_newton(device)
+
+    for node in device.carrier_free_nodes:
+        assert state.n.data[node] == 0.0
+        assert state.p.data[node] == 0.0
+
+
+def test_the_gate_bias_reaches_the_silicon():
+    """Guards the case where the gate is accepted and then ignored.
+
+    A gate quietly left out of the coupled assembly gives a floating oxide,
+    which converges perfectly happily and reports a surface that does not care
+    what the gate is doing.
+
+    Both solves start from the same guess, which is what makes this a
+    statement about the assembly. Started from their own guesses the two would
+    differ whatever the assembly did, because initial_state is the equilibrium
+    Poisson solve and that path has applied the gate correctly since Phase 4.
+    The test would pass with the gate row deleted, which is the mutation it
+    exists to catch.
+    """
+    guess = solve_equilibrium(capacitor(gate_voltage=0.0))
+
+    # Both on the accumulation side, where one Newton solve reaches the answer
+    # from this guess. Driving the same guess into inversion in one step does
+    # not converge, which is what continuation is for and is not what this
+    # test is about.
+    held = solve_bias_newton(capacitor(gate_voltage=0.0), guess=guess)
+    accumulated = solve_bias_newton(capacitor(gate_voltage=-1.0), guess=guess)
+
+    assert held.newton.converged, held.newton.message
+    assert accumulated.newton.converged, accumulated.newton.message
+    assert not np.allclose(held.psi.data, accumulated.psi.data)

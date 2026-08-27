@@ -55,7 +55,7 @@ from ddsim.discretize.continuity import (
 from ddsim.discretize.coupled import (
     UNKNOWNS_PER_NODE,
     Unknown,
-    apply_ohmic_contacts_coupled,
+    apply_contacts_coupled,
     assemble_coupled,
     assemble_coupled_arrays,
     assemble_coupled_terms,
@@ -720,7 +720,7 @@ def test_contacts_pin_all_three_unknowns_at_the_contact_node(
     """A coupled ohmic contact is three Dirichlet conditions, not one."""
     assembly = assemble_state(device, models, perturbed_x)
 
-    pinned = apply_ohmic_contacts_coupled(
+    pinned = apply_contacts_coupled(
         assembly,
         perturbed_x,
         device.net_doping_scaled.data,
@@ -791,7 +791,7 @@ def test_two_contacts_sharing_a_name_are_rejected(device, models, perturbed_x):
     assembly = assemble_state(device, models, perturbed_x)
 
     with pytest.raises(ValueError, match="unique"):
-        apply_ohmic_contacts_coupled(
+        apply_contacts_coupled(
             assembly,
             perturbed_x,
             device.net_doping_scaled.data,

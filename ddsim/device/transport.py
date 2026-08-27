@@ -80,7 +80,7 @@ from ddsim.discretize.continuity import (
     assemble_hole_continuity,
 )
 from ddsim.discretize.coupled import (
-    apply_ohmic_contacts_coupled,
+    apply_contacts_coupled,
     assemble_coupled_terms,
     coupled_update_norm,
     limit_psi_step,
@@ -492,8 +492,14 @@ def solve_bias_newton(
         # Contacts before the scaling, so a pinned row becomes the identity
         # and then gets divided like any other. Scaling first would leave the
         # pinned rows at one while everything around them moved.
-        assembly = apply_ohmic_contacts_coupled(
-            assembly, x, net_doping, device.ohmic_contacts, scale, carrier_free
+        assembly = apply_contacts_coupled(
+            assembly,
+            x,
+            net_doping,
+            device.contacts,
+            scale,
+            carrier_free,
+            device.material.T,
         )
         return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
 

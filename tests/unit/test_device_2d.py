@@ -277,13 +277,17 @@ class TestValidation:
                 ),
             )
 
-    def test_the_transport_path_refuses_a_gate(self) -> None:
-        """A gate is not a contact a transport solve can pin.
+    def test_the_uncoupled_blocks_refuse_a_gate(self) -> None:
+        """A gate is not a contact a Gummel block can pin.
 
         It sits on an insulator, so there is no doping under it to read and no
         carrier density to hold at equilibrium. Better to say so than to
         assemble a system with the gate quietly left out of it, which would
         converge and mean nothing.
+
+        Only the uncoupled blocks ask through here. The coupled path applies
+        gates itself, pinning psi alone at their nodes. See
+        tests/unit/test_coupled_transport.py.
         """
         device = mos_device()
 

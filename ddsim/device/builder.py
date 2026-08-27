@@ -163,13 +163,19 @@ class Device:
     def ohmic_contacts(self) -> tuple[SemiconductorContact, ...]:
         """The contacts, if every one of them touches semiconductor.
 
-        A point and a plate are the same thing to the coupled transport
-        solve: it pins psi, n and p at every node the contact covers, and a
+        A point and a plate are the same thing to the uncoupled Gummel
+        blocks: each pins a density at every node the contact covers, and a
         point contact covers one node. A gate is not, and never can be. It
         sits on an insulator, so there is no doping under it to read and no
-        carrier density to pin, and a transport solve that silently left a
-        terminal out would converge and mean nothing. That path asks through
-        here and gets a refusal it can read.
+        carrier density to pin, and a block that silently left a terminal out
+        would converge and mean nothing. Those blocks ask through here and get
+        a refusal they can read.
+
+        The coupled path does not come through here any more. It applies every
+        contact in one pass through discretize.coupled.apply_contacts_coupled,
+        which pins three unknowns at an ohmic node and one at a gate. This
+        property is what is left for the parts that genuinely cannot take a
+        gate, which is electron_block and hole_block in device/transport.py.
         """
         for contact in self.contacts:
             if isinstance(contact, GateContact):
@@ -189,7 +195,7 @@ class Device:
         Empty on a device made of one semiconductor. On a MOS stack these are
         the nodes strictly inside the oxide: their charge volume is zero and
         their carrier face is zero, which leaves both continuity rows reading
-        0 = 0. See apply_ohmic_contacts_coupled.
+        0 = 0. See apply_contacts_coupled.
         """
         if self.regions is None:
             return ()

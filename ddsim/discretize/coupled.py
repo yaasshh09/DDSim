@@ -95,13 +95,16 @@ from typing import NamedTuple, TypeVar, cast
 import numpy as np
 import numpy.typing as npt
 
+from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import (
     Carrier,
-    SemiconductorContact,
+    Contact,
+    GateContact,
     apply_dirichlet_nodes,
+    gate_psi_scaled,
     ohmic_density_scaled,
     ohmic_psi_scaled,
 )
@@ -710,31 +713,44 @@ def limit_psi_step(
 # ------------------------------------------------------------------ contacts
 
 
-def apply_ohmic_contacts_coupled(
+def apply_contacts_coupled(
     assembly: SparseAssembly,
     x: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    contacts: Sequence[SemiconductorContact],
+    contacts: Sequence[Contact],
     scale: ScaleFactors,
     carrier_free_nodes: Sequence[int] = (),
+    T: float = C.T_ROOM,
 ) -> SparseAssembly:
-    """Pin psi, n and p at every ohmic contact, returning a new assembly.
+    """Pin every contact on a device, of whatever kind, returning a new assembly.
 
     Args:
         assembly: the assembled coupled system.
         x: the current interleaved unknown vector [1].
         net_doping: scaled net doping on nodes [1].
-        contacts: the contacts to apply. A point contact pins one node and a
-            plate pins every node it covers, which is the same statement:
-            both are asked for their `nodes`.
+        contacts: the contacts to apply, ohmic points, ohmic plates and gates.
+            A point contact pins one node and a plate pins every node it
+            covers, which is the same statement: both are asked for their
+            `nodes`.
         scale: scale factors, used to convert contact voltages from V.
         carrier_free_nodes: nodes with no semiconductor in them, whose n and
             p rows are singular and have to be pinned. See below.
+        T: temperature [K], which the gate potential needs for the band gap.
 
-    Three Dirichlet conditions per contact node rather than one. In the
+    Three Dirichlet conditions per ohmic contact node rather than one. In the
     uncoupled solve the potential and the two densities are pinned in three
     separate systems, by three separate calls; here they are three unknowns of
     one system and go in together.
+
+    **A gate pins one, not three.** It is metal on an insulator, so there is
+    no doping under it to solve neutrality against and no carrier population
+    to hold. Its potential comes from its own work function through
+    gate_psi_scaled, and its two density rows are already spoken for: gate
+    nodes sit on the oxide, so they arrive in carrier_free_nodes and are
+    pinned at zero there. Pinning them here as well would hand
+    apply_dirichlet_nodes the same unknown twice, which it refuses, and that
+    refusal is the check that the two halves agree about which nodes are
+    metal.
 
     The values are the same ones the uncoupled path uses, and they have to be,
     or the two solvers would answer different problems and their agreement at
@@ -769,6 +785,14 @@ def apply_ohmic_contacts_coupled(
 
     for contact in contacts:
         applied = contact.voltage / scale.psi_0
+
+        if isinstance(contact, GateContact):
+            target = gate_psi_scaled(applied, contact.work_function, T)
+            for node in contact.nodes:
+                indices.append(unknown_index(node, Unknown.PSI))
+                targets.append(target)
+            continue
+
         for node in contact.nodes:
             doping = float(net_doping[node])
 
