@@ -38,6 +38,7 @@ is a hundred times smaller, far fewer would.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -46,7 +47,11 @@ import numpy.typing as npt
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
-from ddsim.device.transport import TransportModels, solve_bias
+from ddsim.device.transport import (
+    TransportModels,
+    solve_bias,
+    solve_bias_newton,
+)
 from ddsim.discretize.continuity import electron_current, hole_current
 from ddsim.discretize.coupled import coupled_residual, pack, unpack
 from ddsim.discretize.geometry import EdgeGeometry
@@ -179,7 +184,12 @@ def terminal_currents(
     state: DeviceState,
     models: TransportModels | None = None,
 ) -> dict[str, float]:
-    """Current into the device at each contact [A/cm^2], by contact name.
+    """Current into the device at each contact, by contact name.
+
+    In 1D the value is a current density [A/cm^2]. In 2D the residual is
+    integrated over a dual cell that is an area per unit depth, so it is a
+    current per unit depth [A/cm], which for a MOSFET is current per unit gate
+    width and is how a drain current is quoted.
 
     Positive means conventional current flowing from the contact into the
     device, so a forward biased diode has a positive anode current. The values
@@ -189,10 +199,16 @@ def terminal_currents(
     is one piece of metal and the current into it is the current into all of
     it. A point contact is that sum over one node, so the two are the same
     statement and there is no 1D branch here.
+
+    A gate reports exactly zero, and that is a statement rather than a
+    placeholder: an ideal insulator passes no DC current, so there is nothing
+    to compute. Reading it off the residual would be worse than useless, since
+    a gate node sits in the oxide and its two continuity rows are pinned, so
+    the number there is whatever the pinning says and not a current.
     """
     electron_residual, hole_residual = continuity_residuals(device, state, models)
 
-    return {
+    currents = {
         contact.name: float(
             sum(
                 -electron_residual[node] + hole_residual[node]
@@ -200,8 +216,12 @@ def terminal_currents(
             )
             * device.scale.J_0
         )
-        for contact in device.ohmic_contacts
+        for contact in device.semiconductor_contacts
     }
+    for contact in device.contacts:
+        if contact.name not in currents:
+            currents[contact.name] = 0.0
+    return currents
 
 
 def total_current(
@@ -210,15 +230,16 @@ def total_current(
     models: TransportModels | None = None,
     contact: str | None = None,
 ) -> float:
-    """The current through the device [A/cm^2], measured at one contact.
+    """The current through the device at one contact, units as above.
 
-    Defaults to the first contact, which for a diode built by pn_diode is the
-    anode. In steady state the total current is divergence free, so every
-    contact reports the same magnitude with opposite signs.
+    Defaults to the first contact that carries current, which for a diode
+    built by pn_diode is the anode. In steady state the total current is
+    divergence free, so on a two terminal device every contact reports the
+    same magnitude with opposite signs.
     """
     currents = terminal_currents(device, state, models)
     if contact is None:
-        contact = device.ohmic_contacts[0].name
+        contact = device.semiconductor_contacts[0].name
     return currents[contact]
 
 
@@ -249,6 +270,16 @@ class IVCurve:
     complete: bool
     """Whether every requested voltage was reached."""
 
+    measured_at: str = ""
+    """Name of the terminal the current was read at.
+
+    The swept one on a two terminal sweep, which is what an I-V curve means.
+    A transfer curve is the case where the two differ: the gate is swept and
+    the drain is measured, and a curve that did not record which was which
+    would be ambiguous exactly where it matters, since the source, drain and
+    body currents of a MOSFET are three different curves.
+    """
+
     message: str = ""
     """Why the sweep stopped, when it did not finish."""
 
@@ -264,12 +295,97 @@ class IVCurve:
 
     def __repr__(self) -> str:
         state = "complete" if self.complete else "stopped early"
+        swept = self.contact
+        if self.measured_at and self.measured_at != self.contact:
+            swept = f"{self.contact} into {self.measured_at}"
         if not self.points:
-            return f"IVCurve {self.contact} empty, {state}"
+            return f"IVCurve {swept} empty, {state}"
         return (
-            f"IVCurve {self.contact} {len(self.points)} points "
+            f"IVCurve {swept} {len(self.points)} points "
             f"{self.voltage[0]:+.3g} to {self.voltage[-1]:+.3g} V, {state}"
         )
+
+
+def _walk_sweep(
+    device: Device,
+    contact: str,
+    measured_at: str,
+    voltages: list[float],
+    models: TransportModels,
+    at_bias: Callable[[float, DeviceState | None], DeviceState | None],
+    start: float,
+    step: float,
+    min_step: float | None,
+) -> IVCurve:
+    """Walk a list of biases, continuing between them, and record the current.
+
+    The loop both public sweeps share. What differs between them is only how
+    one bias point is solved, which arrives as `at_bias`, so the continuation
+    policy and the bookkeeping are written once.
+    """
+    # Two different failures, one meaning: there is nothing to continue from.
+    # A solver returns a stalled result rather than raising, but the guess it
+    # falls back on when given none is the Phase 1 equilibrium solve, and that
+    # one does raise.
+    try:
+        first = at_bias(start, None)
+    except RuntimeError as error:
+        raise RuntimeError(
+            f"the sweep could not be started: no solution exists at "
+            f"{start:+g} V to continue from. {error}"
+        ) from error
+
+    if first is None:
+        raise RuntimeError(
+            f"the sweep could not be started: the solve at {start:+g} V did not "
+            "converge. Every bias point is continued from this one."
+        )
+
+    points: list[IVPoint] = []
+    position = start
+    state = first
+
+    for target in voltages:
+        ramp = continue_to(
+            at_bias,
+            start=position,
+            target=target,
+            initial=state,
+            step=step,
+            min_step=min_step,
+            max_step=step,
+        )
+        state = ramp.solution
+        position = ramp.parameter
+
+        if not ramp.converged:
+            return IVCurve(
+                contact=contact,
+                measured_at=measured_at,
+                points=tuple(points),
+                complete=False,
+                message=f"stalled on the way to {target:+g} V. {ramp.message}",
+            )
+
+        points.append(
+            IVPoint(
+                voltage=target,
+                current=total_current(
+                    device.with_bias(**{contact: target}),
+                    state,
+                    models,
+                    measured_at,
+                ),
+                state=state,
+            )
+        )
+
+    return IVCurve(
+        contact=contact,
+        measured_at=measured_at,
+        points=tuple(points),
+        complete=True,
+    )
 
 
 def iv_sweep(
@@ -334,59 +450,88 @@ def iv_sweep(
             return None
         return solved
 
-    # Two different failures, one meaning: there is nothing to continue from.
-    # solve_bias returns a stalled result rather than raising, but the guess it
-    # falls back on when given none is the Phase 1 equilibrium solve, and that
-    # one does raise.
-    try:
-        first = at_bias(start, None)
-    except RuntimeError as error:
-        raise RuntimeError(
-            f"the sweep could not be started: no solution exists at "
-            f"{start:+g} V to continue from. {error}"
-        ) from error
+    return _walk_sweep(
+        device=device,
+        contact=contact,
+        measured_at=contact,
+        voltages=voltages,
+        models=models,
+        at_bias=at_bias,
+        start=start,
+        step=step,
+        min_step=min_step,
+    )
 
-    if first is None:
-        raise RuntimeError(
-            f"the sweep could not be started: the solve at {start:+g} V did not "
-            "converge. Every bias point is continued from this one."
-        )
 
-    points: list[IVPoint] = []
-    position = start
-    state = first
+def gate_sweep(
+    device: Device,
+    voltages: list[float],
+    contact: str = "gate",
+    measure_at: str = "drain",
+    models: TransportModels | None = None,
+    step: float = 0.1,
+    min_step: float | None = None,
+    start: float = 0.0,
+    max_iterations: int = 30,
+) -> IVCurve:
+    """Sweep the gate and record the drain current: a transfer curve.
 
-    for target in voltages:
-        ramp = continue_to(
-            at_bias,
-            start=position,
-            target=target,
-            initial=state,
-            step=step,
-            min_step=min_step,
-            max_step=step,
-        )
-        state = ramp.solution
-        position = ramp.parameter
+    Args:
+        device: the MOSFET, carrying the drain and body biases the curve is
+            taken at. Its gate bias is overridden by the sweep.
+        voltages: the gate biases wanted [V], in the order to walk them.
+        contact: name of the terminal to sweep. The gate.
+        measure_at: name of the terminal to read the current at. The drain.
+        models: transport models, built from the device if None.
+        step: first continuation step between requested points [V].
+        min_step: give up once the step falls below this [V].
+        start: gate bias to begin from [V], solved directly rather than ramped
+            to. Zero, which for an NMOS is off.
+        max_iterations: Newton budget at each point.
 
-        if not ramp.converged:
-            return IVCurve(
-                contact=contact,
-                points=tuple(points),
-                complete=False,
-                message=(
-                    f"stalled on the way to {target:+g} V. {ramp.message}"
-                ),
+    Two things separate this from iv_sweep, and both of them are why it is a
+    separate function rather than a flag on that one.
+
+    **It solves the coupled system.** iv_sweep runs the hybrid Gummel path,
+    whose two uncoupled blocks pin a density at every terminal and so cannot
+    take a gate at all. The coupled Newton applies every contact in one pass,
+    pinning three unknowns at an ohmic node and one at a gate.
+
+    **What is swept and what is measured are different terminals.** No current
+    flows in a gate, so a curve of gate bias against gate current is flat at
+    zero. The measurement wanted is the drain.
+    """
+    known = {existing.name for existing in device.contacts}
+    for name in (contact, measure_at):
+        if name not in known:
+            raise KeyError(
+                f"no contact named {name!r} on this device, which has "
+                f"{sorted(known)}"
             )
 
-        points.append(
-            IVPoint(
-                voltage=target,
-                current=total_current(
-                    device.with_bias(**{contact: target}), state, models, contact
-                ),
-                state=state,
-            )
-        )
+    if models is None:
+        models = TransportModels.for_device(device)
 
-    return IVCurve(contact=contact, points=tuple(points), complete=True)
+    def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
+        biased = device.with_bias(**{contact: voltage})
+        solved = solve_bias_newton(
+            biased,
+            models=models,
+            guess=guess,
+            max_iterations=max_iterations,
+        )
+        # solve_bias_newton always attaches a NewtonResult, converged or not.
+        assert solved.newton is not None
+        return solved if solved.newton.converged else None
+
+    return _walk_sweep(
+        device=device,
+        contact=contact,
+        measured_at=measure_at,
+        voltages=voltages,
+        models=models,
+        at_bias=at_bias,
+        start=start,
+        step=step,
+        min_step=min_step,
+    )

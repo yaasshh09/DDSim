@@ -502,3 +502,43 @@ def test_a_depth_profile_on_a_line_is_refused() -> None:
 
     with pytest.raises(ValueError, match="no y coordinate"):
         _ = device.net_doping
+
+
+# ------------------------------------------------- contacts that carry current
+#
+# A gate does not. It sits on an insulator, so no carrier reaches it and no DC
+# current flows through it. Device.ohmic_contacts refuses a device that has one,
+# because the uncoupled blocks it serves genuinely cannot take a gate. Anything
+# that only needs to know which terminals carry current asks a different
+# question and gets an answer instead of a refusal.
+
+
+def test_the_gate_is_not_a_contact_that_carries_current() -> None:
+    device = mos_device()
+
+    assert [c.name for c in device.semiconductor_contacts] == ["body"]
+
+
+def test_a_device_with_no_gate_keeps_every_contact() -> None:
+    """The two properties agree wherever both are answerable, which is every
+    device built before Phase 4."""
+    device = build_device(
+        mesh=uniform_mesh_1d(1e-4, 11),
+        doping=Uniform(1e16),
+        contacts=(
+            OhmicContact(name="anode", node=0, voltage=0.0),
+            OhmicContact(name="cathode", node=10, voltage=0.0),
+        ),
+    )
+
+    assert device.semiconductor_contacts == device.ohmic_contacts
+
+
+def test_asking_which_contacts_carry_current_never_refuses() -> None:
+    """The point of it being a separate question from ohmic_contacts."""
+    device = mos_device()
+
+    with pytest.raises(TypeError):
+        _ = device.ohmic_contacts
+
+    assert device.semiconductor_contacts  # no raise

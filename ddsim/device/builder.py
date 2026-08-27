@@ -171,6 +171,22 @@ class Device:
         return np.asarray(self.regions.semiconductor_volume / self.scale.x_0**power)
 
     @cached_property
+    def semiconductor_contacts(self) -> tuple[SemiconductorContact, ...]:
+        """The contacts that touch semiconductor, gates left out.
+
+        The same question ohmic_contacts asks, without the refusal, because
+        the callers differ. A block that has to pin a density at every
+        terminal cannot leave one out and has to be told; anything that only
+        wants to know which terminals carry current can simply be handed them,
+        since a gate on an ideal insulator carries none.
+        """
+        return tuple(
+            contact
+            for contact in self.contacts
+            if not isinstance(contact, GateContact)
+        )
+
+    @cached_property
     def ohmic_contacts(self) -> tuple[SemiconductorContact, ...]:
         """The contacts, if every one of them touches semiconductor.
 
