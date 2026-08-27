@@ -15,11 +15,21 @@ current, with a smooth crossover when both are present.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
 from ddsim.core import constants as C
-from ddsim.extract.params import ideality_factor, saturation_current
+from ddsim.extract.params import (
+    dibl,
+    ideality_factor,
+    saturation_current,
+    subthreshold_slope,
+    threshold_constant_current,
+    threshold_linear_extrapolation,
+    transconductance,
+)
 
 VT = C.V_T()
 """Thermal voltage at 300 K [V]."""
@@ -184,3 +194,264 @@ def test_saturation_current_ignores_the_minus_one_term_by_choosing_the_window(
     contaminated, _ = saturation_current(voltage, current, window=(0.005, 0.5))
 
     assert abs(clean - 1e-12) < abs(contaminated - 1e-12)
+
+
+# ------------------------------------------------------------ MOSFET parameters
+#
+# Same discipline as above: every curve here is built from a closed form whose
+# answer is known before the extractor is asked for it. phases/PHASE-5.md grades
+# the phase on these numbers, so an extractor that is itself under suspicion is
+# no use on the day a real device disagrees with DEVSIM.
+
+THERMAL_LIMIT = 1e3 * VT * math.log(10.0)
+"""The 300 K subthreshold floor [mV/decade].
+
+kT/q times ln(10), which is 59.5. phases/PHASE-5.md makes being at or above it
+the primary sanity gate, because below it is not reachable by a thermally
+activated current and so means a bug.
+"""
+
+
+def subthreshold_curve(gate: np.ndarray, I_0: float, slope: float) -> np.ndarray:
+    """An exponential subthreshold characteristic [A/cm].
+
+    Built directly from the slope it is supposed to have, in [mV/decade], so
+    the extractor has an exact answer to be right or wrong about.
+    """
+    return I_0 * 10.0 ** (gate / (slope * 1e-3))
+
+
+def linear_region_curve(
+    gate: np.ndarray, gain: float, threshold: float, drain: float
+) -> np.ndarray:
+    """Id above threshold in the linear region, zero below it [A/cm].
+
+    Id = gain * (Vg - Vth - Vd/2) * Vd, the textbook form. Written this way on
+    purpose: the tangent to it extrapolates to Vg = Vth + Vd/2, never to Vth,
+    and the drain term is exactly what closes that gap. An extractor that drops
+    the correction is wrong by half the drain bias, which at Vd = 0.05 V is
+    25 mV and still looks like a plausible threshold.
+    """
+    overdrive = gate - threshold - 0.5 * drain
+    return np.where(overdrive > 0.0, gain * overdrive * drain, 0.0)
+
+
+@pytest.mark.parametrize("slope", [60.0, 80.0, 100.0], ids=str)
+def test_the_subthreshold_slope_is_read_back_from_a_built_curve(
+    slope: float,
+) -> None:
+    gate = np.linspace(0.0, 0.4, 41)
+
+    measured = subthreshold_slope(gate, subthreshold_curve(gate, 1e-12, slope))
+
+    assert measured == pytest.approx(slope, rel=1e-12)
+
+
+def test_the_thermal_limit_falls_out_of_a_boltzmann_tail() -> None:
+    """59.5 mV/decade is kT/q times ln(10) and is not typed in anywhere.
+
+    A current going as exp(V/V_T) is what a thermally activated population over
+    a barrier gives when the gate moves that barrier one for one. Reading the
+    limit back off such a curve is the check that the number the phase is
+    graded against is the one this function actually measures.
+    """
+    gate = np.linspace(0.0, 0.3, 61)
+
+    measured = subthreshold_slope(gate, 1e-12 * np.exp(gate / VT))
+
+    assert measured == pytest.approx(THERMAL_LIMIT, rel=1e-12)
+    assert THERMAL_LIMIT == pytest.approx(59.5, abs=0.05)
+
+
+def test_the_subthreshold_slope_reports_the_steepest_part() -> None:
+    """A real curve has a different slope everywhere and only one of them is
+    the subthreshold slope. The steepest is the one the thermal limit binds, so
+    it is the one a broken solve would push below 59.5, and the one to report.
+    """
+    gate = np.linspace(0.0, 0.6, 61)
+    # Offsets chosen so the steep branch is the smaller one at low bias and
+    # the shallow branch takes over near 0.48 V. Give them the same prefactor
+    # and the steep one is above the shallow one everywhere above zero, so the
+    # minimum is the shallow branch alone and the curve has one slope.
+    steep = subthreshold_curve(gate, 1e-14, 65.0)
+    shallow = subthreshold_curve(gate, 1e-9, 200.0)
+    both = np.minimum(steep, shallow)
+
+    assert not np.allclose(both, shallow), "the steep branch has to show"
+    assert not np.allclose(both, steep), "the shallow branch has to show"
+    assert subthreshold_slope(gate, both) == pytest.approx(65.0, rel=1e-9)
+
+
+def test_constant_current_threshold_finds_the_crossing() -> None:
+    """The bias where the curve crosses the target is closed form on an
+    exponential, and log-linear interpolation of a log-linear curve is exact.
+
+    The target is deliberately one that lands between two sweep points. At
+    1e-7 the crossing sits at exactly 0.35 V, which is on this grid, and then
+    interpolating Id linearly would return the same answer and this test would
+    pass without saying anything about how the interpolation is done.
+    """
+    gate = np.linspace(0.0, 0.5, 51)
+    slope, I_0, target = 70.0, 1e-12, 3e-7
+    expected = slope * 1e-3 * math.log10(target / I_0)
+
+    assert not np.any(np.isclose(gate, expected)), "the crossing must be off grid"
+
+    measured = threshold_constant_current(
+        gate, subthreshold_curve(gate, I_0, slope), target=target
+    )
+
+    assert measured == pytest.approx(expected, rel=1e-12)
+
+
+def test_constant_current_threshold_divides_by_the_width() -> None:
+    """The target is quoted per unit width, 100 nA/um in the usual statement,
+    so a device twice as wide reaches it at the same gate bias."""
+    gate = np.linspace(0.0, 0.5, 51)
+    current = subthreshold_curve(gate, 1e-12, 70.0)
+
+    narrow = threshold_constant_current(gate, current, target=1e-7)
+    wide = threshold_constant_current(gate, 2.0 * current, target=1e-7, width=2.0)
+
+    assert wide == pytest.approx(narrow, rel=1e-12)
+
+
+def test_constant_current_threshold_refuses_a_target_off_the_curve() -> None:
+    gate = np.linspace(0.0, 0.5, 51)
+    current = subthreshold_curve(gate, 1e-12, 70.0)
+
+    with pytest.raises(ValueError, match="never reaches"):
+        threshold_constant_current(gate, current, target=1.0)
+
+
+def test_linear_extrapolation_finds_the_threshold_it_was_built_with() -> None:
+    """The tangent at peak transconductance, run back to zero current, less
+    half the drain bias. Exact on a curve that is a straight line."""
+    gate = np.linspace(0.0, 1.2, 121)
+    threshold, drain = 0.42, 0.05
+
+    measured = threshold_linear_extrapolation(
+        gate,
+        linear_region_curve(gate, gain=1e-3, threshold=threshold, drain=drain),
+        drain_voltage=drain,
+    )
+
+    assert measured == pytest.approx(threshold, abs=1e-9)
+
+
+def test_linear_extrapolation_without_the_drain_correction_is_off_by_half() -> None:
+    """A test rather than a footnote, because the correction is the easiest
+    half of this method to drop and the answer still looks like a threshold."""
+    gate = np.linspace(0.0, 1.2, 121)
+    threshold, drain = 0.42, 0.05
+    current = linear_region_curve(gate, gain=1e-3, threshold=threshold, drain=drain)
+
+    uncorrected = threshold_linear_extrapolation(gate, current)
+
+    assert uncorrected == pytest.approx(threshold + 0.5 * drain, abs=1e-9)
+
+
+def test_transconductance_is_the_slope_of_the_curve() -> None:
+    gate = np.linspace(0.5, 1.2, 71)
+    gain, drain = 1e-3, 0.05
+    current = linear_region_curve(gate, gain=gain, threshold=0.42, drain=drain)
+
+    _, gm = transconductance(gate, current)
+
+    np.testing.assert_allclose(gm, gain * drain, rtol=1e-12)
+
+
+def test_transconductance_reports_midpoints_like_the_ideality_does() -> None:
+    gate = np.linspace(0.5, 1.2, 71)
+    current = linear_region_curve(gate, gain=1e-3, threshold=0.42, drain=0.05)
+
+    midpoint, gm = transconductance(gate, current)
+
+    assert midpoint.size == gate.size - 1 == gm.size
+    np.testing.assert_allclose(midpoint, 0.5 * (gate[:-1] + gate[1:]), rtol=1e-14)
+
+
+def test_dibl_is_the_threshold_shift_per_volt_of_drain() -> None:
+    """Positive when the higher drain bias lowered the threshold, which is the
+    direction the effect actually goes."""
+    measured = dibl(
+        threshold_low=0.45,
+        threshold_high=0.40,
+        drain_low=0.05,
+        drain_high=1.0,
+    )
+
+    assert measured == pytest.approx(1e3 * 0.05 / 0.95, rel=1e-12)
+
+
+def test_dibl_is_zero_when_the_threshold_does_not_move() -> None:
+    """A long channel device, where the drain cannot reach the barrier."""
+    assert dibl(0.45, 0.45, 0.05, 1.0) == 0.0
+
+
+def test_dibl_refuses_two_equal_drain_biases() -> None:
+    with pytest.raises(ValueError, match="two different drain"):
+        dibl(0.45, 0.40, 0.05, 0.05)
+
+
+# ------------------------------------------------- what the extractors refuse
+
+
+def falling_then_rising(gate: np.ndarray) -> np.ndarray:
+    """A curve that dips before it climbs [A/cm].
+
+    Not a physical Id-Vg. It stands in for the thing a half converged sweep
+    produces, where one bias point came back below its neighbour and every
+    slope taken across it is meaningless.
+    """
+    return 1e-9 * (1.0 + (gate - 0.25) ** 2)
+
+
+def test_the_subthreshold_slope_refuses_a_curve_that_doubles_back() -> None:
+    """The steepest slope of a curve that is not monotonic is not the
+    subthreshold slope, and would come back looking like one."""
+    gate = np.linspace(0.0, 0.5, 51)
+
+    with pytest.raises(ValueError, match="rises with the gate"):
+        subthreshold_slope(gate, falling_then_rising(gate))
+
+
+def test_the_constant_current_threshold_refuses_the_same_curve() -> None:
+    """Same reason, and it matters more here: the interpolation would pick
+    whichever of the two crossings numpy walked into first."""
+    gate = np.linspace(0.0, 0.5, 51)
+
+    with pytest.raises(ValueError, match="rises with the gate"):
+        threshold_constant_current(gate, falling_then_rising(gate), target=1.2e-9)
+
+
+def test_the_subthreshold_slope_uses_only_the_requested_window() -> None:
+    """Two slopes on one curve, and the window picks which one is reported."""
+    gate = np.linspace(0.0, 0.6, 61)
+    steep = subthreshold_curve(gate, 1e-14, 65.0)
+    shallow = subthreshold_curve(gate, 1e-9, 200.0)
+    both = np.minimum(steep, shallow)
+
+    assert subthreshold_slope(gate, both, window=(0.0, 0.3)) == pytest.approx(
+        65.0, rel=1e-9
+    )
+    assert subthreshold_slope(gate, both, window=(0.55, 0.6)) == pytest.approx(
+        200.0, rel=1e-9
+    )
+
+
+def test_the_subthreshold_slope_refuses_a_window_with_one_point() -> None:
+    gate = np.linspace(0.0, 0.5, 51)
+    current = subthreshold_curve(gate, 1e-12, 70.0)
+
+    with pytest.raises(ValueError, match="fewer than two points"):
+        subthreshold_slope(gate, current, window=(0.201, 0.209))
+
+
+def test_linear_extrapolation_refuses_a_curve_that_only_falls() -> None:
+    """No peak transconductance means no tangent to run back, and the sign of
+    the sweep is the likely reason."""
+    gate = np.linspace(0.0, 1.0, 21)
+
+    with pytest.raises(ValueError, match="never rises"):
+        threshold_linear_extrapolation(gate, 1e-6 * (1.0 - gate))
