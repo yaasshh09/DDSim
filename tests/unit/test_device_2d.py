@@ -239,6 +239,32 @@ class TestValidation:
                 regions=stacked_regions(other, interface_y=T_SI),
             )
 
+    def test_a_region_map_with_the_wrong_edge_count_is_refused(self) -> None:
+        """Same node count, a different edge count, which the check above misses.
+
+        A 3 by 4 tensor mesh and a 2 by 6 one both carry 12 nodes, and 17
+        edges against 16. Permittivity lives on edges, so a region map can
+        pass the node check and still be the wrong shape for the mesh.
+        """
+        mesh = tensor_mesh_2d(
+            uniform_mesh_1d(length=WIDTH, n_nodes=3),
+            uniform_mesh_1d(length=T_SI + T_OX, n_nodes=4),
+        )
+        other = tensor_mesh_2d(
+            uniform_mesh_1d(length=WIDTH, n_nodes=2),
+            uniform_mesh_1d(length=T_SI + T_OX, n_nodes=6),
+        )
+        assert other.n_nodes == mesh.n_nodes, "the node check has to pass first"
+        assert other.n_edges != mesh.n_edges
+
+        with pytest.raises(ValueError, match="edge permittivities"):
+            build_device(
+                mesh=mesh,
+                doping=Uniform(-NA),
+                contacts=(OhmicPlate(name="body", nodes=(0,), voltage=0.0),),
+                regions=stacked_regions(other, interface_y=T_SI + T_OX),
+            )
+
     def test_duplicate_contact_names_are_refused(self) -> None:
         mesh = stack_mesh()
         with pytest.raises(ValueError, match="unique"):

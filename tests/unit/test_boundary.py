@@ -739,3 +739,28 @@ class TestApplyContacts:
                 ),
                 scale,
             )
+
+    def test_two_contacts_with_one_name_are_refused(self) -> None:
+        """Distinct nodes, so the check above lets them past.
+
+        Everything downstream looks a terminal up by name: extract/iv.py sums
+        a current per name and extract/cv.py picks the swept terminal out of
+        the same list. Two contacts answering to one name make those lookups
+        take whichever comes first, silently.
+        """
+        mesh = uniform_mesh_1d(MICRON, 5)
+        scale = ScaleFactors.for_silicon()
+        psi = np.zeros(5)
+        doping = np.zeros(5)
+
+        with pytest.raises(ValueError, match="unique"):
+            apply_contacts(
+                _poisson_assembly(mesh, scale, psi, doping),
+                psi,
+                doping,
+                (
+                    OhmicContact(name="body", node=0, voltage=0.0),
+                    OhmicContact(name="body", node=4, voltage=0.0),
+                ),
+                scale,
+            )

@@ -268,6 +268,21 @@ def test_assemble_rejects_a_field_of_the_wrong_length() -> None:
         assemble_poisson(mesh.scaled(scale), psi, doping)
 
 
+def test_assemble_rejects_a_charge_volume_of_the_wrong_length() -> None:
+    """The one array here that is not a Field, so nothing else checks it.
+
+    Phase 5 hands a charge volume to every 2D solve, where it is what keeps
+    carriers out of the oxide. A short one is a mesh mismatch, not a mask.
+    """
+    mesh = uniform_mesh_1d(MICRON, 11)
+    scale = ScaleFactors.for_silicon()
+    psi = Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
+    doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
+
+    with pytest.raises(ValueError, match="charge_volume"):
+        assemble_poisson(mesh.scaled(scale), psi, doping, charge_volume=np.ones(9))
+
+
 def test_assemble_scales_the_mesh_by_the_debye_length() -> None:
     """The mesh is in cm but the equation is in units of x_0.
 
