@@ -235,13 +235,15 @@ def small_signal_capacitance(
         cols = np.concatenate([cols, diagonal])
         values = np.concatenate([values, -_frozen_diagonal(device, state)])
 
+    # Looked up before the solve rather than after it, so that an unknown
+    # name is refused without doing the work first.
+    nodes = list(_contact_nodes(device, contact))
     dpsi = _potential_derivative(device, contact, rows, cols, values)
 
     # dQ/dV at the terminal is the same sum that gave Q, with the Jacobian row
     # applied to dpsi in place of the residual.
     scattered = np.zeros(device.mesh.n_nodes, dtype=np.float64)
     np.add.at(scattered, rows, values * dpsi[cols])
-    nodes = list(_contact_nodes(device, contact))
     return float(np.sum(scattered[nodes])) * _charge_unit(device, width)
 
 
@@ -266,15 +268,16 @@ def _potential_derivative(
     instead of corrections.
     """
     n_nodes = device.mesh.n_nodes
-    swept = _contact_nodes(device, contact)
 
     nodes: list[int] = []
     targets: list[float] = []
     for existing in device.contacts:
         # d(psi_target)/dV is 1/psi_0 for the terminal being swept, because
         # every contact model here adds its applied bias to psi in volts, and
-        # zero for the ones that are not moving.
-        derivative = 1.0 / device.scale.psi_0 if existing.nodes == swept else 0.0
+        # zero for the ones that are not moving. Matched on the name, which is
+        # the thing a terminal is asked for by. Node tuples happen to identify
+        # a contact today only because no two contacts may share a node.
+        derivative = 1.0 / device.scale.psi_0 if existing.name == contact else 0.0
         nodes.extend(existing.nodes)
         targets.extend([derivative] * len(existing.nodes))
 
