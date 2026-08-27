@@ -13,26 +13,94 @@ Profiles compose by addition, which is how real structures are built: a
 uniform substrate plus a diffused well plus an implanted source.
 
     profile = Uniform(-1e16) + Gaussian(peak=1e18, centre=0.0, sigma=5e-6)
+
+They compose by multiplication too, and that is what makes a source implant
+expressible without a new class for it. An implant is separable: a lateral
+window times a vertical Gaussian. Along says which axis a one dimensional
+shape reads, and the product of the two is the implant.
+
+    source = Along(window, "x") * Along(depth, "y") * 1e20
+
+A profile is asked for a value at a Coordinates, which carries x and, when the
+mesh has one, y. A bare array is still a position and still means x, so every
+device built before Phase 5 calls a profile exactly as it always did and gets
+the same array back, bit for bit.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 import numpy.typing as npt
 from scipy.special import erfc as _erfc
 
-Position = float | npt.NDArray[np.float64]
+Axis = Literal["x", "y"]
+"""Which coordinate a one dimensional shape reads."""
+
+
+@dataclass(frozen=True)
+class Coordinates:
+    """Where a profile is being asked for a value [cm].
+
+    One array per axis, both indexed by node, because x and y are two
+    coordinates of the same set of nodes rather than two independent sweeps.
+    A 1D mesh is a line along x and has no y at all, which is None here and
+    not an array of zeros: a depth profile on a line is a modelling mistake,
+    and zeros would hide it by reading the peak everywhere.
+    """
+
+    x: npt.NDArray[np.float64]
+    """Position along the device [cm]."""
+
+    y: npt.NDArray[np.float64] | None = None
+    """Depth into the device [cm], or None on a mesh that has no depth."""
+
+    def __post_init__(self) -> None:
+        if self.y is not None and self.y.size != self.x.size:
+            raise ValueError(
+                f"x and y must cover the same number of positions, got "
+                f"{self.x.size} and {self.y.size}. They are two coordinates "
+                "of one set of nodes, so a mismatch is two meshes mixed."
+            )
+
+    @classmethod
+    def of(cls, at: Position) -> Coordinates:
+        """Whatever a caller passed, as Coordinates.
+
+        A bare number or array is a position along x, which is the calling
+        convention every profile had before there was a second axis.
+        """
+        if isinstance(at, Coordinates):
+            return at
+        return cls(np.asarray(at, dtype=np.float64))
+
+    def axis(self, name: Axis) -> npt.NDArray[np.float64]:
+        """The named coordinate [cm]."""
+        if name == "x":
+            return self.x
+        if name == "y":
+            if self.y is None:
+                raise ValueError(
+                    "this profile reads the depth of the device, but it was "
+                    "evaluated somewhere with no y coordinate. A 1D mesh is a "
+                    "line along x."
+                )
+            return self.y
+        raise ValueError(f"an axis is x or y, got {name!r}")
+
+
+Position = float | npt.NDArray[np.float64] | Coordinates
 
 
 class DopingProfile(ABC):
     """Net doping [cm^-3] as a function of position [cm]."""
 
     @abstractmethod
-    def __call__(self, x: Position) -> npt.NDArray[np.float64]:
-        """Net doping Nd - Na [cm^-3] at position x [cm]."""
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping Nd - Na [cm^-3] at the positions `at` [cm]."""
 
     def __add__(self, other: DopingProfile) -> DopingProfile:
         if not isinstance(other, DopingProfile):
@@ -49,6 +117,24 @@ class DopingProfile(ABC):
     def __sub__(self, other: DopingProfile) -> DopingProfile:
         return self.__add__(-other)
 
+    def __mul__(self, other: DopingProfile | float) -> DopingProfile:
+        """A product of profiles, or a profile scaled by a number.
+
+        Both readings of * are wanted and neither is ambiguous. A separable
+        implant is a product of shapes, and a shape times its peak
+        concentration is that shape scaled.
+        """
+        if isinstance(other, DopingProfile):
+            return Product((self, other))
+        if isinstance(other, int | float):
+            return Scaled(self, float(other))
+        raise TypeError(
+            f"can only multiply a DopingProfile by a DopingProfile or a "
+            f"number, got {type(other).__name__}."
+        )
+
+    __rmul__ = __mul__
+
 
 @dataclass(frozen=True)
 class Uniform(DopingProfile):
@@ -56,9 +142,9 @@ class Uniform(DopingProfile):
 
     value: float
 
-    def __call__(self, x: Position) -> npt.NDArray[np.float64]:
-        """Net doping [cm^-3] at position x [cm]."""
-        return np.full_like(np.asarray(x, dtype=np.float64), self.value)
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        return np.full_like(Coordinates.of(at).x, self.value)
 
 
 @dataclass(frozen=True)
@@ -78,9 +164,9 @@ class Step(DopingProfile):
     position: float
     """Junction position [cm]."""
 
-    def __call__(self, x: Position) -> npt.NDArray[np.float64]:
-        """Net doping [cm^-3] at position x [cm]."""
-        values = np.asarray(x, dtype=np.float64)
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        values = Coordinates.of(at).x
         return np.where(values < self.position, self.left, self.right)
 
 
@@ -101,10 +187,9 @@ class Gaussian(DopingProfile):
         if self.sigma <= 0.0:
             raise ValueError(f"sigma must be positive, got {self.sigma}")
 
-    def __call__(self, x: Position) -> npt.NDArray[np.float64]:
-        """Net doping [cm^-3] at position x [cm]."""
-        values = np.asarray(x, dtype=np.float64)
-        offset = values - self.centre
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        offset = Coordinates.of(at).x - self.centre
         return np.asarray(
             self.peak * np.exp(-(offset**2) / (2.0 * self.sigma**2))
         )
@@ -130,9 +215,9 @@ class Erfc(DopingProfile):
         if self.length <= 0.0:
             raise ValueError(f"length must be positive, got {self.length}")
 
-    def __call__(self, x: Position) -> npt.NDArray[np.float64]:
-        """Net doping [cm^-3] at position x [cm]."""
-        values = np.asarray(x, dtype=np.float64)
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        values = Coordinates.of(at).x
         return np.asarray(self.peak * _erfc((values - self.position) / self.length))
 
 
@@ -142,24 +227,66 @@ class Sum(DopingProfile):
 
     terms: tuple[DopingProfile, ...]
 
-    def __call__(self, x: Position) -> npt.NDArray[np.float64]:
-        """Net doping [cm^-3] at position x [cm]."""
-        total = np.zeros_like(np.asarray(x, dtype=np.float64))
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        total = np.zeros_like(Coordinates.of(at).x)
         for term in self.terms:
-            total = total + term(x)
+            total = total + term(at)
         return total
 
 
 @dataclass(frozen=True)
 class Scaled(DopingProfile):
-    """A profile multiplied by a constant. Built by the unary minus operator."""
+    """A profile multiplied by a constant.
+
+    Built by the unary minus operator, and by multiplying a shape by its peak
+    concentration.
+    """
 
     profile: DopingProfile
     factor: float
 
-    def __call__(self, x: Position) -> npt.NDArray[np.float64]:
-        """Net doping [cm^-3] at position x [cm]."""
-        return np.asarray(self.factor * self.profile(x))
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        return np.asarray(self.factor * self.profile(at))
+
+
+@dataclass(frozen=True)
+class Product(DopingProfile):
+    """Several profiles multiplied together. Built by the * operator.
+
+    The user is a separable implant: a lateral window times a vertical
+    Gaussian is a source, and neither factor needs to know about the other.
+    """
+
+    factors: tuple[DopingProfile, ...]
+
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        values = self.factors[0](at)
+        for factor in self.factors[1:]:
+            values = values * factor(at)
+        return np.asarray(values)
+
+
+@dataclass(frozen=True)
+class Along(DopingProfile):
+    """A one dimensional shape, read along a named axis.
+
+    Every profile above reads x, because that is all a profile was ever handed
+    before there was a second axis. Along re-labels which coordinate the shape
+    is a function of and does nothing else, so `Along(shape, "x")` is `shape`.
+    """
+
+    profile: DopingProfile
+    """The shape."""
+
+    axis: Axis
+    """Which coordinate it is a function of."""
+
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        return self.profile(Coordinates.of(at).axis(self.axis))
 
 
 def abrupt_junction(Na: float, Nd: float, position: float) -> DopingProfile:

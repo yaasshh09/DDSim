@@ -16,7 +16,16 @@ import numpy as np
 import pytest
 from scipy.special import erfc
 
-from ddsim.device.doping import Erfc, Gaussian, Step, Uniform, abrupt_junction
+from ddsim.device.doping import (
+    Along,
+    Coordinates,
+    Erfc,
+    Gaussian,
+    Product,
+    Step,
+    Uniform,
+    abrupt_junction,
+)
 
 MICRON = 1e-4
 """One micron [cm]."""
@@ -221,3 +230,153 @@ def test_abrupt_junction_rejects_negative_concentrations() -> None:
 def test_abrupt_junction_rejects_a_negative_donor_concentration() -> None:
     with pytest.raises(ValueError, match="Nd"):
         abrupt_junction(Na=1e16, Nd=-1e16, position=0.5 * MICRON)
+
+
+# -------------------------------------------------------- two dimensions
+#
+# Through Phase 4 a profile saw one array of positions and that array was x,
+# because nothing built so far varied with depth: a MOS substrate is uniform
+# and a diode varies along its length. A MOSFET source is not like that. It is
+# an implant, Gaussian in depth and bounded laterally, and it is the first
+# profile in this project that genuinely needs both coordinates.
+#
+# So a profile is now asked for a value at a Coordinates, which carries x and,
+# when the mesh has one, y. A bare array is still a position and still means x,
+# which is why every test above this line is untouched.
+
+
+def test_a_bare_position_is_still_the_x_axis() -> None:
+    """The 1D calling convention survives, and it means what it always meant."""
+    x = np.linspace(0.0, MICRON, 5)
+
+    at = Coordinates.of(x)
+
+    np.testing.assert_array_equal(at.x, x)
+    assert at.y is None
+
+
+def test_coordinates_pass_through_unchanged() -> None:
+    at = Coordinates(np.array([0.0, MICRON]), np.array([0.0, 0.0]))
+
+    assert Coordinates.of(at) is at
+
+
+def test_a_scalar_position_still_works() -> None:
+    """Uniform(1e16)(0.5e-4) is how half the tests above call a profile."""
+    assert Coordinates.of(0.5 * MICRON).x == pytest.approx(0.5 * MICRON)
+
+
+def test_coordinates_refuse_axes_of_different_lengths() -> None:
+    """x and y are two coordinates of the same set of nodes, so a mismatch is
+    two different meshes being mixed and not something to broadcast around."""
+    with pytest.raises(ValueError, match="same number of positions"):
+        Coordinates(np.zeros(5), np.zeros(4))
+
+
+def test_asking_for_depth_on_a_line_says_what_is_missing() -> None:
+    """A 1D mesh has no depth, so a depth dependent profile on one is a
+    modelling mistake rather than something to fill in with zeros."""
+    at = Coordinates.of(np.linspace(0.0, MICRON, 5))
+
+    with pytest.raises(ValueError, match="no y coordinate"):
+        at.axis("y")
+
+
+def test_coordinates_refuse_an_axis_that_is_not_x_or_y() -> None:
+    at = Coordinates.of(np.linspace(0.0, MICRON, 5))
+
+    with pytest.raises(ValueError, match="x or y"):
+        at.axis("z")  # type: ignore[arg-type]
+
+
+# --------------------------------------------------------------------- along
+
+
+def test_along_y_reads_the_depth_coordinate() -> None:
+    """The whole point of the wrapper: a 1D shape evaluated down the depth."""
+    depth = np.linspace(0.0, MICRON, 7)
+    at = Coordinates(np.zeros_like(depth), depth)
+    shape = Gaussian(peak=1e19, centre=0.0, sigma=0.05 * MICRON)
+
+    np.testing.assert_array_equal(Along(shape, "y")(at), shape(depth))
+
+
+def test_along_x_is_what_a_profile_already_did() -> None:
+    """Wrapping in the axis a profile reads by default changes nothing, which
+    is the check that Along re-labels an axis and does nothing else."""
+    at = Coordinates(np.linspace(0.0, MICRON, 7), np.linspace(0.0, MICRON, 7))
+    shape = Gaussian(peak=1e19, centre=0.5 * MICRON, sigma=0.05 * MICRON)
+
+    np.testing.assert_array_equal(Along(shape, "x")(at), shape(at))
+
+
+def test_along_y_on_a_line_is_refused() -> None:
+    depth = Along(Gaussian(peak=1e19, centre=0.0, sigma=1e-6), "y")
+
+    with pytest.raises(ValueError, match="no y coordinate"):
+        depth(np.linspace(0.0, MICRON, 5))
+
+
+def test_along_refuses_an_axis_it_does_not_have() -> None:
+    at = Coordinates(np.zeros(3), np.zeros(3))
+
+    with pytest.raises(ValueError, match="x or y"):
+        Along(Uniform(1e16), "z")(at)  # type: ignore[arg-type]
+
+
+# ------------------------------------------------------------------- product
+
+
+def test_a_product_is_separable() -> None:
+    """A source implant is a lateral window times a vertical Gaussian, and the
+    value at a node is the product of the two one dimensional shapes there.
+    """
+    x = np.array([0.0, 0.5 * MICRON, MICRON, 1.5 * MICRON])
+    y = np.array([0.0, 0.1 * MICRON, 0.2 * MICRON, 0.3 * MICRON])
+    at = Coordinates(x, y)
+
+    lateral = Step(left=1.0, right=0.0, position=MICRON)
+    vertical = Gaussian(peak=1e20, centre=0.0, sigma=0.05 * MICRON)
+    implant = Along(lateral, "x") * Along(vertical, "y")
+
+    np.testing.assert_allclose(implant(at), lateral(x) * vertical(y), rtol=0.0)
+
+
+def test_a_product_multiplies_every_factor() -> None:
+    at = Coordinates.of(np.zeros(3))
+    profile = Uniform(2.0) * Uniform(3.0) * Uniform(5.0)
+
+    assert isinstance(profile, Product)
+    np.testing.assert_allclose(profile(at), 30.0, rtol=0.0)
+
+
+def test_a_lateral_bound_is_two_steps_multiplied() -> None:
+    """The combinators are enough on their own: a window needs no new class.
+
+    Worth asserting rather than assuming, because the alternative is inventing
+    a Window profile that Step and Product already express.
+    """
+    x = np.linspace(0.0, 2.0 * MICRON, 21)
+    window = Step(left=0.0, right=1.0, position=0.5 * MICRON) * Step(
+        left=1.0, right=0.0, position=1.5 * MICRON
+    )
+
+    values = window(x)
+
+    assert np.all(values[x < 0.5 * MICRON] == 0.0)
+    assert np.all(values[(x >= 0.5 * MICRON) & (x < 1.5 * MICRON)] == 1.0)
+    assert np.all(values[x >= 1.5 * MICRON] == 0.0)
+
+
+def test_multiplying_by_a_number_scales_the_profile() -> None:
+    """A shape and its peak concentration, which is how an implant is written."""
+    shape = Gaussian(peak=1.0, centre=0.0, sigma=0.05 * MICRON)
+    x = np.linspace(0.0, MICRON, 11)
+
+    np.testing.assert_allclose((shape * 1e20)(x), 1e20 * shape(x), rtol=1e-15)
+    np.testing.assert_allclose((1e20 * shape)(x), 1e20 * shape(x), rtol=1e-15)
+
+
+def test_multiplying_by_something_that_is_neither_raises() -> None:
+    with pytest.raises(TypeError, match="DopingProfile or a number"):
+        Uniform(1e16) * "half"  # type: ignore[operator]

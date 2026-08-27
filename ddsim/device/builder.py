@@ -20,7 +20,7 @@ import numpy.typing as npt
 from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
-from ddsim.device.doping import DopingProfile
+from ddsim.device.doping import Coordinates, DopingProfile
 from ddsim.device.regions import RegionMap
 from ddsim.discretize.boundary import Contact, GateContact, SemiconductorContact
 from ddsim.discretize.geometry import ScaledMesh
@@ -63,11 +63,11 @@ class Device:
     doping: DopingProfile
     """Net doping as a callable of position [cm], returning [cm^-3].
 
-    Evaluated at the x coordinate of every node, which is the same call in 2D:
-    a Mesh2D reports the x position of each of its nodes under the same name.
-    A profile that varies with depth needs a two argument protocol and does not
-    exist yet. Nothing built so far wants one, since a MOS substrate is uniform
-    and the source and drain of a MOSFET vary along x.
+    Evaluated at the coordinates of every node, which on a grid is two arrays
+    and on a line is one. A profile that reads x alone is handed exactly the
+    array it used to be handed, so every device built before Phase 5 produces
+    the same doping to the last bit. A source implant reads both, because it
+    is Gaussian in depth and bounded laterally.
     """
 
     material: Material
@@ -103,7 +103,7 @@ class Device:
         Device, which starts with an empty cache, so a rebiased device never
         inherits a doping array from the one it was copied from.
         """
-        values = self.doping(self.node_x)
+        values = self.doping(self.node_coordinates)
         if self.regions is not None:
             values = np.where(self.regions.semiconductor_volume > 0.0, values, 0.0)
         return Field(
@@ -113,6 +113,17 @@ class Device:
             Location.NODE,
             name="net_doping",
         )
+
+    @property
+    def node_coordinates(self) -> Coordinates:
+        """Where every node is [cm], as the doping profile is asked for it.
+
+        A 1D mesh is a line along x and gets no y at all rather than a column
+        of zeros, so a depth dependent profile on one fails loudly instead of
+        reading its peak everywhere.
+        """
+        depth = None if isinstance(self.mesh, Mesh1D) else self.mesh.node_y
+        return Coordinates(self.node_x, depth)
 
     @property
     def node_x(self) -> npt.NDArray[np.float64]:

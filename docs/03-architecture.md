@@ -112,10 +112,22 @@ and curves. No solving.
       .materials     dict name -> MaterialParams
       .state         State (psi, n, p as Fields) or None if unsolved
 
-Doping profiles are callables of position, not arrays. `gaussian(peak, sigma)`,
-`uniform(N)`, `erfc(...)`, composed by addition. This keeps the profile
-independent of the mesh, which matters because Phase 5 refines the mesh
-adaptively and the profile must be re-evaluable.
+Doping profiles are callables of position, not arrays. `Gaussian(peak, centre,
+sigma)`, `Uniform(N)`, `Erfc(...)`, composed by addition and by multiplication.
+This keeps the profile independent of the mesh, which matters because Phase 5
+refines the mesh adaptively and the profile must be re-evaluable.
+
+A profile is called with a `Coordinates`, which carries `x` and, on a mesh that
+has one, `y`. A bare number or array is still a position along x, so every
+profile written before there were two axes reads the same argument it always
+did and returns the same array bit for bit. `Along(shape, "y")` re-labels which
+coordinate a one dimensional shape is a function of, and `*` multiplies two
+profiles, which between them make a source implant expressible without a class
+of its own: a lateral window times a vertical Gaussian.
+
+On a 1D mesh `Coordinates.y` is None rather than an array of zeros. A profile
+that reads depth on a line is a modelling mistake, and zeros would hide it by
+reading the implant peak along the whole device instead of raising.
 
 ## Configuration
 

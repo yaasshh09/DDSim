@@ -29,7 +29,7 @@ import pytest
 from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
 from ddsim.device.builder import build_device
-from ddsim.device.doping import Uniform
+from ddsim.device.doping import Along, Gaussian, Uniform
 from ddsim.device.regions import stacked_regions
 from ddsim.discretize.boundary import GateContact, OhmicContact, OhmicPlate
 from ddsim.mesh.mesh1d import uniform_mesh_1d
@@ -398,3 +398,107 @@ def test_scale_factors_are_shared_between_1d_and_2d() -> None:
     device = mos_device()
 
     assert device.scale == ScaleFactors.for_silicon(C_0=C.n_i())
+
+
+# ------------------------------------------------------- doping in two axes
+#
+# A device evaluates its profile at the coordinates of its nodes, and on a grid
+# that is two coordinates rather than one. Everything before Phase 5 was handed
+# x alone, so these tests exist to say that giving a profile the second axis did
+# not move the first, and that the second one arrives where it should.
+
+
+def test_a_profile_that_reads_x_alone_gets_exactly_what_it_used_to() -> None:
+    """The bit identical check the Phase 5 plan gates this change on.
+
+    Every device built before Phase 5 has an x-only profile, so if this moves
+    by one bit then so does every number those devices produce, DEVSIM
+    benchmarks 1 to 5 included.
+    """
+    mesh = stack_mesh()
+    profile = Gaussian(peak=1e18, centre=0.5 * WIDTH, sigma=0.2 * WIDTH)
+    device = build_device(
+        mesh=mesh,
+        doping=profile,
+        contacts=mos_contacts(mesh),
+    )
+
+    np.testing.assert_array_equal(device.net_doping.data, profile(mesh.node_x))
+
+
+def test_the_mos_capacitor_substrate_is_still_flat() -> None:
+    """The device the Phase 4 C-V numbers came from, node by node."""
+    device = mos_device()
+    doping = device.net_doping.data
+    assert device.regions is not None
+    oxide = np.zeros(device.mesh.n_nodes, dtype=bool)
+    oxide[list(device.regions.oxide_nodes)] = True
+
+    np.testing.assert_array_equal(doping[oxide], 0.0)
+    np.testing.assert_array_equal(doping[~oxide], -NA)
+
+
+def test_a_depth_profile_reaches_the_second_axis() -> None:
+    """A vertical implant on a grid: every column reads the same depth shape,
+    and that shape is what the profile gives on the y axis on its own."""
+    mesh = stack_mesh()
+    shape = Gaussian(peak=1e20, centre=0.0, sigma=0.1 * T_SI)
+    device = build_device(
+        mesh=mesh,
+        doping=Along(shape, "y"),
+        contacts=mos_contacts(mesh),
+        regions=stacked_regions(mesh, interface_y=T_SI),
+    )
+
+    doping = device.net_doping.data
+
+    # The interface row counts as silicon, because half of its dual cell is,
+    # which is what makes it the row an inversion layer forms on. Said by
+    # index rather than by comparing y against T_SI: the two are the same
+    # number to a rounding error, and which side of it a node line lands on
+    # is not what this test is about.
+    interface_row = int(round(T_SI / DY))
+    expected = np.where(
+        np.arange(mesh.ny) <= interface_row, shape(mesh.y_axis.x), 0.0
+    )
+
+    for i in range(mesh.nx):
+        column = np.array([mesh.node_at(i, j) for j in range(mesh.ny)])
+        np.testing.assert_array_equal(doping[column], expected)
+
+
+def test_a_depth_profile_on_one_column_reproduces_the_line() -> None:
+    """The reduction the Phase 5 plan asks for. A grid one column wide is a
+    line, and a profile down its depth has to give the 1D answer on it."""
+    axis = uniform_mesh_1d(length=T_SI, n_nodes=41)
+    grid = tensor_mesh_2d(uniform_mesh_1d(length=WIDTH, n_nodes=2), axis)
+    shape = Gaussian(peak=1e20, centre=0.0, sigma=0.1 * T_SI)
+
+    line_device = build_device(
+        mesh=axis,
+        doping=shape,
+        contacts=(OhmicContact(name="body", node=0, voltage=0.0),),
+    )
+    grid_device = build_device(
+        mesh=grid,
+        doping=Along(shape, "y"),
+        contacts=(OhmicContact(name="body", node=0, voltage=0.0),),
+    )
+
+    left = np.array([grid.node_at(0, j) for j in range(grid.ny)])
+    np.testing.assert_array_equal(
+        grid_device.net_doping.data[left], line_device.net_doping.data
+    )
+
+
+def test_a_depth_profile_on_a_line_is_refused() -> None:
+    """A 1D device has no depth, and filling one in with zeros would leave a
+    profile silently reading its peak everywhere."""
+    device = build_device(
+        mesh=uniform_mesh_1d(length=T_SI, n_nodes=11),
+        doping=Along(Gaussian(peak=1e20, centre=0.0, sigma=1e-6), "y"),
+        contacts=(OhmicContact(name="body", node=0, voltage=0.0),),
+    )
+
+    with pytest.raises(ValueError, match="no y coordinate"):
+        _ = device.net_doping
