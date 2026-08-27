@@ -21,6 +21,7 @@ from ddsim.device.doping import (
     Coordinates,
     Erfc,
     Gaussian,
+    Mirrored,
     Product,
     Step,
     Uniform,
@@ -380,3 +381,64 @@ def test_multiplying_by_a_number_scales_the_profile() -> None:
 def test_multiplying_by_something_that_is_neither_raises() -> None:
     with pytest.raises(TypeError, match="DopingProfile or a number"):
         Uniform(1e16) * "half"  # type: ignore[operator]
+
+
+# ------------------------------------------------------------------ mirrored
+
+
+def test_mirroring_reflects_about_a_position() -> None:
+    """A drain is a source mirrored, which is the only reason this exists."""
+    shape = Erfc(peak=0.5, position=0.4 * MICRON, length=0.05 * MICRON)
+    x = np.linspace(0.0, 2.0 * MICRON, 21)
+    centre = MICRON
+
+    np.testing.assert_array_equal(
+        Mirrored(shape, about=centre)(x), shape(2.0 * centre - x)
+    )
+
+
+def test_mirroring_twice_is_the_original() -> None:
+    """To rounding on the position rather than exactly.
+
+    Reflecting is a subtraction, so 2c - (2c - x) comes back one ulp of c away
+    from x, and an erfc edge is exponentially sensitive to position: an
+    absolute 2e-20 cm on a 0.05 um edge shows up as 3e-14 relative in the
+    value. That is the shape amplifying a rounding error, not the reflection
+    losing anything, and 3e-14 of a doping concentration is nothing.
+    """
+    shape = Erfc(peak=0.5, position=0.4 * MICRON, length=0.05 * MICRON)
+    x = np.linspace(0.0, 2.0 * MICRON, 21)
+
+    there_and_back = Mirrored(Mirrored(shape, about=MICRON), about=MICRON)
+
+    np.testing.assert_allclose(there_and_back(x), shape(x), rtol=1e-13)
+
+
+def test_mirroring_leaves_the_depth_alone() -> None:
+    """A device is reflected across its centre, not turned upside down. So a
+    mirrored implant is at the same depth and the other end of the channel."""
+    x = np.linspace(0.0, 2.0 * MICRON, 5)
+    y = np.linspace(0.0, 0.2 * MICRON, 5)
+    at = Coordinates(x, y)
+
+    lateral = Erfc(peak=0.5, position=0.4 * MICRON, length=0.05 * MICRON)
+    vertical = Gaussian(peak=1e20, centre=0.0, sigma=0.05 * MICRON)
+    implant = Along(lateral, "x") * Along(vertical, "y")
+
+    np.testing.assert_array_equal(
+        Mirrored(implant, about=MICRON)(at),
+        lateral(2.0 * MICRON - x) * vertical(y),
+    )
+
+
+def test_mirroring_a_bare_position_reflects_it() -> None:
+    """A bare array is x everywhere else in this module, and here too."""
+    depth = np.linspace(0.0, MICRON, 5)
+    shape = Erfc(peak=1.0, position=0.3 * MICRON, length=0.1 * MICRON)
+
+    np.testing.assert_array_equal(
+        Along(Mirrored(shape, about=0.5 * MICRON), "y")(
+            Coordinates(np.zeros_like(depth), depth)
+        ),
+        shape(MICRON - depth),
+    )

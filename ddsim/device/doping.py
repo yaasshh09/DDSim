@@ -270,6 +270,31 @@ class Product(DopingProfile):
 
 
 @dataclass(frozen=True)
+class Mirrored(DopingProfile):
+    """A profile reflected about a position along x.
+
+    A drain is a source mirrored, and saying it that way is both shorter than
+    writing the implant out twice and more accurate: the two are the same
+    implant through the same mask, so anything that changes one changes the
+    other.
+
+    Only x is reflected. A device is turned end for end about its centre, not
+    upside down, so a mirrored implant sits at the same depth.
+    """
+
+    profile: DopingProfile
+    """The profile being reflected."""
+
+    about: float
+    """The position reflected about [cm], usually the centre of the device."""
+
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        here = Coordinates.of(at)
+        return self.profile(Coordinates(2.0 * self.about - here.x, here.y))
+
+
+@dataclass(frozen=True)
 class Along(DopingProfile):
     """A one dimensional shape, read along a named axis.
 
