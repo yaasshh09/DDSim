@@ -255,6 +255,19 @@ V_SAT_N_300: float = 1.07e7
 V_SAT_P_300: float = 8.3e6
 """Hole saturation velocity at 300 K [cm/s]."""
 
+BETA_N: float = 2.0
+"""Caughey-Thomas exponent for electrons [1], from docs/06-constants.md."""
+
+BETA_P: float = 1.0
+"""Caughey-Thomas exponent for holes [1].
+
+Not a typo for the electron value. The two carriers approach their saturation
+velocity differently, electrons abruptly and holes gradually, and one exponent
+each is how the model says so. The hole value makes mu a function of |E| with
+a kink at zero field, which is a known wart of the model rather than of this
+implementation.
+"""
+
 
 def mu_n(T: float = T_ROOM) -> float:
     """Electron mobility [cm^2/(V s)], constant stub.

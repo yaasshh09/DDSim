@@ -53,9 +53,15 @@ from ddsim.device.transport import (
     solve_bias_newton,
 )
 from ddsim.discretize.continuity import electron_current, hole_current
-from ddsim.discretize.coupled import coupled_residual, pack, unpack
+from ddsim.discretize.coupled import (
+    coupled_residual,
+    edge_drop,
+    pack,
+    unpack,
+)
 from ddsim.discretize.geometry import EdgeGeometry
 from ddsim.mesh.mesh1d import Mesh1D
+from ddsim.physics.mobility import diffusivity_at
 from ddsim.solve.continuation import continue_to
 
 
@@ -94,16 +100,19 @@ def current_densities(
     scale = device.scale
     mesh = device.scaled_mesh
 
+    # A field dependent diffusivity is a function of this state, so it is
+    # evaluated at it. The current is being read off a converged solution, so
+    # this is the same diffusivity the solve converged with.
+    drop = edge_drop(state.psi.data, mesh.geometry)
+    Dn = diffusivity_at(models.Dn, drop, mesh.h)
+    Dp = diffusivity_at(models.Dp, drop, mesh.h)
+
     Jn = _per_unit_face(
-        electron_current(
-            mesh.h, models.Dn, state.psi.data, state.n.data, mesh.geometry
-        ),
+        electron_current(mesh.h, Dn, state.psi.data, state.n.data, mesh.geometry),
         mesh.geometry,
     )
     Jp = _per_unit_face(
-        hole_current(
-            mesh.h, models.Dp, state.psi.data, state.p.data, mesh.geometry
-        ),
+        hole_current(mesh.h, Dp, state.psi.data, state.p.data, mesh.geometry),
         mesh.geometry,
     )
 

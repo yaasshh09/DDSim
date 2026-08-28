@@ -6,21 +6,24 @@ accuracy. The PDE solve can be perfect and the answer still wrong by 3x if
 mobility is wrong. Treat these models as first-class code, not as fudge
 factors."
 
-Phase 1 and 2 use a constant. Phase 3, this module, adds the doping
-dependence. Phase 5 adds the field dependence that produces velocity
-saturation, and the surface scattering an inversion layer needs.
+Phase 1 and 2 use a constant. Phase 3 adds the doping dependence, Arora.
+Phase 5 adds the field dependence that produces velocity saturation,
+Caughey-Thomas, and still owes the surface scattering an inversion layer needs.
 
-Why doping dependence is free and field dependence will not be
-------------------------------------------------------------
+Why doping dependence was free and field dependence is not
+---------------------------------------------------------
 Arora is a function of the doping, and the doping does not change during a
 solve. So the diffusivity is a constant array over edges, the Jacobian gains
-no new terms, and nothing in discretize/ has to learn anything: the assemblies
+no new terms, and nothing in discretize/ had to learn anything: the assemblies
 already accept Dn and Dp as per edge arrays rather than scalars.
 
-Caughey-Thomas in Phase 5 depends on the field, which is a difference of the
-unknown potential across the edge. That puts mobility inside the Jacobian and
-adds a dmu/dpsi term to every flux derivative. It is a much larger change and
-it is deliberately not started here.
+Caughey-Thomas depends on the field, which is a difference of the unknown
+potential across an edge, so it belongs inside the Jacobian. What that costs
+turns out to be one term per carrier and no new blocks. A flux already carries
+a factor of D, so differentiating it with respect to the drop across the edge
+adds J times dlnD/dX to a derivative that was there already. The seam is
+EdgeMobilityModel below: an assembly handed one of these evaluates it at the
+state it is assembling at, the same way it already treats recombination.
 
 Total doping, not net
 ---------------------
@@ -35,7 +38,7 @@ this and the lifetime are the two places that have to learn about it.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 import numpy.typing as npt
@@ -156,6 +159,190 @@ class AroraMobility:
         return np.asarray(
             self.mu_min + self.mu_d / (1.0 + (N / self.N_ref) ** self.exponent)
         )
+
+
+# ----------------------------------------------------- field dependent, Phase 5
+
+
+@runtime_checkable
+class EdgeMobilityModel(Protocol):
+    """A diffusivity that depends on the potential drop across its edge.
+
+    The seam that lets field dependence into the assemblies without them
+    learning any semiconductor physics, exactly as RecombinationModel does for
+    the rate. An assembly that is handed one of these evaluates it at the
+    state it is assembling at, instead of reading a fixed array.
+    """
+
+    def __call__(
+        self, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
+    ) -> npt.NDArray[Any]:
+        """Diffusivity on every edge, at potential drop X across it."""
+        ...
+
+    def derivative(
+        self, X: npt.NDArray[np.float64], h: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """dD/dX on every edge, for the Jacobian."""
+        ...
+
+
+def _magnitude(X: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    """|X|, written so a complex step through it still differentiates.
+
+    abs() of a complex number is its modulus, which is not holomorphic, so a
+    residual containing one returns an imaginary part of zero and the block
+    verification would report every field dependent term as missing. The
+    square root of the square is holomorphic away from the origin and its
+    complex step returns sign(X), which is the derivative of the absolute
+    value and the thing wanted.
+
+    The real path stays np.abs. sqrt(X*X) agrees with it to within an ulp over
+    the range a scaled potential drop occupies, but it squares first, so it
+    would return zero for an X below the square root of the smallest normal
+    number and infinity above its reciprocal, and neither is a rounding error.
+    Same shape as the complex branch in physics/bernoulli.py, and there for
+    the same reason.
+    """
+    if np.iscomplexobj(X):
+        return np.asarray(np.sqrt(X * X))
+    return np.abs(X)
+
+
+@dataclass(frozen=True)
+class CaugheyThomas:
+    """Field dependent mobility on mesh edges, producing velocity saturation.
+
+        mu(E) = mu_0 / (1 + (mu_0 |E| / v_sat)^beta)^(1/beta)
+
+    docs/01-physics.md gives this as the Phase 5 model and is specific about
+    two things.
+
+    **E is the component along the current direction, which on a box
+    integration mesh is the potential drop across an edge divided by its
+    length.** Using the magnitude of the full field vector is the common
+    shortcut and it is wrong, by more the more a mesh is graded: a node where
+    a 2 nm edge meets a 200 nm one has one field, and the two edges leaving it
+    do not see the same one.
+
+    **beta is 2 for electrons and 1 for holes.** The two carriers approach
+    saturation differently and one exponent each is how the model says so.
+
+    Why this one is not free where Arora was
+    ----------------------------------------
+    Arora is a function of the doping, which does not move during a solve, so
+    the diffusivity is a constant array and the Jacobian gains nothing. This
+    one is a function of the unknown potential, so it belongs inside the
+    Jacobian. The term it adds is small and exactly one line per carrier: the
+    flux already carries a factor of D, so differentiating it with respect to
+    the drop adds J * dlnD/dX to the derivative that was already there.
+
+    Everything here is unit free. The low field diffusivity, the saturation
+    velocity and the potential drop have to be in one consistent system, and
+    device/transport.py passes scaled ones. In scaled units a diffusivity and
+    a mobility are the same number, since D_0 = V_T * mu_0 is exactly the
+    Einstein relation the scaling was built on.
+    """
+
+    low_field: npt.NDArray[np.float64]
+    """Diffusivity on every edge with no field applied. What Arora or the
+    constant model gives on the nodes, averaged to the edge."""
+
+    v_sat: float
+    """Saturation velocity, in the units low_field and X/h imply."""
+
+    beta: float
+    """2 for electrons, 1 for holes."""
+
+    def __post_init__(self) -> None:
+        if self.v_sat <= 0.0:
+            raise ValueError(f"v_sat must be positive, got {self.v_sat}")
+        if self.beta <= 0.0:
+            raise ValueError(f"beta must be positive, got {self.beta}")
+
+    def _ratio(
+        self, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
+    ) -> npt.NDArray[Any]:
+        """mu_0 |E| / v_sat on every edge, the argument of the bracket."""
+        return np.asarray(
+            self.low_field * _magnitude(X) / (h * self.v_sat)
+        )
+
+    def __call__(
+        self, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
+    ) -> npt.NDArray[Any]:
+        """Diffusivity on every edge, at potential drop X across it.
+
+        Analytic in X, so a complex step through the residual differentiates
+        it. See _magnitude.
+        """
+        u = self._ratio(X, h)
+        return np.asarray(self.low_field / (1.0 + u**self.beta) ** (1.0 / self.beta))
+
+    def derivative(
+        self, X: npt.NDArray[np.float64], h: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """dD/dX on every edge. Real only, like the Bernoulli tangent.
+
+            dD/dX = -mu_0 k u^(beta-1) (1 + u^beta)^(-(1+beta)/beta) sign(X)
+
+        with k = mu_0 / (h v_sat), so that u = k|X|.
+
+        At X = 0 with beta = 1 the model has a kink and no two sided
+        derivative. sign(0) is zero, which takes the value from neither side
+        but from the symmetry between them, and it is what a complex step
+        through the square root of a square returns, so the Jacobian and the
+        thing that checks it agree there.
+        """
+        u = self._ratio(X, h)
+        k = self.low_field / (h * self.v_sat)
+        return np.asarray(
+            -np.sign(X)
+            * self.low_field
+            * k
+            * u ** (self.beta - 1.0)
+            * (1.0 + u**self.beta) ** (-(1.0 + self.beta) / self.beta)
+        )
+
+
+EdgeDiffusivity = float | npt.NDArray[np.float64] | EdgeMobilityModel
+"""A diffusivity, either fixed or a function of the drop across its edge.
+
+A number or an array is the state independent case, which is everything
+through Phase 4: a constant, or Arora evaluated on doping that does not move
+during a solve. An EdgeMobilityModel is Caughey-Thomas, which reads the
+potential drop and so has to be evaluated at whatever state is being solved.
+"""
+
+
+def diffusivity_at(
+    D: EdgeDiffusivity, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
+) -> float | npt.NDArray[Any]:
+    """One diffusivity per edge at potential drop X across each edge [1].
+
+    Dtype preserving through the model, so a complex step through a residual
+    picks the field dependence up instead of silently missing it.
+    """
+    if isinstance(D, EdgeMobilityModel):
+        return D(X, h)
+    return D
+
+
+def diffusivity_tangent(
+    D: EdgeDiffusivity,
+    X: npt.NDArray[np.float64],
+    h: npt.NDArray[np.float64],
+) -> npt.NDArray[np.float64] | None:
+    """dD/dX on every edge [1], or None where D does not depend on X.
+
+    None rather than an array of zeros, so an assembly with no field dependent
+    model does exactly the arithmetic it did before there was one. Adding a
+    zero is not free of consequence in a project that claims earlier results
+    are unchanged bit for bit; not adding it is.
+    """
+    if isinstance(D, EdgeMobilityModel):
+        return D.derivative(X, h)
+    return None
 
 
 def edge_diffusivity(

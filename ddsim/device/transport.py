@@ -83,13 +83,20 @@ from ddsim.discretize.coupled import (
     apply_contacts_coupled,
     assemble_coupled_terms,
     coupled_update_norm,
+    edge_drop,
     limit_psi_step,
     pack,
     row_weights,
     scale_rows,
     unpack,
 )
-from ddsim.physics.mobility import AroraMobility, edge_diffusivity
+from ddsim.physics.mobility import (
+    AroraMobility,
+    CaugheyThomas,
+    EdgeDiffusivity,
+    diffusivity_at,
+    edge_diffusivity,
+)
 from ddsim.physics.recombination import (
     AugerRecombination,
     RecombinationModel,
@@ -130,10 +137,14 @@ class TransportModels:
     recombination: RecombinationModel
     """Net recombination, built with scaled lifetimes."""
 
-    Dn: Diffusivity
-    """Electron diffusivity [1], scaled by D_0."""
+    Dn: EdgeDiffusivity
+    """Electron diffusivity [1], scaled by D_0.
 
-    Dp: Diffusivity
+    A number, one value per edge, or a model the assembly evaluates at the
+    state it is assembling at. See physics/mobility.py.
+    """
+
+    Dp: EdgeDiffusivity
     """Hole diffusivity [1], scaled by D_0."""
 
     @classmethod
@@ -143,6 +154,7 @@ class TransportModels:
         recombination: RecombinationModel | None = None,
         mobility: str = "constant",
         auger: bool = False,
+        field_dependent: bool = False,
     ) -> TransportModels:
         """Silicon models for a device, scaled to its own scale factors.
 
@@ -155,13 +167,17 @@ class TransportModels:
             auger: add band to band Auger alongside SRH. Off by default
                 because it changes nothing measurable below high injection
                 and every Phase 2 number was taken without it.
+            field_dependent: wrap the chosen low field model in
+                Caughey-Thomas, which is what produces velocity saturation.
+                Off by default for the same reason auger is: every result
+                recorded before Phase 5 was taken without it.
 
         Doping dependent mobility slots in by making Dn and Dp arrays over
         edges instead of scalars, which every assembly already accepts, and it
         adds nothing to the Jacobian because the doping does not change during
-        a solve. Field dependent mobility in Phase 5 will not be free in the
-        same way: it depends on the potential difference across the edge and
-        so puts a dmu/dpsi term into every flux derivative.
+        a solve. Field dependence is not free in the same way: it reads the
+        potential difference across an edge, so the coupled assembly evaluates
+        it at each iterate and the Jacobian carries its tangent.
 
         The SRH lifetimes come from the Scharfetter relation evaluated on the
         local doping. It wants the total doping Na + Nd and only the net is
@@ -204,19 +220,30 @@ class TransportModels:
 
         return cls(
             recombination=recombination,
-            Dn=_scaled_diffusivity(device, Carrier.ELECTRON, mobility),
-            Dp=_scaled_diffusivity(device, Carrier.HOLE, mobility),
+            Dn=_scaled_diffusivity(
+                device, Carrier.ELECTRON, mobility, field_dependent
+            ),
+            Dp=_scaled_diffusivity(
+                device, Carrier.HOLE, mobility, field_dependent
+            ),
         )
 
 
 def _scaled_diffusivity(
-    device: Device, carrier: Carrier, mobility: str
-) -> Diffusivity:
+    device: Device, carrier: Carrier, mobility: str, field_dependent: bool = False
+) -> EdgeDiffusivity:
     """Scaled diffusivity for one carrier, from the chosen mobility model.
 
     Constant comes back as a scalar and Arora as one value per edge. The
     assembly takes either, so the two are not different code paths anywhere
     downstream; only this function knows which was asked for.
+
+    With field_dependent set, whichever of those was chosen becomes the low
+    field limit of Caughey-Thomas and the result is a model rather than an
+    array. The wrapping order is the only one that makes sense: the low field
+    mobility is a nodal quantity and is averaged onto the edge first, and the
+    field factor is applied afterwards with that edge's own drop, because the
+    field is an edge quantity and has no value at a node.
     """
     scale = device.scale
     temperature = device.material.T
@@ -224,23 +251,56 @@ def _scaled_diffusivity(
 
     if mobility == "constant":
         constant = C.D_n(temperature) if electrons else C.D_p(temperature)
-        return constant / scale.D_0
-
-    if mobility != "arora":
+        low_field: Diffusivity = constant / scale.D_0
+    elif mobility == "arora":
+        model = (
+            AroraMobility.electrons(temperature)
+            if electrons
+            else AroraMobility.holes(temperature)
+        )
+        # Total doping, of which only the net is available. Same caveat and
+        # same reason as the Scharfetter lifetime above.
+        nodal = model(np.abs(device.net_doping.data))
+        edge_nodes = device.scaled_mesh.geometry.edge_nodes
+        low_field = (
+            edge_diffusivity(nodal, C.V_T(temperature), edge_nodes) / scale.D_0
+        )
+    else:
         raise ValueError(
             f"unknown mobility model {mobility!r}. Use 'constant' or 'arora'."
         )
 
-    model = (
-        AroraMobility.electrons(temperature)
-        if electrons
-        else AroraMobility.holes(temperature)
+    if not field_dependent:
+        return low_field
+
+    # A velocity is scaled by D_0 / x_0, which is what makes the scaled
+    # saturation velocity the number of Debye lengths a saturated carrier
+    # crosses per dielectric relaxation time.
+    v_sat = C.v_sat_n(temperature) if electrons else C.v_sat_p(temperature)
+    return CaugheyThomas(
+        low_field=np.broadcast_to(
+            np.asarray(low_field, dtype=np.float64), (device.scaled_mesh.h.size,)
+        ).copy(),
+        v_sat=v_sat * scale.x_0 / scale.D_0,
+        beta=C.BETA_N if electrons else C.BETA_P,
     )
-    # Total doping, of which only the net is available. Same caveat and same
-    # reason as the Scharfetter lifetime above.
-    nodal = model(np.abs(device.net_doping.data))
-    edge_nodes = device.scaled_mesh.geometry.edge_nodes
-    return edge_diffusivity(nodal, C.V_T(temperature), edge_nodes) / scale.D_0
+
+
+def _lagged_diffusivity(
+    D: EdgeDiffusivity, device: Device, psi: npt.NDArray[np.float64]
+) -> Diffusivity:
+    """A field dependent diffusivity frozen at the potential of this cycle.
+
+    What the uncoupled Gummel blocks get. Each of them solves one continuity
+    equation with psi held fixed, so within a block the field is a constant
+    and the diffusivity with it, which is what lagging a coefficient means and
+    is what a Gummel cycle already does to everything else it holds. At the
+    fixed point psi is the converged potential, so the frozen diffusivity is
+    the converged one and the cycle solves the same equations the coupled path
+    does. What is given up is the tangent, which is a rate of convergence and
+    not an answer.
+    """
+    return diffusivity_at(D, edge_drop(psi), device.scaled_mesh.h)
 
 
 def _node_field(values: npt.NDArray[np.float64], unit: str, name: str) -> Field:
@@ -317,7 +377,7 @@ def electron_block(
             state.p,
             models.recombination,
             device.scale,
-            models.Dn,
+            _lagged_diffusivity(models.Dn, device, state.psi.data),
         )
         assembly = apply_ohmic_densities(
             assembly, state.n.data, doping, device.ohmic_contacts, Carrier.ELECTRON
@@ -353,7 +413,7 @@ def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState
             state.p,
             models.recombination,
             device.scale,
-            models.Dp,
+            _lagged_diffusivity(models.Dp, device, state.psi.data),
         )
         assembly = apply_ohmic_densities(
             assembly, state.p.data, doping, device.ohmic_contacts, Carrier.HOLE

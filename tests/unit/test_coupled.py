@@ -61,6 +61,7 @@ from ddsim.discretize.coupled import (
     assemble_coupled_terms,
     coupled_jacobian,
     coupled_residual,
+    edge_drop,
     pack,
     residual_term_scales,
     row_weights,
@@ -70,6 +71,7 @@ from ddsim.discretize.coupled import (
 )
 from ddsim.discretize.poisson import poisson_residual
 from ddsim.mesh.mesh1d import uniform_mesh_1d
+from ddsim.physics.mobility import diffusivity_at
 from ddsim.solve.linear import SparseLU
 from tests.reference.complexstep import complex_step_jacobian
 
@@ -104,31 +106,48 @@ def device():
 
 @pytest.fixture(
     params=[
-        ("constant", False),
-        ("arora", False),
-        ("constant", True),
-        ("arora", True),
+        ("constant", False, False),
+        ("arora", False, False),
+        ("constant", True, False),
+        ("arora", True, False),
+        ("constant", False, True),
+        ("arora", True, True),
     ],
-    ids=["constant", "arora", "constant+auger", "arora+auger"],
+    ids=[
+        "constant",
+        "arora",
+        "constant+auger",
+        "arora+auger",
+        "constant+field",
+        "arora+auger+field",
+    ],
 )
 def models(request, device):
     """Recombination and diffusivities, in scaled units.
 
-    Parametrized over both the mobility model and the Auger flag, because the
-    two change the *shape* of what the assemblies receive rather than only the
-    numbers. Constant mobility makes Dn and Dp scalars, and a scalar broadcasts
-    against an edge array no matter how the edges are indexed. Arora makes them
-    one value per edge, where an off by one or a node/edge mixup stops being
-    invisible. Verifying the nine blocks only against the scalar case leaves
-    the alignment of the array case unpinned, which is the one thing the array
-    case exists to get right.
+    Parametrized over the mobility model, the Auger flag and the field
+    dependence, because all three change the *shape* of what the assemblies
+    receive rather than only the numbers. Constant mobility makes Dn and Dp
+    scalars, and a scalar broadcasts against an edge array no matter how the
+    edges are indexed. Arora makes them one value per edge, where an off by
+    one or a node/edge mixup stops being invisible. Verifying the nine blocks
+    only against the scalar case leaves the alignment of the array case
+    unpinned, which is the one thing the array case exists to get right.
 
     Auger is carried here for the same reason on the recombination side: it is
     the only model whose rate is not linear in a single carrier, so its
     derivative blocks are the ones a wrong linearization would show up in.
+
+    Caughey-Thomas is the reason this fixture matters most. It is the first
+    model whose diffusivity is a function of the unknown potential, so it puts
+    two new terms into the flux derivative blocks, and those terms are exactly
+    what a complex step through the residual will catch and nothing else will.
+    Newton converges without them, more slowly, to the same answer.
     """
-    mobility, auger = request.param
-    return TransportModels.for_device(device, mobility=mobility, auger=auger)
+    mobility, auger, field = request.param
+    return TransportModels.for_device(
+        device, mobility=mobility, auger=auger, field_dependent=field
+    )
 
 
 @pytest.fixture
@@ -326,13 +345,20 @@ def test_psi_rows_match_the_poisson_residual(device, geometry, models):
 def test_electron_rows_match_the_uncoupled_continuity_residual(
     device, geometry, models, perturbed_x
 ):
-    """Same equation, different unknown vector. The residual cannot move."""
+    """Same equation, different unknown vector. The residual cannot move.
+
+    The uncoupled assembly takes a diffusivity, never a model, so a field
+    dependent one is resolved at this state first. That is the comparison
+    worth making: the two write the same equation given the same coefficient,
+    and the coupled path is what works out what the coefficient is.
+    """
     h, volume = geometry
     psi, n, p = unpack(perturbed_x)
     R = np.asarray(models.recombination.rate(n, p), dtype=np.float64)
+    Dn = diffusivity_at(models.Dn, edge_drop(psi), h)
 
     got = residual_at(geometry, device, models)(perturbed_x)
-    expected = electron_continuity_residual(h, volume, models.Dn, psi, n, R)
+    expected = electron_continuity_residual(h, volume, Dn, psi, n, R)
 
     np.testing.assert_allclose(
         got[Unknown.N :: UNKNOWNS_PER_NODE], expected, rtol=1e-13, atol=0.0
@@ -346,9 +372,10 @@ def test_hole_rows_match_the_uncoupled_continuity_residual(
     h, volume = geometry
     psi, n, p = unpack(perturbed_x)
     R = np.asarray(models.recombination.rate(n, p), dtype=np.float64)
+    Dp = diffusivity_at(models.Dp, edge_drop(psi), h)
 
     got = residual_at(geometry, device, models)(perturbed_x)
-    expected = hole_continuity_residual(h, volume, models.Dp, psi, p, R)
+    expected = hole_continuity_residual(h, volume, Dp, psi, p, R)
 
     np.testing.assert_allclose(
         got[Unknown.P :: UNKNOWNS_PER_NODE], expected, rtol=1e-13, atol=0.0

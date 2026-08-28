@@ -112,6 +112,11 @@ from ddsim.discretize.continuity import Diffusivity
 from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.physics.bernoulli import B, dB_dx
+from ddsim.physics.mobility import (
+    EdgeDiffusivity,
+    diffusivity_at,
+    diffusivity_tangent,
+)
 from ddsim.physics.recombination import Density, RecombinationModel
 
 
@@ -180,6 +185,20 @@ def unpack(
     )
 
 
+def edge_drop(
+    psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D
+) -> npt.NDArray[Number]:
+    """psi_right - psi_left on every edge [1], the X the Bernoulli pair uses.
+
+    The field along an edge is this divided by the edge length, with a minus
+    sign. A field dependent mobility wants exactly the same quantity the
+    Scharfetter-Gummel argument does, which is why they are computed the same
+    way here rather than each in its own convention.
+    """
+    node_left, node_right = geometry.ends_of(psi.size)
+    return psi[node_right] - psi[node_left]
+
+
 def _bernoulli_pair(
     psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D
 ) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
@@ -188,9 +207,33 @@ def _bernoulli_pair(
     Unlike the one in continuity.py this does not force float64, because the
     residual it feeds has to survive a complex step.
     """
-    node_left, node_right = geometry.ends_of(psi.size)
-    X = psi[node_right] - psi[node_left]
+    X = edge_drop(psi, geometry)
     return np.asarray(B(X)), np.asarray(B(-X))
+
+
+def _diffusivity_at(
+    D: EdgeDiffusivity,
+    psi: npt.NDArray[Number],
+    h: npt.NDArray[np.float64],
+    geometry: EdgeGeometry = UNIFORM_1D,
+) -> Diffusivity:
+    """One diffusivity per edge at this state [1].
+
+    The drop across each edge is worked out here and the dispatch on whether
+    the model needs it lives in physics/mobility.py, so this module keeps
+    knowing about geometry and stays ignorant of mobility.
+    """
+    return diffusivity_at(D, edge_drop(psi, geometry), h)
+
+
+def _diffusivity_tangent(
+    D: EdgeDiffusivity,
+    psi: npt.NDArray[np.float64],
+    h: npt.NDArray[np.float64],
+    geometry: EdgeGeometry = UNIFORM_1D,
+) -> npt.NDArray[np.float64] | None:
+    """dD/dX on every edge [1], or None where D does not depend on X."""
+    return diffusivity_tangent(D, edge_drop(psi, geometry), h)
 
 
 def _bernoulli_derivative_pair(
@@ -201,8 +244,7 @@ def _bernoulli_derivative_pair(
     Real only. The Jacobian is assembled at a real state; it is the residual
     that gets differentiated, never this.
     """
-    node_left, node_right = geometry.ends_of(psi.size)
-    X = psi[node_right] - psi[node_left]
+    X = edge_drop(psi, geometry)
     return (
         np.asarray(dB_dx(X), dtype=np.float64),
         np.asarray(dB_dx(-X), dtype=np.float64),
@@ -217,8 +259,8 @@ def coupled_residual(
     volume: npt.NDArray[np.float64],
     x: npt.NDArray[Number],
     net_doping: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
+    Dn: EdgeDiffusivity,
+    Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[Number]:
@@ -257,7 +299,14 @@ def coupled_residual(
         recombination.rate(cast(Density, n), cast(Density, p)),
     )
     return _residual_from(
-        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi, geometry), R,
+        h,
+        volume,
+        x,
+        net_doping,
+        _diffusivity_at(Dn, psi, h, geometry),
+        _diffusivity_at(Dp, psi, h, geometry),
+        _bernoulli_pair(psi, geometry),
+        R,
         geometry,
     )
 
@@ -408,8 +457,8 @@ def coupled_jacobian(
     h: npt.NDArray[np.float64],
     volume: npt.NDArray[np.float64],
     x: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
+    Dn: EdgeDiffusivity,
+    Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
@@ -426,13 +475,15 @@ def coupled_jacobian(
         h,
         volume,
         x,
-        Dn,
-        Dp,
+        _diffusivity_at(Dn, psi, h, geometry),
+        _diffusivity_at(Dp, psi, h, geometry),
         _bernoulli_pair(psi, geometry),
         _bernoulli_derivative_pair(psi, geometry),
         np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64),
         np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64),
         geometry,
+        _diffusivity_tangent(Dn, psi, h, geometry),
+        _diffusivity_tangent(Dp, psi, h, geometry),
     )
 
 
@@ -447,8 +498,14 @@ def _jacobian_from(
     dR_dn: npt.NDArray[np.float64],
     dR_dp: npt.NDArray[np.float64],
     geometry: EdgeGeometry = UNIFORM_1D,
+    dDn_dX: npt.NDArray[np.float64] | None = None,
+    dDp_dX: npt.NDArray[np.float64] | None = None,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-    """coupled_jacobian with both Bernoulli pairs and both tangents in hand."""
+    """coupled_jacobian with both Bernoulli pairs and every tangent in hand.
+
+    dDn_dX and dDp_dX are None unless the diffusivity depends on the potential
+    drop across the edge, which is Caughey-Thomas and nothing before it.
+    """
     psi, n, p = unpack(x)
     n_nodes = psi.size
 
@@ -480,6 +537,14 @@ def _jacobian_from(
     G = (Dn * geometry.carrier_face / h) * (
         db_plus * n[node_right] + db_minus * n[node_left]
     )
+    if dDn_dX is not None:
+        # The flux carries a factor of D, so a D that moves with the drop
+        # across the edge differentiates into a second term of the same shape.
+        # Written as the flux over D rather than as a logarithm, so nothing
+        # divides by a diffusivity that is allowed to become small.
+        G = G + (dDn_dX * geometry.carrier_face / h) * (
+            b_plus * n[node_right] - b_minus * n[node_left]
+        )
     diagonal = np.zeros(n_nodes)
     np.add.at(diagonal, node_left, G)
     np.add.at(diagonal, node_right, G)
@@ -505,6 +570,10 @@ def _jacobian_from(
     H = (Dp * geometry.carrier_face / h) * (
         db_plus * p[node_left] + db_minus * p[node_right]
     )
+    if dDp_dX is not None:
+        H = H + (dDp_dX * geometry.carrier_face / h) * (
+            b_plus * p[node_left] - b_minus * p[node_right]
+        )
     diagonal = np.zeros(n_nodes)
     np.add.at(diagonal, node_left, -H)
     np.add.at(diagonal, node_right, -H)
@@ -540,8 +609,8 @@ def assemble_coupled(
     net_doping: Field,
     recombination: RecombinationModel,
     scale: ScaleFactors,
-    Dn: Diffusivity,
-    Dp: Diffusivity,
+    Dn: EdgeDiffusivity,
+    Dp: EdgeDiffusivity,
 ) -> SparseAssembly:
     """Assemble the coupled 3N system for a 1D mesh.
 
@@ -596,8 +665,8 @@ def assemble_coupled_arrays(
     volume: npt.NDArray[np.float64],
     x: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
+    Dn: EdgeDiffusivity,
+    Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
 ) -> SparseAssembly:
     """assemble_coupled with the scaling and location already checked.
@@ -630,8 +699,8 @@ def assemble_coupled_terms(
     volume: npt.NDArray[np.float64],
     x: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
+    Dn: EdgeDiffusivity,
+    Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> CoupledAssembly:
@@ -657,14 +726,34 @@ def assemble_coupled_terms(
     dR_dn = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
     dR_dp = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
 
+    # A field dependent diffusivity is a function of this state, so it is
+    # evaluated here with everything else that is, and once rather than three
+    # times: the residual, the Jacobian and the term scales all want the same
+    # one, for the same reason they all want the same Bernoulli pair.
+    Dn_edge = _diffusivity_at(Dn, psi, h, geometry)
+    Dp_edge = _diffusivity_at(Dp, psi, h, geometry)
+    dDn_dX = _diffusivity_tangent(Dn, psi, h, geometry)
+    dDp_dX = _diffusivity_tangent(Dp, psi, h, geometry)
+
     residual = _residual_from(
-        h, volume, x, net_doping, Dn, Dp, bernoulli, R, geometry
+        h, volume, x, net_doping, Dn_edge, Dp_edge, bernoulli, R, geometry
     )
     rows, cols, values = _jacobian_from(
-        h, volume, x, Dn, Dp, bernoulli, dbernoulli, dR_dn, dR_dp, geometry
+        h,
+        volume,
+        x,
+        Dn_edge,
+        Dp_edge,
+        bernoulli,
+        dbernoulli,
+        dR_dn,
+        dR_dp,
+        geometry,
+        dDn_dX,
+        dDp_dX,
     )
     scales = _term_scales_from(
-        h, volume, x, net_doping, Dn, Dp, bernoulli, R, geometry
+        h, volume, x, net_doping, Dn_edge, Dp_edge, bernoulli, R, geometry
     )
 
     size = x.size
@@ -822,8 +911,8 @@ def residual_term_scales(
     volume: npt.NDArray[np.float64],
     x: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
+    Dn: EdgeDiffusivity,
+    Dp: EdgeDiffusivity,
     R: npt.NDArray[np.float64] | None = None,
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[float, float, float]:
@@ -876,7 +965,14 @@ def residual_term_scales(
     """
     psi, _, _ = unpack(x)
     return _term_scales_from(
-        h, volume, x, net_doping, Dn, Dp, _bernoulli_pair(psi, geometry), R,
+        h,
+        volume,
+        x,
+        net_doping,
+        _diffusivity_at(Dn, psi, h, geometry),
+        _diffusivity_at(Dp, psi, h, geometry),
+        _bernoulli_pair(psi, geometry),
+        R,
         geometry,
     )
 

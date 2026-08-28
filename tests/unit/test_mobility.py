@@ -24,6 +24,7 @@ import pytest
 from ddsim.core import constants as C
 from ddsim.physics.mobility import (
     AroraMobility,
+    CaugheyThomas,
     ConstantMobility,
     edge_diffusivity,
 )
@@ -226,3 +227,238 @@ def test_the_arora_undoped_limit_does_not_match_the_tabulated_mobility() -> None
 
     assert float(electrons(0.0)) / C.MU_N_300 == pytest.approx(0.9456, rel=1e-3)
     assert float(holes(0.0)) / C.MU_P_300 == pytest.approx(0.9815, rel=1e-3)
+
+
+# ------------------------------------------------------------ Caughey-Thomas
+#
+# The field dependent model, and the one that produces velocity saturation.
+#
+#     mu(E) = mu_0 / (1 + (mu_0 |E| / v_sat)^beta)^(1/beta)
+#
+# It lives on edges rather than on nodes, because the field it wants is the
+# component along the current direction and on a box integration mesh that is
+# the potential drop across an edge divided by its length. The full field
+# magnitude is the common and wrong shortcut, and it is wrong by more the more
+# a mesh is graded, since a graded mesh has edges of wildly different lengths
+# meeting at a node.
+#
+# Everything below is unit free. The model is given a low field diffusivity, a
+# saturation velocity and a potential drop in one consistent system, and the
+# transport layer passes scaled ones. That is why these tests can use 1.0 for
+# the low field value and read the answers off directly.
+
+
+def edges(value: float, count: int = 5):
+    """A low field diffusivity on `count` edges."""
+    return np.full(count, value)
+
+
+def test_at_zero_field_the_model_returns_the_low_field_value() -> None:
+    """Exactly, not nearly. A model that shaved a fraction off at zero field
+    would move every result taken before it existed."""
+    model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
+    h = np.full(5, 0.1)
+
+    np.testing.assert_array_equal(model(np.zeros(5), h), edges(1.0))
+
+
+def test_the_drift_velocity_saturates_at_v_sat() -> None:
+    """The whole point of the model. mu falls exactly fast enough that mu*E
+    approaches a constant, and that constant is v_sat."""
+    v_sat = 0.5
+    model = CaugheyThomas(low_field=edges(1.0), v_sat=v_sat, beta=2.0)
+    h = np.full(5, 0.1)
+
+    X = np.array([1e2, 1e3, 1e4, 1e5, 1e6])
+    velocity = model(X, h) * np.abs(X) / h
+
+    assert velocity[-1] == pytest.approx(v_sat, rel=1e-6)
+    assert np.all(np.diff(velocity) > 0.0)
+
+
+def test_the_drift_velocity_never_exceeds_v_sat() -> None:
+    """At any field at all, which is a stronger statement than the limit."""
+    v_sat = 0.5
+    for beta in (1.0, 2.0):
+        model = CaugheyThomas(low_field=edges(1.0), v_sat=v_sat, beta=beta)
+        h = np.full(5, 0.1)
+        X = np.array([0.0, 1e-3, 1.0, 1e3, 1e9])
+
+        assert np.all(model(X, h) * np.abs(X) / h <= v_sat)
+
+
+def test_the_knee_is_where_the_low_field_drift_would_reach_v_sat() -> None:
+    """The one point of the curve that is closed form: at mu_0 E = v_sat the
+    bracket is exactly 2, so mu is mu_0 over the beta-th root of 2."""
+    for beta in (1.0, 2.0):
+        model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=beta)
+        h = np.full(5, 0.1)
+        X = np.full(5, 0.5 * 0.1)  # low_field * |X| / h == v_sat
+
+        np.testing.assert_allclose(
+            model(X, h), 1.0 / 2.0 ** (1.0 / beta), rtol=1e-14
+        )
+
+
+def test_mobility_falls_monotonically_with_field() -> None:
+    for beta in (1.0, 2.0):
+        model = CaugheyThomas(low_field=edges(1.0, 60), v_sat=0.5, beta=beta)
+        h = np.full(60, 0.1)
+        X = np.linspace(0.0, 30.0, 60)
+
+        assert np.all(np.diff(model(X, h)) < 0.0)
+
+
+def test_the_model_does_not_care_which_way_the_field_points() -> None:
+    """A carrier slows down in a strong field whichever direction it runs, so
+    only the magnitude of the potential drop enters."""
+    model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
+    h = np.full(5, 0.1)
+    X = np.array([0.1, 1.0, 5.0, 20.0, 100.0])
+
+    np.testing.assert_array_equal(model(X, h), model(-X, h))
+
+
+def test_electrons_hold_their_mobility_longer_than_holes_do() -> None:
+    """beta = 2 against beta = 1 at the same v_sat. Below the knee the larger
+    exponent keeps the bracket nearer to 1, so the electron curve stays flat
+    and then turns while the hole curve starts falling straight away."""
+    h = np.full(5, 0.1)
+    X = np.full(5, 0.1 * 0.5 * 0.1)  # a tenth of the way to the knee
+    electrons = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
+    holes = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=1.0)
+
+    assert np.all(electrons(X, h) > holes(X, h))
+
+
+def test_a_longer_edge_across_the_same_drop_is_a_weaker_field() -> None:
+    """The field is the drop divided by the length, so the edge length is not
+    decoration. Dropping it would make the model depend on how the mesh was
+    graded rather than on the physics."""
+    model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
+    X = np.full(5, 1.0)
+
+    assert np.all(model(X, np.full(5, 1.0)) > model(X, np.full(5, 0.1)))
+
+
+# ------------------------------------------ the tangent the Jacobian needs
+
+
+def complex_step_dD_dX(model, X, h, step: float = 1e-30):
+    """dD/dX by complex step, exact to machine precision.
+
+    The technique phases/PHASE-3.md makes a permanent CI requirement for the
+    coupled Jacobian, applied here to one term of it on its own.
+    """
+    return np.imag(model(X + 1j * step, h)) / step
+
+
+def test_the_tangent_matches_a_complex_step_for_electrons() -> None:
+    model = CaugheyThomas(low_field=edges(1.3, 7), v_sat=0.5, beta=2.0)
+    h = np.linspace(0.05, 0.4, 7)
+    X = np.array([-30.0, -5.0, -0.5, 0.2, 3.0, 12.0, 200.0])
+
+    np.testing.assert_allclose(
+        model.derivative(X, h), complex_step_dD_dX(model, X, h), rtol=1e-12
+    )
+
+
+def test_the_tangent_matches_a_complex_step_for_holes() -> None:
+    """beta = 1, where the model has an absolute value in it and the tangent
+    on the negative side is the one that would be easiest to get wrong."""
+    model = CaugheyThomas(low_field=edges(0.4, 7), v_sat=0.3, beta=1.0)
+    h = np.linspace(0.05, 0.4, 7)
+    X = np.array([-30.0, -5.0, -0.5, 0.2, 3.0, 12.0, 200.0])
+
+    np.testing.assert_allclose(
+        model.derivative(X, h), complex_step_dD_dX(model, X, h), rtol=1e-12
+    )
+
+
+def test_the_tangent_is_negative_wherever_the_field_is_positive() -> None:
+    """More field, less mobility. A sign is what a Jacobian gets wrong
+    silently: Newton still converges with the wrong sign on a small term, just
+    slowly, and to the same answer."""
+    model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
+    h = np.full(5, 0.1)
+    X = np.array([0.1, 1.0, 5.0, 20.0, 100.0])
+
+    assert np.all(model.derivative(X, h) < 0.0)
+    assert np.all(model.derivative(-X, h) > 0.0)
+
+
+def test_the_tangent_is_zero_at_zero_field() -> None:
+    """Zero from both sides for electrons, and by choice for holes.
+
+    beta = 2 is smooth at the origin and its derivative there really is zero.
+    beta = 1 is not: the model has |E| in it, so the two one sided derivatives
+    are equal and opposite and there is no two sided one. Zero is the value
+    halfway between them, and it is the right choice for a Jacobian, because
+    either one sided value would claim the mobility falls when the potential
+    is raised and rises when it is lowered, which is half of the truth stated
+    as the whole of it.
+    """
+    for beta in (1.0, 2.0):
+        model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=beta)
+
+        np.testing.assert_array_equal(
+            model.derivative(np.zeros(5), np.full(5, 0.1)), np.zeros(5)
+        )
+
+
+def test_a_complex_step_at_zero_field_takes_the_right_hand_side() -> None:
+    """Which is where the Jacobian and its verification part company, and the
+    only place they do.
+
+    A complex step approaches the origin along the imaginary axis, and the
+    square root of a square resolves that onto the positive branch, so it
+    reports the derivative from the right. For electrons that is zero and
+    agrees. For holes it is the one sided value, against zero in the Jacobian.
+    Both are defensible readings of a point where the model has a corner, and
+    the disagreement exists on a set of measure zero: a device with a hole
+    current has a field somewhere, and an edge sitting at exactly 0.0 has no
+    current across it to get wrong.
+    """
+    holes = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=1.0)
+    electrons = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
+    h = np.full(5, 0.1)
+
+    from_the_right = complex_step_dD_dX(holes, np.zeros(5), h)
+
+    assert np.all(from_the_right < 0.0)
+    np.testing.assert_allclose(
+        from_the_right, holes.derivative(np.full(5, 1e-8), h), rtol=1e-6
+    )
+    np.testing.assert_allclose(
+        complex_step_dD_dX(electrons, np.zeros(5), h), np.zeros(5), atol=1e-30
+    )
+
+
+def test_a_complex_argument_survives_the_model() -> None:
+    """The block verification differentiates the coupled residual by complex
+    step, so everything the residual calls has to stay analytic. abs() of a
+    complex number is not, which is why the magnitude is a square root of a
+    square instead."""
+    model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
+
+    out = model(np.full(5, 2.0) + 1j * 1e-30, np.full(5, 0.1))
+
+    assert np.iscomplexobj(out)
+    np.testing.assert_allclose(
+        np.real(out), model(np.full(5, 2.0), np.full(5, 0.1)), rtol=1e-15
+    )
+
+
+# ------------------------------------------------------------------ refusals
+
+
+def test_a_zero_saturation_velocity_is_refused() -> None:
+    """It divides the field, and a carrier that cannot move at all is not a
+    slow carrier, it is a different model."""
+    with pytest.raises(ValueError, match="v_sat"):
+        CaugheyThomas(low_field=edges(1.0), v_sat=0.0, beta=2.0)
+
+
+def test_a_non_positive_beta_is_refused() -> None:
+    with pytest.raises(ValueError, match="beta"):
+        CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=0.0)
