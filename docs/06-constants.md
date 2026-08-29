@@ -165,6 +165,42 @@ Its parameters are in the DEVSIM documentation.
 
 beta = 2 for electrons, beta = 1 for holes.
 
+### Lombardi surface mobility, enhanced form
+
+Scattering off the Si/SiO2 interface, combined with the bulk mobility by
+Matthiessen's rule:
+
+    1/mu   = 1/mu_bulk + 1/mu_ac + 1/mu_sr
+    mu_ac  = B/E_perp + C_ac * N^tau * E_perp^(-1/3) / (T/300)^kappa
+    mu_sr  = delta * E_perp^(-gamma)
+    gamma  = A + alpha * (n + p) * N^(-eta)
+
+E_perp is the magnitude of the field normal to the interface [V/cm], floored
+at 1e2 as DEVSIM floors it, since both terms divide by it. N is the total
+doping and n + p the local carrier density.
+
+| Param | Electrons | Holes |
+|---|---|---|
+| B | 3.61e7 | 1.51e7 |
+| C_ac | 1.70e4 | 4.18e3 |
+| tau | 0.0233 | 0.0119 |
+| delta | 3.58e18 | 4.10e15 |
+| A | 2.58 | 2.18 |
+| alpha | 6.85e-21 | 7.82e-21 |
+| eta | 0.0767 | 0.123 |
+| kappa | 1.7 | 0.9 |
+
+Unlike every other table in this file these are not silicon constants, they
+are one published fit, and they are here because the model has to have
+numbers and no other doc in this repo carries them. They are the values
+DEVSIM ships in its `python_packages/Klaassen.py`, taken from there rather
+than from a textbook so that the tier 4 MOSFET regressions compare two runs of
+the same model. The 1988 Lombardi model is this with gamma fixed at 2.
+
+Composition order matters and is the reference's: the bulk mobility is
+corrected for the surface first, at nodes, and velocity saturation is applied
+afterwards on the edges with the parallel field.
+
 ## SRH lifetimes
 
 Defaults, Scharfetter doping dependence:

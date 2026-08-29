@@ -305,6 +305,228 @@ class CaugheyThomas:
         )
 
 
+# ------------------------------------------------- surface scattering, Phase 5
+
+
+@dataclass(frozen=True)
+class LombardiSurface:
+    """Surface scattering at the Si/SiO2 interface, by Matthiessen's rule.
+
+        1/mu = 1/mu_bulk + 1/mu_ac + 1/mu_sr
+
+        mu_ac = B/E_perp + C N^tau E_perp^(-1/3) / (T/300)^kappa
+        mu_sr = delta E_perp^(-gamma)
+        gamma = A + alpha (n + p) N^(-eta)
+
+    docs/01-physics.md calls this not optional and says what it is worth:
+    without it the inversion layer mobility is too high by a factor of 2 to 3
+    and the drain current is wrong by the same factor. A test asserts that
+    factor at a channel condition rather than taking it on trust.
+
+    Why it needs no layer thickness
+    -------------------------------
+    Both surface terms diverge as E_perp falls, so their reciprocals vanish
+    and Matthiessen hands back mu_bulk untouched. That is what lets the model
+    be evaluated over a whole region instead of inside a surface layer whose
+    depth somebody would have to pick, and picking one is exactly the sort of
+    fitting this phase's success criterion forbids.
+
+    E_perp is a magnitude
+    ---------------------
+    The field normal to the interface, not a signed component and not the
+    length of the full field vector. On the tensor product mesh this project
+    uses, the interface is a horizontal line, so the normal direction is y and
+    the magnitude is abs(E_y). A negative argument is refused rather than
+    quietly absolute valued, because a signed difference that reached here
+    would produce a plausible looking mobility and no other symptom.
+
+    Provenance
+    ----------
+    This is the enhanced Lombardi, sometimes the Darwish model, in the form
+    DEVSIM ships in its Klaassen.py, with DEVSIM's parameter values. It is the
+    1988 Lombardi model with the surface roughness exponent made a function of
+    the carrier density instead of fixed at 2. Matching the model the tier 4
+    reference actually runs is what gives the MOSFET regressions a chance of
+    agreeing, and none of these parameters is in docs/06-constants.md, so a
+    test pins every one of them against the reference's own source.
+
+    The floor on E_perp is DEVSIM's too, and it is load bearing rather than
+    cosmetic: both terms divide by E_perp, so an unfloored zero is an infinity
+    in mu_ac and a nan as soon as it meets the reciprocal sum.
+
+    The parameter names are the reference's own, which is what makes the
+    pinning test readable against DEVSIM's source, with one exception. Its C
+    is C_ac here, because a field called C would shadow this module's alias
+    for the constants and a reader should not have to work out which of the
+    two a bare C meant.
+    """
+
+    B: float
+    """Coulomb term of the acoustic phonon mobility [V/s]."""
+
+    C_ac: float
+    """Doping term of the acoustic phonon mobility, units to suit tau.
+
+    DEVSIM calls this C_e and C_h. The suffix here says which of the two
+    surface terms it belongs to, and keeps it from shadowing this module's
+    alias for the constants."""
+
+    tau: float
+    """Doping exponent of the acoustic phonon term [1]."""
+
+    delta: float
+    """Surface roughness prefactor, units to suit gamma."""
+
+    A: float
+    """Surface roughness exponent with no carriers present [1].
+
+    The 1988 Lombardi model fixes the exponent at 2 and stops here. This is
+    where the two models agree.
+    """
+
+    alpha: float
+    """How fast the roughness exponent grows with carrier density [cm^3]."""
+
+    eta: float
+    """Doping exponent damping that growth [1]."""
+
+    kappa: float
+    """Temperature exponent of the acoustic phonon term [1]."""
+
+    T: float = C.T_ROOM
+    """Lattice temperature [K]."""
+
+    E_floor: float = 1.0e2
+    """Smallest normal field the model is evaluated at [V/cm].
+
+    Not a physical cutoff. Below it both terms are already so large that they
+    contribute nothing through Matthiessen, and the only thing still changing
+    is how close to dividing by zero the arithmetic gets.
+    """
+
+    @classmethod
+    def electrons(cls, T: float = C.T_ROOM) -> LombardiSurface:
+        """Parameters for electrons, from DEVSIM's Klaassen.py."""
+        return cls(
+            B=3.61e7,
+            C_ac=1.70e4,
+            tau=0.0233,
+            delta=3.58e18,
+            A=2.58,
+            alpha=6.85e-21,
+            eta=0.0767,
+            kappa=1.7,
+            T=T,
+        )
+
+    @classmethod
+    def holes(cls, T: float = C.T_ROOM) -> LombardiSurface:
+        """Parameters for holes, from DEVSIM's Klaassen.py.
+
+        delta is three decades below the electron value and that is not a
+        transcription slip. Holes sit further from the interface and scatter
+        off its roughness far less, which is why their surface mobility
+        degrades more gently than their bulk mobility would suggest.
+        """
+        return cls(
+            B=1.51e7,
+            C_ac=4.18e3,
+            tau=0.0119,
+            delta=4.10e15,
+            A=2.18,
+            alpha=7.82e-21,
+            eta=0.123,
+            kappa=0.9,
+            T=T,
+        )
+
+    def _floored(self, E_perp: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """E_perp, refused if signed and held above the floor [V/cm]."""
+        E = np.asarray(E_perp, dtype=np.float64)
+        if np.any(E < 0.0):
+            raise ValueError(
+                "E_perp is the magnitude of the field normal to the "
+                "interface and cannot be negative. A signed difference "
+                "reached here without its absolute value."
+            )
+        return np.maximum(E, self.E_floor)
+
+    def acoustic(
+        self, E_perp: npt.NDArray[np.float64], total_doping: Doping
+    ) -> npt.NDArray[np.float64]:
+        """Acoustic phonon limited mobility [cm^2/(V s)].
+
+            mu_ac = B/E_perp + C N^tau E_perp^(-1/3) / (T/300)^kappa
+
+        Two terms with different powers of the field, so which one dominates
+        moves with bias. The 1/E term rules at low field and the E^(-1/3) term
+        takes over in inversion, which is where the doping dependence starts
+        to matter.
+        """
+        E = self._floored(E_perp)
+        N = np.abs(np.asarray(total_doping, dtype=np.float64))
+        temperature = (self.T / C.T_ROOM) ** self.kappa
+        return np.asarray(
+            self.B / E + self.C_ac * N**self.tau * E ** (-1.0 / 3.0) / temperature
+        )
+
+    def gamma(
+        self, total_doping: Doping, carriers: Doping
+    ) -> npt.NDArray[np.float64]:
+        """Surface roughness exponent [1].
+
+            gamma = A + alpha (n + p) N^(-eta)
+
+        The one place a carrier density enters the model, and the whole of
+        what distinguishes this from the 1988 form. A heavier inversion layer
+        sits closer to the interface and sees a rougher one.
+        """
+        N = np.abs(np.asarray(total_doping, dtype=np.float64))
+        return np.asarray(
+            self.A + self.alpha * np.asarray(carriers, dtype=np.float64) * N**-self.eta
+        )
+
+    def roughness(
+        self,
+        E_perp: npt.NDArray[np.float64],
+        total_doping: Doping,
+        carriers: Doping,
+    ) -> npt.NDArray[np.float64]:
+        """Surface roughness limited mobility [cm^2/(V s)].
+
+            mu_sr = delta E_perp^(-gamma)
+
+        The steeper of the two surface terms, and the one that ends up setting
+        the inversion layer mobility at high gate bias.
+        """
+        E = self._floored(E_perp)
+        return np.asarray(self.delta * E ** -self.gamma(total_doping, carriers))
+
+    def __call__(
+        self,
+        mu_bulk: npt.NDArray[np.float64],
+        E_perp: npt.NDArray[np.float64],
+        total_doping: Doping,
+        carriers: Doping,
+    ) -> npt.NDArray[np.float64]:
+        """Mobility [cm^2/(V s)] with surface scattering folded in.
+
+        Args:
+            mu_bulk: the doping dependent mobility this corrects [cm^2/(V s)].
+            E_perp: magnitude of the field normal to the interface [V/cm].
+            total_doping: Na + Nd at each node [cm^-3].
+            carriers: n + p at each node [cm^-3].
+
+        Every argument is a nodal quantity, and so is the answer. Nothing here
+        knows about edges; averaging onto them happens where the geometry is
+        known. See device/transport.py.
+        """
+        mu_ac = self.acoustic(E_perp, total_doping)
+        mu_sr = self.roughness(E_perp, total_doping, carriers)
+        bulk = np.asarray(mu_bulk, dtype=np.float64)
+        return np.asarray(1.0 / (1.0 / bulk + 1.0 / mu_ac + 1.0 / mu_sr))
+
+
 EdgeDiffusivity = float | npt.NDArray[np.float64] | EdgeMobilityModel
 """A diffusivity, either fixed or a function of the drop across its edge.
 

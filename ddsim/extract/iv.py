@@ -65,6 +65,30 @@ from ddsim.physics.mobility import diffusivity_at
 from ddsim.solve.continuation import continue_to
 
 
+def _models_at(
+    device: Device, state: DeviceState, models: TransportModels | None
+) -> TransportModels:
+    """The transport models resolved at the state a current is read from.
+
+    A current has to be computed with the diffusivity the solve converged
+    with, and for a surface corrected mobility that is a function of the
+    state rather than something built once with the device. Reading it off
+    the models as they were built uses the uncorrected bulk mobility, which
+    is wrong by the whole size of the correction and shows up as a terminal
+    current sum an order of magnitude further from zero than it should be.
+
+    Field dependence is not handled here. That one is resolved edge by edge
+    where it is used, because it needs the potential drop across each edge and
+    this function has no reason to know about edges.
+
+    Returns the models untouched where there is no surface model, which is
+    every device before Phase 5, so nothing recorded earlier moves.
+    """
+    if models is None:
+        models = TransportModels.for_device(device)
+    return models.at_state(device, state.psi.data, state.n.data, state.p.data)
+
+
 def current_densities(
     device: Device,
     state: DeviceState,
@@ -94,8 +118,7 @@ def current_densities(
     quotient of two zeros. There is no current density in an insulator to
     report, and zero is the answer every sum over edges wants.
     """
-    if models is None:
-        models = TransportModels.for_device(device)
+    models = _models_at(device, state, models)
 
     scale = device.scale
     mesh = device.scaled_mesh
@@ -170,8 +193,7 @@ def continuity_residuals(
     order. What differs between the coupled and uncoupled paths is the
     Jacobian, and no Jacobian is wanted here.
     """
-    if models is None:
-        models = TransportModels.for_device(device)
+    models = _models_at(device, state, models)
 
     mesh = device.scaled_mesh
     residual = coupled_residual(

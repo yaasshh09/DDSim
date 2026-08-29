@@ -200,6 +200,73 @@ class Mesh2D:
         )
 
 
+def normal_field(
+    mesh: Mesh2D, psi: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    """Magnitude of the field normal to a horizontal interface, per node.
+
+    Args:
+        mesh: the tensor product mesh. Its y direction is the interface
+            normal, which is what makes this a function of a Mesh2D and not
+            of an arbitrary one.
+        psi: potential at every node, in whatever units the caller works in.
+
+    Returns:
+        abs(dpsi/dy) at every node, in psi's units per unit length.
+
+    What Lombardi surface mobility reads. It is deliberately nodal: a
+    horizontal channel edge, which is the edge the whole model is about, has
+    its normal field on the vertical edges above and below its two endpoints
+    and not on itself, so there is no edge quantity to reach for. Working it
+    out at nodes and averaging onto edges afterwards is the route the mobility
+    already takes from Arora, and it gives one answer per node rather than one
+    per node per asking edge.
+
+    An interior node averages the two vertical edges either side of it. A node
+    on the top or bottom row has one, and takes it. Dividing by a hardcoded
+    two at the boundary would halve the field on exactly the row the gate sits
+    on.
+
+    This is a magnitude, since the model scatters a carrier off the interface
+    the same way whichever side the gate is on, and physics/mobility.py
+    refuses a signed argument rather than taking the absolute value itself.
+    **The absolute value is taken after the averaging, not before**, and the
+    two are not the same thing. Where the field reverses across a node, which
+    is what a potential extremum in y is, the field at that node really is
+    near zero, and averaging magnitudes would report the average of the two
+    large ones instead. In a channel the vertical field does not reverse and
+    the two agree, so the difference only shows up somewhere the model was
+    going to be asked anyway.
+
+    Only the y direction is normal here because the Si/SiO2 interface in this
+    project's devices is a horizontal line on a tensor product mesh. An
+    unstructured mesh, or a non planar interface, would need the interface
+    normal carried per node instead, which is the shape DEVSIM uses. Nothing
+    about that is cheaper and this geometry does not need it.
+    """
+    if psi.size != mesh.n_nodes:
+        raise ValueError(
+            f"psi has {psi.size} values but the mesh has {mesh.n_nodes} nodes"
+        )
+
+    # The vertical family, which follows the horizontal one in the edge list.
+    # Slicing rather than searching: tensor_mesh_2d builds them in that order
+    # and n_horizontal is how it says so.
+    vertical = slice(mesh.n_horizontal, None)
+    below, above = mesh.edge_nodes[vertical, 0], mesh.edge_nodes[vertical, 1]
+    edge_field = (psi[above] - psi[below]) / mesh.h[vertical]
+
+    total = np.zeros(mesh.n_nodes, dtype=np.float64)
+    count = np.zeros(mesh.n_nodes, dtype=np.float64)
+    for node in (below, above):
+        np.add.at(total, node, edge_field)
+        np.add.at(count, node, 1.0)
+
+    # Every node has at least one vertical edge, because a Mesh2D needs two
+    # nodes on each axis, so nothing here divides by a zero count.
+    return np.abs(total / count)
+
+
 def tensor_mesh_2d(x_axis: Mesh1D, y_axis: Mesh1D) -> Mesh2D:
     """The tensor product of two 1D meshes.
 

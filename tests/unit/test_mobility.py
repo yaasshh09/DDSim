@@ -26,6 +26,7 @@ from ddsim.physics.mobility import (
     AroraMobility,
     CaugheyThomas,
     ConstantMobility,
+    LombardiSurface,
     edge_diffusivity,
 )
 
@@ -462,3 +463,242 @@ def test_a_zero_saturation_velocity_is_refused() -> None:
 def test_a_non_positive_beta_is_refused() -> None:
     with pytest.raises(ValueError, match="beta"):
         CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=0.0)
+
+
+# ================================================== Lombardi surface, Phase 5
+#
+# docs/01-physics.md names this model and states what it is worth: "Without
+# this your inversion-layer mobility is too high by a factor of 2 to 3 and
+# your Id is correspondingly wrong." That factor is the acceptance test, and
+# it is asserted below at a channel condition rather than assumed.
+#
+# The parameters are not in docs/06-constants.md. They are the enhanced
+# Lombardi, or Darwish, set that DEVSIM ships in its Klaassen.py, which is the
+# reference this project regresses against in tier 4. A test pins every one of
+# them, so that a silent edit to a fit parameter is not something a reader has
+# to notice by eye.
+
+
+DEVSIM_ELECTRONS = {
+    "B": 3.61e7,
+    "C_ac": 1.70e4,
+    "tau": 0.0233,
+    "delta": 3.58e18,
+    "A": 2.58,
+    "alpha": 6.85e-21,
+    "eta": 0.0767,
+    "kappa": 1.7,
+}
+
+DEVSIM_HOLES = {
+    "B": 1.51e7,
+    "C_ac": 4.18e3,
+    "tau": 0.0119,
+    "delta": 4.10e15,
+    "A": 2.18,
+    "alpha": 7.82e-21,
+    "eta": 0.123,
+    "kappa": 0.9,
+}
+
+
+@pytest.mark.parametrize(
+    ("build", "table"),
+    [
+        (LombardiSurface.electrons, DEVSIM_ELECTRONS),
+        (LombardiSurface.holes, DEVSIM_HOLES),
+    ],
+    ids=["electrons", "holes"],
+)
+def test_the_parameters_are_the_devsim_ones(build, table) -> None:
+    """Pins the provenance. Every one of these came out of the reference's own
+    source, and a fit parameter that drifts is not visible in any result until
+    a DEVSIM regression fails for a reason nobody can locate."""
+    model = build(T=C.T_ROOM)
+    for name, value in table.items():
+        assert getattr(model, name) == value
+
+
+# ------------------------------------------------------- the low field limit
+
+
+@pytest.mark.parametrize(
+    "build", [LombardiSurface.electrons, LombardiSurface.holes], ids=["n", "p"]
+)
+def test_a_vanishing_normal_field_gives_back_the_bulk_mobility(build) -> None:
+    """Far from the interface there is no normal field, so there must be no
+    surface scattering. This is what lets the model be applied over a whole
+    region instead of inside a layer whose thickness somebody has to choose.
+
+    Both surface terms diverge as E_perp falls, so their reciprocals vanish
+    and Matthiessen leaves mu_bulk alone. Not exactly, because the floor stops
+    E_perp at 1e2 V/cm, so the assertion is a percent rather than an equality.
+    """
+    model = build()
+    mu_bulk = np.full(4, 800.0)
+
+    mu = model(
+        mu_bulk,
+        E_perp=np.zeros(4),
+        total_doping=np.full(4, 1e17),
+        carriers=np.full(4, 1e10),
+    )
+
+    np.testing.assert_allclose(mu, mu_bulk, rtol=0.02)
+    assert np.all(mu < mu_bulk), "scattering can only ever subtract"
+
+
+def test_the_normal_field_is_floored_rather_than_dividing_by_zero() -> None:
+    """Both terms divide by E_perp, so an unfloored zero is an inf in mu_ac
+    and a nan the moment it meets the reciprocal sum. DEVSIM floors it at
+    1e2 V/cm and the floor is copied rather than invented."""
+    model = LombardiSurface.electrons()
+    mu_bulk = np.full(3, 800.0)
+    doping, carriers = np.full(3, 1e17), np.full(3, 1e10)
+
+    at_zero = model(mu_bulk, np.zeros(3), doping, carriers)
+    at_floor = model(mu_bulk, np.full(3, model.E_floor), doping, carriers)
+    below = model(mu_bulk, np.full(3, 1.0), doping, carriers)
+
+    assert np.all(np.isfinite(at_zero))
+    np.testing.assert_allclose(at_zero, at_floor, rtol=1e-14)
+    np.testing.assert_allclose(below, at_floor, rtol=1e-14)
+
+
+# --------------------------------------------------------------- Matthiessen
+
+
+@pytest.mark.parametrize(
+    "build", [LombardiSurface.electrons, LombardiSurface.holes], ids=["n", "p"]
+)
+def test_the_three_channels_combine_by_reciprocals(build) -> None:
+    """1/mu = 1/mu_bulk + 1/mu_ac + 1/mu_sr, which is the whole content of the
+    model. Asserted against the components the model reports separately, so a
+    sign or an association error in the combining line has somewhere to show."""
+    model = build()
+    mu_bulk = np.full(5, 700.0)
+    E = np.array([1e3, 1e4, 1e5, 3e5, 1e6])
+    doping, carriers = np.full(5, 3e17), np.full(5, 5e17)
+
+    mu = model(mu_bulk, E, doping, carriers)
+    mu_ac = model.acoustic(E, doping)
+    mu_sr = model.roughness(E, doping, carriers)
+
+    expected = 1.0 / (1.0 / mu_bulk + 1.0 / mu_ac + 1.0 / mu_sr)
+    np.testing.assert_allclose(mu, expected, rtol=1e-14)
+    assert np.all(mu < np.minimum(mu_bulk, np.minimum(mu_ac, mu_sr)))
+
+
+@pytest.mark.parametrize(
+    "build", [LombardiSurface.electrons, LombardiSurface.holes], ids=["n", "p"]
+)
+def test_mobility_falls_as_the_normal_field_rises(build) -> None:
+    """More field pulls the carrier harder against the interface, so it
+    scatters off it more. Monotone with no turning point anywhere in the range
+    a MOSFET occupies."""
+    model = build()
+    E = np.logspace(2.0, 6.5, 60)
+    mu = model(np.full(60, 800.0), E, np.full(60, 1e17), np.full(60, 1e18))
+
+    assert np.all(np.diff(mu) < 0.0)
+
+
+# --------------------------------------------------- what the model is worth
+
+
+def test_the_inversion_layer_is_two_to_three_times_slower_than_bulk() -> None:
+    """The acceptance test for the whole model, and the reason Phase 5 calls
+    it not optional.
+
+    docs/01-physics.md: "Without this your inversion-layer mobility is too
+    high by a factor of 2 to 3 and your Id is correspondingly wrong." The
+    condition is a real one: a 1e17 channel under a normal field of 5e5 V/cm,
+    which is what a 1 um NMOS sees at a volt of overdrive through 10 nm of
+    oxide, carrying the surface density an inversion layer holds.
+
+    The bulk mobility is Arora's own answer at that doping rather than a round
+    number, so the ratio is between two things the code computes.
+    """
+    channel_doping = 1e17
+    mu_bulk = float(AroraMobility.electrons()(channel_doping))
+
+    mu = LombardiSurface.electrons()(
+        np.full(1, mu_bulk),
+        E_perp=np.full(1, 5e5),
+        total_doping=np.full(1, channel_doping),
+        carriers=np.full(1, 1e18),
+    )
+
+    ratio = mu_bulk / float(mu[0])
+    assert 2.0 < ratio < 3.0, f"surface mobility is {ratio:.2f}x below bulk"
+
+
+def test_holes_stay_slower_than_electrons_at_the_surface() -> None:
+    """True in the bulk and it had better survive the surface terms, which
+    carry their own separate parameter set and could reorder them."""
+    E, doping, carriers = np.full(4, 3e5), np.full(4, 1e17), np.full(4, 1e18)
+
+    mu_n = LombardiSurface.electrons()(np.full(4, 800.0), E, doping, carriers)
+    mu_p = LombardiSurface.holes()(np.full(4, 300.0), E, doping, carriers)
+
+    assert np.all(mu_p < mu_n)
+
+
+# ---------------------------------------------- the density dependent exponent
+
+
+def test_a_heavier_inversion_layer_roughens_the_surface_it_sees() -> None:
+    """The exponent gamma is what makes this the enhanced model rather than
+    the 1988 one, and it is the only place a carrier density enters. More
+    carriers in the layer means a larger exponent, so mu_sr falls faster with
+    field. With gamma a constant this test cannot pass."""
+    model = LombardiSurface.electrons()
+    E, doping = np.full(3, 5e5), np.full(3, 1e17)
+
+    light = model.roughness(E, doping, carriers=np.full(3, 1e14))
+    heavy = model.roughness(E, doping, carriers=np.full(3, 1e20))
+
+    assert np.all(
+        model.gamma(doping, np.full(3, 1e20)) > model.gamma(doping, np.full(3, 1e14))
+    )
+    assert np.all(heavy < light)
+
+
+def test_the_exponent_reduces_to_A_with_no_carriers_present() -> None:
+    """gamma = A + alpha*(n + p)*N^(-eta), so an empty band leaves A. That is
+    the 1988 Lombardi exponent, and the two models agree there."""
+    model = LombardiSurface.holes()
+    gamma = model.gamma(np.full(2, 1e17), np.zeros(2))
+
+    np.testing.assert_allclose(gamma, model.A, rtol=1e-15)
+
+
+# --------------------------------------------------------------- temperature
+
+
+def test_the_acoustic_term_carries_the_temperature_exponent() -> None:
+    """mu_ac divides its second term by (T/300)^kappa, so a hotter lattice
+    scatters more. kappa differs between the carriers, 1.7 against 0.9, which
+    is why it is a parameter and not a shared constant."""
+    cold = LombardiSurface.electrons(T=250.0)
+    hot = LombardiSurface.electrons(T=350.0)
+    E, doping = np.full(3, 3e5), np.full(3, 1e17)
+
+    assert np.all(hot.acoustic(E, doping) < cold.acoustic(E, doping))
+
+
+# ------------------------------------------------------------------ refusals
+
+
+def test_a_negative_normal_field_is_refused() -> None:
+    """E_perp is a magnitude by construction, so a negative one means the
+    caller took a signed difference and forgot the absolute value. Quietly
+    taking abs() here would hide that: the exponents would accept it and the
+    mobility would come out looking plausible."""
+    with pytest.raises(ValueError, match="E_perp"):
+        LombardiSurface.electrons()(
+            np.full(3, 800.0),
+            np.array([1e5, -1e5, 1e5]),
+            np.full(3, 1e17),
+            np.full(3, 1e18),
+        )

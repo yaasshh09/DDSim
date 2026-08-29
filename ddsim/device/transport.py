@@ -54,6 +54,7 @@ Phase 3 exists. See phases/PHASE-2.md.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -90,10 +91,13 @@ from ddsim.discretize.coupled import (
     scale_rows,
     unpack,
 )
+from ddsim.mesh.mesh2d import Mesh2D, normal_field
 from ddsim.physics.mobility import (
     AroraMobility,
     CaugheyThomas,
+    ConstantMobility,
     EdgeDiffusivity,
+    LombardiSurface,
     diffusivity_at,
     edge_diffusivity,
 )
@@ -106,7 +110,7 @@ from ddsim.physics.recombination import (
 )
 from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve
 from ddsim.solve.linear import SparseLU
-from ddsim.solve.newton import newton_solve
+from ddsim.solve.newton import NewtonResult, newton_solve
 
 DENSITY_REFERENCE = 1.0
 """Floor in the density update norm [1], which is n_i in scaled units.
@@ -131,6 +135,117 @@ class TransportError(RuntimeError):
 
 
 @dataclass(frozen=True)
+class SurfaceScattering:
+    """What it takes to rebuild the diffusivities once the state has moved.
+
+    Lombardi surface mobility reads the field normal to the Si/SiO2 interface
+    and the carrier density at the same node, so unlike Arora it is not a
+    property of the device that can be worked out once. Unlike Caughey-Thomas
+    it also cannot be evaluated inside the assembly, because the normal field
+    on a horizontal channel edge lives on the vertical edges above and below
+    its endpoints rather than on the edge itself, and carrying that dependence
+    exactly would widen the Jacobian stencil past the edge based pattern every
+    assembly in `discretize/` is built on.
+
+    So it is frozen instead, and an outer loop turns the freezing into a fixed
+    point. See `solve_bias_newton`. Within one Newton solve the surface
+    correction is a constant array, which means the residual and the Jacobian
+    are assembled from exactly the same mobility and the nine block complex
+    step verification is untouched. At the outer fixed point the frozen
+    correction is the one the answer implies, so the converged state solves the
+    true equations. What is given up is the rate, not the answer.
+
+    This holds the pieces that do not move, so a refresh is one evaluation of
+    the model rather than a rebuild of the device.
+    """
+
+    electrons: LombardiSurface
+    """The model for electrons, with its own parameter set."""
+
+    holes: LombardiSurface
+    """The model for holes."""
+
+    mu_bulk_n: npt.NDArray[np.float64]
+    """Electron mobility before any surface correction [cm^2/(V s)], per node.
+
+    Whatever the chosen bulk model gives, so `constant` and `arora` both land
+    here and the surface term does not know which it corrected.
+    """
+
+    mu_bulk_p: npt.NDArray[np.float64]
+    """Hole mobility before any surface correction [cm^2/(V s)], per node."""
+
+    total_doping: npt.NDArray[np.float64]
+    """Na + Nd at each node [cm^-3], floored at n_i.
+
+    Only the net doping is available, same caveat and same reason as the
+    Scharfetter lifetime. The floor is separate and it is load bearing: the
+    roughness exponent carries N^(-eta), so a node with exactly zero doping
+    raises it to a negative power and returns an infinity. Every node in the
+    oxide has exactly zero doping, because `Device.net_doping` zeroes it
+    wherever there is no semiconductor. Below the intrinsic density there are
+    no scattering centres left worth counting, so n_i is where the count
+    stops, and no node of any device built here sits near it anyway.
+    """
+
+    semiconductor: npt.NDArray[np.bool_]
+    """Which nodes hold semiconductor, one per node.
+
+    The correction is applied at these and nowhere else. An insulator has no
+    surface mobility, and an oxide node left carrying one is not harmless:
+    an edge running from the interface into the oxide averages the two ends,
+    so a bad value there reaches the interface row, which is the channel.
+    """
+
+    def corrected(
+        self,
+        device: Device,
+        psi: npt.NDArray[np.float64],
+        n: npt.NDArray[np.float64],
+        p: npt.NDArray[np.float64],
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Nodal mobilities [cm^2/(V s)] with the surface term folded in.
+
+        Args:
+            device: for the mesh, the scale factors and nothing else.
+            psi: potential at every node [1], scaled.
+            n: electron density at every node [1], scaled.
+            p: hole density at every node [1], scaled.
+
+        The state arrives scaled and the model's parameters are in physical
+        units, so everything is put back before it is used. That conversion is
+        the one place this could go quietly wrong: a normal field short by a
+        factor of the Debye length over the thermal voltage would still be
+        positive, still monotone, and still produce a mobility that looked
+        like a mobility.
+        """
+        mesh = device.mesh
+        if not isinstance(mesh, Mesh2D):
+            raise TypeError(
+                "surface mobility needs a direction normal to the interface "
+                f"and a {type(mesh).__name__} has none. Build the device on a "
+                "Mesh2D, which is what a MOSFET is on."
+            )
+
+        scale = device.scale
+        E_perp = normal_field(mesh, psi * scale.psi_0)
+        carriers = (n + p) * scale.C_0
+
+        return (
+            np.where(
+                self.semiconductor,
+                self.electrons(self.mu_bulk_n, E_perp, self.total_doping, carriers),
+                self.mu_bulk_n,
+            ),
+            np.where(
+                self.semiconductor,
+                self.holes(self.mu_bulk_p, E_perp, self.total_doping, carriers),
+                self.mu_bulk_p,
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class TransportModels:
     """The material models a transport solve needs, all in scaled units."""
 
@@ -147,6 +262,48 @@ class TransportModels:
     Dp: EdgeDiffusivity
     """Hole diffusivity [1], scaled by D_0."""
 
+    surface: SurfaceScattering | None = None
+    """Surface scattering, or None where the device has no interface.
+
+    Present rather than folded into Dn and Dp because it has to be refreshed
+    as the state moves. `solve_bias_newton` reads it to decide whether to run
+    the outer fixed point at all, so None is what makes every solve before
+    Phase 5 take exactly the path it took.
+    """
+
+    field_dependent: bool = False
+    """Whether Dn and Dp are wrapped in Caughey-Thomas.
+
+    Carried so that a refresh can rebuild the same shape of model it replaced.
+    Reading it off Dn's type instead would work today and would break the
+    first time another edge model exists.
+    """
+
+    def at_state(
+        self,
+        device: Device,
+        psi: npt.NDArray[np.float64],
+        n: npt.NDArray[np.float64],
+        p: npt.NDArray[np.float64],
+    ) -> TransportModels:
+        """These models with the surface correction taken at this state.
+
+        Returns self unchanged where there is no surface model, so a caller
+        does not have to ask first and a device without an interface is not a
+        separate code path.
+        """
+        if self.surface is None:
+            return self
+
+        mu_n, mu_p = self.surface.corrected(device, psi, n, p)
+        return replace(
+            self,
+            Dn=_from_nodal_mobility(
+                device, Carrier.ELECTRON, mu_n, self.field_dependent
+            ),
+            Dp=_from_nodal_mobility(device, Carrier.HOLE, mu_p, self.field_dependent),
+        )
+
     @classmethod
     def for_device(
         cls,
@@ -155,6 +312,7 @@ class TransportModels:
         mobility: str = "constant",
         auger: bool = False,
         field_dependent: bool = False,
+        surface: bool = False,
     ) -> TransportModels:
         """Silicon models for a device, scaled to its own scale factors.
 
@@ -171,6 +329,10 @@ class TransportModels:
                 Caughey-Thomas, which is what produces velocity saturation.
                 Off by default for the same reason auger is: every result
                 recorded before Phase 5 was taken without it.
+            surface: add Lombardi scattering off the Si/SiO2 interface. Needs
+                a Mesh2D, since it reads the field normal to that interface
+                and a line has no normal. Off by default, and a device with
+                no interface has no use for it.
 
         Doping dependent mobility slots in by making Dn and Dp arrays over
         edges instead of scalars, which every assembly already accepts, and it
@@ -226,6 +388,12 @@ class TransportModels:
             Dp=_scaled_diffusivity(
                 device, Carrier.HOLE, mobility, field_dependent
             ),
+            surface=(
+                _surface_scattering(device, mobility, total_doping)
+                if surface
+                else None
+            ),
+            field_dependent=field_dependent,
         )
 
 
@@ -270,8 +438,85 @@ def _scaled_diffusivity(
             f"unknown mobility model {mobility!r}. Use 'constant' or 'arora'."
         )
 
+    return _wrapped_in_saturation(device, carrier, low_field, field_dependent)
+
+
+def _surface_scattering(
+    device: Device, mobility: str, total_doping: npt.NDArray[np.float64]
+) -> SurfaceScattering:
+    """The Lombardi models and the bulk mobility they correct.
+
+    The bulk mobility is worked out once here and kept, because it is a
+    function of the doping alone and the doping does not move during a solve.
+    Only the normal field and the carrier densities move, and those are the
+    two arguments a refresh supplies.
+    """
+    temperature = device.material.T
+
+    if mobility == "constant":
+        nodal_n = ConstantMobility(C.mu_n(temperature))(total_doping)
+        nodal_p = ConstantMobility(C.mu_p(temperature))(total_doping)
+    elif mobility == "arora":
+        nodal_n = AroraMobility.electrons(temperature)(total_doping)
+        nodal_p = AroraMobility.holes(temperature)(total_doping)
+    else:
+        raise ValueError(
+            f"unknown mobility model {mobility!r}. Use 'constant' or 'arora'."
+        )
+
+    semiconductor = np.ones(device.mesh.n_nodes, dtype=np.bool_)
+    semiconductor[list(device.carrier_free_nodes)] = False
+
+    return SurfaceScattering(
+        electrons=LombardiSurface.electrons(temperature),
+        holes=LombardiSurface.holes(temperature),
+        mu_bulk_n=nodal_n,
+        mu_bulk_p=nodal_p,
+        total_doping=np.maximum(total_doping, device.material.n_i),
+        semiconductor=semiconductor,
+    )
+
+
+def _from_nodal_mobility(
+    device: Device,
+    carrier: Carrier,
+    nodal: npt.NDArray[np.float64],
+    field_dependent: bool,
+) -> EdgeDiffusivity:
+    """A scaled edge diffusivity from a mobility already worked out per node.
+
+    What the surface correction produces. It has already replaced whichever
+    bulk model was chosen, so there is no model name left to dispatch on, and
+    the rest of the journey onto the edges is the same one Arora takes: an
+    arithmetic average onto each edge, the Einstein relation, and the scaling.
+    """
+    edge_nodes = device.scaled_mesh.geometry.edge_nodes
+    V_T = C.V_T(device.material.T)
+    low_field = edge_diffusivity(nodal, V_T, edge_nodes) / device.scale.D_0
+    return _wrapped_in_saturation(device, carrier, low_field, field_dependent)
+
+
+def _wrapped_in_saturation(
+    device: Device,
+    carrier: Carrier,
+    low_field: Diffusivity,
+    field_dependent: bool,
+) -> EdgeDiffusivity:
+    """Caughey-Thomas around a low field diffusivity, or that diffusivity.
+
+    The wrapping order is the only one that makes sense and it is the one the
+    reference uses: the low field mobility is a nodal quantity, so it is
+    corrected for the surface and averaged onto the edge first, and the
+    velocity saturation factor is applied afterwards with that edge's own
+    parallel drop, because the parallel field is an edge quantity and has no
+    value at a node.
+    """
     if not field_dependent:
         return low_field
+
+    scale = device.scale
+    temperature = device.material.T
+    electrons = carrier is Carrier.ELECTRON
 
     # A velocity is scaled by D_0 / x_0, which is what makes the scaled
     # saturation velocity the number of Debye lengths a saturated carrier
@@ -470,6 +715,162 @@ def initial_state(device: Device) -> DeviceState:
     return solve_equilibrium(device, frozen_quasi_fermi(device))
 
 
+def _low_field_models(models: TransportModels) -> TransportModels:
+    """The same models with every state dependent mobility taken back out.
+
+    Caughey-Thomas unwraps to the low field diffusivity it was built around,
+    and the surface model is dropped. Recombination is untouched, since it was
+    never the difficulty.
+
+    What comes back is Phase 3's mobility: a fixed array over edges that the
+    assembly reads rather than evaluates. Nothing about the device, the mesh
+    or the bias changes.
+    """
+    unwrapped = tuple(
+        D.low_field if isinstance(D, CaugheyThomas) else D
+        for D in (models.Dn, models.Dp)
+    )
+    return replace(
+        models,
+        Dn=unwrapped[0],
+        Dp=unwrapped[1],
+        surface=None,
+        field_dependent=False,
+    )
+
+
+def _needs_a_low_field_prelude(
+    models: TransportModels, guess: DeviceState | None
+) -> bool:
+    """Whether a cold solve should be walked up to these models.
+
+    Only field dependence, and only cold. Two limits and a reason for each.
+
+    **Field dependence and not surface scattering.** Caughey-Thomas is inside
+    the Jacobian and its mobility falls steeply through the critical field, so
+    a step that overshoots lands somewhere the linearization did not predict.
+    Measured on a 1 um NMOS from the Poisson guess: 60 iterations, 55 of them
+    against the step limiter, no convergence. Surface scattering is outside
+    the Jacobian and only ever scales the mobility by a few, and the same
+    device cold starts through it in six steps.
+
+    **Cold and not warm.** A continuation step already arrives with a guess
+    from the neighbouring bias, and that guess is worth more than this one.
+    """
+    return guess is None and models.field_dependent
+
+
+def _low_field_edges(D: EdgeDiffusivity) -> npt.NDArray[np.float64]:
+    """The per edge low field diffusivity inside whatever D is [1].
+
+    The fixed point is on the mobility, and with velocity saturation switched
+    on the mobility is wrapped in a model rather than sitting there as an
+    array. Reaching through the wrapper compares the thing that actually moves
+    between sweeps: the saturation factor is a function of the iterate and is
+    already converged by the Newton solve that just finished.
+    """
+    if isinstance(D, CaugheyThomas):
+        return D.low_field
+    return np.asarray(D, dtype=np.float64)
+
+
+def _surface_moved(before: TransportModels, after: TransportModels) -> float:
+    """Largest relative change in either diffusivity between two sweeps [1].
+
+    Both carriers, because the electron channel of an NMOS converging says
+    nothing about the hole one, and a fixed point that has only half arrived
+    is not one.
+    """
+    worst = 0.0
+    for old, new in ((before.Dn, after.Dn), (before.Dp, after.Dp)):
+        a, b = _low_field_edges(old), _low_field_edges(new)
+        worst = max(worst, float(np.max(np.abs(b - a) / np.abs(a))))
+    return worst
+
+
+def _surface_fixed_point(
+    device: Device,
+    models: TransportModels,
+    run: Callable[[TransportModels, npt.NDArray[np.float64]], NewtonResult],
+    x0: npt.NDArray[np.float64],
+    max_sweeps: int,
+    rtol: float,
+) -> NewtonResult:
+    """Newton to convergence, with the surface mobility refreshed between runs.
+
+    Lombardi reads the field normal to the interface, which for a horizontal
+    channel edge lives on the vertical edges above and below its two endpoints
+    rather than on the edge itself. Carrying that exactly would widen the
+    Jacobian stencil past the edge based pattern every assembly in
+    `discretize/` is built on, so the correction is frozen inside each Newton
+    solve and this loop makes the freezing a fixed point instead.
+
+    Two properties are worth being precise about, because "frozen coefficient"
+    is usually a euphemism for an approximation and here it is not one.
+
+    **Inside a sweep nothing is approximated.** The residual and the Jacobian
+    are assembled from the same frozen mobility, so they agree exactly and the
+    nine block complex step verification is untouched by any of this.
+
+    **At the fixed point nothing is frozen.** The loop ends when refreshing
+    the mobility from the answer changes it by less than rtol, which is to say
+    the mobility the solve used is the mobility the answer implies. What was
+    given up is the rate of convergence and not the converged state.
+
+    The reported result carries the whole cost: iterations summed over the
+    sweeps and both histories concatenated. The residual history therefore has
+    a sawtooth in it, one tooth per refresh, and that is the honest picture of
+    what this method does rather than a defect in it.
+
+    A sweep that fails to converge ends the loop immediately and is returned
+    as it is. Continuation reads that to decide to halve its step, and there
+    is nothing to be gained by refreshing a mobility from a state Newton could
+    not reach.
+    """
+    active = models.at_state(device, *unpack(x0))
+    x = x0
+    iterations = 0
+    residual_history: list[float] = []
+    update_history: list[float] = []
+    limited_steps = 0
+    sweeps = 0
+
+    while sweeps < max_sweeps:
+        sweeps += 1
+        result = run(active, x)
+
+        iterations += result.iterations
+        residual_history.extend(result.residual_history)
+        update_history.extend(result.update_history)
+        limited_steps += result.limited_steps
+        x = result.x
+
+        combined = replace(
+            result,
+            iterations=iterations,
+            residual_history=residual_history,
+            update_history=update_history,
+            limited_steps=limited_steps,
+        )
+        if not result.converged:
+            return combined
+
+        refreshed = active.at_state(device, *unpack(x))
+        if _surface_moved(active, refreshed) < rtol:
+            return combined
+        active = refreshed
+
+    return replace(
+        combined,
+        converged=False,
+        message=(
+            f"the surface mobility was still moving after {max_sweeps} "
+            f"sweeps. The last Newton solve converged; what did not is the "
+            f"fixed point between the mobility and the state it is read from."
+        ),
+    )
+
+
 def solve_bias_newton(
     device: Device,
     models: TransportModels | None = None,
@@ -478,6 +879,8 @@ def solve_bias_newton(
     max_iterations: int = 30,
     residual_rtol: float = 1e-10,
     update_tol: float = 1e-10,
+    max_surface_sweeps: int = 20,
+    surface_rtol: float = 1e-8,
 ) -> DeviceState:
     """Solve the coupled system at the device's biases by full Newton.
 
@@ -494,6 +897,12 @@ def solve_bias_newton(
             own term scale after row scaling.
         update_tol: threshold on the update, measured per family by
             coupled.coupled_update_norm rather than as max |dx|.
+        max_surface_sweeps: budget for the surface mobility fixed point.
+            Ignored where there is no surface model, which is every device
+            before Phase 5.
+        surface_rtol: how still the surface corrected diffusivity has to be,
+            as a relative change on the edge that moved most, before the
+            fixed point counts as reached.
 
     The same equations as solve_bias, solved together instead of in a cycle.
     Returns the state with its NewtonResult attached, converged or not, and
@@ -522,6 +931,17 @@ def solve_bias_newton(
 
     **Only psi is damped.** docs/02-numerics.md and docs/05-pitfalls.md both
     say to cap the potential update and take the density updates in full.
+
+    **A cold solve with velocity saturation is walked up to it.** The Poisson
+    guess is not in the basin of a Caughey-Thomas solve on a MOSFET: measured,
+    60 iterations with 55 of them against the step limiter and no convergence.
+    The same solve handed the low field answer converges in six, and at the
+    off state in zero, because the field dependence changes nothing where no
+    current flows. So a cold field dependent solve runs the low field models
+    first and continues from that. It is continuation in the model rather than
+    in the bias, it is the same shape as the Gummel prelude below it, and the
+    iterations it costs are added to the ones reported. See
+    `_needs_a_low_field_prelude` for why surface scattering does not need one.
     """
     if models is None:
         models = TransportModels.for_device(device)
@@ -538,41 +958,81 @@ def solve_bias_newton(
 
     x0 = pack(start.psi.data, start.n.data, start.p.data)
 
-    def assemble(x: npt.NDArray[np.float64]) -> SparseAssembly:
-        assembly, scales = assemble_coupled_terms(
-            h,
-            volume,
-            x,
-            net_doping,
-            models.Dn,
-            models.Dp,
-            models.recombination,
-            geometry,
-        )
-        # Contacts before the scaling, so a pinned row becomes the identity
-        # and then gets divided like any other. Scaling first would leave the
-        # pinned rows at one while everything around them moved.
-        assembly = apply_contacts_coupled(
-            assembly,
-            x,
-            net_doping,
-            device.contacts,
-            scale,
-            carrier_free,
-            device.material.T,
-        )
-        return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
+    def assembler(
+        active: TransportModels,
+    ) -> Callable[[npt.NDArray[np.float64]], SparseAssembly]:
+        """The assembly closure, over one frozen set of models.
 
-    result = newton_solve(
-        assemble,
-        x0,
-        limit=lambda delta: limit_psi_step(delta, max_psi_step),
-        residual_scale=1.0,
-        residual_rtol=residual_rtol,
-        update_tol=update_tol,
-        update_norm=coupled_update_norm,
-        max_iterations=max_iterations,
-    )
+        Taken as a function of the models rather than reading them from the
+        enclosing scope, because the surface fixed point replaces them between
+        solves and a closure over a name that is being rebound is the kind of
+        bug that produces a converged wrong answer.
+        """
+
+        def assemble(x: npt.NDArray[np.float64]) -> SparseAssembly:
+            assembly, scales = assemble_coupled_terms(
+                h,
+                volume,
+                x,
+                net_doping,
+                active.Dn,
+                active.Dp,
+                active.recombination,
+                geometry,
+            )
+            # Contacts before the scaling, so a pinned row becomes the identity
+            # and then gets divided like any other. Scaling first would leave
+            # the pinned rows at one while everything around them moved.
+            assembly = apply_contacts_coupled(
+                assembly,
+                x,
+                net_doping,
+                device.contacts,
+                scale,
+                carrier_free,
+                device.material.T,
+            )
+            return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
+
+        return assemble
+
+    def run(
+        active: TransportModels, x: npt.NDArray[np.float64]
+    ) -> NewtonResult:
+        return newton_solve(
+            assembler(active),
+            x,
+            limit=lambda delta: limit_psi_step(delta, max_psi_step),
+            residual_scale=1.0,
+            residual_rtol=residual_rtol,
+            update_tol=update_tol,
+            update_norm=coupled_update_norm,
+            max_iterations=max_iterations,
+        )
+
+    def solve_with(
+        active: TransportModels, x: npt.NDArray[np.float64]
+    ) -> NewtonResult:
+        if active.surface is None:
+            return run(active, x)
+        return _surface_fixed_point(
+            device, active, run, x, max_surface_sweeps, surface_rtol
+        )
+
+    prelude: NewtonResult | None = None
+    if _needs_a_low_field_prelude(models, guess):
+        prelude = solve_with(_low_field_models(models), x0)
+        x0 = prelude.x
+
+    result = solve_with(models, x0)
+    if prelude is not None:
+        result = replace(
+            result,
+            iterations=result.iterations + prelude.iterations,
+            residual_history=prelude.residual_history + result.residual_history,
+            update_history=prelude.update_history + result.update_history,
+            limited_steps=result.limited_steps + prelude.limited_steps,
+        )
 
     psi, n, p = unpack(result.x)
     return DeviceState(
