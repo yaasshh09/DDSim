@@ -16,18 +16,27 @@ import math
 
 import numpy as np
 import pytest
+from scipy.special import zeta
 
 from ddsim.core import constants as C
 from ddsim.physics.statistics import (
+    JOYCE_DIXON_COEFFICIENTS,
+    JOYCE_DIXON_MAX_U,
+    degeneracy_factor,
     dn_dpsi_scaled,
     dp_dpsi_scaled,
+    einstein_ratio,
     equilibrium_densities_scaled,
+    fermi_dirac_half,
+    fermi_dirac_minus_half,
+    joyce_dixon_eta,
     n_boltzmann,
     n_boltzmann_scaled,
     p_boltzmann,
     p_boltzmann_scaled,
     psi_equilibrium_scaled,
 )
+from tests.reference import fermi as fermi_ref
 
 # ----------------------------------------------------------- Boltzmann, scaled
 
@@ -212,3 +221,275 @@ def test_equilibrium_densities_preserve_shape() -> None:
     n, p = equilibrium_densities_scaled(net)
     assert n.shape == (3, 4)
     assert p.shape == (3, 4)
+
+
+# ------------------------------------------------------------- Fermi-Dirac
+#
+# docs/04-validation.md tier 1 asks for two things by name: Joyce-Dixon against
+# tabulated F_{1/2} values, under 1 percent to n/Nc = 4, and Boltzmann against
+# Fermi-Dirac agreeing to 1 percent when n/Nc < 0.01. Both are below, with the
+# references in tests/reference/fermi.py, which shares no arithmetic with the
+# implementation.
+#
+# The one tabulated value worth hardcoding is F_{1/2}(0) = 0.678094, because it
+# also has a closed form, Gamma(3/2) * eta_dirichlet(3/2), so the table entry
+# and the analytic identity check each other before either checks the code.
+
+
+ETA_NEGATIVE = np.array([-40.0, -20.0, -10.0, -5.0, -2.0, -1.0, -0.5, -0.1])
+"""Where the alternating series reference is exact [1]."""
+
+ETA_POSITIVE = np.array([0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 40.0])
+"""Degenerate side, where only the adaptive quadrature reference speaks [1]."""
+
+U_GRID = np.array([1e-6, 1e-4, 1e-2, 0.1, 0.5, 1.0, 2.0, 3.5, 4.0])
+"""n/Nc values spanning nondegenerate to the 1e20 source and drain [1].
+
+1e20 divided by Nc at 300 K is 3.4965, which is why 3.5 is in the list.
+"""
+
+
+def test_fermi_dirac_half_at_zero_matches_the_tabulated_value() -> None:
+    """F_{1/2}(0) = 0.678094, the entry every table starts from."""
+    assert fermi_dirac_half(0.0) == pytest.approx(0.678094, rel=1e-6)
+
+
+def test_fermi_dirac_half_at_zero_matches_the_closed_form() -> None:
+    """F_s(0) = Gamma(s+1) * (1 - 2^-s) * zeta(s+1), exactly."""
+    closed = math.gamma(1.5) * (1.0 - 2.0**-0.5) * zeta(1.5)
+    assert fermi_dirac_half(0.0) == pytest.approx(closed, rel=1e-13)
+
+
+def test_fermi_dirac_minus_half_at_zero_matches_the_closed_form() -> None:
+    closed = math.gamma(0.5) * (1.0 - 2.0**0.5) * zeta(0.5)
+    assert fermi_dirac_minus_half(0.0) == pytest.approx(closed, rel=1e-13)
+
+
+def test_fermi_dirac_half_matches_the_alternating_series() -> None:
+    """Below zero the series is exact and the quadrature has to meet it."""
+    for eta in ETA_NEGATIVE:
+        assert fermi_dirac_half(eta) == pytest.approx(
+            fermi_ref.F_series(float(eta), 0.5), rel=1e-12
+        )
+
+
+def test_fermi_dirac_minus_half_matches_the_alternating_series() -> None:
+    for eta in ETA_NEGATIVE:
+        assert fermi_dirac_minus_half(eta) == pytest.approx(
+            fermi_ref.F_series(float(eta), -0.5), rel=1e-12
+        )
+
+
+def test_fermi_dirac_half_matches_adaptive_quadrature_when_degenerate() -> None:
+    """Above zero the series says nothing, so a different rule has to agree."""
+    for eta in ETA_POSITIVE:
+        assert fermi_dirac_half(eta) == pytest.approx(
+            fermi_ref.F_quad(float(eta), 0.5), rel=1e-11
+        )
+
+
+def test_fermi_dirac_half_reduces_to_boltzmann_far_below_the_band_edge() -> None:
+    """F_{1/2}(eta) tends to Gamma(3/2) exp(eta), which gives n = Nc exp(eta)."""
+    eta = np.array([-40.0, -30.0, -20.0])
+    boltzmann = math.gamma(1.5) * np.exp(eta)
+    np.testing.assert_allclose(fermi_dirac_half(eta), boltzmann, rtol=1e-8)
+
+
+def test_fermi_dirac_minus_half_is_twice_the_slope_of_the_half_integral() -> None:
+    """dF_{1/2}/deta = F_{-1/2}/2, the identity the Einstein ratio rests on."""
+    eta = np.array([-3.0, -1.0, 0.0, 1.0, 3.0])
+    h = 1e-5
+    slope = (fermi_dirac_half(eta + h) - fermi_dirac_half(eta - h)) / (2 * h)
+    np.testing.assert_allclose(2.0 * slope, fermi_dirac_minus_half(eta), rtol=1e-9)
+
+
+def test_fermi_dirac_half_is_vectorised_and_keeps_its_shape() -> None:
+    eta = np.array([[-1.0, 0.0], [1.0, 2.0]])
+    assert fermi_dirac_half(eta).shape == (2, 2)
+
+
+def test_fermi_dirac_half_rises_with_eta() -> None:
+    values = fermi_dirac_half(np.linspace(-20.0, 20.0, 81))
+    assert np.all(np.diff(values) > 0.0)
+
+
+# -------------------------------------------------------------- Joyce-Dixon
+
+
+def test_joyce_dixon_coefficients_are_the_published_values() -> None:
+    """Joyce and Dixon 1977. A1 and A2 have closed forms, A3 and A4 do not."""
+    A1, A2, A3, A4 = JOYCE_DIXON_COEFFICIENTS
+    assert A1 == pytest.approx(1.0 / math.sqrt(8.0), rel=1e-15)
+    assert A2 == pytest.approx(3.0 / 16.0 - math.sqrt(3.0) / 9.0, rel=1e-15)
+    assert A1 == pytest.approx(3.53553e-1, rel=1e-5)
+    assert A2 == pytest.approx(-4.95009e-3, rel=1e-5)
+    assert A3 == pytest.approx(1.48386e-4, rel=1e-5)
+    assert A4 == pytest.approx(-4.42563e-6, rel=1e-5)
+
+
+def test_joyce_dixon_reduces_to_the_logarithm_at_low_density() -> None:
+    """eta tends to ln(n/Nc), which is Boltzmann and the first term."""
+    u = 1e-8
+    assert joyce_dixon_eta(u) == pytest.approx(math.log(u), abs=1e-8)
+
+
+def test_joyce_dixon_inverts_the_integral_to_under_one_percent() -> None:
+    """The tier 1 criterion in docs/04-validation.md, stated in density.
+
+    An error in eta is an error in n through exp(eta), so the honest way to
+    read "under 1 percent" is to push the returned eta back through F_{1/2}
+    and compare densities.
+    """
+    for u in U_GRID:
+        eta = joyce_dixon_eta(float(u))
+        assert fermi_ref.u_reference(eta) == pytest.approx(float(u), rel=1e-2)
+
+
+def test_joyce_dixon_is_far_better_than_its_one_percent_criterion() -> None:
+    """Measured 4.4e-5 relative in n at u = 4, not 1e-2. Pin the real number."""
+    eta = joyce_dixon_eta(4.0)
+    assert fermi_ref.u_reference(eta) == pytest.approx(4.0, rel=1e-4)
+
+
+def test_joyce_dixon_matches_the_reference_inversion_in_eta() -> None:
+    for u in U_GRID:
+        assert joyce_dixon_eta(float(u)) == pytest.approx(
+            fermi_ref.eta_reference(float(u)), abs=1e-4
+        )
+
+
+def test_joyce_dixon_puts_the_fermi_level_above_the_boltzmann_estimate() -> None:
+    """Degeneracy fills the band, so a given n needs a higher E_F than
+    Boltzmann says. The correction is positive and grows with density.
+    """
+    u = np.array([0.1, 1.0, 3.5])
+    correction = joyce_dixon_eta(u) - np.log(u)
+    assert np.all(correction > 0.0)
+    assert np.all(np.diff(correction) > 0.0)
+
+
+def test_joyce_dixon_correction_at_1e20_is_thirty_millivolts() -> None:
+    """docs/07-decisions.md quotes 30.5 mV as the cost of keeping Boltzmann in
+    the source and drain. That number came from this series, so it is pinned
+    here rather than left in prose.
+    """
+    u = 1e20 / C.Nc(C.T_ROOM)
+    correction = joyce_dixon_eta(u) - math.log(u)
+    assert correction * C.V_T(C.T_ROOM) * 1e3 == pytest.approx(30.5, abs=0.1)
+
+
+def test_joyce_dixon_refuses_a_density_past_its_validated_range() -> None:
+    with pytest.raises(ValueError, match="Joyce-Dixon"):
+        joyce_dixon_eta(JOYCE_DIXON_MAX_U * 1.001)
+
+
+def test_joyce_dixon_refuses_a_non_positive_density() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        joyce_dixon_eta(0.0)
+
+
+def test_joyce_dixon_refuses_an_array_with_one_bad_entry() -> None:
+    """One bad element has to fail, not be silently averaged away."""
+    with pytest.raises(ValueError, match="Joyce-Dixon"):
+        joyce_dixon_eta(np.array([0.1, 1.0, 1e3]))
+
+
+# --------------------------------------------------------- degeneracy factor
+
+
+def test_degeneracy_factor_is_exactly_one_at_zero_density() -> None:
+    """Not approximately. Boltzmann has to come back bit for bit, or every
+    result this project already has moves in its last digits.
+    """
+    assert degeneracy_factor(0.0) == 1.0
+
+
+def test_degeneracy_factor_is_consistent_with_joyce_dixon() -> None:
+    """gamma is defined as n / (Nc exp(eta)), so gamma = u / exp(eta_JD(u)).
+
+    Consistency is the point: the solver uses gamma and the Einstein ratio
+    together, and two independently fitted approximations would not have a
+    common eta between them.
+    """
+    u = np.array([1e-3, 0.1, 1.0, 3.5])
+    np.testing.assert_allclose(
+        degeneracy_factor(u), u / np.exp(joyce_dixon_eta(u)), rtol=1e-14
+    )
+
+
+def test_boltzmann_and_fermi_dirac_agree_to_one_percent_below_a_hundredth() -> None:
+    """The second tier 1 criterion in docs/04-validation.md, verbatim."""
+    u = np.linspace(1e-6, 1e-2, 50)
+    np.testing.assert_allclose(degeneracy_factor(u), 1.0, rtol=1e-2)
+
+
+def test_boltzmann_overestimates_density_threefold_at_1e20() -> None:
+    """docs/05-pitfalls.md says "substantially" and this is the number.
+
+    At a fixed Fermi level Boltzmann gives n_boltzmann = n_fermi / gamma, so
+    1/gamma is the factor it is wrong by.
+    """
+    gamma = degeneracy_factor(1e20 / C.Nc(C.T_ROOM))
+    assert 1.0 / gamma == pytest.approx(3.26, rel=1e-2)
+
+
+def test_degeneracy_factor_falls_monotonically_with_density() -> None:
+    values = degeneracy_factor(np.linspace(0.0, JOYCE_DIXON_MAX_U, 40))
+    assert np.all(np.diff(values) < 0.0)
+    assert np.all(values > 0.0)
+
+
+# ------------------------------------------------------------ Einstein ratio
+
+
+def test_einstein_ratio_is_exactly_one_at_zero_density() -> None:
+    """D = mu * V_T exactly in the nondegenerate limit, so a device that is
+    nowhere degenerate pays nothing at all for switching statistics on.
+    """
+    assert einstein_ratio(0.0) == 1.0
+
+
+def test_einstein_ratio_matches_the_integral_form_to_one_percent() -> None:
+    """2 F_{1/2}/F_{-1/2} at the eta the reference inversion gives."""
+    for u in U_GRID:
+        assert einstein_ratio(float(u)) == pytest.approx(
+            fermi_ref.einstein_reference(float(u)), rel=1e-2
+        )
+
+
+def test_einstein_ratio_is_the_logarithmic_slope_of_joyce_dixon() -> None:
+    """D/(mu V_T) = u * deta/du, which is what makes the ratio and the
+    inversion the same approximation rather than two of them.
+    """
+    u = np.array([0.1, 0.5, 1.0, 2.0, 4.0])
+    h = 1e-6
+    slope = (joyce_dixon_eta(u + h) - joyce_dixon_eta(u - h)) / (2 * h)
+    np.testing.assert_allclose(einstein_ratio(u), u * slope, rtol=1e-8)
+
+
+def test_einstein_ratio_doubles_the_diffusivity_at_1e20() -> None:
+    """Degeneracy raises D above mu*V_T. Measured 2.13 in the source and
+    drain, which is the whole reason the generalized relation is in scope.
+    """
+    assert einstein_ratio(1e20 / C.Nc(C.T_ROOM)) == pytest.approx(2.13, rel=1e-2)
+
+
+def test_einstein_ratio_rises_monotonically_with_density() -> None:
+    values = einstein_ratio(np.linspace(0.0, JOYCE_DIXON_MAX_U, 40))
+    assert np.all(np.diff(values) > 0.0)
+
+
+def test_einstein_ratio_refuses_a_density_past_its_validated_range() -> None:
+    """Past u = 20 the series turns over and the ratio goes negative, which is
+    a diffusivity with the wrong sign. The guard is what stops that.
+    """
+    with pytest.raises(ValueError, match="Joyce-Dixon"):
+        einstein_ratio(JOYCE_DIXON_MAX_U * 1.001)
+
+
+def test_degeneracy_factor_refuses_a_negative_density() -> None:
+    """gamma and the Einstein ratio have no logarithm in them, so a negative
+    density gets past the positivity check the inversion uses. It is still not
+    a density, and a caller who hands one over has a sign error upstream."""
+    with pytest.raises(ValueError, match="negative"):
+        degeneracy_factor(-1.0)

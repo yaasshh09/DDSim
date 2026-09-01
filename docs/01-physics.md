@@ -61,6 +61,12 @@ at 1e20 cm^-3) the generalized form applies:
 
     Dn / mu_n = (V_T) * F_{1/2}(eta) / F_{-1/2}(eta)
 
+Written in the Gamma-normalised convention, where F_s is divided by Gamma(s+1)
+so that F_s -> exp(eta) in the nondegenerate limit. In the plain convention
+that the tables carry, and that `fermi_dirac_half` returns, the same relation
+is `Dn / mu_n = 2 * V_T * F_{1/2} / F_{-1/2}`. Both give exactly V_T when eta
+goes to minus infinity, which is the check that tells them apart.
+
 Phase 2 uses the simple form. Phase 5 should use the generalized form in the
 source/drain regions or note the error explicitly in `docs/07-decisions.md`.
 Do not
@@ -82,11 +88,23 @@ Fermi-Dirac (needed for degenerate regions, Phase 5):
 
 F_{1/2} has no closed form. Use Joyce-Dixon inversion for the forward direction:
 
-    (E_F - E_c)/kT ~= ln(n/Nc) + (1/sqrt(8)) * (n/Nc)
-                      - (3/16 - sqrt(3)/9) * (n/Nc)^2 + ...
+    (E_F - E_c)/kT ~= ln(u) + A1*u + A2*u^2 + A3*u^3 + A4*u^4,     u = n/Nc
+
+    A1 = 1/sqrt(8)          = +3.53553e-1
+    A2 = 3/16 - sqrt(3)/9   = -4.95009e-3
+    A3                      = +1.48386e-4
+    A4                      = -4.42563e-6
+
+**A2 is negative and enters with a plus sign.** This line used to read
+`- (3/16 - sqrt(3)/9) * (n/Nc)^2`, which flips it. Checked against Brent
+inversion of the integral: as written above the series lands 1.0e-4 from the
+true eta at u = 4, and with the sign flipped it lands 1.6e-1 away. Corrected
+2026-09-01, see docs/07-decisions.md.
 
 Valid to about n/Nc = 4. Beyond that use a rational approximation (Bednarczyk or
 Halen-Pulfrey). Test any implementation against tabulated F_{1/2} values.
+`ddsim/physics/statistics.py` refuses above n/Nc = 8, which is where the
+measured error in n and in the Einstein ratio is still inside 1 percent.
 
 ## Incomplete ionization
 
