@@ -98,6 +98,7 @@ def nmos(
     body_voltage: float = 0.0,
     work_function: float = C.PHI_M_N_POLY,
     material: Material | None = None,
+    degenerate: bool = True,
 ) -> Device:
     """An n-channel MOSFET on a p-type substrate.
 
@@ -299,4 +300,5 @@ def nmos(
         contacts=contacts,
         material=material,
         regions=regions,
+        degenerate=degenerate,
     )

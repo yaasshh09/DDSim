@@ -52,7 +52,7 @@ import numpy.typing as npt
 from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.physics.statistics import equilibrium_densities_scaled
+from ddsim.physics.statistics import Degeneracy, equilibrium_densities_scaled
 
 
 @dataclass(frozen=True)
@@ -194,16 +194,27 @@ def gate_psi_scaled(
     return applied + (C.PHI_M_MIDGAP - work_function) / C.V_T(T)
 
 
-def ohmic_psi_scaled(net_doping: float, applied: float) -> float:
+def ohmic_psi_scaled(
+    net_doping: float, applied: float, degeneracy: Degeneracy | None = None
+) -> float:
     """Potential at an ohmic contact [1].
 
     Args:
         net_doping: scaled net doping at the contact node [1].
         applied: applied bias in scaled units [1], that is V_applied / V_T.
+        degeneracy: the statistics, or None for Boltzmann.
 
     psi = applied + asinh(N / 2), from neutrality plus mass action.
+
+    Under Fermi-Dirac the same two conditions still fix the answer, but mass
+    action is no longer n*p = 1 and the closed form goes away. The degenerate
+    branch solves the same pair and reads psi off the majority carrier, which
+    at 1e20 puts it 30.5 mV above what asinh says. The two branches are the
+    same function of the doping, not two conventions.
     """
-    return applied + math.asinh(net_doping / 2.0)
+    if degeneracy is None:
+        return applied + math.asinh(net_doping / 2.0)
+    return applied + float(degeneracy.equilibrium_psi(net_doping))
 
 
 def apply_dirichlet(
@@ -336,7 +347,9 @@ class Carrier(Enum):
 
 
 @lru_cache(maxsize=64)
-def ohmic_density_scaled(net_doping: float, carrier: Carrier) -> float:
+def ohmic_density_scaled(
+    net_doping: float, carrier: Carrier, degeneracy: Degeneracy | None = None
+) -> float:
     """One carrier density at an ohmic contact [1].
 
     Neutrality plus mass action, n - p = N and n*p = 1, solved for whichever
@@ -344,12 +357,21 @@ def ohmic_density_scaled(net_doping: float, carrier: Carrier) -> float:
     than from the quadratic formula, so mass action is exact rather than
     merely close. See physics/statistics.py.
 
+    Under Fermi-Dirac the product is gamma_n gamma_p rather than 1, which is
+    0.31 at 1e20, and the minority carrier still comes from the product. Both
+    branches solve the same pair as the potential above, so the three values
+    pinned at one contact node are one state and not three near agreements.
+
     Cached because it is a pure function of the doping at one node, and every
     Gummel cycle asks for the same handful of values. The doping under a
     contact does not change during a solve, and a device that changed it would
-    be a different device with a different net_doping key.
+    be a different device with a different net_doping key. A Degeneracy is
+    frozen and hashable so that it can be part of that key.
     """
-    n_contact, p_contact = equilibrium_densities_scaled(net_doping)
+    if degeneracy is None:
+        n_contact, p_contact = equilibrium_densities_scaled(net_doping)
+    else:
+        n_contact, p_contact = degeneracy.equilibrium_densities(net_doping)
     return float(n_contact if carrier is Carrier.ELECTRON else p_contact)
 
 
@@ -358,6 +380,7 @@ def impose_ohmic_densities(
     net_doping: npt.NDArray[np.float64],
     contacts: Sequence[SemiconductorContact],
     carrier: Carrier,
+    degeneracy: Degeneracy | None = None,
 ) -> npt.NDArray[np.float64]:
     """Write the contact densities into a solved profile, exactly.
 
@@ -375,7 +398,7 @@ def impose_ohmic_densities(
     for contact in contacts:
         for node in contact.nodes:
             imposed[node] = ohmic_density_scaled(
-                float(net_doping[node]), carrier
+                float(net_doping[node]), carrier, degeneracy
             )
     return imposed
 
@@ -386,6 +409,7 @@ def apply_ohmic_densities(
     net_doping: npt.NDArray[np.float64],
     contacts: Sequence[SemiconductorContact],
     carrier: Carrier,
+    degeneracy: Degeneracy | None = None,
 ) -> SparseAssembly:
     """Pin one carrier density at every contact to its equilibrium value.
 
@@ -413,7 +437,10 @@ def apply_ohmic_densities(
         assembly,
         density,
         nodes,
-        [ohmic_density_scaled(float(net_doping[node]), carrier) for node in nodes],
+        [
+            ohmic_density_scaled(float(net_doping[node]), carrier, degeneracy)
+            for node in nodes
+        ],
     )
 
 
@@ -423,6 +450,7 @@ def apply_ohmic_contacts(
     net_doping: npt.NDArray[np.float64],
     contacts: Sequence[SemiconductorContact],
     scale: ScaleFactors,
+    degeneracy: Degeneracy | None = None,
 ) -> SparseAssembly:
     """Apply every ohmic contact to an assembled system.
 
@@ -442,7 +470,7 @@ def apply_ohmic_contacts(
     if len(set(names)) != len(names):
         raise ValueError(f"contact names must be unique, got {names}")
 
-    nodes, targets = _ohmic_targets(net_doping, contacts, scale)
+    nodes, targets = _ohmic_targets(net_doping, contacts, scale, degeneracy)
     return apply_dirichlet_nodes(assembly, psi, nodes, targets)
 
 
@@ -450,6 +478,7 @@ def _ohmic_targets(
     net_doping: npt.NDArray[np.float64],
     contacts: Sequence[SemiconductorContact],
     scale: ScaleFactors,
+    degeneracy: Degeneracy | None = None,
 ) -> tuple[list[int], list[float]]:
     """The nodes an ohmic contact pins and the potential it pins each one to."""
     nodes: list[int] = []
@@ -458,7 +487,9 @@ def _ohmic_targets(
         applied = contact.voltage / scale.psi_0
         for node in contact.nodes:
             nodes.append(node)
-            targets.append(ohmic_psi_scaled(float(net_doping[node]), applied))
+            targets.append(
+                ohmic_psi_scaled(float(net_doping[node]), applied, degeneracy)
+            )
     return nodes, targets
 
 
@@ -469,6 +500,7 @@ def apply_contacts(
     contacts: Sequence[Contact],
     scale: ScaleFactors,
     T: float = C.T_ROOM,
+    degeneracy: Degeneracy | None = None,
 ) -> SparseAssembly:
     """Apply every contact on a device, of whatever kind, in one pass.
 
@@ -479,6 +511,8 @@ def apply_contacts(
         contacts: the device's contacts, ohmic points, ohmic plates and gates.
         scale: scale factors, used to convert contact voltages from V.
         T: temperature [K], which the gate potential needs for the band gap.
+        degeneracy: the statistics, or None for Boltzmann. A gate never reads
+            it, having no semiconductor under it.
 
     The two kinds differ in where their target comes from and in nothing else.
     An ohmic node reads the doping underneath it and solves neutrality; a gate
@@ -492,7 +526,7 @@ def apply_contacts(
         raise ValueError(f"contact names must be unique, got {names}")
 
     ohmic = [c for c in contacts if not isinstance(c, GateContact)]
-    nodes, targets = _ohmic_targets(net_doping, ohmic, scale)
+    nodes, targets = _ohmic_targets(net_doping, ohmic, scale, degeneracy)
 
     for contact in contacts:
         if isinstance(contact, GateContact):

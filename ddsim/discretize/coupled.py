@@ -118,6 +118,7 @@ from ddsim.physics.mobility import (
     diffusivity_tangent,
 )
 from ddsim.physics.recombination import Density, RecombinationModel
+from ddsim.physics.statistics import Degeneracy
 
 
 class Unknown(IntEnum):
@@ -199,6 +200,52 @@ def edge_drop(
     return psi[node_right] - psi[node_left]
 
 
+def effective_potentials(
+    psi: npt.NDArray[Number],
+    n: npt.NDArray[Number],
+    p: npt.NDArray[Number],
+    degeneracy: Degeneracy | None = None,
+) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
+    """The potentials the two carriers are Boltzmann in [1], on nodes.
+
+    Under Boltzmann both are psi itself, returned as the same array, so every
+    device solved before Phase 5 goes down a path that computes nothing extra
+    and gets the same bits.
+
+    Under Fermi-Dirac they are psi + ln(gamma) with the two gammas, so
+    n = exp(psi_eff_n - phi_n) holds exactly and the Scharfetter-Gummel
+    exponential fit stays exactly valid in psi_eff. That is why degeneracy
+    enters the transport equations here, inside the Bernoulli argument, rather
+    than as a generalized Einstein ratio multiplying D: the two are the same
+    physics, and only this one leaves the discrete current conservative. See
+    docs/07-decisions.md.
+
+    The electron potential falls below psi and the hole one rises above it, by
+    30.5 mV at 1e20. The two are different arrays, so a degenerate device
+    evaluates two Bernoulli pairs per edge where a Boltzmann one evaluates
+    one.
+    """
+    if degeneracy is None:
+        return psi, psi
+
+    # Degeneracy is typed for the physical case, which is float64. Its
+    # arithmetic is a polynomial and a comparison on the real part, so it is
+    # dtype preserving and the complex step verification depends on that.
+    # Declaring it would put complex into every signature in
+    # physics/statistics.py to serve these two lines, which is the same trade
+    # coupled_residual already makes for the recombination protocol.
+    potential = cast("npt.NDArray[np.float64]", psi)
+    electrons = cast("npt.NDArray[np.float64]", n)
+    holes = cast("npt.NDArray[np.float64]", p)
+    return (
+        cast(
+            "npt.NDArray[Number]",
+            degeneracy.electron_potential(potential, electrons),
+        ),
+        cast("npt.NDArray[Number]", degeneracy.hole_potential(potential, holes)),
+    )
+
+
 def _bernoulli_pair(
     psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D
 ) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
@@ -263,6 +310,7 @@ def coupled_residual(
     Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
     geometry: EdgeGeometry = UNIFORM_1D,
+    degeneracy: Degeneracy | None = None,
 ) -> npt.NDArray[Number]:
     """Residual of the coupled system, interleaved by node [1].
 
@@ -280,6 +328,9 @@ def coupled_residual(
         recombination: net recombination model, in scaled units.
         geometry: which nodes each edge joins and what it carries. The
             default is the contiguous 1D chain in silicon.
+        degeneracy: the statistics, or None for Boltzmann. It enters the two
+            Bernoulli arguments and nothing else here, because the charge term
+            carries n and p as unknowns and never substitutes them.
 
     Reflecting at both ends, by having no face on the outward side. Contacts
     overwrite those rows afterwards, in discretize/boundary.py.
@@ -298,6 +349,7 @@ def coupled_residual(
         "npt.NDArray[Number]",
         recombination.rate(cast(Density, n), cast(Density, p)),
     )
+    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
     return _residual_from(
         h,
         volume,
@@ -305,7 +357,8 @@ def coupled_residual(
         net_doping,
         _diffusivity_at(Dn, psi, h, geometry),
         _diffusivity_at(Dp, psi, h, geometry),
-        _bernoulli_pair(psi, geometry),
+        _bernoulli_pair(psi_n, geometry),
+        _bernoulli_pair(psi_p, geometry),
         R,
         geometry,
     )
@@ -318,23 +371,29 @@ def _residual_from(
     net_doping: npt.NDArray[np.float64],
     Dn: Diffusivity,
     Dp: Diffusivity,
-    bernoulli: tuple[npt.NDArray[Number], npt.NDArray[Number]],
+    bernoulli_n: tuple[npt.NDArray[Number], npt.NDArray[Number]],
+    bernoulli_p: tuple[npt.NDArray[Number], npt.NDArray[Number]],
     R: npt.NDArray[Number],
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[Number]:
-    """coupled_residual with the Bernoulli pair and the rate already in hand.
+    """coupled_residual with both Bernoulli pairs and the rate in hand.
 
-    The pair is the most expensive thing in an assembly, and the residual, the
-    Jacobian and the row scales all need the same one. Evaluating it once and
-    handing it round is the pattern poisson.py and continuity.py already use;
-    the coupled module was evaluating B four times per Newton step before this
-    existed, which was a quarter of the assembly cost.
+    A pair is the most expensive thing in an assembly, and the residual, the
+    Jacobian and the row scales all need the same ones. Evaluating them once
+    and handing them round is the pattern poisson.py and continuity.py already
+    use; the coupled module was evaluating B four times per Newton step before
+    this existed, which was a quarter of the assembly cost.
 
-    Private because the pair has to be the one belonging to this psi and
+    Two pairs rather than one, because the two carriers see different
+    effective potentials once the material is degenerate. Under Boltzmann the
+    caller passes the same pair twice and nothing is computed twice.
+
+    Private because the pairs have to be the ones belonging to this state and
     nothing outside can check that.
     """
     psi, n, p = unpack(x)
-    b_plus, b_minus = bernoulli
+    bn_plus, bn_minus = bernoulli_n
+    bp_plus, bp_minus = bernoulli_p
 
     out = np.zeros_like(x)
     F_psi, F_n, F_p = unpack(out)
@@ -354,7 +413,7 @@ def _residual_from(
     # face enters here, never the permittivity and never the whole dual face:
     # see geometry.py.
     Jn = (Dn * geometry.carrier_face / h) * (
-        b_plus * n[node_right] - b_minus * n[node_left]
+        bn_plus * n[node_right] - bn_minus * n[node_left]
     )
     F_n += R * volume
     np.add.at(F_n, node_left, -Jn)
@@ -363,7 +422,7 @@ def _residual_from(
     # Hole continuity. B(X) multiplies the left hand node, the mirror image,
     # and the divergence enters with the opposite sign.
     Jp = (Dp * geometry.carrier_face / h) * (
-        b_plus * p[node_left] - b_minus * p[node_right]
+        bp_plus * p[node_left] - bp_minus * p[node_right]
     )
     F_p += R * volume
     np.add.at(F_p, node_left, Jp)
@@ -461,6 +520,7 @@ def coupled_jacobian(
     Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
     geometry: EdgeGeometry = UNIFORM_1D,
+    degeneracy: Degeneracy | None = None,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """Jacobian of coupled_residual, in COO form.
 
@@ -471,20 +531,41 @@ def coupled_jacobian(
     makes non-negotiable.
     """
     psi, n, p = unpack(x)
+    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
     return _jacobian_from(
         h,
         volume,
         x,
         _diffusivity_at(Dn, psi, h, geometry),
         _diffusivity_at(Dp, psi, h, geometry),
-        _bernoulli_pair(psi, geometry),
-        _bernoulli_derivative_pair(psi, geometry),
+        _bernoulli_pair(psi_n, geometry),
+        _bernoulli_pair(psi_p, geometry),
+        _bernoulli_derivative_pair(psi_n, geometry),
+        _bernoulli_derivative_pair(psi_p, geometry),
         np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64),
         np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64),
         geometry,
         _diffusivity_tangent(Dn, psi, h, geometry),
         _diffusivity_tangent(Dp, psi, h, geometry),
+        *_potential_tangents(n, p, degeneracy),
     )
+
+
+def _potential_tangents(
+    n: npt.NDArray[np.float64],
+    p: npt.NDArray[np.float64],
+    degeneracy: Degeneracy | None,
+) -> tuple[npt.NDArray[np.float64] | None, npt.NDArray[np.float64] | None]:
+    """(d psi_eff_n/dn, d psi_eff_p/dp) on nodes [1], or None under Boltzmann.
+
+    None rather than an array of zeros, so the Boltzmann Jacobian skips the
+    terms entirely instead of adding zero to each of six blocks. It is the
+    same convention dDn_dX already uses for a diffusivity that does not move
+    with the field.
+    """
+    if degeneracy is None:
+        return None, None
+    return degeneracy.d_electron_potential_dn(n), degeneracy.d_hole_potential_dp(p)
 
 
 def _jacobian_from(
@@ -493,24 +574,36 @@ def _jacobian_from(
     x: npt.NDArray[np.float64],
     Dn: Diffusivity,
     Dp: Diffusivity,
-    bernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    dbernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    bernoulli_n: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    bernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    dbernoulli_n: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    dbernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
     dR_dn: npt.NDArray[np.float64],
     dR_dp: npt.NDArray[np.float64],
     geometry: EdgeGeometry = UNIFORM_1D,
     dDn_dX: npt.NDArray[np.float64] | None = None,
     dDp_dX: npt.NDArray[np.float64] | None = None,
+    dpsi_n_dn: npt.NDArray[np.float64] | None = None,
+    dpsi_p_dp: npt.NDArray[np.float64] | None = None,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-    """coupled_jacobian with both Bernoulli pairs and every tangent in hand.
+    """coupled_jacobian with all four Bernoulli pairs and every tangent in hand.
 
     dDn_dX and dDp_dX are None unless the diffusivity depends on the potential
     drop across the edge, which is Caughey-Thomas and nothing before it.
+
+    dpsi_n_dn and dpsi_p_dp are None unless the material is degenerate. They
+    are what makes the Bernoulli argument depend on the densities as well as
+    on the potential, which turns the two diagonal continuity blocks from the
+    Scharfetter-Gummel stencil alone into that stencil plus the same edge
+    conductance the potential block already carries.
     """
     psi, n, p = unpack(x)
     n_nodes = psi.size
 
-    b_plus, b_minus = bernoulli
-    db_plus, db_minus = dbernoulli
+    b_plus, b_minus = bernoulli_n
+    db_plus, db_minus = dbernoulli_n
+    bp_plus, bp_minus = bernoulli_p
+    dbp_plus, dbp_minus = dbernoulli_p
 
     nodes = NodeRange.ALL
     left = NodeRange.LEFT
@@ -534,9 +627,10 @@ def _jacobian_from(
     J.add(Unknown.PSI, nodes, Unknown.P, nodes, -volume)
 
     # --- dF_n/dpsi. Laplacian shaped, with conductance G on each edge.
-    G = (Dn * geometry.carrier_face / h) * (
+    G_sg = (Dn * geometry.carrier_face / h) * (
         db_plus * n[node_right] + db_minus * n[node_left]
     )
+    G = G_sg
     if dDn_dX is not None:
         # The flux carries a factor of D, so a D that moves with the drop
         # across the edge differentiates into a second term of the same shape.
@@ -555,6 +649,16 @@ def _jacobian_from(
     # --- dF_n/dn. The Scharfetter-Gummel stencil plus the exact SRH tangent.
     to_right = (Dn * geometry.carrier_face / h) * b_plus
     to_left = (Dn * geometry.carrier_face / h) * b_minus
+    if dpsi_n_dn is not None:
+        # The Bernoulli argument is the drop in the effective potential, and
+        # that depends on the density at each end as well as on psi. So the
+        # same edge conductance the dF_n/dpsi block carries reappears here,
+        # once per end, weighted by how far the effective potential moves per
+        # electron. Only the Scharfetter-Gummel part of it: a field dependent
+        # diffusivity reads the real potential drop and does not move when a
+        # density does.
+        to_right = to_right + G_sg * dpsi_n_dn[node_right]
+        to_left = to_left + G_sg * dpsi_n_dn[node_left]
     diagonal = dR_dn * volume
     np.add.at(diagonal, node_left, to_left)
     np.add.at(diagonal, node_right, to_right)
@@ -567,12 +671,13 @@ def _jacobian_from(
 
     # --- dF_p/dpsi. The same stencil as the electron block with the opposite
     # sign, because Jp enters its residual with the opposite sign.
-    H = (Dp * geometry.carrier_face / h) * (
-        db_plus * p[node_left] + db_minus * p[node_right]
+    H_sg = (Dp * geometry.carrier_face / h) * (
+        dbp_plus * p[node_left] + dbp_minus * p[node_right]
     )
+    H = H_sg
     if dDp_dX is not None:
         H = H + (dDp_dX * geometry.carrier_face / h) * (
-            b_plus * p[node_left] - b_minus * p[node_right]
+            bp_plus * p[node_left] - bp_minus * p[node_right]
         )
     diagonal = np.zeros(n_nodes)
     np.add.at(diagonal, node_left, -H)
@@ -586,8 +691,13 @@ def _jacobian_from(
 
     # --- dF_p/dp. The mirror of the electron block: the two flux coefficients
     # have swapped nodes, for the same reason the fluxes do.
-    to_left = (Dp * geometry.carrier_face / h) * b_plus
-    to_right = (Dp * geometry.carrier_face / h) * b_minus
+    to_left = (Dp * geometry.carrier_face / h) * bp_plus
+    to_right = (Dp * geometry.carrier_face / h) * bp_minus
+    if dpsi_p_dp is not None:
+        # The mirror of the electron block. The sign is opposite because the
+        # hole effective potential rises where the electron one falls.
+        to_left = to_left - H_sg * dpsi_p_dp[node_left]
+        to_right = to_right - H_sg * dpsi_p_dp[node_right]
     diagonal = dR_dp * volume
     np.add.at(diagonal, node_left, to_left)
     np.add.at(diagonal, node_right, to_right)
@@ -611,6 +721,7 @@ def assemble_coupled(
     scale: ScaleFactors,
     Dn: EdgeDiffusivity,
     Dp: EdgeDiffusivity,
+    degeneracy: Degeneracy | None = None,
 ) -> SparseAssembly:
     """Assemble the coupled 3N system for a 1D mesh.
 
@@ -657,6 +768,7 @@ def assemble_coupled(
         Dn=Dn,
         Dp=Dp,
         recombination=recombination,
+        degeneracy=degeneracy,
     )
 
 
@@ -668,6 +780,7 @@ def assemble_coupled_arrays(
     Dn: EdgeDiffusivity,
     Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
+    degeneracy: Degeneracy | None = None,
 ) -> SparseAssembly:
     """assemble_coupled with the scaling and location already checked.
 
@@ -680,7 +793,7 @@ def assemble_coupled_arrays(
     returns.
     """
     return assemble_coupled_terms(
-        h, volume, x, net_doping, Dn, Dp, recombination
+        h, volume, x, net_doping, Dn, Dp, recombination, degeneracy=degeneracy
     ).assembly
 
 
@@ -703,6 +816,7 @@ def assemble_coupled_terms(
     Dp: EdgeDiffusivity,
     recombination: RecombinationModel,
     geometry: EdgeGeometry = UNIFORM_1D,
+    degeneracy: Degeneracy | None = None,
 ) -> CoupledAssembly:
     """Residual, Jacobian and term scales, with the shared work done once.
 
@@ -720,8 +834,18 @@ def assemble_coupled_terms(
     """
     psi, n, p = unpack(x)
 
-    bernoulli = _bernoulli_pair(psi, geometry)
-    dbernoulli = _bernoulli_derivative_pair(psi, geometry)
+    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
+    bernoulli_n = _bernoulli_pair(psi_n, geometry)
+    bernoulli_p = (
+        bernoulli_n if degeneracy is None else _bernoulli_pair(psi_p, geometry)
+    )
+    dbernoulli_n = _bernoulli_derivative_pair(psi_n, geometry)
+    dbernoulli_p = (
+        dbernoulli_n
+        if degeneracy is None
+        else _bernoulli_derivative_pair(psi_p, geometry)
+    )
+    dpsi_n_dn, dpsi_p_dp = _potential_tangents(n, p, degeneracy)
     R = np.asarray(recombination.rate(n, p), dtype=np.float64)
     dR_dn = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
     dR_dp = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
@@ -736,7 +860,16 @@ def assemble_coupled_terms(
     dDp_dX = _diffusivity_tangent(Dp, psi, h, geometry)
 
     residual = _residual_from(
-        h, volume, x, net_doping, Dn_edge, Dp_edge, bernoulli, R, geometry
+        h,
+        volume,
+        x,
+        net_doping,
+        Dn_edge,
+        Dp_edge,
+        bernoulli_n,
+        bernoulli_p,
+        R,
+        geometry,
     )
     rows, cols, values = _jacobian_from(
         h,
@@ -744,16 +877,29 @@ def assemble_coupled_terms(
         x,
         Dn_edge,
         Dp_edge,
-        bernoulli,
-        dbernoulli,
+        bernoulli_n,
+        bernoulli_p,
+        dbernoulli_n,
+        dbernoulli_p,
         dR_dn,
         dR_dp,
         geometry,
         dDn_dX,
         dDp_dX,
+        dpsi_n_dn,
+        dpsi_p_dp,
     )
     scales = _term_scales_from(
-        h, volume, x, net_doping, Dn_edge, Dp_edge, bernoulli, R, geometry
+        h,
+        volume,
+        x,
+        net_doping,
+        Dn_edge,
+        Dp_edge,
+        bernoulli_n,
+        bernoulli_p,
+        R,
+        geometry,
     )
 
     size = x.size
@@ -810,6 +956,7 @@ def apply_contacts_coupled(
     scale: ScaleFactors,
     carrier_free_nodes: Sequence[int] = (),
     T: float = C.T_ROOM,
+    degeneracy: Degeneracy | None = None,
 ) -> SparseAssembly:
     """Pin every contact on a device, of whatever kind, returning a new assembly.
 
@@ -825,6 +972,9 @@ def apply_contacts_coupled(
         carrier_free_nodes: nodes with no semiconductor in them, whose n and
             p rows are singular and have to be pinned. See below.
         T: temperature [K], which the gate potential needs for the band gap.
+        degeneracy: the statistics, or None for Boltzmann. All three contact
+            values come from it together, which is what keeps psi, n and p at
+            a contact node one state rather than three near agreements.
 
     Three Dirichlet conditions per ohmic contact node rather than one. In the
     uncoupled solve the potential and the two densities are pinned in three
@@ -886,13 +1036,15 @@ def apply_contacts_coupled(
             doping = float(net_doping[node])
 
             indices.append(unknown_index(node, Unknown.PSI))
-            targets.append(ohmic_psi_scaled(doping, applied))
+            targets.append(ohmic_psi_scaled(doping, applied, degeneracy))
 
             indices.append(unknown_index(node, Unknown.N))
-            targets.append(ohmic_density_scaled(doping, Carrier.ELECTRON))
+            targets.append(
+                ohmic_density_scaled(doping, Carrier.ELECTRON, degeneracy)
+            )
 
             indices.append(unknown_index(node, Unknown.P))
-            targets.append(ohmic_density_scaled(doping, Carrier.HOLE))
+            targets.append(ohmic_density_scaled(doping, Carrier.HOLE, degeneracy))
 
     for node in carrier_free_nodes:
         indices.append(unknown_index(node, Unknown.N))
@@ -915,6 +1067,7 @@ def residual_term_scales(
     Dp: EdgeDiffusivity,
     R: npt.NDArray[np.float64] | None = None,
     geometry: EdgeGeometry = UNIFORM_1D,
+    degeneracy: Degeneracy | None = None,
 ) -> tuple[float, float, float]:
     """The size of the terms each equation family is assembled from [1].
 
@@ -963,7 +1116,8 @@ def residual_term_scales(
     below machine epsilon times the things being differenced, so the terms are
     what sets the floor.
     """
-    psi, _, _ = unpack(x)
+    psi, n, p = unpack(x)
+    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
     return _term_scales_from(
         h,
         volume,
@@ -971,7 +1125,8 @@ def residual_term_scales(
         net_doping,
         _diffusivity_at(Dn, psi, h, geometry),
         _diffusivity_at(Dp, psi, h, geometry),
-        _bernoulli_pair(psi, geometry),
+        _bernoulli_pair(psi_n, geometry),
+        _bernoulli_pair(psi_p, geometry),
         R,
         geometry,
     )
@@ -984,13 +1139,15 @@ def _term_scales_from(
     net_doping: npt.NDArray[np.float64],
     Dn: Diffusivity,
     Dp: Diffusivity,
-    bernoulli: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    bernoulli_n: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
+    bernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
     R: npt.NDArray[np.float64] | None,
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[float, float, float]:
-    """residual_term_scales with the Bernoulli pair already in hand."""
+    """residual_term_scales with both Bernoulli pairs already in hand."""
     psi, n, p = unpack(x)
-    b_plus, b_minus = bernoulli
+    bn_plus, bn_minus = bernoulli_n
+    bp_plus, bp_minus = bernoulli_p
     node_left, node_right = geometry.ends(h.size)
 
     # Poisson: the face fluxes psi/h, and the three charges that make up
@@ -1012,8 +1169,8 @@ def _term_scales_from(
         float(
             np.max(
                 np.maximum(
-                    (Dn * geometry.carrier_face / h) * b_plus * n[node_right],
-                    (Dn * geometry.carrier_face / h) * b_minus * n[node_left],
+                    (Dn * geometry.carrier_face / h) * bn_plus * n[node_right],
+                    (Dn * geometry.carrier_face / h) * bn_minus * n[node_left],
                 )
             )
         ),
@@ -1023,8 +1180,8 @@ def _term_scales_from(
         float(
             np.max(
                 np.maximum(
-                    (Dp * geometry.carrier_face / h) * b_plus * p[node_left],
-                    (Dp * geometry.carrier_face / h) * b_minus * p[node_right],
+                    (Dp * geometry.carrier_face / h) * bp_plus * p[node_left],
+                    (Dp * geometry.carrier_face / h) * bp_minus * p[node_right],
                 )
             )
         ),

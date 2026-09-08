@@ -74,18 +74,33 @@ import numpy.typing as npt
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry, ScaledMesh
+from ddsim.physics.statistics import Degeneracy
 
-BoltzmannDensities = tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
-"""(n, p) on nodes [1], from psi at fixed quasi-Fermi levels."""
+CarrierDensities = tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+    npt.NDArray[np.float64],
+]
+"""(n, p, dn/dpsi, -dp/dpsi) on nodes [1], from psi at fixed quasi-Fermi levels.
+
+The two derivatives ride along rather than being recomputed, because the
+residual and the Jacobian are built from one state and under Boltzmann the
+derivatives are the densities themselves. Under Fermi-Dirac they are not: a
+filled band buys less density per volt, by exactly the generalized Einstein
+ratio, so the Poisson diagonal and the charge stop being the same array. Both
+are returned positive; the sign lives in the terms that use them.
+"""
 
 
-def _boltzmann_densities(
+def _carrier_densities(
     psi: npt.NDArray[np.float64],
     phi_n: npt.NDArray[np.float64] | None,
     phi_p: npt.NDArray[np.float64] | None,
     carriers: npt.NDArray[np.bool_] | None = None,
-) -> BoltzmannDensities:
-    """(n, p) from the potential at fixed quasi-Fermi levels [1].
+    degeneracy: Degeneracy | None = None,
+) -> CarrierDensities:
+    """(n, p) and their psi derivatives at fixed quasi-Fermi levels [1].
 
     n = exp(psi - phi_n) and p = exp(phi_p - psi), with None meaning a level
     pinned at zero, which is true thermal equilibrium.
@@ -94,6 +109,10 @@ def _boltzmann_densities(
         carriers: True on the nodes that hold carriers, False on insulator
             nodes. None means every node does, which is right for a device
             made of one semiconductor.
+        degeneracy: the statistics, or None for Boltzmann. Under Boltzmann
+            this returns exp of the exponent and the same array again as its
+            own derivative, which is the arithmetic that was here before and
+            gives the same bits.
 
     An insulator has no carriers, and saying so here rather than multiplying
     by a zero charge volume afterwards is not a tidiness point. psi in a thick
@@ -113,7 +132,13 @@ def _boltzmann_densities(
         # exp(-inf) is exactly zero and does not overflow on the way there.
         exponent_n = np.where(carriers, exponent_n, -np.inf)
         exponent_p = np.where(carriers, exponent_p, -np.inf)
-    return np.exp(exponent_n), np.exp(exponent_p)
+    if degeneracy is None:
+        n = np.exp(exponent_n)
+        p = np.exp(exponent_p)
+        return n, p, n, p
+    n = degeneracy.electron_density(exponent_n)
+    p = degeneracy.hole_density(exponent_p)
+    return n, p, degeneracy.dn_dpsi(n), degeneracy.dp_dpsi(p)
 
 
 def poisson_residual(
@@ -124,6 +149,7 @@ def poisson_residual(
     phi_n: npt.NDArray[np.float64] | None = None,
     phi_p: npt.NDArray[np.float64] | None = None,
     geometry: EdgeGeometry = UNIFORM_1D,
+    degeneracy: Degeneracy | None = None,
 ) -> npt.NDArray[np.float64]:
     """Residual of the scaled nonlinear Poisson equation [1].
 
@@ -150,7 +176,7 @@ def poisson_residual(
         volume,
         psi,
         net_doping,
-        _boltzmann_densities(psi, phi_n, phi_p, volume > 0.0),
+        _carrier_densities(psi, phi_n, phi_p, volume > 0.0, degeneracy),
         geometry,
     )
 
@@ -160,10 +186,10 @@ def _poisson_residual(
     volume: npt.NDArray[np.float64],
     psi: npt.NDArray[np.float64],
     net_doping: npt.NDArray[np.float64],
-    densities: BoltzmannDensities,
+    densities: CarrierDensities,
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[np.float64]:
-    """poisson_residual with the Boltzmann densities already in hand [1].
+    """poisson_residual with the densities already in hand [1].
 
     The residual and the Jacobian are built from the same n and p, and two
     exponentials over every node is the most expensive thing in either, so
@@ -171,7 +197,7 @@ def _poisson_residual(
     the densities have to be the ones belonging to this psi and nothing
     outside can check that.
     """
-    n, p = densities
+    n, p, _, _ = densities
 
     residual = np.zeros_like(psi)
     left, right = geometry.ends(h.size)
@@ -199,6 +225,7 @@ def poisson_jacobian(
     phi_n: npt.NDArray[np.float64] | None = None,
     phi_p: npt.NDArray[np.float64] | None = None,
     geometry: EdgeGeometry = UNIFORM_1D,
+    degeneracy: Degeneracy | None = None,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """Jacobian of poisson_residual, in COO form.
 
@@ -206,14 +233,16 @@ def poisson_jacobian(
     with a stencil helper, so that a device engineer can check each derivative
     against the residual above by eye.
 
-    The quasi-Fermi levels are held fixed, so dn/dpsi is still n and dp/dpsi is
-    still -p and the diagonal keeps its form.
+    The quasi-Fermi levels are held fixed, so under Boltzmann dn/dpsi is
+    still n and dp/dpsi is still -p and the diagonal keeps its form. Under
+    Fermi-Dirac each is divided by its generalized Einstein ratio, which the
+    statistics hands over rather than this module deriving again.
     """
     return _poisson_jacobian(
         h,
         volume,
         psi.size,
-        _boltzmann_densities(psi, phi_n, phi_p, volume > 0.0),
+        _carrier_densities(psi, phi_n, phi_p, volume > 0.0, degeneracy),
         geometry,
     )
 
@@ -222,25 +251,29 @@ def _poisson_jacobian(
     h: npt.NDArray[np.float64],
     volume: npt.NDArray[np.float64],
     n_nodes: int,
-    densities: BoltzmannDensities,
+    densities: CarrierDensities,
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-    """poisson_jacobian with the Boltzmann densities already in hand."""
-    n, p = densities
+    """poisson_jacobian with the densities and their tangents already in hand."""
+    _, _, dn, dp = densities
 
     nodes = np.arange(n_nodes, dtype=np.int64)
     left, right = geometry.ends(h.size)
     conductance = geometry.weight / h
 
     # Diagonal: both adjacent face conductances, plus the charge derivative.
-    # d/dpsi of -(p - n) is (p + n), and both are positive, so the charge term
-    # can only strengthen the diagonal.
+    # d/dpsi of -(p - n) is dn/dpsi - dp/dpsi, and both parts are handed over
+    # positive, so the charge term can only strengthen the diagonal. Under
+    # Boltzmann these are n and p themselves and this is the Phase 1 matrix
+    # unchanged. Under Fermi-Dirac each is smaller by its Einstein ratio,
+    # which weakens the diagonal without changing its sign, so the matrix
+    # stays the positive definite one that made Phase 1 converge.
     # Every node picks up the conductance of each face it touches. Scattered
     # rather than sliced: in 1D the edges touching a node are contiguous and a
     # pair of slice additions would do, but in 2D a node has four of them and
     # they are not adjacent in the ordering. See geometry.py on why this is
     # add.at and not bincount.
-    diagonal = (n + p) * volume
+    diagonal = (dn + dp) * volume
     np.add.at(diagonal, left, conductance)
     np.add.at(diagonal, right, conductance)
 
@@ -259,6 +292,7 @@ def assemble_poisson(
     phi_n: Field | None = None,
     phi_p: Field | None = None,
     charge_volume: npt.NDArray[np.float64] | None = None,
+    degeneracy: Degeneracy | None = None,
 ) -> SparseAssembly:
     """Assemble the equilibrium Poisson system, in any dimension.
 
@@ -275,6 +309,10 @@ def assemble_poisson(
             one semiconductor. A MOS stack passes the semiconductor volume
             from its RegionMap, which is zero in the oxide and turns those
             rows into the bare Laplacian an insulator wants.
+        degeneracy: the statistics, or None for Boltzmann. It enters here and
+            only here on this path, because Poisson is the one equation that
+            substitutes the densities in rather than carrying them as
+            unknowns.
 
     Checks the scaling state and mesh location once here, then works on raw
     arrays, which is the pattern docs/03-architecture.md prescribes.
@@ -318,7 +356,9 @@ def assemble_poisson(
     p_values = None if phi_p is None else phi_p.data
 
     # One pair of exponentials for both halves of the system.
-    densities = _boltzmann_densities(psi.data, n_values, p_values, volume > 0.0)
+    densities = _carrier_densities(
+        psi.data, n_values, p_values, volume > 0.0, degeneracy
+    )
     residual = _poisson_residual(
         mesh.h, volume, psi.data, net_doping.data, densities, mesh.geometry
     )

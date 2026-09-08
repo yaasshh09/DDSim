@@ -607,17 +607,46 @@ def poisson_block(device: Device) -> BlockStep[DeviceState]:
     return step
 
 
+def _lagged_effective_potential(
+    device: Device, state: DeviceState, carrier: Carrier
+) -> Field:
+    """The potential one carrier is Boltzmann in, at the incoming state [V].
+
+    state.psi itself under Boltzmann, so nothing before Phase 5 pays anything
+    or moves a bit.
+
+    Under Fermi-Dirac the Bernoulli argument depends on the density as well as
+    on the potential, which the coupled Newton differentiates properly and a
+    Gummel block cannot: its whole premise is that the continuity equation is
+    linear in its own carrier once the other two unknowns are held. So the
+    correction is lagged at the incoming density, exactly the way this path
+    already lags a field dependent diffusivity. It costs a Gummel cycle its
+    quadratic convergence, which Gummel never had, and it leaves the fixed
+    point alone: at convergence the lagged density is the solved one and the
+    equation being satisfied is the degenerate one.
+    """
+    degeneracy = device.degeneracy
+    if degeneracy is None:
+        return state.psi
+    if carrier is Carrier.ELECTRON:
+        values = degeneracy.electron_potential(state.psi.data, state.n.data)
+    else:
+        values = degeneracy.hole_potential(state.psi.data, state.p.data)
+    return _node_field(np.asarray(values), "V", "psi_eff")
+
+
 def electron_block(
     device: Device, models: TransportModels
 ) -> BlockStep[DeviceState]:
     """Step 2: electron continuity, linear in n once psi and p are held."""
     doping = device.net_doping_scaled.data
+    degeneracy = device.degeneracy
     solver = SparseLU()
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
         assembly = assemble_electron_continuity(
             device.mesh_1d,
-            state.psi,
+            _lagged_effective_potential(device, state, Carrier.ELECTRON),
             state.n,
             state.p,
             models.recombination,
@@ -625,7 +654,12 @@ def electron_block(
             _lagged_diffusivity(models.Dn, device, state.psi.data),
         )
         assembly = apply_ohmic_densities(
-            assembly, state.n.data, doping, device.ohmic_contacts, Carrier.ELECTRON
+            assembly,
+            state.n.data,
+            doping,
+            device.ohmic_contacts,
+            Carrier.ELECTRON,
+            degeneracy,
         )
 
         solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
@@ -634,6 +668,7 @@ def electron_block(
             doping,
             device.ohmic_contacts,
             Carrier.ELECTRON,
+            degeneracy,
         )
 
         _check_positive(updated_n, "n", state)
@@ -648,12 +683,13 @@ def electron_block(
 def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState]:
     """Step 3: hole continuity, linear in p once psi and n are held."""
     doping = device.net_doping_scaled.data
+    degeneracy = device.degeneracy
     solver = SparseLU()
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
         assembly = assemble_hole_continuity(
             device.mesh_1d,
-            state.psi,
+            _lagged_effective_potential(device, state, Carrier.HOLE),
             state.n,
             state.p,
             models.recombination,
@@ -661,7 +697,12 @@ def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState
             _lagged_diffusivity(models.Dp, device, state.psi.data),
         )
         assembly = apply_ohmic_densities(
-            assembly, state.p.data, doping, device.ohmic_contacts, Carrier.HOLE
+            assembly,
+            state.p.data,
+            doping,
+            device.ohmic_contacts,
+            Carrier.HOLE,
+            degeneracy,
         )
 
         solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
@@ -670,6 +711,7 @@ def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState
             doping,
             device.ohmic_contacts,
             Carrier.HOLE,
+            degeneracy,
         )
 
         _check_positive(updated_p, "p", state)
@@ -979,6 +1021,7 @@ def solve_bias_newton(
                 active.Dp,
                 active.recombination,
                 geometry,
+                device.degeneracy,
             )
             # Contacts before the scaling, so a pinned row becomes the identity
             # and then gets divided like any other. Scaling first would leave
@@ -991,6 +1034,7 @@ def solve_bias_newton(
                 scale,
                 carrier_free,
                 device.material.T,
+                device.degeneracy,
             )
             return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
 
@@ -1040,6 +1084,7 @@ def solve_bias_newton(
         n=_node_field(n.copy(), "cm^-3", "n"),
         p=_node_field(p.copy(), "cm^-3", "p"),
         newton=result,
+        degeneracy=device.degeneracy,
     )
 
 

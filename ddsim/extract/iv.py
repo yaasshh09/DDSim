@@ -205,6 +205,7 @@ def continuity_residuals(
         Dp=models.Dp,
         recombination=models.recombination,
         geometry=mesh.geometry,
+        degeneracy=device.degeneracy,
     )
     _, electrons, holes = unpack(residual)
     return np.asarray(electrons), np.asarray(holes)

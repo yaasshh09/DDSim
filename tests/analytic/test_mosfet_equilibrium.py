@@ -150,24 +150,41 @@ def test_the_built_in_potential_across_the_source_junction(fet, state):
     """The number every threshold voltage in this project rests on.
 
     Neutral n+ source to neutral p body, both read where they are neutral, and
-    the answer is fixed by the two doping levels alone:
+    the answer is fixed by the two doping levels alone. Under Boltzmann that
+    is
 
         V_bi = V_T [ asinh(Nd / 2 n_i) + asinh(Na / 2 n_i) ]
 
     Not the textbook V_T ln(Na Nd / n_i^2), for the reason
     docs/05-pitfalls.md gives: the log form is the same number wherever it is
     valid and returns nonsense at low doping, and the solver uses asinh.
+
+    The source is at 1e20, where n/Nc is 3.5 and Boltzmann is not on, so this
+    MOSFET is solved with Fermi-Dirac and the closed form is the degenerate
+    neutrality solution instead. It reduces to the asinh form exactly at low
+    doping, so this is the same statement rather than a second one, and it is
+    read off the device's own statistics rather than typed in. Row 119 of
+    docs/07-decisions.md predicted the 30.5 mV this moved by, before there was
+    anything to apply it to.
     """
     psi = psi_volts(fet, state)
     source = node_nearest(fet, 0.0, T_SI)
     body = node_nearest(fet, 0.5 * WIDTH, 0.0)
 
+    degeneracy = fet.degeneracy
+    assert degeneracy is not None, "this MOSFET is supposed to be degenerate"
     v_bi = C.V_T() * float(
-        np.arcsinh(SD_PEAK / (2.0 * C.n_i()))
-        + np.arcsinh(NA / (2.0 * C.n_i()))
+        degeneracy.equilibrium_psi(SD_PEAK / C.n_i())
+        - degeneracy.equilibrium_psi(-NA / C.n_i())
     )
 
     assert psi[source] - psi[body] == pytest.approx(v_bi, abs=5 * MILLIVOLT)
+
+    boltzmann = C.V_T() * float(
+        np.arcsinh(SD_PEAK / (2.0 * C.n_i()))
+        + np.arcsinh(NA / (2.0 * C.n_i()))
+    )
+    assert (v_bi - boltzmann) / MILLIVOLT == pytest.approx(30.5, rel=1e-2)
 
 
 def test_the_source_is_n_type_and_the_channel_is_p_type(fet, state):

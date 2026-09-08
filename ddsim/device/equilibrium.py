@@ -179,6 +179,7 @@ def insulator_guess(
         field,
         net_doping,
         charge_volume=device.charge_volume_scaled,
+        degeneracy=device.degeneracy,
     )
     assembly = apply_contacts(
         assembly,
@@ -187,6 +188,7 @@ def insulator_guess(
         device.contacts,
         scale,
         device.material.T,
+        device.degeneracy,
     )
 
     # Hold the semiconductor. The gate is already held by apply_contacts, so
@@ -249,11 +251,18 @@ def solve_poisson(
     charge_volume = device.charge_volume_scaled
     net_doping = device.net_doping_scaled
     doping_values = net_doping.data
+    degeneracy = device.degeneracy
 
     def assemble(psi_values: npt.NDArray[np.float64]) -> SparseAssembly:
         psi = Field(psi_values, "V", ScalingState.SCALED, Location.NODE, name="psi")
         assembly = assemble_poisson(
-            mesh, psi, net_doping, phi_n, phi_p, charge_volume=charge_volume
+            mesh,
+            psi,
+            net_doping,
+            phi_n,
+            phi_p,
+            charge_volume=charge_volume,
+            degeneracy=degeneracy,
         )
         return apply_contacts(
             assembly,
@@ -262,6 +271,7 @@ def solve_poisson(
             device.contacts,
             scale,
             device.material.T,
+            degeneracy,
         )
 
     # The residual is a charge balance over each dual cell, so the size of its
@@ -339,7 +349,13 @@ def solve_equilibrium(
     # Charge neutral guess, shifted by the quasi-Fermi level of the local
     # majority carrier so that a biased region starts near the potential its
     # contact demands rather than a whole volt away from it.
-    initial = np.asarray(psi_equilibrium_scaled(doping_values), dtype=np.float64)
+    degeneracy = device.degeneracy
+    if degeneracy is None:
+        initial = np.asarray(psi_equilibrium_scaled(doping_values), dtype=np.float64)
+    else:
+        initial = np.asarray(
+            degeneracy.equilibrium_psi(doping_values), dtype=np.float64
+        )
     if phi_n is not None and phi_p is not None:
         majority = np.where(doping_values >= 0.0, phi_n.data, phi_p.data)
         initial = initial + majority
@@ -382,16 +398,19 @@ def solve_equilibrium(
     # ignored, so a genuine nan in psi still surfaces.
     carriers = np.asarray(device.charge_volume_scaled) > 0.0
     with np.errstate(over="ignore"):
-        n_data = np.where(
-            carriers, np.asarray(n_boltzmann_scaled(result.x, n_level)), 0.0
-        )
-        p_data = np.where(
-            carriers, np.asarray(p_boltzmann_scaled(result.x, p_level)), 0.0
-        )
+        if degeneracy is None:
+            n_raw = np.asarray(n_boltzmann_scaled(result.x, n_level))
+            p_raw = np.asarray(p_boltzmann_scaled(result.x, p_level))
+        else:
+            n_raw = degeneracy.electron_density(result.x - n_level)
+            p_raw = degeneracy.hole_density(p_level - result.x)
+        n_data = np.where(carriers, n_raw, 0.0)
+        p_data = np.where(carriers, p_raw, 0.0)
 
     return DeviceState(
         psi=psi,
         n=Field(n_data, "cm^-3", ScalingState.SCALED, Location.NODE, name="n"),
         p=Field(p_data, "cm^-3", ScalingState.SCALED, Location.NODE, name="p"),
         newton=result,
+        degeneracy=degeneracy,
     )

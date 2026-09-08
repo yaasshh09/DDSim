@@ -462,7 +462,7 @@ def test_the_insulator_rows_are_exactly_the_laplacian():
 def test_complex_step_survives_the_insulator_mask():
     """The mask must not break the dtype contract this module documents.
 
-    `_boltzmann_densities` promises it "does not force a dtype, so a complex
+    `_carrier_densities` promises it "does not force a dtype, so a complex
     psi gives complex densities and complex step differentiation works through
     here", and the mask puts a real -inf into a complex array to get a density
     of exactly zero. The complex step check above this one runs on a device

@@ -267,14 +267,39 @@ def transfer_curves(device):
     return curves
 
 
-def test_the_off_state_current_is_left_alone(transfer_curves):
-    """No inversion layer means no carriers at the interface to scatter off
-    it, so the model has to do nothing here. This is what says the reduction
-    below is the surface term working rather than a mobility knocked down
-    everywhere by a constant."""
-    bulk, surface = transfer_curves[False][0], transfer_curves[True][0]
+def test_the_correction_dies_away_from_the_interface(inverted, surface_models):
+    """What says the reduction below is a surface term and not a mobility
+    knocked down everywhere by a constant.
 
-    assert abs(bulk / surface - 1.0) < 0.02
+    Read as a depth profile down the middle of the channel, at 2 V of gate
+    bias. Measured: 0.37 of the bulk mobility on the interface row, back
+    inside a percent of it one third of the way into the substrate, and
+    exactly 1 in the oxide.
+
+    This replaces a comparison of the two off state currents, which is the
+    same claim measured somewhere it cannot be measured. At zero gate bias on
+    this mesh the drain current is 5e-8 while the sum of the terminal
+    currents, which Kirchhoff says is zero, is 3e-8. The quantity is a
+    cancellation between fluxes ten decades larger and it carries no
+    information: the two models agreed there to 0.8 percent under Boltzmann
+    and to 59 percent under Fermi-Dirac, and neither number was about
+    mobility. See docs/07-decisions.md.
+    """
+    device = fet(2.0)
+    surface = surface_models.surface
+    mu_n, _ = surface.corrected(
+        device, inverted.psi.data, inverted.n.data, inverted.p.data
+    )
+    ratio = (mu_n / surface.mu_bulk_n).reshape(
+        device.mesh.y_axis.n_nodes, device.mesh.x_axis.n_nodes
+    )
+    column = ratio[:, device.mesh.x_axis.n_nodes // 2]
+
+    # The interface is the last silicon row, the oxide sitting above it.
+    interface = int(np.argmin(column))
+    assert column[interface] < 0.5
+    assert column[0] == pytest.approx(1.0, abs=0.01)
+    assert np.all(np.diff(column[: interface + 1]) <= 0.0)
 
 
 def test_the_on_current_falls_by_the_factor_the_physics_doc_names(

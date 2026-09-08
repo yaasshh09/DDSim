@@ -26,6 +26,7 @@ from ddsim.discretize.boundary import Contact, GateContact, SemiconductorContact
 from ddsim.discretize.geometry import ScaledMesh
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.mesh.mesh2d import Mesh2D
+from ddsim.physics.statistics import Degeneracy
 
 AnyMesh = Mesh1D | Mesh2D
 """A mesh of either dimension. Everything below works on both."""
@@ -86,6 +87,20 @@ class Device:
     device built so far and every single material 2D one. A MOS stack passes
     the map, and both things that follow from it, the per edge permittivity
     and the semiconductor volume, are read from here.
+    """
+
+    degenerate: bool = False
+    """Whether the carriers obey Fermi-Dirac statistics rather than Boltzmann.
+
+    False keeps n = exp(psi - phi_n) everywhere, which is what every device
+    before Phase 5 was solved with and what every result before it was
+    measured against. True routes the same relation through the Joyce-Dixon
+    series, which changes nothing below about 1e18 and moves the 1e20 source
+    and drain of a MOSFET by 30.5 mV. See docs/07-decisions.md.
+
+    A flag rather than a material property because it is a modelling choice,
+    not a number silicon has. The same silicon is degenerate or not depending
+    on how heavily this particular device is doped.
     """
 
     @cached_property
@@ -251,6 +266,20 @@ class Device:
         """Net doping on the mesh nodes [cm^-3], scaled by C_0."""
         return self.net_doping.to_scaled(self.scale)
 
+    @cached_property
+    def degeneracy(self) -> Degeneracy | None:
+        """The statistics this device is solved with, or None for Boltzmann.
+
+        Every assembly takes this and does nothing at all with a None, so the
+        Boltzmann path stays the path it was rather than becoming a special
+        case of the degenerate one. The band densities are scaled by the same
+        C_0 the rest of the device is, because a bare Nc in a scaled assembly
+        is off by ten decades and would still converge.
+        """
+        if not self.degenerate:
+            return None
+        return Degeneracy.for_silicon(self.scale.C_0, self.material.T)
+
     def with_bias(self, **voltages: float) -> Device:
         """A copy of this device with new contact voltages [V].
 
@@ -299,6 +328,7 @@ def build_device(
     material: Material | None = None,
     C_0: float | None = None,
     regions: RegionMap | None = None,
+    degenerate: bool = False,
 ) -> Device:
     """Assemble a Device and check that it is self consistent.
 
@@ -310,6 +340,8 @@ def build_device(
         C_0: reference concentration for scaling [cm^-3], defaults to n_i.
         regions: the material map, on a device made of more than one material.
             None means the whole mesh is the one semiconductor.
+        degenerate: solve with Fermi-Dirac statistics rather than Boltzmann.
+            Off by default, so every device built before Phase 5 is unchanged.
 
     C_0 is exposed here so that Phase 5 can switch to max|net doping| in one
     place if conditioning demands it, per docs/02-numerics.md.
@@ -359,4 +391,5 @@ def build_device(
         contacts=contacts,
         scale=scale,
         regions=regions,
+        degenerate=degenerate,
     )
