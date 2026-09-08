@@ -22,6 +22,7 @@ from ddsim.core import constants as C
 from ddsim.physics.statistics import (
     JOYCE_DIXON_COEFFICIENTS,
     JOYCE_DIXON_MAX_U,
+    Degeneracy,
     degeneracy_factor,
     dn_dpsi_scaled,
     dp_dpsi_scaled,
@@ -493,3 +494,283 @@ def test_degeneracy_factor_refuses_a_negative_density() -> None:
     a density, and a caller who hands one over has a sign error upstream."""
     with pytest.raises(ValueError, match="negative"):
         degeneracy_factor(-1.0)
+
+
+# ------------------------------------------- Fermi-Dirac, as the solver holds it
+#
+# Everything above tests the arithmetic on u = n/Nc. This section tests the
+# object a solver holds: the same series in scaled units, answering the four
+# questions transport asks. The sharpest test here is the round trip, because
+# the forward direction and the inverse cap the density by two different
+# routes, and the two caps have to land on the same number rather than nearly
+# the same number. See test_the_inversion_is_exact_past_the_validated_density.
+
+DEGENERACY = Degeneracy.for_silicon(C.n_i())
+"""Silicon at 300 K, scaled by C_0 = n_i, which is what a device would build."""
+
+PSI_GRID = np.array([-20.0, -5.0, 0.0, 10.0, 20.0, 24.0, 26.0, 30.0, 40.0])
+"""Boltzmann exponents from empty to far past the cap [1].
+
+The cap sits at u = 8, which is n = 2.29e10 scaled and psi = 26.4, so this
+grid crosses it. That crossing is the whole point of the grid.
+"""
+
+COMPLEX_STEP = 1e-30
+"""Imaginary step for differentiating the degenerate paths [1]."""
+
+
+def test_degeneracy_refuses_a_nonpositive_band_density() -> None:
+    """Nc appears in a denominator and in a logarithm. Zero is not a material."""
+    with pytest.raises(ValueError, match="Nc"):
+        Degeneracy(Nc=0.0, Nv=1.0)
+    with pytest.raises(ValueError, match="Nv"):
+        Degeneracy(Nc=1.0, Nv=-1.0)
+
+
+def test_for_silicon_scales_both_band_densities_by_the_density_scale() -> None:
+    """The class works in scaled units, so C_0 has to divide out of both."""
+    scaled = Degeneracy.for_silicon(C.n_i())
+    assert scaled.Nc == pytest.approx(C.Nc(C.T_ROOM) / C.n_i(), rel=1e-15)
+    assert scaled.Nv == pytest.approx(C.Nv(C.T_ROOM) / C.n_i(), rel=1e-15)
+
+
+# ------------------------------------------------------ the effective potential
+
+
+def test_the_effective_potential_is_psi_itself_at_zero_density() -> None:
+    """Not approximately. A Boltzmann device that switches statistics on has
+    to keep every number it already had, and this is where that starts.
+    """
+    assert DEGENERACY.electron_potential(3.0, 0.0) == 3.0
+    assert DEGENERACY.hole_potential(3.0, 0.0) == 3.0
+
+
+def test_the_electron_potential_falls_below_psi_and_the_hole_one_rises() -> None:
+    """gamma < 1 for both carriers, and ln(gamma) enters with opposite signs.
+
+    Both statements say a filled band pushes its own carriers out.
+    """
+    n = np.array([1e8, 1e9, 1e10])
+    assert np.all(DEGENERACY.electron_potential(0.0, n) < 0.0)
+    assert np.all(DEGENERACY.hole_potential(0.0, n) > 0.0)
+
+
+def test_the_effective_potential_carries_the_joyce_dixon_correction() -> None:
+    """psi_eff = psi + ln(gamma), with gamma the same factor tested above."""
+    n = np.array([1e6, 1e9, 2e10])
+    expected = 2.0 + np.log(degeneracy_factor(n / DEGENERACY.Nc))
+    np.testing.assert_allclose(
+        DEGENERACY.electron_potential(2.0, n), expected, rtol=1e-14
+    )
+
+
+def test_the_correction_is_thirty_millivolts_at_1e20() -> None:
+    """Row 119 of docs/07-decisions.md, in the units the solver works in."""
+    n = 1e20 / C.n_i()
+    shift = DEGENERACY.electron_potential(0.0, n) * C.V_T() * 1e3  # [mV]
+    assert shift == pytest.approx(-30.5, rel=1e-2)
+
+
+def test_the_potential_derivative_matches_complex_step() -> None:
+    """The Bernoulli argument depends on n once psi_eff does, so this
+    derivative becomes a Jacobian entry and has to be exact, not close.
+    """
+    for n in (1e-3, 1.0, 1e9, 1e10):
+        step = complex(n, COMPLEX_STEP)
+        assert DEGENERACY.d_electron_potential_dn(n) == pytest.approx(
+            DEGENERACY.electron_potential(0.0, step).imag / COMPLEX_STEP, rel=1e-12
+        )
+        assert DEGENERACY.d_hole_potential_dp(n) == pytest.approx(
+            DEGENERACY.hole_potential(0.0, step).imag / COMPLEX_STEP, rel=1e-12
+        )
+
+
+def test_the_potential_derivative_is_zero_above_the_cap() -> None:
+    """The cap holds the correction constant, so its slope there is zero and
+    not the slope the series would have had. A tangent three times too steep
+    is what turns the inversion below from quadratic into a crawl.
+    """
+    n = DEGENERACY.Nc * JOYCE_DIXON_MAX_U * 2.0
+    p = DEGENERACY.Nv * JOYCE_DIXON_MAX_U * 2.0
+    assert DEGENERACY.d_electron_potential_dn(n) == 0.0
+    assert DEGENERACY.d_hole_potential_dp(p) == 0.0
+
+
+# ---------------------------------------------------------------- the inverse
+
+
+def test_the_inversion_returns_the_density_the_potential_describes() -> None:
+    """n solves psi_eff(psi, n) = ln(n) when phi_n is zero, which is the
+    statement that the forward direction and the inverse are one function.
+    """
+    n = DEGENERACY.electron_density(PSI_GRID)
+    np.testing.assert_allclose(
+        DEGENERACY.electron_potential(PSI_GRID, n), np.log(n), atol=1e-13
+    )
+    p = DEGENERACY.hole_density(PSI_GRID)
+    np.testing.assert_allclose(
+        DEGENERACY.hole_potential(-PSI_GRID, p), -np.log(p), atol=1e-13
+    )
+
+
+def test_the_inversion_is_exact_past_the_validated_density() -> None:
+    """Above u = 8 the correction is a constant, so the Newton lands in one
+    step. It does not if the two caps disagree: capping ln(u) at ln(8) and
+    exponentiating gives 7.999999999999998, which is below the ceiling by an
+    ulp, so the slope comes back at its uncapped value, the tangent is 3.4
+    times too steep and six steps leave the round trip 0.31 out. Measured.
+    """
+    psi = np.array([27.0, 30.0, 40.0, 60.0])
+    n = DEGENERACY.electron_density(psi)
+    assert np.all(n > DEGENERACY.Nc * JOYCE_DIXON_MAX_U)
+    np.testing.assert_allclose(
+        DEGENERACY.electron_potential(psi, n), np.log(n), atol=0.0
+    )
+
+
+def test_the_inversion_reduces_to_the_exponential_where_the_band_is_empty() -> None:
+    """Far below the band edge there is nothing to correct, so n = exp(psi)."""
+    psi = np.array([-20.0, -10.0, 0.0])
+    np.testing.assert_allclose(DEGENERACY.electron_density(psi), np.exp(psi), rtol=1e-9)
+
+
+def test_the_inversion_is_monotone_across_the_cap() -> None:
+    """A density that stopped rising with the potential would make the Poisson
+    diagonal vanish. The cap has to hold the correction constant, not turn it.
+    """
+    n = DEGENERACY.electron_density(np.linspace(-40.0, 60.0, 400))
+    assert np.all(np.diff(n) > 0.0)
+
+
+def test_a_node_with_no_carriers_comes_back_at_exactly_zero() -> None:
+    """A carrier free node arrives with an exponent of -inf. Without the
+    guard the Newton computes inf minus inf and returns nan, which poisons a
+    whole assembly rather than one row.
+    """
+    n = DEGENERACY.electron_density(np.array([-np.inf, 0.0]))
+    assert n[0] == 0.0
+    assert n[1] == pytest.approx(1.0, rel=1e-9)
+
+
+def test_dn_dpsi_is_the_density_over_the_einstein_ratio() -> None:
+    """Filling the band means a given rise in the Fermi level buys less
+    density, and the factor it is short by is the same generalized Einstein
+    ratio the diffusivity uses. One approximation, used twice.
+    """
+    n = np.array([1e-3, 1e8, 1e9, 2e10])
+    np.testing.assert_allclose(
+        DEGENERACY.dn_dpsi(n), n / einstein_ratio(n / DEGENERACY.Nc), rtol=1e-14
+    )
+    np.testing.assert_allclose(
+        DEGENERACY.dp_dpsi(n), n / einstein_ratio(n / DEGENERACY.Nv), rtol=1e-14
+    )
+
+
+def test_dn_dpsi_matches_complex_step_through_the_inversion() -> None:
+    """The Poisson diagonal is exactly this derivative, so the closed form and
+    the derivative of the inverse have to be the same number.
+    """
+    for psi in (-10.0, 0.0, 10.0, 20.0, 24.0):
+        step = complex(psi, COMPLEX_STEP)
+        assert DEGENERACY.dn_dpsi(DEGENERACY.electron_density(psi)) == pytest.approx(
+            DEGENERACY.electron_density(step).imag / COMPLEX_STEP, rel=1e-12
+        )
+
+
+def test_dn_dpsi_is_the_density_itself_in_the_boltzmann_limit() -> None:
+    """Where the ratio is 1, this has to give back dn/dpsi = n exactly."""
+    assert DEGENERACY.dn_dpsi(0.0) == 0.0
+    assert DEGENERACY.dp_dpsi(0.0) == 0.0
+
+
+# --------------------------------------------------------------- the contacts
+
+
+def test_equilibrium_neutrality_is_exact() -> None:
+    """n - p = N to the last bit, because a contact that is not neutral puts a
+    space charge sheet at the boundary that nothing in the device asked for.
+    """
+    N = np.array([-1e10, -1e7, 0.0, 1e7, 1e10, 1e20 / C.n_i()])
+    n, p = DEGENERACY.equilibrium_densities(N)
+    np.testing.assert_allclose(n - p, N, rtol=1e-15, atol=1e-15)
+
+
+def test_equilibrium_mass_action_carries_both_degeneracy_factors() -> None:
+    """n*p = 1 becomes n*p = gamma_n gamma_p, which is 0.31 at 1e20 rather
+    than 1. Exact rather than close, because the minority carrier is taken
+    from the product and not from the quadratic formula.
+    """
+    N = np.array([-1e10, 1e7, 1e10, 1e20 / C.n_i()])
+    n, p = DEGENERACY.equilibrium_densities(N)
+    product = degeneracy_factor(n / DEGENERACY.Nc) * degeneracy_factor(
+        p / DEGENERACY.Nv
+    )
+    np.testing.assert_allclose(n * p, product, rtol=1e-14)
+
+
+def test_the_equilibrium_potential_agrees_with_both_carriers() -> None:
+    """psi, n and p at a contact node are one state, not three conditions that
+    nearly agree. Read off the electrons, it has to satisfy the holes too.
+    """
+    N = np.array([-1e20 / C.n_i(), -1e10, 1e7, 1e10, 1e20 / C.n_i()])
+    n, p = DEGENERACY.equilibrium_densities(N)
+    psi = DEGENERACY.equilibrium_psi(N)
+    np.testing.assert_allclose(
+        DEGENERACY.electron_potential(psi, n), np.log(n), atol=1e-13
+    )
+    np.testing.assert_allclose(
+        DEGENERACY.hole_potential(psi, p), -np.log(p), atol=1e-13
+    )
+
+
+def test_the_equilibrium_contact_reduces_to_boltzmann_at_low_doping() -> None:
+    """At 1e13 cm^-3, u = n/Nc is 3.5e-7 and the correction is A1 u = 1.2e-7,
+    so the degenerate contact and the Boltzmann one agree to seven digits. A
+    device that is nowhere degenerate pays essentially nothing for switching
+    statistics on, and the residue it does pay is the correction itself and
+    not an error in solving for it.
+    """
+    N = np.array([-1e3, 0.0, 1e3])
+    n, p = DEGENERACY.equilibrium_densities(N)
+    n_boltz, p_boltz = equilibrium_densities_scaled(N)
+    np.testing.assert_allclose(n, n_boltz, rtol=1e-6)
+    np.testing.assert_allclose(p, p_boltz, rtol=1e-6)
+    np.testing.assert_allclose(
+        DEGENERACY.equilibrium_psi(N), psi_equilibrium_scaled(N), atol=1e-6
+    )
+
+
+def test_the_degenerate_contact_sits_thirty_millivolts_above_boltzmann() -> None:
+    """At 1e20 the band is filled, so a given electron density needs a higher
+    Fermi level than Boltzmann says. Row 119 predicts 30.5 mV and this is the
+    contact actually built from it, not the bare series.
+    """
+    N = 1e20 / C.n_i()
+    shift = (
+        (DEGENERACY.equilibrium_psi(N) - psi_equilibrium_scaled(N)) * C.V_T() * 1e3
+    )  # [mV]
+    assert shift == pytest.approx(30.5, rel=1e-2)
+
+
+def test_the_equilibrium_contact_is_symmetric_between_the_carriers() -> None:
+    """Swapping Nc and Nv and the sign of the doping has to swap n and p. The
+    hole branch is a separate code path and this is what says it is a mirror.
+    """
+    mirrored = Degeneracy(Nc=DEGENERACY.Nv, Nv=DEGENERACY.Nc)
+    N = 1e20 / C.n_i()
+    n, p = DEGENERACY.equilibrium_densities(N)
+    p_mirror, n_mirror = mirrored.equilibrium_densities(-N)
+    assert n_mirror == pytest.approx(n, rel=1e-14)
+    assert p_mirror == pytest.approx(p, rel=1e-14)
+    assert mirrored.equilibrium_psi(-N) == pytest.approx(
+        -DEGENERACY.equilibrium_psi(N), rel=1e-14
+    )
+
+
+def test_scalar_input_returns_scalar_shape() -> None:
+    """Callers hand these single contact values as well as whole node arrays."""
+    assert np.shape(DEGENERACY.equilibrium_psi(1.0)) == ()
+    assert np.shape(DEGENERACY.electron_density(0.0)) == ()
+    n, p = DEGENERACY.equilibrium_densities(1.0)
+    assert np.shape(n) == ()
+    assert np.shape(p) == ()

@@ -22,8 +22,12 @@ Sign convention, fixed by docs/01-physics.md: psi increases toward n-type.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import numpy as np
 import numpy.typing as npt
+
+from ddsim.core import constants as C
 
 Scalar = float | npt.NDArray[np.float64]
 
@@ -402,3 +406,279 @@ def einstein_ratio(u: Scalar) -> npt.NDArray[np.float64]:
     for power, coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS, start=1):
         total = total + power * coefficient * ratio**power
     return np.asarray(total)
+
+
+# ------------------------------------------------- Fermi-Dirac, wired for use
+#
+# Everything above is arithmetic on u = n/Nc. What follows is the object a
+# solver holds: the same series, in the scaled units the assemblies work in,
+# with the four questions transport actually asks of it.
+#
+# The four questions
+# ------------------
+# 1. What potential makes this density exactly Boltzmann? That is the
+#    effective potential of docs/07-decisions.md, psi_eff = psi + ln(gamma),
+#    and it is the only thing the Scharfetter-Gummel argument changes.
+# 2. How does that potential move when the density does? The Bernoulli
+#    argument now depends on n as well as psi, so dF_n/dn grows the same
+#    stencil dF_n/dpsi already has.
+# 3. What density belongs to this potential? The inverse of the series, which
+#    the equilibrium Poisson solve needs, because there n and p are not
+#    unknowns but functions of psi.
+# 4. What does an ohmic contact hold? Neutrality and mass action again, with
+#    the mass action product no longer 1.
+#
+# The sign, once, so it is not re-derived at four call sites. gamma < 1, so
+# ln(gamma) < 0, so the effective potential is below psi where electrons are
+# degenerate and above psi where holes are. Both statements say the same
+# thing: a filled band pushes its own carriers out, which is the enhanced
+# diffusion the generalized Einstein ratio describes.
+
+
+INVERSION_STEPS = 6
+"""Newton steps taken to invert the Joyce-Dixon series [1].
+
+The iteration is Newton on w = ln(u) against a function whose derivative is
+the Einstein ratio and therefore never below 1, started from the Boltzmann
+answer, which lies on the convex side of the root. That makes it monotone and
+quadratic with no safeguarding. Six steps reach the roundoff floor from the
+worst start in range, u = 8, where the correction it has to undo is 2.5.
+
+Fixed rather than tolerance driven, for the same reason the quadrature is
+fixed order: the result has to be the same bits every time it is called at the
+same argument, because a Jacobian entry derived from it is compared against
+complex step at 1e-10.
+
+The same count serves the contact solve below, which is a substitution rather
+than a Newton and converges faster still.
+"""
+
+LOG_MAX_U = float(np.log(JOYCE_DIXON_MAX_U))
+"""ln of the largest n/Nc the series is allowed at [1]."""
+
+
+def _cap(values: Scalar, ceiling: float) -> npt.NDArray[np.float64]:
+    """min(values, ceiling), branching on the real part [1].
+
+    np.minimum orders complex numbers lexicographically and np.clip refuses
+    them outright, and either would break the complex step verification of
+    everything downstream. Comparing the real part is the same function on
+    real input and the analytic continuation of it on a perturbed one.
+    """
+    array = np.asarray(values)
+    return np.asarray(np.where(np.real(array) > ceiling, ceiling, array))
+
+
+def _joyce_dixon_slope(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    """d(correction)/du [1], the term by term derivative of the series.
+
+    Related to the Einstein ratio by ratio = 1 + u * slope, which is how the
+    same four coefficients end up describing the density, the diffusivity and
+    the tangent of the inversion.
+    """
+    total = np.zeros_like(u)
+    for power, coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS, start=1):
+        total = total + power * coefficient * u ** (power - 1)
+    return total
+
+
+@dataclass(frozen=True)
+class Degeneracy:
+    """Fermi-Dirac corrections for one material, in scaled units.
+
+    Args:
+        Nc: conduction band effective density of states over C_0 [1].
+        Nv: valence band effective density of states over C_0 [1].
+
+    Frozen and hashable, because ohmic contact values are cached on it.
+
+    A device holding None instead of one of these is a Boltzmann device, and
+    every path below is written so that the two agree bit for bit at zero
+    density rather than merely to rounding. See the module comment.
+    """
+
+    Nc: float
+    Nv: float
+
+    def __post_init__(self) -> None:
+        for name, states in (("Nc", self.Nc), ("Nv", self.Nv)):
+            if states <= 0.0:
+                raise ValueError(f"{name} must be positive, got {states}")
+
+    @classmethod
+    def for_silicon(cls, C_0: float, T: float = C.T_ROOM) -> Degeneracy:
+        """Silicon at temperature T [K], with both densities scaled by C_0."""
+        return cls(Nc=C.Nc(T) / C_0, Nv=C.Nv(T) / C_0)
+
+    # ------------------------------------------------ the effective potential
+
+    def _u(self, density: Scalar, states: float) -> npt.NDArray[np.float64]:
+        """n/Nc, capped at the last density the series is validated to [1].
+
+        Capped rather than refused, unlike the bare functions above. Those are
+        asked about a state someone chose; this is asked about whatever a
+        Newton step landed on, and a transient overshoot next to a 1e20
+        contact would otherwise abort a whole continuation sweep. Above the
+        cap the correction is held constant, which keeps the density monotone
+        in the potential and the inversion single valued. Nothing this project
+        reports sits above the cap, and a test pins that.
+        """
+        return _cap(np.asarray(density) / states, JOYCE_DIXON_MAX_U)
+
+    @staticmethod
+    def _slope(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """d(correction)/du at an already capped u [1], zero above the cap.
+
+        The cap holds the correction constant, so its derivative there is zero
+        and not the slope the series would have had. Getting that wrong is not
+        cosmetic: the inverse below is a Newton whose tangent is exactly this,
+        and a tangent three times too steep turns a step that should land on
+        the answer into linear convergence that never arrives. Measured before
+        this was a single helper: the round trip at n = 2e20 came back 7.3e-3
+        out after six steps instead of at the roundoff floor.
+        """
+        capped = np.real(u) >= JOYCE_DIXON_MAX_U
+        return np.asarray(np.where(capped, 0.0, _joyce_dixon_slope(u)))
+
+    def electron_potential(self, psi: Scalar, n: Scalar) -> npt.NDArray[np.float64]:
+        """psi + ln(gamma_n) [1], the potential electrons are Boltzmann in.
+
+        n = exp(psi_eff - phi_n) exactly, so the Scharfetter-Gummel
+        exponential fit stays exactly valid in psi_eff and the flux keeps the
+        ordinary form with D = mu V_T. Below psi, because gamma_n < 1.
+        """
+        return np.asarray(psi) - _joyce_dixon_correction(self._u(n, self.Nc))
+
+    def hole_potential(self, psi: Scalar, p: Scalar) -> npt.NDArray[np.float64]:
+        """psi - ln(gamma_p) [1], the potential holes are Boltzmann in.
+
+        p = exp(phi_p - psi_eff), so the mirror of the electron case puts the
+        correction on with the opposite sign. Above psi, for the same reason
+        the electron one is below it.
+        """
+        return np.asarray(psi) + _joyce_dixon_correction(self._u(p, self.Nv))
+
+    def d_electron_potential_dn(self, n: Scalar) -> npt.NDArray[np.float64]:
+        """d(psi_eff_n)/dn [1]. Negative, and zero where the cap is active."""
+        return np.asarray(-self._slope(self._u(n, self.Nc)) / self.Nc)
+
+    def d_hole_potential_dp(self, p: Scalar) -> npt.NDArray[np.float64]:
+        """d(psi_eff_p)/dp [1]. Positive, and zero where the cap is active."""
+        return np.asarray(self._slope(self._u(p, self.Nv)) / self.Nv)
+
+    # ----------------------------------------------------------- the inverse
+
+    def _density(self, exponent: Scalar, states: float) -> npt.NDArray[np.float64]:
+        """The density solving x = exp(exponent) * gamma(x/states) [1].
+
+        Substituting w = ln(x/states) turns that into
+
+            w + correction(exp(w)) = exponent - ln(states)
+
+        which is joyce_dixon_eta(u) = eta, so this is the inverse of the same
+        series the forward direction uses rather than a second approximation
+        of the same physics. Newton on w, whose derivative is exactly the
+        Einstein ratio and so is never below 1.
+
+        An exponent of -inf marks a node with no carriers in it and comes back
+        as exactly zero, rather than as a nan out of inf minus inf.
+        """
+        target = np.asarray(exponent) - float(np.log(states))
+        alive = np.isfinite(target)
+        target = np.where(alive, target, -EXP_LIMIT)
+
+        w = target
+        for _ in range(INVERSION_STEPS):
+            u = np.where(
+                np.real(w) > LOG_MAX_U,
+                JOYCE_DIXON_MAX_U,
+                np.exp(_cap(w, LOG_MAX_U)),
+            )
+            w = w - (w + _joyce_dixon_correction(u) - target) / (
+                1.0 + u * self._slope(u)
+            )
+        return np.asarray(np.where(alive, states * np.exp(w), 0.0))
+
+    def electron_density(self, exponent: Scalar) -> npt.NDArray[np.float64]:
+        """n [1] from the Boltzmann exponent psi - phi_n."""
+        return self._density(exponent, self.Nc)
+
+    def hole_density(self, exponent: Scalar) -> npt.NDArray[np.float64]:
+        """p [1] from the Boltzmann exponent phi_p - psi."""
+        return self._density(exponent, self.Nv)
+
+    def dn_dpsi(self, n: Scalar) -> npt.NDArray[np.float64]:
+        """dn/dpsi at fixed phi_n [1], which is n over the Einstein ratio.
+
+        Boltzmann returns n itself and this returns less, because filling the
+        band means a given rise in the Fermi level buys less density. It is
+        the same ratio einstein_ratio reports, and it appears here because the
+        Poisson diagonal is exactly this derivative.
+        """
+        u = self._u(n, self.Nc)
+        return np.asarray(np.asarray(n) / (1.0 + u * self._slope(u)))
+
+    def dp_dpsi(self, p: Scalar) -> npt.NDArray[np.float64]:
+        """-dp/dpsi at fixed phi_p [1], the hole mirror. Returned positive."""
+        u = self._u(p, self.Nv)
+        return np.asarray(np.asarray(p) / (1.0 + u * self._slope(u)))
+
+    # ---------------------------------------------------------- the contacts
+
+    def equilibrium_densities(
+        self, net_doping: Scalar
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        """Equilibrium (n, p) [1] at a given net doping, degenerate.
+
+        Neutrality is unchanged, n - p = N. Mass action is not: with each
+        density carrying its own gamma,
+
+            n * p = gamma_n(n) * gamma_p(p)
+
+        so the product is no longer 1 and depends on the answer. Solved by
+        substitution, starting from the Boltzmann answer and re-solving the
+        same quadratic against the product it implies. The product is set
+        almost entirely by the majority carrier, so this converges in a
+        handful of passes, and the majority carrier still comes from the
+        quadratic formula while the minority still comes from the product,
+        which is what keeps mass action exact rather than merely close.
+        """
+        original = np.asarray(net_doping, dtype=np.float64)
+        N = np.atleast_1d(original)
+        n, p = equilibrium_densities_scaled(N)
+
+        donors = N >= 0.0
+        for _ in range(INVERSION_STEPS):
+            product = degeneracy_factor(self._u(n, self.Nc)) * degeneracy_factor(
+                self._u(p, self.Nv)
+            )
+            root = np.sqrt(N * N + 4.0 * product)
+            majority = np.where(donors, 0.5 * (N + root), 0.5 * (root - N))
+            minority = product / majority
+            n = np.where(donors, majority, minority)
+            p = np.where(donors, minority, majority)
+
+        return n.reshape(original.shape), p.reshape(original.shape)
+
+    def equilibrium_psi(self, net_doping: Scalar) -> npt.NDArray[np.float64]:
+        """Equilibrium potential [1] at a given net doping, degenerate.
+
+        n = exp(psi) gamma_n inverts to psi = ln(n) + correction(n/Nc), and
+        the hole relation gives psi = -ln(p) - correction(p/Nv). The two agree
+        exactly whenever the pair above satisfies its own mass action, which
+        is the same consistency the Boltzmann contact has and matters for the
+        same reason: the potential and the two densities pinned at one contact
+        node have to be one state, not three conditions that nearly agree.
+
+        Read off the majority carrier, whose density carries no cancellation.
+        """
+        original = np.asarray(net_doping, dtype=np.float64)
+        N = np.atleast_1d(original)
+        n, p = self.equilibrium_densities(N)
+
+        psi = np.where(
+            N >= 0.0,
+            np.log(n) + _joyce_dixon_correction(self._u(n, self.Nc)),
+            -np.log(p) - _joyce_dixon_correction(self._u(p, self.Nv)),
+        )
+        return np.asarray(psi.reshape(original.shape))
