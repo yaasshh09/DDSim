@@ -98,8 +98,9 @@ class NewtonResult:
     """Number of Newton steps taken."""
 
     residual_history: list[float] = field(default_factory=list)
-    """max |F| before each step, plus once more at the end. Length is
-    iterations + 1. Plot it on a log scale to see the quadratic tail."""
+    """The residual size before each step, plus once more at the end, measured
+    by whatever residual_norm the solve was given. Length is iterations + 1.
+    Plot it on a log scale to see the quadratic tail."""
 
     update_history: list[float] = field(default_factory=list)
     """max |dx| for each step. Length is iterations."""
@@ -128,6 +129,9 @@ def newton_solve(
     residual_atol: float = 1e-12,
     residual_rtol: float = 1e-10,
     residual_scale: float | None = None,
+    residual_norm: (
+        Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float] | None
+    ) = None,
     update_tol: float = 1e-10,
     update_norm: (
         Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float] | None
@@ -157,6 +161,16 @@ def newton_solve(
         residual_atol: absolute floor on the residual threshold, for problems
             that start at or near zero residual.
         residual_rtol: residual threshold relative to residual_scale.
+        residual_norm: how to measure the size of a residual, given the
+            residual vector and the iterate it was evaluated at. Defaults to
+            max |F|, which is right when every row is measured against the
+            same thing and wrong when they are not. A row is divided by the
+            terms it is assembled from, and on a graded device those terms
+            span twelve decades within one equation family, so a residual
+            divided by one number per family says nothing at all about the
+            rows where the terms are small. Whatever this returns is what
+            lands in residual_history, so the reported number and the applied
+            criterion cannot drift apart.
         residual_scale: the size of the terms the residual is built from. The
             initial residual is used when this is None, which is right for a
             cold start and wrong for a warm one: a solve handed the answer
@@ -216,15 +230,20 @@ def newton_solve(
     limited_steps = 0
     message = ""
 
+    def measure(system: Assembly, at: npt.NDArray[np.float64]) -> float:
+        if residual_norm is None:
+            return float(np.max(np.abs(system.residual)))
+        return float(residual_norm(system.residual, at))
+
     system = assemble(x)
-    residual_norm = float(np.max(np.abs(system.residual)))
-    residual_history.append(residual_norm)
+    residual_size = measure(system, x)
+    residual_history.append(residual_size)
 
     # Fixed once, so that the threshold cannot drift as the iteration proceeds.
-    reference = residual_norm if residual_scale is None else abs(residual_scale)
+    reference = residual_size if residual_scale is None else abs(residual_scale)
     residual_threshold = residual_atol + residual_rtol * reference
 
-    if residual_norm < residual_threshold:
+    if residual_size < residual_threshold:
         return NewtonResult(
             x=x,
             converged=True,
@@ -289,10 +308,10 @@ def newton_solve(
             residual_history.append(float("inf"))
             break
 
-        residual_norm = float(np.max(np.abs(system.residual)))
-        residual_history.append(residual_norm)
+        residual_size = measure(system, x)
+        residual_history.append(residual_size)
 
-        if step_norm < update_tol and residual_norm < residual_threshold:
+        if step_norm < update_tol and residual_size < residual_threshold:
             return NewtonResult(
                 x=x,
                 converged=True,
@@ -310,7 +329,7 @@ def newton_solve(
         ):
             message = (
                 f"the residual stopped moving at iteration {iteration}: "
-                f"{residual_norm:.3e} unchanged over the last "
+                f"{residual_size:.3e} unchanged over the last "
                 f"{stagnation_window} evaluations, against a threshold of "
                 f"{residual_threshold:.3e}, with the update already down to "
                 f"{step_norm:.3e}. The residual is on its arithmetic floor "
