@@ -362,7 +362,8 @@ def saturation_exponent(
     weight the top of the curve by the square of its current and report
     whatever the last few points were doing.
     """
-    V, J = _checked(voltage, current, positive=False)
+    swept, J = _checked(voltage, current, positive=False)
+    V = swept
 
     if window is not None:
         inside = (V >= window[0]) & (V <= window[1])
@@ -371,11 +372,17 @@ def saturation_exponent(
     overdrive = V - threshold
     above = (overdrive > 0.0) & (J > 0.0)
     if int(np.count_nonzero(above)) < 2:
+        where = (
+            f" inside the window {window[0]:+g} to {window[1]:+g} V"
+            if window is not None
+            else ""
+        )
         raise ValueError(
             f"fitting a power needs at least two points above threshold with "
             f"a positive current, and this curve has "
-            f"{int(np.count_nonzero(above))} over "
-            f"{V[0]:+g} to {V[-1]:+g} V at a threshold of {threshold:+g} V"
+            f"{int(np.count_nonzero(above))}{where}. The sweep runs "
+            f"{swept[0]:+g} to {swept[-1]:+g} V at a threshold of "
+            f"{threshold:+g} V"
         )
 
     slope, _ = np.polyfit(

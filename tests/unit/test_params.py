@@ -395,6 +395,36 @@ def test_dibl_refuses_two_equal_drain_biases() -> None:
         dibl(0.45, 0.40, 0.05, 0.05)
 
 
+# ------------------------------------------------- the leakage floor
+
+
+def test_a_leakage_floor_forges_a_slope_below_the_thermal_limit() -> None:
+    """Why a subthreshold slope is read over a stated window of current.
+
+    A drain terminal carries the channel current less the reverse leakage of
+    its own junction, which flows the other way and does not care what the gate
+    is doing. Subtracting a constant from an exponential leaves something that
+    rises faster than the exponential, so a slope taken where the two are
+    comparable comes out below the 59.5 mV/decade no thermally activated
+    current can beat. On the solved device that region is also where the
+    terminal current is the difference of much larger edge fluxes, so the same
+    points carry arithmetic noise of the same size.
+
+    The channel here is a clean 70 mV/decade, so the 70 is a fact about the
+    input and every smaller number below is the artefact.
+    """
+    gate = np.arange(-0.5, 0.301, 0.05)
+    channel = 1e-3 * 10.0 ** (gate / 0.070)
+    measured = channel - 2e-8
+    on = measured > 0.0
+
+    whole_curve = subthreshold_slope(gate[on], measured[on])
+    windowed = subthreshold_slope(gate[on], measured[on], window=(-0.14, 0.0))
+
+    assert whole_curve < 59.5
+    assert windowed == pytest.approx(70.0, rel=1e-2)
+
+
 # ------------------------------------------------- the saturation exponent
 
 
@@ -446,6 +476,17 @@ def test_the_saturation_exponent_uses_only_the_requested_window() -> None:
 
     assert near == pytest.approx(2.0, rel=1e-9)
     assert far == pytest.approx(1.0, rel=1e-9)
+
+
+def test_the_saturation_exponent_says_so_when_the_window_is_empty() -> None:
+    """A window can be asked for that no point of the curve falls in, and the
+    message has to name the window rather than the curve, because the window
+    is the thing the caller got wrong."""
+    gate = np.linspace(0.0, 1.2, 25)
+    current = power_law_curve(gate, threshold=0.3, k=7e-4, alpha=2.0)
+
+    with pytest.raises(ValueError, match=r"inside the window \+2 to \+3 V"):
+        saturation_exponent(gate, current, threshold=0.3, window=(2.0, 3.0))
 
 
 def test_the_saturation_exponent_needs_two_points_above_threshold() -> None:

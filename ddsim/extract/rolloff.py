@@ -114,7 +114,18 @@ class RollOffPoint:
     """
 
     subthreshold_slope: float
-    """Steepest part of the low drain curve [mV/decade]."""
+    """Steepest part of the low drain curve [mV/decade].
+
+    Measured over the decades of drain current immediately below the constant
+    current threshold, not over the whole curve, and that is not tidiness. The
+    bottom of a real transfer curve is not channel current at all: it is
+    reverse drain junction leakage, a few times 1e-8 A/cm here, flat in gate
+    bias and the same in every device of the sweep because it is the same
+    junction. The first point that climbs out of that floor climbs out of it
+    steeply, and a slope taken across that step reads 36 mV/decade, which is
+    below the thermal limit and is an artefact of adding a constant to an
+    exponential rather than a device that beats Boltzmann.
+    """
 
     dibl: float
     """Threshold shift per volt of drain [mV/V]."""
@@ -186,6 +197,7 @@ def gate_length_sweep(
     drain_high: float = 1.0,
     reference_current: float = REFERENCE_CURRENT,
     overdrive_window: tuple[float, float] = (0.4, 1.0),
+    slope_decades: float = 2.0,
     step: float = 0.05,
 ) -> tuple[RollOffPoint, ...]:
     """Build one MOSFET per gate length and extract the short channel set.
@@ -210,6 +222,11 @@ def gate_length_sweep(
             starts above zero deliberately: just above threshold a transfer
             curve is still leaving the subthreshold exponential, which is not
             a power law in overdrive at all and would drag the fit.
+        slope_decades: how far below the constant current threshold to measure
+            the subthreshold slope over [decades of drain current]. Two, which
+            is wide enough to hold several gate steps and low enough to stay
+            clear of the knee, and high enough above the junction leakage floor
+            that the floor cannot enter the fit.
         step: first continuation step between gate biases [V].
 
     Returns one `RollOffPoint` per gate length, in the order requested.
@@ -252,13 +269,25 @@ def gate_length_sweep(
         )
         _, gm = transconductance(V_lin, J_lin)
 
+        # The slope window in gate bias, found by asking where the current
+        # crosses the two ends of the current window. Same interpolation the
+        # threshold itself uses, so the top of the window is the threshold.
+        slope_window = (
+            threshold_constant_current(
+                V_lin, J_lin, target / 10.0**slope_decades
+            ),
+            threshold_linear,
+        )
+
         points.append(
             RollOffPoint(
                 L_gate=L_gate,
                 threshold_linear=threshold_linear,
                 threshold_saturated=threshold_saturated,
                 threshold_extrapolated=threshold_extrapolated,
-                subthreshold_slope=subthreshold_slope(V_lin, J_lin),
+                subthreshold_slope=subthreshold_slope(
+                    V_lin, J_lin, window=slope_window
+                ),
                 dibl=dibl(
                     threshold_low=threshold_linear,
                     threshold_high=threshold_saturated,

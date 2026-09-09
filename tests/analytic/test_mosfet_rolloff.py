@@ -38,8 +38,16 @@ LONG = 1e-4
 SHORT = 1e-5
 """The short channel end of this test [cm], 100 nm."""
 
-GATE_VOLTAGES = list(np.round(np.arange(-0.2, 1.101, 0.1), 4))
-"""Coarse, because each point is a coupled 2D solve."""
+GATE_VOLTAGES = list(np.round(np.arange(-0.2, 0.101, 0.05), 4)) + list(
+    np.round(np.arange(0.2, 1.101, 0.1), 4)
+)
+"""Fine through subthreshold, coarse above it, because each point is a solve.
+
+The subthreshold slope is read over two decades of current, which at 70
+mV/decade is 140 mV wide, so a 0.1 V grid puts one point in it and cannot
+measure a slope at all. Above threshold the curve is a power law and 0.1 V
+resolves it fine.
+"""
 
 THERMAL_LIMIT = 59.5
 """kT/q ln 10 at 300 K [mV/decade]. Nothing thermally activated beats it."""
