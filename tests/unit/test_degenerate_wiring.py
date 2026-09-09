@@ -818,7 +818,7 @@ def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None
     differ by six decades in size and a single threshold would declare the
     Poisson equation converged a million times above its floor. Row by row
     rather than family by family for the same reason one step further down:
-    the electron flux terms span twelve decades between the two sides of this
+    the electron flux terms span 11.5 decades between the two sides of this
     junction, so a family wide scale is set on the degenerate side and says
     nothing about the lightly doped one.
 

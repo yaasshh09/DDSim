@@ -155,7 +155,7 @@ Three arrays of one entry per node, not three numbers. A residual is a
 difference of terms and cannot be resolved below machine epsilon times the
 things being differenced, so the terms are what sets the floor, and they are a
 property of a row rather than of an equation family. On a 1e17 / 1e20 junction
-the electron flux terms span twelve decades between the two sides. Measured
+the electron flux terms span 11.5 decades between the two sides. Measured
 against a single number for the whole family, the lightly doped rows are
 divided by something set on the degenerate side and land below any threshold
 whatever they say: a cold solve at 0.4 V reported convergence after zero
@@ -1252,13 +1252,22 @@ def row_weights(scales: TermScales, n_nodes: int) -> npt.NDArray[np.float64]:
 
     A row of dF_n/dn holds edge conductances of size D*face/h. The residual on
     that row is a difference of terms of size D*face/h*n. The two differ by n
-    itself, which spans fourteen decades across a depleted device. Dividing
-    the Jacobian by the per row residual scale therefore leaves row entries of
-    size 1/n and hands the factorization a matrix fourteen decades worse
-    conditioned than the one it started with. Measured on the 41 node MOS
-    capacitor driven into accumulation: the Newton step came out 81 percent
-    different from the correctly scaled one and the solve walked off to a
-    potential of -27 V.
+    itself, which spans 10.3 decades on a 1e17 / 1e20 junction at 0.4 V.
+    Dividing the Jacobian by the per row residual scale therefore leaves row
+    entries of size 1/n and hands the factorization a worse conditioned matrix
+    than the one it started with.
+
+    Not a different Newton step. A diagonal left preconditioner does not
+    change the exact solution of J dx = -F at all, and measured on a MOS
+    capacitor the two steps agree bit for bit. What it changes is how much of
+    that solution survives an LU factorization in double precision, and that
+    is worth measuring rather than asserting. Condition numbers of the same
+    assembly under the two weightings: on the 1e17 / 1e20 junction at 0.4 V,
+    1.5e15 per family against 5.9e16 per row, 39 times worse. On the MOS
+    capacitor at 2.6 V of accumulation, 6.1e19 against 4.2e24, which is five
+    decades and past where double precision means anything. Unscaled is 8.5e19
+    and 3.0e19, so the per family scaling is buying four decades on the
+    junction and the per row scaling is spending five on the capacitor.
 
     So the preconditioner keeps one number per family, which is flat across
     the rows and cannot do that, and the convergence test gets its own
@@ -1293,13 +1302,15 @@ def residual_measure(
     makes max |F| mean the same thing in every row.
 
     Why it has to. On a 1e17 / 1e20 junction the electron flux terms span
-    twelve decades between the two sides, so a row in the lightly doped side
+    11.5 decades between the two sides, so a row in the lightly doped side
     is divided by something set on the degenerate side and lands twelve
     decades below any threshold whatever its own residual is doing. Measured:
     a cold solve at 0.4 V reported convergence after zero Newton steps, still
     sitting on the equilibrium guess, with a terminal current of 1.2e-10
     against the 7.4e-4 the Gummel path gives. Under this measure the same
-    guess reads 1.4e-3 and the answer reads 4.2e-16.
+    guess reads 9.7e-1 and the answer reads 7.1e-15, and the old measure
+    reported 5.1e-12 at that same guess: eleven decades of disagreement
+    about one state.
 
     A row with no terms in it at all is skipped rather than divided by zero.
     The only rows that has ever meant are the two continuity rows of a node

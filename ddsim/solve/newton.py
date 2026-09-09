@@ -166,7 +166,7 @@ def newton_solve(
             max |F|, which is right when every row is measured against the
             same thing and wrong when they are not. A row is divided by the
             terms it is assembled from, and on a graded device those terms
-            span twelve decades within one equation family, so a residual
+            span 11.5 decades within one equation family, so a residual
             divided by one number per family says nothing at all about the
             rows where the terms are small. Whatever this returns is what
             lands in residual_history, so the reported number and the applied

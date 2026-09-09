@@ -355,7 +355,7 @@ def test_a_cold_newton_solve_does_not_report_the_guess_as_the_answer():
     is built from. Measured against one number for the whole electron
     equation, that size is set by wherever the terms are largest, which on a
     1e17 / 1e20 junction is the degenerate side. The rows in the lightly doped
-    side carry terms twelve decades smaller, so their own residual is divided
+    side carry terms 11.5 decades smaller, so their own residual is divided
     by something that has nothing to do with them and lands below the
     threshold whatever it says.
 
