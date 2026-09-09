@@ -26,6 +26,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from ddsim.device.mosfet import DRAIN, nmos
+from ddsim.device.transport import TransportModels, solve_bias_newton
+from ddsim.extract.iv import terminal_currents
 from ddsim.extract.rolloff import (
     SHORT_CHANNEL_PROCESS,
     gate_length_sweep,
@@ -145,6 +148,61 @@ def test_the_short_device_drives_more_current(sweep):
     assert short_channel.peak_transconductance > (
         long_channel.peak_transconductance
     )
+
+
+# --------------------------------------------- attributing the exponent
+
+
+def drain_current(L_gate: float, field_dependent: bool) -> float:
+    """Id at one strong inversion bias [A/cm], ramped up to from off.
+
+    Everything except `field_dependent` is identical between the two calls, so
+    the ratio of the two answers is what Caughey-Thomas did and nothing else.
+    Lombardi is left off in both, because the question here is what the lateral
+    field model does and the surface model is a second thing moving.
+    """
+    models = TransportModels.for_device(
+        nmos(L_gate=L_gate, **SHORT_CHANNEL_PROCESS),
+        mobility="arora",
+        field_dependent=field_dependent,
+    )
+    state = None
+    for gate in (0.0, 0.4, 0.8, 1.2):
+        device = nmos(
+            L_gate=L_gate,
+            gate_voltage=gate,
+            drain_voltage=1.0,
+            **SHORT_CHANNEL_PROCESS,
+        )
+        state = solve_bias_newton(device, models=models, guess=state)
+        assert state.newton is not None and state.newton.converged
+
+    return float(terminal_currents(device, state)[DRAIN])
+
+
+def test_velocity_saturation_is_what_holds_the_short_device_back():
+    """The exponent alone cannot say why it fell, so this says it.
+
+    A falling saturation exponent is consistent with several things that
+    travel together as the gate shortens: two dimensional field effects, the
+    series resistance of the source and drain, and the threshold reference
+    moving. So instead of reading the exponent, the same device is solved twice
+    with only Caughey-Thomas switched, at one strong inversion bias.
+
+    At 1 um the two answers agree to a few percent, because 1 V spread over a
+    micron of channel is around the critical field and no further. At 50 nm the
+    same switch changes the current by more than half, because 1 V over 50 nm
+    is twenty times that field and the carriers stopped speeding up long
+    before it. Same equations, same doping, same bias: only the lateral field
+    model moved.
+    """
+    long_free = drain_current(1e-4, field_dependent=False)
+    long_saturated = drain_current(1e-4, field_dependent=True)
+    short_free = drain_current(5e-6, field_dependent=False)
+    short_saturated = drain_current(5e-6, field_dependent=True)
+
+    assert long_saturated == pytest.approx(long_free, rel=0.05)
+    assert short_saturated < 0.75 * short_free
 
 
 # ------------------------------------------------------------------ refusals

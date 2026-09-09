@@ -24,6 +24,13 @@ the 59.5 mV/decade thermal limit, which nothing thermally activated can beat at
 The first rises off its limit as the gate loses control of the barrier; the
 second falls toward 1 as carriers stop going faster when the field is raised.
 
+The models are the full Phase 5 stack: Arora doping dependent mobility inside
+Lombardi surface scattering inside Caughey-Thomas, with Fermi-Dirac statistics.
+Two of those are named in the scope of phases/PHASE-5.md as not optional, and
+the third is what the exponent is measuring, so a sweep taken on the Phase 2
+constant mobility would be measuring something else and reporting it under this
+title.
+
 DEVSIM is not on this figure yet
 --------------------------------
 phases/PHASE-5.md asks for the sweep overlaid on DEVSIM, and benchmark 9 of
@@ -58,14 +65,17 @@ from ddsim.extract.rolloff import (  # noqa: E402
 
 OUTPUT = pathlib.Path(__file__).parents[2] / "docs" / "images"
 
-GATE_LENGTHS = [1e-4, 5e-5, 2e-5, 1e-5, 7e-6, 5e-6]
+GATE_LENGTHS = [1e-4, 2e-5, 1e-5, 7e-6, 5e-6]
 """1 um down to 50 nm [cm]. The bottom is where drift-diffusion stops meaning
 anything, not where the solver stops converging."""
 
-GATE_VOLTAGES = list(np.round(np.arange(-0.5, 1.401, 0.05), 4))
-"""0.05 V throughout: the subthreshold window is two decades of current, which
-at 70 mV/decade is 140 mV wide, and the exponent is fit over 600 mV of
-overdrive at the far end."""
+GATE_VOLTAGES = list(np.round(np.arange(-0.5, 0.151, 0.05), 4)) + list(
+    np.round(np.arange(0.2, 1.401, 0.1), 4)
+)
+"""Fine through subthreshold, coarse above it. The slope is read over two
+decades of current, which at 70 mV/decade is 140 mV wide and needs 0.05 V
+steps to hold more than one point. Above threshold the curve is a power law
+and 0.1 V resolves it, and every point is a coupled 2D solve."""
 
 DRAIN_LOW = 0.05
 DRAIN_HIGH = 1.0
@@ -157,17 +167,25 @@ def test_drain_induced_barrier_lowering_widens_the_gap(sweep):
 
 def test_velocity_saturation_pulls_the_exponent_off_the_square_law(sweep):
     """Id goes as overdrive squared while the inversion charge and the
-    velocity both rise with it. Once the channel field passes the critical
-    field the velocity stops rising, one factor drops out, and the exponent
-    falls toward 1."""
+    velocity that carries it both rise with the gate. Once the channel field
+    passes the critical field the velocity stops rising, one factor drops out,
+    and the exponent falls toward 1.
+
+    It is already below 2 at 1 um, because 1 V across a 1 um channel is around
+    the critical field for electrons in silicon on its own, so this sweep never
+    contains a device that is purely square law.
+    """
     exponents = [point.saturation_exponent for point in sweep]
 
     assert exponents[0] <= SQUARE_LAW
-    assert exponents[-1] < 1.5
+    assert exponents[-1] < 1.2
     assert exponents[-1] > 1.0
+    # What the fall is made of is measured separately, in
+    # tests/analytic/test_mosfet_rolloff.py, because the exponent alone cannot
+    # tell velocity saturation from the geometry it travels with.
     # End to end, and monotone within a hundredth, for the same reason the
-    # subthreshold slope is asserted that way: 1 um and 500 nm are the same
-    # long channel device to three figures and ordering them is ordering noise.
+    # subthreshold slope is asserted that way: the long devices differ from
+    # each other by less than the extraction resolves.
     assert np.all(np.diff(exponents) < 0.01)
 
 

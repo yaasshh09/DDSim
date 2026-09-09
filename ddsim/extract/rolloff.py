@@ -52,6 +52,7 @@ import numpy as np
 import numpy.typing as npt
 
 from ddsim.device.mosfet import nmos
+from ddsim.device.transport import TransportModels
 from ddsim.extract.iv import IVCurve, gate_sweep
 from ddsim.extract.params import (
     dibl,
@@ -198,6 +199,9 @@ def gate_length_sweep(
     reference_current: float = REFERENCE_CURRENT,
     overdrive_window: tuple[float, float] = (0.4, 1.0),
     slope_decades: float = 2.0,
+    mobility: str = "arora",
+    field_dependent: bool = True,
+    surface: bool = True,
     step: float = 0.05,
 ) -> tuple[RollOffPoint, ...]:
     """Build one MOSFET per gate length and extract the short channel set.
@@ -227,7 +231,19 @@ def gate_length_sweep(
             is wide enough to hold several gate steps and low enough to stay
             clear of the knee, and high enough above the junction leakage floor
             that the floor cannot enter the fit.
+        mobility: low field mobility model, "arora" or "constant".
+        field_dependent: wrap it in Caughey-Thomas. This is the velocity
+            saturation, and with it off the saturation exponent is measuring
+            something else.
+        surface: add Lombardi scattering off the Si/SiO2 interface. Without it
+            the inversion layer mobility is too high by two to three times and
+            the drain current is wrong by the same factor.
         step: first continuation step between gate biases [V].
+
+    The three model arguments default to the full Phase 5 stack rather than to
+    `TransportModels.for_device`'s own defaults, which are the Phase 2 constant
+    mobility. Every one of them is named in the scope of phases/PHASE-5.md and
+    a sweep taken without them is not the sweep the phase asks for.
 
     Returns one `RollOffPoint` per gate length, in the order requested.
 
@@ -250,8 +266,18 @@ def gate_length_sweep(
         curves = {}
         for label, drain in (("linear", drain_low), ("saturated", drain_high)):
             device = nmos(L_gate=L_gate, drain_voltage=drain, **settings)
+            # Rebuilt per device: doping dependent mobility is an array over
+            # that device's edges, and the meshes differ between gate lengths.
             curves[label] = gate_sweep(
-                device, voltages=list(gate_voltages), step=step
+                device,
+                voltages=list(gate_voltages),
+                models=TransportModels.for_device(
+                    device,
+                    mobility=mobility,
+                    field_dependent=field_dependent,
+                    surface=surface,
+                ),
+                step=step,
             )
 
         V_lin, J_lin = usable_span(
