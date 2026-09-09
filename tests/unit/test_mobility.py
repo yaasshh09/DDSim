@@ -702,3 +702,33 @@ def test_a_negative_normal_field_is_refused() -> None:
             np.full(3, 1e17),
             np.full(3, 1e18),
         )
+
+
+# ------------------------------------- a carrier density no device ever holds
+
+
+def test_a_vanished_roughness_mobility_leaves_no_mobility_and_no_warning() -> None:
+    """gamma carries the carrier density linearly, so a state with n far above
+    its own doping raises E_perp to a power that underflows mu_sr to exactly
+    zero. Matthiessen's rule says the answer there is zero, and it is: no
+    surface roughness channel means no conduction. What it must not do is
+    reach that zero through 1/mu_sr, because an infinity on the way costs a
+    divide by zero warning and `filterwarnings = error` turns that into a
+    failure.
+
+    The state itself is not physical. It is the cold guess a MOSFET solve
+    starts from: `initial_state` puts n = n_i exp((psi - phi_n)/V_T) at the
+    drain, and at a volt of drain bias that is 1e36 cm^-3 before Newton has
+    taken a single step. A model handed an iterate has no say in which iterate
+    it is handed.
+    """
+    model = LombardiSurface.electrons()
+    doping, E = np.full(2, 1e20), np.full(2, 8.8e6)
+    carriers = np.array([1e20, 1.6e36])
+
+    assert model.roughness(E, doping, carriers)[1] == 0.0
+
+    mu = model(np.full(2, 100.0), E, doping, carriers)
+
+    assert mu[1] == 0.0
+    assert mu[0] > 0.0

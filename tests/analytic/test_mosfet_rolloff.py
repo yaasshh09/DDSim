@@ -158,13 +158,27 @@ def drain_current(L_gate: float, field_dependent: bool) -> float:
 
     Everything except `field_dependent` is identical between the two calls, so
     the ratio of the two answers is what Caughey-Thomas did and nothing else.
-    Lombardi is left off in both, because the question here is what the lateral
-    field model does and the surface model is a second thing moving.
+
+    Lombardi is on in both arms, which is the whole model stack the phase
+    reports its numbers on. It used to be off in both, and the reason given was
+    that the surface model would be a second thing moving. That reason does not
+    survive inspection: it is on in both arms, so it moves nothing between them,
+    and switching one model at a time is exactly as clean either way. The real
+    reason was that the combination could not be tested, because surface
+    scattering with velocity saturation switched off warned twice on divide by
+    zero and `filterwarnings = error` refuses a warning. See
+    tests/unit/test_surface_mobility.py for the two guards that fixed it.
+
+    Running it on the real stack is worth the 20 seconds it costs. Lombardi
+    takes 2.6x off the 1 um current, which is the 2 to 3x docs/01-physics.md
+    says it should, so the arms below are now a claim about the device the
+    README plots rather than about a lighter one.
     """
     models = TransportModels.for_device(
         nmos(L_gate=L_gate, **SHORT_CHANNEL_PROCESS),
         mobility="arora",
         field_dependent=field_dependent,
+        surface=True,
     )
     state = None
     for gate in (0.0, 0.4, 0.8, 1.2):
@@ -189,12 +203,16 @@ def test_velocity_saturation_is_what_holds_the_short_device_back():
     moving. So instead of reading the exponent, the same device is solved twice
     with only Caughey-Thomas switched, at one strong inversion bias.
 
-    At 1 um the two answers agree to a few percent, because 1 V spread over a
-    micron of channel is around the critical field and no further. At 50 nm the
-    same switch changes the current by more than half, because 1 V over 50 nm
-    is twenty times that field and the carriers stopped speeding up long
-    before it. Same equations, same doping, same bias: only the lateral field
-    model moved.
+    At 1 um the two answers agree to within a percent, because 1 V spread over
+    a micron of channel is around the critical field and no further. At 50 nm
+    the same switch takes 40 percent of the current away, because 1 V over 50
+    nm is twenty times that field and the carriers stopped speeding up long
+    before it. Same equations, same doping, same bias, Lombardi on in both:
+    only the lateral field model moved.
+
+    Measured on the full Phase 5 stack: 0.9 percent at 1 um against 40.2
+    percent at 50 nm. With Lombardi off the same two numbers were 2.9 and 44.8,
+    so the surface model does not carry the attribution and does not hide it.
     """
     long_free = drain_current(1e-4, field_dependent=False)
     long_saturated = drain_current(1e-4, field_dependent=True)

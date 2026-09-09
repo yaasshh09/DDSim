@@ -828,7 +828,21 @@ def _surface_moved(before: TransportModels, after: TransportModels) -> float:
     worst = 0.0
     for old, new in ((before.Dn, after.Dn), (before.Dp, after.Dp)):
         a, b = _low_field_edges(old), _low_field_edges(new)
-        worst = max(worst, float(np.max(np.abs(b - a) / np.abs(a))))
+        moved, scale = np.abs(b - a), np.abs(a)
+
+        # A baseline of exactly zero has no relative change to report, and it
+        # is reachable: the cold guess puts n = n_i exp((psi - phi_n)/V_T) at
+        # the drain, which past about 0.3 V underflows the Lombardi roughness
+        # term and leaves an edge with no mobility on it at all. An edge that
+        # went from nothing to something moved by everything, so the fixed
+        # point has not arrived and inf says so; an edge both sweeps agree has
+        # no mobility did not move, so it reads zero rather than nan. Where
+        # the baseline is positive this is the division it always was, down to
+        # the bit.
+        relative = np.divide(
+            moved, scale, out=np.where(moved > 0.0, np.inf, 0.0), where=scale > 0.0
+        )
+        worst = max(worst, float(np.max(relative)))
     return worst
 
 

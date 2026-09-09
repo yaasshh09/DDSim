@@ -34,6 +34,8 @@ fine enough for a quantitative claim would put a minute into the suite.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -613,3 +615,64 @@ def test_a_terminal_current_uses_the_diffusivity_the_answer_implies(
     total = abs(sum(currents.values()))
 
     assert total / abs(currents["drain"]) < 1e-8
+
+
+# ------------------------------------- a mobility that vanished at the guess
+
+
+def test_a_vanished_diffusivity_counts_as_having_moved(surface_models):
+    """`_surface_moved` measures a refresh against the diffusivity it replaces,
+    so an edge whose baseline is exactly zero has no relative change to report.
+
+    Zero is reachable, and not through a bug. The roughness exponent carries
+    the carrier density linearly, and the cold guess puts
+    n = n_i exp((psi - phi_n)/V_T) at the drain, which at a volt of drain bias
+    is 1e36 cm^-3 before Newton has taken a step. mu_sr underflows there and
+    Matthiessen's rule correctly returns no mobility at all, so the first
+    sweep of the fixed point can start from a diffusivity with zeros in it.
+
+    An edge that went from nothing to something moved by everything, so the
+    honest answer is that the fixed point has not arrived. What it must not be
+    is a divide by zero, which `filterwarnings = error` turns into a failure,
+    and it must not be nan on the edge where both sweeps agree there is no
+    mobility to speak of.
+    """
+    ones = np.ones(3)
+    vanished = replace(surface_models, Dn=np.array([0.0, 2.0, 0.0]), Dp=ones)
+    grown = replace(surface_models, Dn=np.array([3.0, 2.0, 0.0]), Dp=ones)
+
+    assert _surface_moved(vanished, grown) == np.inf
+    assert _surface_moved(vanished, vanished) == 0.0
+    assert _surface_moved(grown, grown) == 0.0
+
+
+def test_the_surface_model_alone_solves_at_a_drain_bias():
+    """Lombardi with velocity saturation switched off, cold, at a drain bias
+    high enough that the guess inflates the drain density past the underflow.
+
+    This combination was unusable while both divide by zero sites stood. The
+    solve converged and the answer looked right, but two RuntimeWarnings came
+    out of the surface fixed point, and `filterwarnings = error` means no test
+    could go anywhere near it. The velocity saturation attribution test worked
+    around it by leaving Lombardi off in both of its arms, which is a hole in
+    what that test can claim.
+
+    Cold on purpose, and at 0.3 V rather than at 0.05 V. Both matter and both
+    were measured. A warm start arrives with a neighbouring bias for a guess
+    and never sees the state this is about, and the guess carries no zero
+    diffusivity at all below about 0.3 V of drain bias, so the rest of this
+    file has been running the same combination for a phase without meeting it.
+    """
+    device = nmos(**{**COARSE, "gate_voltage": 1.2, "drain_voltage": 0.3})
+    models = TransportModels.for_device(device, mobility="arora", surface=True)
+
+    guess = initial_state(device)
+    at_guess = models.at_state(device, guess.psi.data, guess.n.data, guess.p.data)
+    assert np.any(np.asarray(at_guess.Dn) == 0.0), (
+        "the guess this test is about no longer has an edge with no mobility "
+        "left on it, so the solve below proves nothing"
+    )
+
+    state = solve_bias_newton(device, models, max_iterations=60)
+
+    assert state.newton.converged, state.newton.message
