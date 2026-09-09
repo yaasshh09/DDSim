@@ -59,7 +59,12 @@ from ddsim.device.builder import Device, Material, build_device
 from ddsim.device.doping import Along, Erfc, Gaussian, Mirrored, Uniform
 from ddsim.device.regions import stacked_regions
 from ddsim.discretize.boundary import GateContact, OhmicPlate
-from ddsim.mesh.mesh1d import graded_mesh_1d, stacked_mesh_1d, uniform_mesh_1d
+from ddsim.mesh.mesh1d import (
+    Mesh1D,
+    graded_mesh_1d,
+    stacked_mesh_1d,
+    uniform_mesh_1d,
+)
 from ddsim.mesh.mesh2d import tensor_mesh_2d
 
 SOURCE = "source"
@@ -73,6 +78,27 @@ GATE = "gate"
 
 BODY = "body"
 """Terminal name of the substrate contact."""
+
+
+def _junction_mesh(
+    length: float, n_nodes: int, refine_at: float, h_min: float
+) -> Mesh1D:
+    """Columns graded toward a junction, or uniform if they are already finer.
+
+    `h_min` is what the junction wants resolved, not a floor on cell size.
+    Grading trades a coarse far end for a fine near one, so it has something
+    to trade only while spreading the nodes evenly would leave them coarser
+    than `h_min`. Once the segment is short enough that it would not, every
+    cell is already inside the target and the even spacing is the answer.
+
+    This is what lets the short end of the gate length sweep exist: at a 50 nm
+    gate the half channel holds its columns at 1.7 nm with h_min asking for 2.
+    """
+    if h_min * (n_nodes - 1) >= length:
+        return uniform_mesh_1d(length=length, n_nodes=n_nodes)
+    return graded_mesh_1d(
+        length=length, n_nodes=n_nodes, refine_at=refine_at, h_min=h_min
+    )
 
 
 def nmos(
@@ -211,19 +237,10 @@ def nmos(
     # the same bias has nothing to break its symmetry.
     x_axis = stacked_mesh_1d(
         uniform_mesh_1d(length=contact_length, n_nodes=n_contact),
-        graded_mesh_1d(
-            length=outer, n_nodes=n_sd, refine_at=outer, h_min=h_min_x
-        ),
-        graded_mesh_1d(
-            length=half_gate, n_nodes=n_channel, refine_at=0.0, h_min=h_min_x
-        ),
-        graded_mesh_1d(
-            length=half_gate,
-            n_nodes=n_channel,
-            refine_at=half_gate,
-            h_min=h_min_x,
-        ),
-        graded_mesh_1d(length=outer, n_nodes=n_sd, refine_at=0.0, h_min=h_min_x),
+        _junction_mesh(outer, n_sd, refine_at=outer, h_min=h_min_x),
+        _junction_mesh(half_gate, n_channel, refine_at=0.0, h_min=h_min_x),
+        _junction_mesh(half_gate, n_channel, refine_at=half_gate, h_min=h_min_x),
+        _junction_mesh(outer, n_sd, refine_at=0.0, h_min=h_min_x),
         uniform_mesh_1d(length=contact_length, n_nodes=n_contact),
     )
 

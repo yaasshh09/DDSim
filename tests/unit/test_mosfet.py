@@ -65,6 +65,9 @@ T_OX = 2e-6
 T_SI = 1e-4
 """Silicon thickness [cm], 1 um."""
 
+H_MIN_X = 2e-7
+"""Column spacing asked for at each junction [cm], 2 nm."""
+
 WIDTH = 2.0 * SD_LENGTH + L_GATE
 """Total device length [cm]."""
 
@@ -356,3 +359,25 @@ def test_a_mesh_segment_with_one_node_is_refused():
     and stacking one produces a mesh with a repeated position."""
     with pytest.raises(ValueError, match="at least 2 nodes"):
         nmos(n_channel=1)
+
+
+def test_a_gate_too_short_to_grade_is_meshed_uniformly():
+    """h_min_x is a refinement target, not a floor.
+
+    Grading exists to spend nodes near the junction and save them far from
+    it. Once the gate is short enough that the columns it has already sit
+    below h_min_x when spread evenly, there is nothing left to save and no
+    coarse end to grade away from, so the segment is uniform. Refusing that
+    request would mean the 50 nm end of the sweep phases/PHASE-5.md is graded
+    on could not be built at all.
+    """
+    short = nmos(
+        L_gate=5e-6, lateral_diffusion=1e-6, x_j=2.5e-6, h_min_x=H_MIN_X
+    )
+
+    x = np.sort(np.unique(short.mesh.node_x))
+    inside = (x >= SD_LENGTH) & (x <= SD_LENGTH + 5e-6)
+    h = np.diff(x[inside])
+
+    assert h.max() <= H_MIN_X
+    np.testing.assert_allclose(h, h[0], rtol=1e-12)
