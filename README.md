@@ -19,7 +19,12 @@ iteration and full Newton on the coupled 3N system, and a two material MOS
 capacitor in 2D whose C-V curve comes out of the same solver with nothing
 fitted anywhere in it. Transport runs in either dimension, so a 2D diode
 conserves current through every cut and keeps doing it with a dielectric
-layer stacked on top. Phase 5 is the MOSFET.
+layer stacked on top.
+
+Phase 5 is the MOSFET, and its gate length sweep runs: threshold roll-off,
+DIBL and velocity saturation all come out of six devices that differ in one
+argument. What is left of the phase is the DEVSIM comparison, benchmarks 6 to
+9, which have no golden data yet.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -224,6 +229,95 @@ The high frequency curve is the same solve with the minority carrier response
 held fixed, which is what a signal faster than minority carrier generation
 does. It is the only approximation on the figure and it is the reason the two
 curves separate exactly at threshold and nowhere else.
+
+## MOSFET gate length sweep
+
+The headline result of Phase 5, and the thing the whole project was built to
+produce. Six NMOS devices, one process, gate lengths from 1 um down to 50 nm.
+`L_gate` is the only argument that differs between them: the 2 nm oxide, the
+1e18 channel, the 25 nm junctions and the 10 nm of lateral encroachment are the
+same in all six, because that is what roll-off means. A process is fixed once
+on a wafer and the gate length is the number a designer draws differently.
+
+![NMOS gate length sweep](docs/images/mosfet_rolloff.png)
+
+| Lg | Vth at 0.05 V | Vth at 1.0 V | Vth, extrapolated | SS | DIBL | alpha | peak gm |
+|---|---|---|---|---|---|---|---|
+| 1 um | 0.0315 V | 0.0262 V | 0.3321 V | 72.6 mV/dec | 5.6 mV/V | 1.945 | 2.57e2 |
+| 500 nm | 0.0283 V | 0.0225 V | 0.3162 V | 72.6 mV/dec | 6.1 mV/V | 1.948 | 4.98e2 |
+| 200 nm | 0.0163 V | 0.0080 V | 0.2883 V | 72.6 mV/dec | 8.7 mV/V | 1.890 | 1.20e3 |
+| 100 nm | -0.0220 V | -0.0452 V | 0.2461 V | 73.4 mV/dec | 24.4 mV/V | 1.733 | 2.37e3 |
+| 70 nm | -0.0838 V | -0.1390 V | 0.1985 V | 76.3 mV/dec | 58.1 mV/V | 1.572 | 3.36e3 |
+| 50 nm | -0.2043 V | -0.3451 V | 0.1171 V | 87.1 mV/dec | 148.2 mV/V | 1.359 | 4.51e3 |
+
+Currents are per cm of width. Threshold is the constant current method at
+Id = 100 nA * W / L, and the extrapolated column is the tangent at peak
+transconductance with the -Vd/2 correction. alpha is the power fitted to
+Id against gate overdrive in saturation.
+
+### What emerged, and why
+
+**Threshold roll-off, 236 mV between 1 um and 50 nm.** Nothing in the solver
+knows what a short channel is. The gate has to deplete the channel charge
+underneath it, and near either end of a short channel some of that charge is
+already depleted by the source or drain junction, which the gate then gets for
+free. That sharing is a two dimensional Poisson solution and nothing else, and
+it grows as the two junctions approach each other. The doping did not move
+between these six devices.
+
+**DIBL, 5.6 to 148 mV/V.** The gap between the two curves on the left panel.
+Raising the drain to 1 V pulls the source barrier down through the channel, so
+less gate is needed to turn the device on. At 1 um the drain is too far away to
+reach and the residual 5.6 mV/V is what a drain a micron away still does.
+
+**Subthreshold slope off its limit, 72.6 to 87.1 mV/decade.** Every value is
+above 59.5, which is kT/q ln 10 at 300 K and which no thermally activated
+current can beat. It sits flat while the gate owns the barrier and lifts once
+the drain starts sharing control. 72.6 rather than 59.5 at the long end is the
+body factor: the gate moves the surface potential by less than the bias applied
+to it, because the depletion capacitance divides with the oxide capacitance.
+
+**Velocity saturation, alpha from 1.945 to 1.359.** A long channel MOSFET
+saturates as the square of overdrive, because the inversion charge and the
+velocity that carries it both rise with the gate. Caughey-Thomas takes the
+velocity out of that product once the channel field passes the critical field,
+and the exponent falls toward 1. Nothing anywhere contains a 2 or a 1: both
+ends are fitted off the solved curves.
+
+The sweep, the process and the extraction all live in `ddsim/extract/rolloff.py`,
+and the figure is produced by `tests/analytic/test_mosfet_rolloff_plot.py`,
+which asserts every one of these claims before it draws anything.
+
+### What is not on this figure yet
+
+DEVSIM. Benchmarks 6 to 9 of `docs/04-validation.md` are the MOSFETs and they
+have no golden data yet, so the plot is ddsim alone and says so. Generating
+them is what closes Phase 5.
+
+### Where these numbers stop meaning anything
+
+The sweep stops at 50 nm because that is where the model does, not because the
+solver stops converging.
+
+**Drift-diffusion assumes the local field sets the local velocity.** In a 50 nm
+channel a carrier crosses in less time than it takes to reach the steady
+velocity of the field it is in, so a real device overshoots and this one cannot
+by construction. Velocity overshoot is invisible here, and it is the effect
+that makes short real transistors faster than this model says.
+
+**Quantum confinement in the inversion layer is not modelled.** The inversion
+charge sits in a triangular well a few nanometres wide, its states are
+quantised, and the centroid of the charge is pushed away from the interface.
+That raises the effective oxide thickness by a few angstroms and shifts the
+threshold. Neither appears here.
+
+**The 2 nm oxide leaks and this model does not.** Direct tunnelling through
+2 nm of SiO2 is a real gate current at 1 V and there is no gate current in
+these equations at all.
+
+None of these are hard to add badly. Extending the sweep to 20 nm and reporting
+numbers with all three of them missing would be worth less than stopping here
+and saying why.
 
 ## Running it
 
