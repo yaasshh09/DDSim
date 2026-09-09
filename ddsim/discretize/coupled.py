@@ -87,7 +87,6 @@ agreement with any block that happens to be missing a term.
 
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 from enum import Enum, IntEnum
 from typing import NamedTuple, TypeVar, cast
@@ -144,6 +143,24 @@ Constrained to the two dtypes that actually occur rather than left open, so
 that the arithmetic in the residual still type checks. A device is always
 float64; complex128 appears only under the complex step verification.
 coupled_jacobian is real only and says so.
+"""
+
+
+TermScales = tuple[
+    npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
+]
+"""The size of the terms every row is assembled from [1], by family.
+
+Three arrays of one entry per node, not three numbers. A residual is a
+difference of terms and cannot be resolved below machine epsilon times the
+things being differenced, so the terms are what sets the floor, and they are a
+property of a row rather than of an equation family. On a 1e17 / 1e20 junction
+the electron flux terms span twelve decades between the two sides. Measured
+against a single number for the whole family, the lightly doped rows are
+divided by something set on the degenerate side and land below any threshold
+whatever they say: a cold solve at 0.4 V reported convergence after zero
+Newton steps, still sitting on the equilibrium guess, with a terminal current
+seven decades below the answer. See docs/07-decisions.md.
 """
 
 
@@ -803,8 +820,8 @@ class CoupledAssembly(NamedTuple):
     assembly: SparseAssembly
     """Residual and Jacobian, unscaled."""
 
-    scales: tuple[float, float, float]
-    """Term scale for the psi, n and p families at this state [1]."""
+    scales: TermScales
+    """Per node term scale for the psi, n and p rows at this state [1]."""
 
 
 def assemble_coupled_terms(
@@ -1068,8 +1085,8 @@ def residual_term_scales(
     R: npt.NDArray[np.float64] | None = None,
     geometry: EdgeGeometry = UNIFORM_1D,
     degeneracy: Degeneracy | None = None,
-) -> tuple[float, float, float]:
-    """The size of the terms each equation family is assembled from [1].
+) -> TermScales:
+    """The size of the terms each row is assembled from [1], one per node.
 
     Args:
         h: scaled edge lengths [1].
@@ -1143,12 +1160,13 @@ def _term_scales_from(
     bernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
     R: npt.NDArray[np.float64] | None,
     geometry: EdgeGeometry = UNIFORM_1D,
-) -> tuple[float, float, float]:
+) -> TermScales:
     """residual_term_scales with both Bernoulli pairs already in hand."""
     psi, n, p = unpack(x)
     bn_plus, bn_minus = bernoulli_n
     bp_plus, bp_minus = bernoulli_p
     node_left, node_right = geometry.ends(h.size)
+    n_nodes = volume.size
 
     # Poisson: the face fluxes psi/h, and the three charges that make up
     # -(p - n + N)*volume. All three, not only the doping. On intrinsic
@@ -1156,57 +1174,150 @@ def _term_scales_from(
     # are a whole dual cell each, and a scale built from the doping alone
     # reports zero there and makes every row nan on division. Measured before
     # this counted the carriers: an undoped 41 node bar returned a residual of
-    # nan and a message blaming the LU factorization for being singular.
-    psi_scale = max(
-        float(np.max(np.abs(psi)) * np.max(geometry.weight / h)),
-        float(np.max((np.abs(p) + np.abs(n) + np.abs(net_doping)) * volume)),
+    # nan and the message blamed the LU factorization for being singular.
+    psi_edge = (geometry.weight / h) * np.maximum(
+        np.abs(psi[node_left]), np.abs(psi[node_right])
+    )
+    psi_scale = np.maximum(
+        _largest_at_each_node(psi_edge, node_left, node_right, n_nodes),
+        (np.abs(p) + np.abs(n) + np.abs(net_doping)) * volume,
     )
 
     # Continuity: the two halves of each Scharfetter-Gummel flux, and the
     # recombination that sits alongside them in the same row.
-    recombined = 0.0 if R is None else float(np.max(np.abs(R) * volume))
-    electron_scale = max(
-        float(
-            np.max(
-                np.maximum(
-                    (Dn * geometry.carrier_face / h) * bn_plus * n[node_right],
-                    (Dn * geometry.carrier_face / h) * bn_minus * n[node_left],
-                )
-            )
+    recombined = (
+        np.zeros(n_nodes) if R is None else np.abs(R) * volume
+    )
+    gn = Dn * geometry.carrier_face / h
+    gp = Dp * geometry.carrier_face / h
+    electron_scale = np.maximum(
+        _largest_at_each_node(
+            np.maximum(gn * bn_plus * n[node_right], gn * bn_minus * n[node_left]),
+            node_left,
+            node_right,
+            n_nodes,
         ),
         recombined,
     )
-    hole_scale = max(
-        float(
-            np.max(
-                np.maximum(
-                    (Dp * geometry.carrier_face / h) * bp_plus * p[node_left],
-                    (Dp * geometry.carrier_face / h) * bp_minus * p[node_right],
-                )
-            )
+    hole_scale = np.maximum(
+        _largest_at_each_node(
+            np.maximum(gp * bp_plus * p[node_left], gp * bp_minus * p[node_right]),
+            node_left,
+            node_right,
+            n_nodes,
         ),
         recombined,
     )
 
     scales = (psi_scale, electron_scale, hole_scale)
-    if not all(scale > 0.0 and math.isfinite(scale) for scale in scales):
+    if not all(
+        np.any(scale > 0.0) and bool(np.all(np.isfinite(scale))) for scale in scales
+    ):
         raise ValueError(
             f"the state has no terms to measure a residual against: term "
-            f"scales {scales} for (psi, n, p). Every equation is identically "
-            "zero, which a device never is. Dividing by these would rename the "
-            "problem as a singular matrix three call frames later."
+            f"scales max to "
+            f"{tuple(float(np.max(scale)) for scale in scales)} for (psi, n, p). "
+            "Every equation is identically zero, which a device never is. "
+            "Dividing by these would rename the problem as a singular matrix "
+            "three call frames later."
         )
     return scales
 
 
-def row_weights(
-    scales: tuple[float, float, float], n_nodes: int
+def _largest_at_each_node(
+    edge_term: npt.NDArray[np.float64],
+    node_left: npt.NDArray[np.int64],
+    node_right: npt.NDArray[np.int64],
+    n_nodes: int,
 ) -> npt.NDArray[np.float64]:
-    """One weight per unknown, from the three per family term scales [1]."""
+    """The largest incident edge term at every node [1].
+
+    A node's equation sums the terms on the edges that touch it, so those are
+    the terms its own residual is a difference of, and the largest of them is
+    what sets the floor that residual can be resolved against.
+    """
+    largest = np.zeros(n_nodes)
+    np.maximum.at(largest, node_left, edge_term)
+    np.maximum.at(largest, node_right, edge_term)
+    return largest
+
+
+def row_weights(scales: TermScales, n_nodes: int) -> npt.NDArray[np.float64]:
+    """One weight per unknown, for the preconditioner [1]: per family.
+
+    The largest term anywhere in each family, broadcast over every row of it.
+    That is deliberately not the per row scale `residual_measure` uses, and
+    the two are not interchangeable, because they are answering different
+    questions.
+
+    A row of dF_n/dn holds edge conductances of size D*face/h. The residual on
+    that row is a difference of terms of size D*face/h*n. The two differ by n
+    itself, which spans fourteen decades across a depleted device. Dividing
+    the Jacobian by the per row residual scale therefore leaves row entries of
+    size 1/n and hands the factorization a matrix fourteen decades worse
+    conditioned than the one it started with. Measured on the 41 node MOS
+    capacitor driven into accumulation: the Newton step came out 81 percent
+    different from the correctly scaled one and the solve walked off to a
+    potential of -27 V.
+
+    So the preconditioner keeps one number per family, which is flat across
+    the rows and cannot do that, and the convergence test gets its own
+    measure.
+    """
     weights = np.empty(UNKNOWNS_PER_NODE * n_nodes)
     for component, scale in zip(Unknown, scales, strict=True):
-        weights[component::UNKNOWNS_PER_NODE] = scale
+        if scale.size != n_nodes:
+            raise ValueError(
+                f"the {component.name} term scale has {scale.size} entries "
+                f"for a mesh of {n_nodes} nodes"
+            )
+        weights[component::UNKNOWNS_PER_NODE] = np.max(scale)
     return weights
+
+
+def residual_measure(
+    residual: npt.NDArray[np.float64], scales: TermScales, n_nodes: int
+) -> float:
+    """How large a scaled residual is against the terms of its own row [1].
+
+    Args:
+        residual: the residual of the assembly newton_solve is driving, which
+            is the one `scale_rows` has already divided by `row_weights`.
+        scales: the per node term scales of the same state.
+        n_nodes: mesh node count.
+
+    The number a coupled solve tests for convergence. `row_weights` divided
+    every row of a family by one number, so the residual arrives measured
+    against the largest terms anywhere in that family rather than against its
+    own. Multiplying that back out and dividing by the row's own terms is what
+    makes max |F| mean the same thing in every row.
+
+    Why it has to. On a 1e17 / 1e20 junction the electron flux terms span
+    twelve decades between the two sides, so a row in the lightly doped side
+    is divided by something set on the degenerate side and lands twelve
+    decades below any threshold whatever its own residual is doing. Measured:
+    a cold solve at 0.4 V reported convergence after zero Newton steps, still
+    sitting on the equilibrium guess, with a terminal current of 1.2e-10
+    against the 7.4e-4 the Gummel path gives. Under this measure the same
+    guess reads 1.4e-3 and the answer reads 4.2e-16.
+
+    A row with no terms in it at all is skipped rather than divided by zero.
+    The only rows that has ever meant are the two continuity rows of a node
+    holding no semiconductor, which carry no flux and no recombination because
+    there is nothing there to carry them. They are pinned to the identity, so
+    their residual is the pinning error and goes to exactly zero in one step
+    whatever it is measured against.
+    """
+    weights = row_weights(scales, n_nodes)
+    raw = np.abs(residual) * weights
+    largest = 0.0
+    for component, scale in zip(Unknown, scales, strict=True):
+        rows = raw[component::UNKNOWNS_PER_NODE]
+        measured = np.divide(
+            rows, scale, out=np.zeros_like(rows), where=scale > 0.0
+        )
+        largest = max(largest, float(np.max(measured)))
+    return largest
 
 
 def scale_rows(

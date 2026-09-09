@@ -87,6 +87,8 @@ from ddsim.discretize.coupled import (
     edge_drop,
     limit_psi_step,
     pack,
+    residual_measure,
+    residual_term_scales,
     row_weights,
     scale_rows,
     unpack,
@@ -1040,6 +1042,38 @@ def solve_bias_newton(
 
         return assemble
 
+    def measured(active: TransportModels) -> Callable[
+        [npt.NDArray[np.float64], npt.NDArray[np.float64]], float
+    ]:
+        """The residual size, measured row by row against its own terms.
+
+        Recomputed from the iterate rather than carried out of the assembly,
+        for the reason `assembler` takes its models as an argument: the
+        surface fixed point rebinds the models between solves, and anything
+        remembered across that boundary is a converged wrong answer waiting to
+        happen. The term scales are a function of the state, so asking for
+        them again is the same answer for a fraction of an assembly.
+        """
+
+        def norm(
+            residual: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+        ) -> float:
+            _, n, p = unpack(x)
+            scales = residual_term_scales(
+                h,
+                volume,
+                x,
+                net_doping,
+                active.Dn,
+                active.Dp,
+                np.asarray(active.recombination.rate(n, p), dtype=np.float64),
+                geometry,
+                device.degeneracy,
+            )
+            return residual_measure(residual, scales, mesh.n_nodes)
+
+        return norm
+
     def run(
         active: TransportModels, x: npt.NDArray[np.float64]
     ) -> NewtonResult:
@@ -1048,6 +1082,7 @@ def solve_bias_newton(
             x,
             limit=lambda delta: limit_psi_step(delta, max_psi_step),
             residual_scale=1.0,
+            residual_norm=measured(active),
             residual_rtol=residual_rtol,
             update_tol=update_tol,
             update_norm=coupled_update_norm,

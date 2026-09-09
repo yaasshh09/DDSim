@@ -33,6 +33,7 @@ from ddsim.device.transport import (
     solve_bias_newton,
 )
 from ddsim.discretize.coupled import pack, residual_term_scales
+from ddsim.extract.iv import total_current
 from ddsim.solve.continuation import continue_to
 
 N_NODES = 201
@@ -343,5 +344,39 @@ def test_the_row_scale_is_measured_at_the_iterate_not_at_the_guess():
         h, volume, state.newton.x, doping, models.Dn, models.Dp
     )
 
-    growth = at_answer[1] / at_guess[1]
+    growth = float(np.max(at_answer[1])) / float(np.max(at_guess[1]))
     assert growth > 1e4, f"electron term scale grew only {growth:.3g}"
+
+
+def test_a_cold_newton_solve_does_not_report_the_guess_as_the_answer():
+    """A converged flag has to mean the current is right, on any doping.
+
+    The residual threshold is relative to the size of the terms the residual
+    is built from. Measured against one number for the whole electron
+    equation, that size is set by wherever the terms are largest, which on a
+    1e17 / 1e20 junction is the degenerate side. The rows in the lightly doped
+    side carry terms twelve decades smaller, so their own residual is divided
+    by something that has nothing to do with them and lands below the
+    threshold whatever it says.
+
+    What that produced: a cold solve at 0.4 V returned converged after zero
+    iterations, still sitting on the equilibrium guess, reporting 1.2e-10
+    against the 7.4e-4 that Gummel gives on the same device. Seven decades,
+    with no failure reported anywhere.
+
+    The claim here is the one that matters to every sweep built on this
+    solver: a coupled solve that says it converged agrees with the Gummel
+    path, cold, with no continuation to rescue it.
+    """
+    device = pn_diode(
+        Na=1e17, Nd=1e20, length=2e-4, n_nodes=N_NODES, anode_voltage=0.4
+    )
+
+    cold = solve_bias_newton(device)
+    reference = solve_bias(device, max_iterations=500, update_tol=1e-8)
+
+    assert cold.newton is not None and cold.newton.converged, cold.newton.message
+    assert reference.gummel is not None and reference.gummel.converged
+
+    expected = total_current(device, reference)
+    assert total_current(device, cold) == pytest.approx(expected, rel=1e-6)

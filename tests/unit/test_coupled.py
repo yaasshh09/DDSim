@@ -63,6 +63,7 @@ from ddsim.discretize.coupled import (
     coupled_residual,
     edge_drop,
     pack,
+    residual_measure,
     residual_term_scales,
     row_weights,
     scale_rows,
@@ -853,7 +854,7 @@ def test_the_poisson_term_scale_counts_the_carriers_not_only_the_doping():
         h, volume, x, np.zeros(5), Dn=1.0, Dp=1.0
     )
 
-    assert psi_scale > 0.0
+    assert np.all(psi_scale > 0.0)
 
 
 def test_every_term_scale_is_strictly_positive_on_a_real_device(
@@ -865,7 +866,7 @@ def test_every_term_scale_is_strictly_positive_on_a_real_device(
         h, volume, perturbed_x, device.net_doping_scaled.data, models.Dn, models.Dp
     )
 
-    assert all(scale > 0.0 for scale in scales)
+    assert all(np.all(scale > 0.0) for scale in scales)
 
 
 def test_row_scaling_keeps_the_system_finite(device, geometry, models, perturbed_x):
@@ -966,4 +967,48 @@ def test_the_shared_path_scales_match_the_standalone_scales(
         R=np.asarray(models.recombination.rate(n, p), dtype=np.float64),
     )
 
-    assert shared == standalone
+    for from_shared, alone in zip(shared, standalone, strict=True):
+        np.testing.assert_array_equal(from_shared, alone)
+
+
+def test_a_term_scale_of_the_wrong_length_is_named_rather_than_broadcast():
+    """The preconditioner takes one number per family out of an array.
+
+    Which means a scale array that does not match the mesh still reduces to a
+    number and still fills every weight, so the caller gets a preconditioner
+    built from part of a different device with nothing said about it. The two
+    things that could disagree are the scales and the node count, and they
+    arrive as separate arguments, so nothing else can catch it.
+    """
+    n_nodes = 5
+    good = np.ones(n_nodes)
+    short = np.ones(n_nodes - 1)
+
+    with pytest.raises(ValueError, match="N term scale has 4 entries"):
+        row_weights((good, short, good), n_nodes)
+
+
+def test_a_row_with_no_terms_in_it_is_skipped_rather_than_dividing_by_zero():
+    """A node holding no semiconductor carries no flux and no recombination.
+
+    Its continuity rows are pinned to the identity, so their residual is the
+    pinning error and it goes to zero in one step whatever it is measured
+    against. What must not happen is that the zero scale turns the whole
+    measure into an inf or a nan and takes every other row's evidence with it.
+    """
+    n_nodes = 3
+    psi_scale = np.full(n_nodes, 2.0)
+    n_scale = np.array([1.0, 0.0, 4.0])
+    p_scale = np.full(n_nodes, 8.0)
+    scales = (psi_scale, n_scale, p_scale)
+
+    # scale_rows has already divided by row_weights, so undo that to place a
+    # known raw residual on each row.
+    weights = row_weights(scales, n_nodes)
+    raw = np.zeros(UNKNOWNS_PER_NODE * n_nodes)
+    raw[unknown_index(1, Unknown.N)] = 1e30  # the row with no terms
+    raw[unknown_index(2, Unknown.N)] = 2.0  # 2.0 / 4.0
+
+    measured = residual_measure(raw / weights, scales, n_nodes)
+
+    assert measured == pytest.approx(0.5)

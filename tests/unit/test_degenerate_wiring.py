@@ -525,7 +525,7 @@ def test_the_solver_entry_point_assembles_what_the_public_ones_do() -> None:
         dense(rows, cols, values, x.size),
         rtol=1e-14,
     )
-    assert shared.scales == residual_term_scales(
+    standalone = residual_term_scales(
         h,
         volume,
         x,
@@ -535,6 +535,8 @@ def test_the_solver_entry_point_assembles_what_the_public_ones_do() -> None:
         np.asarray(models.recombination.rate(*unpack(x)[1:]), dtype=np.float64),
         degeneracy=device.degeneracy,
     )
+    for from_shared, alone in zip(shared.scales, standalone, strict=True):
+        np.testing.assert_array_equal(from_shared, alone)
 
 
 def test_the_coupled_contacts_pin_the_degenerate_values() -> None:
@@ -637,6 +639,15 @@ def test_the_lagged_gummel_path_lands_where_the_coupled_newton_does() -> None:
     is that the coupled Newton, handed the converged Gummel state, has nothing
     left to do. Measured before the quasi-Fermi levels knew about the
     statistics, it had 2.4e-4 of the current left to do.
+
+    What it does have left is the last decade of the Gummel solve's own
+    convergence. Newton starts here at a residual of 2.7e-10 and spends two
+    steps taking it to 1.1e-14, which moves psi by 9.3e-10 and the terminal
+    current by 1.6e-6 of itself. That is the Gummel update tolerance, not the
+    lagging, and it is two decades below the discrepancy this test was written
+    to catch. Before the residual was measured row by row the same solve
+    reported convergence at iteration zero, so the agreement here used to be
+    exact for the wrong reason. See docs/07-decisions.md.
     """
     device = replace(
         pn_diode(Na=1e17, Nd=HEAVY, n_nodes=201, anode_voltage=0.3),
@@ -651,7 +662,7 @@ def test_the_lagged_gummel_path_lands_where_the_coupled_newton_does() -> None:
         newton.n.data, gummel.n.data, rtol=1e-8
     )
     np.testing.assert_allclose(
-        newton.psi.data, gummel.psi.data, rtol=0.0, atol=1e-10
+        newton.psi.data, gummel.psi.data, rtol=0.0, atol=1e-8
     )
 
 
@@ -803,9 +814,30 @@ def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None
     that solves the first does not satisfy the third, and the coupled residual
     at the equilibrium answer is a boundary layer rather than roundoff.
 
-    Measured against each family's own term scale, because the three
-    residuals differ by six decades in size and a single threshold would
-    declare the Poisson equation converged a million times above its floor.
+    Measured against each row's own term scale, because the three residuals
+    differ by six decades in size and a single threshold would declare the
+    Poisson equation converged a million times above its floor. Row by row
+    rather than family by family for the same reason one step further down:
+    the electron flux terms span twelve decades between the two sides of this
+    junction, so a family wide scale is set on the degenerate side and says
+    nothing about the lightly doped one.
+
+    Reading it row by row is what showed the fixed point is not exact, and
+    what the one term missing from it is. SRH takes its equilibrium product
+    from n_i squared, and under Fermi-Dirac the equilibrium product is not
+    n_i squared: it is n_i squared times gamma_n gamma_p, which on the 1e20
+    side of this junction is 0.307. So the recombination term at rest is not
+    zero, it is a net generation of 2.6e-12 in scaled units, and it is 3.1e-5
+    of the flux terms of the rows that carry it. The family wide measure
+    divided that by a scale set on the degenerate side and reported 1e-15.
+
+    So the claim here is the exact one rather than a threshold that hides the
+    difference: subtract the recombination and what is left is roundoff at
+    1.4e-14. Everything the change was meant to land, the Poisson solve, the
+    contacts and both Bernoulli arguments, agrees to the last bit. The one
+    thing that does not is named, and named in one place. Under Boltzmann the
+    same subtraction changes nothing because R itself is 6.7e-22 there. See
+    docs/07-decisions.md.
     """
     device = junction(degenerate=True, n_nodes=201)
     models = TransportModels.for_device(device)
@@ -832,8 +864,53 @@ def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None
         degeneracy=device.degeneracy,
     )
 
+    # The equilibrium product is broken by exactly the degeneracy factors,
+    # which is what makes SRH generate at rest. Asserted so this test says
+    # why it carries the term below rather than only that it does.
+    assert float(np.max(np.abs(n * p - 1.0))) == pytest.approx(0.693, rel=1e-2)
+
+    psi_row, n_row, p_row = unpack(residual)
+    psi_scale, n_scale, p_scale = scales
+    assert float(np.max(np.abs(psi_row) / psi_scale)) < 1e-14
+    assert float(np.max(np.abs(n_row - R * volume) / n_scale)) < 1e-13
+    assert float(np.max(np.abs(p_row - R * volume) / p_scale)) < 1e-13
+
+
+def test_a_boltzmann_equilibrium_has_no_recombination_to_subtract() -> None:
+    """The other half of the test above, and the reason it is not a loosening.
+
+    Under Boltzmann the equilibrium product is n_i squared to the last bit, so
+    the SRH rate at rest is 6.7e-22 rather than 2.6e-12 and the fixed point is
+    exact with nothing subtracted from it. If the degenerate contacts or the
+    degenerate Bernoulli argument ever regress to Boltzmann, this is the test
+    that still holds and the one above that fails.
+    """
+    device = junction(degenerate=False, n_nodes=201)
+    models = TransportModels.for_device(device)
+    state = solve_equilibrium(device)
+    x = pack(state.psi.data, state.n.data, state.p.data)
+    scale = device.scale
+    h = device.mesh.h / scale.x_0
+    volume = device.mesh.volume / scale.x_0
+    net = device.net_doping_scaled.data
+
+    _, n, p = unpack(x)
+    R = np.asarray(models.recombination.rate(n, p), dtype=np.float64)
+    scales = residual_term_scales(h, volume, x, net, models.Dn, models.Dp, R)
+    residual = coupled_residual(
+        h=h,
+        volume=volume,
+        x=x,
+        net_doping=net,
+        Dn=models.Dn,
+        Dp=models.Dp,
+        recombination=models.recombination,
+    )
+
+    assert float(np.max(np.abs(n * p - 1.0))) < 1e-15
+    assert float(np.max(np.abs(R * volume))) < 1e-20
     for family, size in zip(unpack(residual), scales, strict=True):
-        assert float(np.max(np.abs(family))) / size < 1e-12
+        assert float(np.max(np.abs(family) / size)) < 1e-14
 
 
 def test_the_solved_state_holds_the_degenerate_relation_at_every_node() -> None:
