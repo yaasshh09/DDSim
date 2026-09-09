@@ -25,6 +25,7 @@ from ddsim.extract.params import (
     dibl,
     ideality_factor,
     saturation_current,
+    saturation_exponent,
     subthreshold_slope,
     threshold_constant_current,
     threshold_linear_extrapolation,
@@ -392,6 +393,68 @@ def test_dibl_is_zero_when_the_threshold_does_not_move() -> None:
 def test_dibl_refuses_two_equal_drain_biases() -> None:
     with pytest.raises(ValueError, match="two different drain"):
         dibl(0.45, 0.40, 0.05, 0.05)
+
+
+# ------------------------------------------------- the saturation exponent
+
+
+def power_law_curve(
+    gate: np.ndarray, threshold: float, k: float, alpha: float
+) -> np.ndarray:
+    """Id = k (Vg - Vth)^alpha above threshold, zero below it."""
+    overdrive = np.clip(gate - threshold, 0.0, None)
+    return k * overdrive**alpha
+
+
+@pytest.mark.parametrize("alpha", [1.0, 1.3, 2.0])
+def test_the_saturation_exponent_is_read_back_from_a_power_law(
+    alpha: float,
+) -> None:
+    """The two limits this measures are the long channel square law and the
+    fully velocity saturated linear one, so the fit has to return both of
+    them exactly rather than approximately."""
+    gate = np.linspace(0.0, 1.2, 25)
+    current = power_law_curve(gate, threshold=0.3, k=7e-4, alpha=alpha)
+
+    fitted = saturation_exponent(gate, current, threshold=0.3)
+
+    assert fitted == pytest.approx(alpha, rel=1e-9)
+
+
+def test_the_saturation_exponent_ignores_everything_below_threshold() -> None:
+    """Overdrive is negative there, so its logarithm does not exist. The
+    points are dropped rather than the call refused, because a transfer curve
+    that starts in the off state is the normal input."""
+    gate = np.linspace(-0.5, 1.2, 35)
+    current = power_law_curve(gate, threshold=0.3, k=7e-4, alpha=2.0)
+
+    assert saturation_exponent(gate, current, threshold=0.3) == pytest.approx(
+        2.0, rel=1e-9
+    )
+
+
+def test_the_saturation_exponent_uses_only_the_requested_window() -> None:
+    """A real curve is square law just above threshold and linear well past
+    it, so the window is what says which of the two is being reported."""
+    gate = np.linspace(0.0, 2.0, 81)
+    threshold = 0.2
+    overdrive = np.clip(gate - threshold, 0.0, None)
+    current = np.where(overdrive < 0.4, 1e-3 * overdrive**2, 4e-4 * overdrive)
+
+    near = saturation_exponent(gate, current, threshold, window=(0.25, 0.55))
+    far = saturation_exponent(gate, current, threshold, window=(0.8, 2.0))
+
+    assert near == pytest.approx(2.0, rel=1e-9)
+    assert far == pytest.approx(1.0, rel=1e-9)
+
+
+def test_the_saturation_exponent_needs_two_points_above_threshold() -> None:
+    """One point fixes the constant and leaves the slope free."""
+    gate = np.linspace(0.0, 0.35, 8)
+    current = power_law_curve(gate, threshold=0.3, k=7e-4, alpha=2.0)
+
+    with pytest.raises(ValueError, match="above threshold"):
+        saturation_exponent(gate, current, threshold=0.3)
 
 
 # ------------------------------------------------- what the extractors refuse

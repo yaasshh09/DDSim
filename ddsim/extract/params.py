@@ -328,6 +328,62 @@ def threshold_linear_extrapolation(
     return float(intercept - 0.5 * drain_voltage)
 
 
+def saturation_exponent(
+    voltage: npt.NDArray[np.float64],
+    current: npt.NDArray[np.float64],
+    threshold: float,
+    window: tuple[float, float] | None = None,
+) -> float:
+    """The power the saturation current follows the gate overdrive to.
+
+    Args:
+        voltage: gate bias [V], strictly increasing.
+        current: drain current at a saturating drain bias [A/cm].
+        threshold: threshold voltage of the same curve [V]. Overdrive is
+            measured from here, so it has to be extracted from this curve and
+            not borrowed from another device.
+        window: (low, high) gate range to fit over [V]. The whole curve above
+            threshold if None.
+
+    Fits alpha in Id = k (Vg - Vth)^alpha by least squares in log-log, using
+    only the points where the overdrive is positive.
+
+    **This is the velocity saturation measurement.** A long channel device is
+    a square law, alpha = 2, because the inversion charge rises with overdrive
+    and so does the field that moves it. Once the channel field is past the
+    critical field the carriers travel at a fixed velocity whatever the
+    overdrive does, the second factor stops contributing, and alpha falls
+    toward 1. phases/PHASE-5.md asks for that number across the gate length
+    sweep, and nothing in this file or upstream of it contains a 2 or a 1:
+    both come out of the curve.
+
+    The fit is in logarithms because the claim is about a power, and a power
+    is a straight line only there. Fitting Id against overdrive directly would
+    weight the top of the curve by the square of its current and report
+    whatever the last few points were doing.
+    """
+    V, J = _checked(voltage, current, positive=False)
+
+    if window is not None:
+        inside = (V >= window[0]) & (V <= window[1])
+        V, J = V[inside], J[inside]
+
+    overdrive = V - threshold
+    above = (overdrive > 0.0) & (J > 0.0)
+    if int(np.count_nonzero(above)) < 2:
+        raise ValueError(
+            f"fitting a power needs at least two points above threshold with "
+            f"a positive current, and this curve has "
+            f"{int(np.count_nonzero(above))} over "
+            f"{V[0]:+g} to {V[-1]:+g} V at a threshold of {threshold:+g} V"
+        )
+
+    slope, _ = np.polyfit(
+        np.log10(overdrive[above]), np.log10(J[above]), deg=1
+    )
+    return float(slope)
+
+
 def dibl(
     threshold_low: float,
     threshold_high: float,
