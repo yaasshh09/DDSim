@@ -35,6 +35,7 @@ from ddsim.discretize.coupled import (
 )
 from ddsim.extract.iv import terminal_currents
 from ddsim.physics.recombination import SumOfRecombination
+from ddsim.solve.continuation import continue_to
 
 
 @pytest.fixture
@@ -551,18 +552,31 @@ def test_the_gate_bias_reaches_the_silicon():
     statement about the assembly. Started from their own guesses the two would
     differ whatever the assembly did, because initial_state is the equilibrium
     Poisson solve and that path has applied the gate correctly since Phase 4.
-    The test would pass with the gate row deleted, which is the mutation it
-    exists to catch.
+    The mutation it exists to catch is a gate that is accepted and then
+    ignored: keep the gate row but build its target from 0.0 instead of the
+    applied bias. Both solves then converge and hand back the same psi to the
+    last bit, and the last assertion is what fails. Deleting the gate row
+    outright is caught too, earlier and more bluntly, because a floating oxide
+    leaves the first solve unable to converge at all.
+
+    The ramp to -1 V is `continue_to` and not one Newton solve. One solve used
+    to reach it from this guess, and that was luck rather than a property: the
+    basin of the undamped solve on this capacitor is ragged, -0.25 V misses it
+    while -1.0 V lands, and -1.0 V lands only by spending 9 of its 16 steps on
+    the limiter. CI on Linux drew the other side of that coin and reported a
+    residual of 7.095e+10. Every ramp step is still a coupled solve carrying
+    the gate, so the ramp costs the test none of that.
     """
     guess = solve_equilibrium(capacitor(gate_voltage=0.0))
 
-    # Both on the accumulation side, where one Newton solve reaches the answer
-    # from this guess. Driving the same guess into inversion in one step does
-    # not converge, which is what continuation is for and is not what this
-    # test is about.
     held = solve_bias_newton(capacitor(gate_voltage=0.0), guess=guess)
-    accumulated = solve_bias_newton(capacitor(gate_voltage=-1.0), guess=guess)
-
     assert held.newton.converged, held.newton.message
-    assert accumulated.newton.converged, accumulated.newton.message
-    assert not np.allclose(held.psi.data, accumulated.psi.data)
+
+    def at_gate(gate_voltage: float, previous):
+        solved = solve_bias_newton(capacitor(gate_voltage), guess=previous)
+        return solved if solved.newton.converged else None
+
+    ramp = continue_to(at_gate, start=0.0, target=-1.0, initial=held, step=0.25)
+
+    assert ramp.converged, ramp.message
+    assert not np.allclose(held.psi.data, ramp.solution.psi.data)

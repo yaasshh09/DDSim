@@ -34,6 +34,7 @@ from ddsim.extract.rolloff import (
     gate_length_sweep,
     usable_span,
 )
+from ddsim.solve.continuation import continue_to
 
 LONG = 1e-4
 """The long channel end [cm], 1 um."""
@@ -183,6 +184,13 @@ def drain_current(L_gate: float, field_dependent: bool) -> float:
     takes 2.6x off the 1 um current, which is the 2 to 3x docs/01-physics.md
     says it should, so the arms below are now a claim about the device the
     README plots rather than about a lighter one.
+
+    The gate ramp is `continue_to` and not a fixed list of four biases. Fixed
+    0.4 V steps have no answer to a step that misses the basin, and on Linux
+    one of them did: CI reported a residual of 9.889e+03 on the 2835 node
+    device where the same steps converge here. Continuation halves the step
+    and tries again. The bias landed on is the same, so the current returned
+    is the same root and not a different measurement.
     """
     models = TransportModels.for_device(
         nmos(L_gate=L_gate, **SHORT_CHANNEL_PROCESS),
@@ -190,18 +198,25 @@ def drain_current(L_gate: float, field_dependent: bool) -> float:
         field_dependent=field_dependent,
         surface=True,
     )
-    state = None
-    for gate in (0.0, 0.4, 0.8, 1.2):
-        device = nmos(
+    def device_at(gate: float):
+        return nmos(
             L_gate=L_gate,
             gate_voltage=gate,
             drain_voltage=1.0,
             **SHORT_CHANNEL_PROCESS,
         )
-        state = solve_bias_newton(device, models=models, guess=state)
-        assert state.newton is not None and state.newton.converged
 
-    return float(terminal_currents(device, state)[DRAIN])
+    def at_gate(gate: float, previous):
+        solved = solve_bias_newton(device_at(gate), models=models, guess=previous)
+        return solved if solved.newton is not None and solved.newton.converged else None
+
+    start = solve_bias_newton(device_at(0.0), models=models, guess=None)
+    assert start.newton is not None and start.newton.converged
+
+    ramp = continue_to(at_gate, start=0.0, target=1.2, initial=start, step=0.4)
+    assert ramp.converged, ramp.message
+
+    return float(terminal_currents(device_at(1.2), ramp.solution)[DRAIN])
 
 
 def test_velocity_saturation_is_what_holds_the_short_device_back():
