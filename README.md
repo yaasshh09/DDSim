@@ -429,3 +429,7 @@ Sweep MOSFET gate length from 1 um down to 50 nm and watch threshold voltage
 roll-off, DIBL and velocity saturation emerge from the physics with no empirical
 fitting. If any short channel effect is hardcoded or fitted, the project has
 failed regardless of how good the plots look.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
