@@ -153,6 +153,17 @@ class Device:
             return self.mesh.x
         return self.mesh.node_x
 
+    @property
+    def dimension(self) -> int:
+        """How many dimensions the device is solved in, 1 or 2.
+
+        Every power of x_0 in a unit conversion is a power of this, so it is
+        worth having one spelling of it rather than an isinstance check at each
+        site. See mesh2d's module docstring for the rule: a dual volume scales
+        as x_0^d and a face as x_0^(d-1).
+        """
+        return 1 if isinstance(self.mesh, Mesh1D) else 2
+
     @cached_property
     def scaled_mesh(self) -> ScaledMesh:
         """The mesh in the units the assemblies work in.
@@ -182,8 +193,9 @@ class Device:
         """
         if self.regions is None:
             return self.scaled_mesh.volume
-        power = 1 if isinstance(self.mesh, Mesh1D) else 2
-        return np.asarray(self.regions.semiconductor_volume / self.scale.x_0**power)
+        return np.asarray(
+            self.regions.semiconductor_volume / self.scale.x_0**self.dimension
+        )
 
     @cached_property
     def semiconductor_contacts(self) -> tuple[SemiconductorContact, ...]:

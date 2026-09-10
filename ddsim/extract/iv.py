@@ -240,13 +240,23 @@ def terminal_currents(
     """
     electron_residual, hole_residual = continuity_residuals(device, state, models)
 
+    # A continuity residual is a divergence integrated over a dual cell, and a
+    # dual cell scales as x_0^d, so the conversion back to a current carries
+    # J_0 * x_0^(d-1): J_0 alone in 1D, J_0 * x_0 in 2D. Getting this wrong is
+    # invisible almost everywhere. A constant factor on every terminal leaves
+    # Kirchhoff satisfied and leaves every shape alone, which is threshold
+    # voltage, subthreshold slope, DIBL and the saturation exponent. See
+    # tests/analytic/test_ohmic_resistor.py, which is the only place that
+    # compares a 2D current against a number worked out without the solver.
+    per_residual = device.scale.J_0 * device.scale.x_0 ** (device.dimension - 1)
+
     currents = {
         contact.name: float(
             sum(
                 -electron_residual[node] + hole_residual[node]
                 for node in contact.nodes
             )
-            * device.scale.J_0
+            * per_residual
         )
         for contact in device.semiconductor_contacts
     }

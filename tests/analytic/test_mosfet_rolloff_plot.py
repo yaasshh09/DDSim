@@ -69,13 +69,21 @@ GATE_LENGTHS = [1e-4, 2e-5, 1e-5, 7e-6, 5e-6]
 """1 um down to 50 nm [cm]. The bottom is where drift-diffusion stops meaning
 anything, not where the solver stops converging."""
 
-GATE_VOLTAGES = list(np.round(np.arange(-0.5, 0.151, 0.05), 4)) + list(
-    np.round(np.arange(0.2, 1.401, 0.1), 4)
+GATE_VOLTAGES = list(np.round(np.arange(-0.5, 0.351, 0.05), 4)) + list(
+    np.round(np.arange(0.4, 1.401, 0.1), 4)
 )
 """Fine through subthreshold, coarse above it. The slope is read over two
 decades of current, which at 70 mV/decade is 140 mV wide and needs 0.05 V
 steps to hold more than one point. Above threshold the curve is a power law
-and 0.1 V resolves it, and every point is a coupled 2D solve."""
+and 0.1 V resolves it, and every point is a coupled 2D solve.
+
+The fine stretch used to stop at 0.15 V, which was right while every 2D drain
+current was 1/x_0 too large and the constant current threshold therefore sat
+about 170 mV low. With the current fixed the thresholds moved up and the window
+moved with them, leaving exactly two points inside it. Two points still measure
+a slope, but a slope from two points is one difference with no averaging in it,
+and the subthreshold slope is a headline number of this phase. Reaching 0.35 V
+puts four or five points in the window at every gate length in the sweep."""
 
 DRAIN_LOW = 0.05
 DRAIN_HIGH = 1.0

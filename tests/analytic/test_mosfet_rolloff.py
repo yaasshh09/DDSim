@@ -41,8 +41,8 @@ LONG = 1e-4
 SHORT = 1e-5
 """The short channel end of this test [cm], 100 nm."""
 
-GATE_VOLTAGES = list(np.round(np.arange(-0.2, 0.101, 0.05), 4)) + list(
-    np.round(np.arange(0.2, 1.101, 0.1), 4)
+GATE_VOLTAGES = list(np.round(np.arange(-0.2, 0.351, 0.05), 4)) + list(
+    np.round(np.arange(0.4, 1.101, 0.1), 4)
 )
 """Fine through subthreshold, coarse above it, because each point is a solve.
 
@@ -50,6 +50,16 @@ The subthreshold slope is read over two decades of current, which at 70
 mV/decade is 140 mV wide, so a 0.1 V grid puts one point in it and cannot
 measure a slope at all. Above threshold the curve is a power law and 0.1 V
 resolves it fine.
+
+The fine stretch reaches 0.35 V rather than 0.10 V because the constant current
+threshold moved when the 2D terminal current stopped being 1/x_0 too large.
+Every drain current on this device used to be 244.59 times what it should be, so
+the curve crossed the Id = 100 nA * W / L target about two and a half decades of
+current early, which is log10(244.59) * SS and comes to roughly 170 mV of
+threshold. The window the slope is read in follows the threshold, so with the
+old grid it landed between 0.1 and 0.2 V, where there is exactly one point, and
+the extraction refused rather than measuring a slope off it. See
+docs/07-decisions.md and tests/analytic/test_ohmic_resistor.py.
 """
 
 THERMAL_LIMIT = 59.5
