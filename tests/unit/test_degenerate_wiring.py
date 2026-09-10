@@ -38,6 +38,7 @@ losing and not the Jacobian.
 from __future__ import annotations
 
 import inspect
+import math
 from dataclasses import replace
 
 import numpy as np
@@ -219,8 +220,15 @@ def test_the_flag_builds_the_statistics_in_the_devices_own_scaling() -> None:
 
 
 def test_the_contact_values_are_boltzmann_without_the_statistics() -> None:
-    """Not close to. The same call with None has to be the same arithmetic."""
-    assert ohmic_psi_scaled(1e10, 0.0) == np.arcsinh(1e10 / 2.0)
+    """Not close to. The same call with None has to be the same arithmetic.
+
+    Against math.asinh and not np.arcsinh. They are two implementations of the
+    same function and they disagree in the last two bits on some platforms, so
+    comparing across them tests the C library rather than this branch. CI read
+    23.025850929940454 from one and ...57 from the other on Python 3.11 and
+    3.12. math.asinh is what the Boltzmann branch actually calls.
+    """
+    assert ohmic_psi_scaled(1e10, 0.0) == math.asinh(1e10 / 2.0)
     assert ohmic_density_scaled(1e10, Carrier.ELECTRON) * ohmic_density_scaled(
         1e10, Carrier.HOLE
     ) == pytest.approx(1.0, rel=1e-14)
