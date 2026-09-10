@@ -243,16 +243,23 @@ on a wafer and the gate length is the number a designer draws differently.
 
 | Lg | Vth at 0.05 V | Vth at 1.0 V | Vth, extrapolated | SS | DIBL | alpha | peak gm |
 |---|---|---|---|---|---|---|---|
-| 1 um | 0.0970 V | 0.0916 V | 0.2806 V | 72.6 mV/dec | 5.6 mV/V | 1.761 | 2.12e1 |
-| 200 nm | 0.0821 V | 0.0736 V | 0.2634 V | 72.7 mV/dec | 8.9 mV/V | 1.557 | 1.10e2 |
-| 100 nm | 0.0452 V | 0.0216 V | 0.2234 V | 73.5 mV/dec | 24.9 mV/V | 1.314 | 2.17e2 |
-| 70 nm | -0.0124 V | -0.0673 V | 0.1821 V | 76.4 mV/dec | 57.7 mV/V | 1.198 | 3.20e2 |
-| 50 nm | -0.1202 V | -0.2489 V | 0.1018 V | 86.1 mV/dec | 135.5 mV/V | 1.033 | 4.34e2 |
+| 1 um | 0.2782 V | 0.2699 V | 0.2806 V | 72.7 mV/dec | 8.8 mV/V | 1.761 | 8.66e-2 |
+| 200 nm | 0.2629 V | 0.2499 V | 0.2634 V | 73.6 mV/dec | 13.6 mV/V | 1.557 | 4.48e-1 |
+| 100 nm | 0.2293 V | 0.1997 V | 0.2303 V | 74.5 mV/dec | 31.1 mV/V | 1.300 | 9.31e-1 |
+| 70 nm | 0.1803 V | 0.1207 V | 0.1840 V | 78.4 mV/dec | 62.8 mV/V | 1.194 | 1.34e0 |
+| 50 nm | 0.0947 V | -0.0258 V | 0.1037 V | 87.8 mV/dec | 126.8 mV/V | 1.030 | 1.79e0 |
 
 Currents are per cm of width. Threshold is the constant current method at
 Id = 100 nA * W / L, and the extrapolated column is the tangent at peak
 transconductance with the -Vd/2 correction. alpha is the power fitted to
 Id against gate overdrive in saturation.
+
+The first and third columns are worth reading against each other. They are two
+unrelated ways of deciding where a device turns on, one a current threshold and
+one a tangent, and they agree to a few millivolts at every gate length. Nothing
+was tuned to make them; they disagreed by 180 mV until a scale error in the 2D
+terminal current was found and fixed, and their agreeing now is the check that
+it was the right fix. See docs/07-decisions.md.
 
 Every device is solved with the full Phase 5 model stack: Fermi-Dirac
 statistics by Joyce-Dixon, Arora doping dependent mobility inside Lombardi
@@ -261,7 +268,7 @@ scope as not optional and the third is what the exponent measures.
 
 ### What emerged, and why
 
-**Threshold roll-off, 217 mV by constant current between 1 um and 50 nm, 179 mV
+**Threshold roll-off, 184 mV by constant current between 1 um and 50 nm, 177 mV
 by linear extrapolation.** Nothing in the solver knows what a short channel is.
 The gate has to deplete the channel charge underneath it, and near either end
 of a short channel some of that charge is already depleted by the source or
@@ -270,19 +277,19 @@ dimensional Poisson solution and nothing else, and it grows as the two
 junctions approach each other. The doping did not move between these five
 devices.
 
-**DIBL, 5.6 to 135.5 mV/V.** The gap between the two curves on the left panel.
+**DIBL, 8.8 to 126.8 mV/V.** The gap between the two curves on the left panel.
 Raising the drain to 1 V pulls the source barrier down through the channel, so
 less gate is needed to turn the device on. At 1 um the drain is too far away to
-reach and the residual 5.6 mV/V is what a drain a micron away still does.
+reach and the residual 8.8 mV/V is what a drain a micron away still does.
 
-**Subthreshold slope off its limit, 72.6 to 86.1 mV/decade.** Every value is
+**Subthreshold slope off its limit, 72.7 to 87.8 mV/decade.** Every value is
 above 59.5, which is kT/q ln 10 at 300 K and which no thermally activated
 current can beat. It sits flat while the gate owns the barrier and lifts once
-the drain starts sharing control. 72.6 rather than 59.5 at the long end is the
+the drain starts sharing control. 72.7 rather than 59.5 at the long end is the
 body factor: the gate moves the surface potential by less than the bias applied
 to it, because the depletion capacitance divides with the oxide capacitance.
 
-**Velocity saturation, alpha from 1.761 to 1.033.** A long channel MOSFET
+**Velocity saturation, alpha from 1.761 to 1.030.** A long channel MOSFET
 saturates as the square of overdrive, because the inversion charge and the
 velocity that carries it both rise with the gate. Once the channel field passes
 the critical field the velocity stops rising and one factor drops out.
@@ -290,8 +297,9 @@ the critical field the velocity stops rising and one factor drops out.
 The exponent alone cannot prove that is the cause, because several things move
 together as the gate shortens, so it is measured directly instead. The same
 device is solved twice at Vg = 1.2 V and Vd = 1.0 V with only Caughey-Thomas
-switched. At 1 um the current changes by 2.9 percent. At 50 nm it changes by
-44.8 percent, because 1 V across 50 nm is twenty times the critical field.
+switched, Lombardi on in both. At 1 um the current changes by 0.9 percent. At
+50 nm it changes by 40.2 percent, because 1 V across 50 nm is twenty times the
+critical field.
 Same equations, same doping, same bias.
 
 Turning the models off one at a time is also how much of the exponent belongs
