@@ -27,7 +27,11 @@ import numpy as np
 import pytest
 
 from ddsim.device.mosfet import DRAIN, nmos
-from ddsim.device.transport import TransportModels, solve_bias_newton
+from ddsim.device.transport import (
+    TransportModels,
+    solve_bias_newton,
+    solve_bias_ramped,
+)
 from ddsim.extract.iv import terminal_currents
 from ddsim.extract.rolloff import (
     SHORT_CHANNEL_PROCESS,
@@ -185,12 +189,17 @@ def drain_current(L_gate: float, field_dependent: bool) -> float:
     says it should, so the arms below are now a claim about the device the
     README plots rather than about a lighter one.
 
-    The gate ramp is `continue_to` and not a fixed list of four biases. Fixed
-    0.4 V steps have no answer to a step that misses the basin, and on Linux
-    one of them did: CI reported a residual of 9.889e+03 on the 2835 node
-    device where the same steps converge here. Continuation halves the step
-    and tries again. The bias landed on is the same, so the current returned
-    is the same root and not a different measurement.
+    The gate ramp is `continue_to` and not a fixed list of four biases, and
+    the point it ramps from is `solve_bias_ramped` and not a cold solve. Both
+    are the same fix to the same thing and neither moves the answer.
+
+    The residual of 9.889e+03 CI reported on the 2835 node device was the
+    starting solve, not a gate step: gate zero with the drain already at 1 V,
+    from the Poisson guess, is twenty two Newton steps here with twelve of
+    them clipped by the potential step limiter, and Linux landed on the other
+    side of it. Ramping the bias in as a fraction of itself makes the last
+    step a real Newton solve with nothing clipped. See
+    tests/convergence/test_cold_bias_ramp.py for the measurement.
     """
     models = TransportModels.for_device(
         nmos(L_gate=L_gate, **SHORT_CHANNEL_PROCESS),
@@ -210,7 +219,7 @@ def drain_current(L_gate: float, field_dependent: bool) -> float:
         solved = solve_bias_newton(device_at(gate), models=models, guess=previous)
         return solved if solved.newton is not None and solved.newton.converged else None
 
-    start = solve_bias_newton(device_at(0.0), models=models, guess=None)
+    start = solve_bias_ramped(device_at(0.0), models=models)
     assert start.newton is not None and start.newton.converged
 
     ramp = continue_to(at_gate, start=0.0, target=1.2, initial=start, step=0.4)

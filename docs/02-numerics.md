@@ -284,6 +284,24 @@ will reuse it verbatim in the SPICE project.
 Reuse the previous converged solution as the initial guess. That is the entire
 reason continuation works.
 
+### The first point is a jump too
+
+A sweep ramps between its points and then starts at one, and on a device with
+more than one terminal that starting point already carries the biases the sweep
+does not sweep. A MOSFET transfer curve begins at zero gate with the drain
+already at 1 V, so the solve that starts the ramp is exactly the jump the rule
+above forbids, taken from a guess that knows nothing about any of it.
+
+Ramp it the same way, on a scalar fraction of every applied bias at once, from
+the all-zero device out to the one asked for. `solve_bias_ramped` is that, and
+it is the same continuation driver. Two things it does that are not obvious:
+
+- It only applies cold. A continuation step arrives with the neighbouring
+  solution and that guess is worth more than anything a fresh ramp produces.
+- It takes its final step at the device's own bias whether the ramp arrived or
+  not. A stalled ramp holds a converged solve at some fraction, and handing
+  that back would be a wrong answer wearing a converged flag.
+
 ## Linear algebra
 
 Sparse, non-symmetric, ill-conditioned. Direct solve is correct at these sizes.

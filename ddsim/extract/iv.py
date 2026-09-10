@@ -51,6 +51,7 @@ from ddsim.device.transport import (
     TransportModels,
     solve_bias,
     solve_bias_newton,
+    solve_bias_ramped,
 )
 from ddsim.discretize.continuity import electron_current, hole_current
 from ddsim.discretize.coupled import (
@@ -556,13 +557,24 @@ def gate_sweep(
 
     def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
         biased = device.with_bias(**{contact: voltage})
-        solved = solve_bias_newton(
-            biased,
-            models=models,
-            guess=guess,
-            max_iterations=max_iterations,
+        # The cold one is the first point of the sweep, and on a MOSFET the
+        # drain bias is already on the device by then. From the Poisson guess
+        # that is a walk against the potential step limiter rather than a
+        # Newton solve, so it is ramped in. Every later point arrives with a
+        # guess from its neighbour and needs nothing.
+        solved = (
+            solve_bias_ramped(
+                biased, models=models, max_iterations=max_iterations
+            )
+            if guess is None
+            else solve_bias_newton(
+                biased,
+                models=models,
+                guess=guess,
+                max_iterations=max_iterations,
+            )
         )
-        # solve_bias_newton always attaches a NewtonResult, converged or not.
+        # Both always attach a NewtonResult, converged or not.
         assert solved.newton is not None
         return solved if solved.newton.converged else None
 

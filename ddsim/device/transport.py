@@ -110,6 +110,7 @@ from ddsim.physics.recombination import (
     SumOfRecombination,
     scharfetter_lifetime,
 )
+from ddsim.solve.continuation import continue_to
 from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve
 from ddsim.solve.linear import SparseLU
 from ddsim.solve.newton import NewtonResult, newton_solve
@@ -1134,6 +1135,83 @@ def solve_bias_newton(
         p=_node_field(p.copy(), "cm^-3", "p"),
         newton=result,
         degeneracy=device.degeneracy,
+    )
+
+
+def solve_bias_ramped(
+    device: Device,
+    models: TransportModels | None = None,
+    step: float = 0.25,
+    max_iterations: int = 30,
+) -> DeviceState:
+    """Solve at the device's biases with no guess, ramping them in from zero.
+
+    Args:
+        device: the device, carrying the contact voltages wanted.
+        models: recombination and diffusivities. Built from the device if None.
+        step: first continuation step, as a fraction of the applied bias [1].
+        max_iterations: Newton budget at each fraction.
+
+    Returns a DeviceState at the device's own biases, with its NewtonResult
+    attached, converged or not. Same contract as solve_bias_newton, and the
+    same answer wherever that one converges: the parameter is a fraction of
+    the bias already on the device, so a fraction of one is the device itself.
+
+    **Why a cold solve needs this and a warm one does not.** The Poisson guess
+    knows nothing about the applied bias, so on a MOSFET with the drain at 1 V
+    the first Newton step wants a potential update far larger than max_psi_step
+    allows and gets clipped. Measured on a 2835 node 1 um NMOS from the Poisson
+    guess: at 0 V one step and nothing clipped, at 0.25 V ten steps and nothing
+    clipped, at 1 V twenty two steps with twelve of them clipped. A solve that
+    spends half its budget against the limiter never reaches a quadratic tail,
+    and whether it arrives at all is decided by rounding. It did not arrive on
+    CI, which reported a residual of 9.889e+03 on the solve that converges
+    here. See docs/07-decisions.md.
+
+    **It is continuation in the bias, not damping.** The Jacobian is not in
+    question. At a fraction the solve reaches from its neighbour, the tail is
+    quadratic and nothing is clipped, which is what the tests in
+    tests/convergence/test_cold_bias_ramp.py assert.
+    """
+    if models is None:
+        models = TransportModels.for_device(device)
+
+    applied = {contact.name: contact.voltage for contact in device.contacts}
+
+    def at_fraction(
+        fraction: float, guess: DeviceState | None
+    ) -> DeviceState | None:
+        solved = solve_bias_newton(
+            device.with_bias(
+                **{name: fraction * volts for name, volts in applied.items()}
+            ),
+            models=models,
+            guess=guess,
+            max_iterations=max_iterations,
+        )
+        # solve_bias_newton always attaches a NewtonResult, converged or not.
+        assert solved.newton is not None
+        return solved if solved.newton.converged else None
+
+    off = solve_bias_newton(
+        device.with_bias(**dict.fromkeys(applied, 0.0)),
+        models=models,
+        max_iterations=max_iterations,
+    )
+    ramp = continue_to(
+        at_fraction, start=0.0, target=1.0, initial=off, step=step
+    )
+
+    # Unconditionally, rather than returning ramp.solution when it converged.
+    # A stalled ramp holds a converged solve at a fraction nobody asked for,
+    # and handing that back would be a wrong answer wearing a converged flag.
+    # On a ramp that did reach one this costs a solve that takes no steps,
+    # because the residual is already under the threshold.
+    return solve_bias_newton(
+        device,
+        models=models,
+        guess=ramp.solution,
+        max_iterations=max_iterations,
     )
 
 
