@@ -574,7 +574,11 @@ def solve_once() -> None:
 
 
 def settle(
-    device: str, poisson_only: bool = False, passes: int = 400, tol: float = 1e-9
+    device: str,
+    poisson_only: bool = False,
+    passes: int = 400,
+    tol: float = 1e-9,
+    stall: int = 25,
 ) -> int:
     """Call solve until the potential stops moving, and return the pass count.
 
@@ -588,9 +592,20 @@ def settle(
     solve once per bias step and trusts what it says, and run that way this
     device hands back a transfer curve reading -2.209939 A/cm at 0.1 V of gate
     and +9.942419 A/cm at 0.4, with every step reported as a success.
+
+    `stall` is how a settle that is not going to arrive gives up cheaply. A
+    converging one takes 6 to 20 passes and keeps setting new records for the
+    largest move; a stuck one bounces around a floor forever. Since a failed
+    settle is a failed bias step, and `ramp_to` answers that by halving and
+    trying again up to nine times, the cost of noticing late is nine times the
+    full pass budget. Watching for a new best is what separates the two cases,
+    and cutting the budget instead is not: it refuses settles that would have
+    converged.
     """
     before = snapshot(device, poisson_only)
     moved = float("inf")
+    best = float("inf")
+    stalled = 0
     for index in range(passes):
         solve_once()
         after = snapshot(device, poisson_only)
@@ -600,11 +615,21 @@ def settle(
             if not poisson_only and not sane(device):
                 raise RuntimeError("settled on a state no bias can produce")
             return index + 1
-    # The budget is what a failed bias step costs before ramp_to halves and
-    # tries again, so it is tempting to cut it. Do not: a settle that is
-    # refused early is a bias step that is refused, and cutting this to 60
-    # moved the equilibrium drain current on the 1 um device by 0.4 percent
-    # and left the gate walk grinding at the knee it now crosses in 35 s.
+        if moved < best:
+            best, stalled = moved, 0
+            continue
+        stalled += 1
+        if stalled >= stall:
+            raise RuntimeError(
+                f"stalled at {best:.3e} V for {stall} passes, last move "
+                f"{moved:.3e} V"
+            )
+    # Reaching here is a settle that is still improving after 400 passes,
+    # which has not been seen. What a stuck settle does instead is bounce, and
+    # `stall` is what catches that. Cutting `passes` to catch it is the wrong
+    # knob and was tried: at 60 it refuses settles that would have converged,
+    # which moved the 1 um equilibrium drain current by 0.4 percent and left
+    # the gate walk grinding at a knee it otherwise crosses in 35 s.
     raise RuntimeError(
         f"did not settle in {passes} passes, last move {moved:.3e} V"
     )
