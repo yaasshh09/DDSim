@@ -63,6 +63,8 @@ from devsim import (  # noqa: E402
     add_2d_region,
     create_2d_mesh,
     create_device,
+    delete_device,
+    delete_mesh,
     finalize_mesh,
     get_contact_current,
     get_node_model_values,
@@ -108,14 +110,22 @@ answer, so it is a round number rather than a measured one.
 GOLDEN = os.path.join("data", "golden")
 
 set_parameter(name="threads_available", value=1)
-"""Assemble on one thread, so that a run is reproducible.
+"""Assemble on one thread, which is as far as pinning threads is worth taking.
 
 devsim splits its assembly across threads by default, and a floating point sum
 whose order is set by a thread pool is a different sum from one run to the
-next. On this device the difference is not cosmetic: the same mesh at the same
-bias converged in one process and raised a convergence failure in another,
-under nothing but a different machine load. Golden data that depends on how
-busy the machine was is not golden, so the thread pool goes.
+next. That much is free to remove and it costs no measurable time.
+
+The factorisation is the other half and it is not free. devsim's direct_solver
+is mkl_pardiso, which is also multithreaded, and `MKL_NUM_THREADS=1` set before
+the devsim import does make a run bit reproducible. It also turns
+`build_physics` on the 1 um device from about four seconds into more than three
+minutes, because the arithmetic it lands on walks a different and much worse
+path through the drain ramp. So the pin is not taken, and what absorbs a
+different path instead is `solve_once`, which retries a refused solve at a
+looser tolerance rather than treating it as divergence. Measured across runs,
+what is left of the spread is about 3e-5 of relative drain current at zero
+gate, four decades under the tolerance any benchmark asks for.
 """
 
 SOLUTIONS: dict[str, tuple[str, ...]] = {
@@ -376,6 +386,42 @@ def gate_potential(v_gate: float) -> float:
     return v_gate + (P.PHI_M_MIDGAP - P.PHI_M_N_POLY)
 
 
+def seed_potential(device: str) -> None:
+    """Start the equilibrium Poisson solve from charge neutrality, not from zero.
+
+    devsim creates a solution array full of zeros and its own examples solve
+    from there, which on this device means starting 0.6 V away in the source
+    and drain and 0.48 V away in the body. The solve gets there, but it gets
+    there on devsim's log damping and the path is long enough to be luck: the
+    identical Poisson problem, same mesh and same biases, converged on the
+    first device of a process and raised a convergence failure on the second.
+
+    The charge neutral potential is exact everywhere except in a depletion
+    region, so seeding it leaves the solve a small and well conditioned
+    correction rather than a long walk. It is the same guess ddsim's own ohmic
+    contact makes, written without asinh because devsim's parser has none:
+
+        psi_0 = V_t asinh(N / 2 n_i)
+              = V_t ln( (N + sqrt(N^2 + 4 n_i^2)) / (2 n_i) )
+
+    An initial guess moves no converged answer. It only decides whether one is
+    reached.
+    """
+    node_model(
+        device=device,
+        region=BULK,
+        name="PotentialNeutral",
+        equation=(
+            f"{P.V_T:.16e} * log((NetDoping + "
+            f"pow(NetDoping*NetDoping + 4*{P.N_I:.16e}*{P.N_I:.16e}, 0.5)) "
+            f"/ (2*{P.N_I:.16e}))"
+        ),
+    )
+    set_node_values(
+        device=device, region=BULK, name="Potential", init_from="PotentialNeutral"
+    )
+
+
 def build_physics(device: str, v_gate: float, v_drain: float) -> None:
     """Equilibrium Poisson, then the full drift diffusion system.
 
@@ -395,6 +441,7 @@ def build_physics(device: str, v_gate: float, v_drain: float) -> None:
     for region in (BULK, OXIDE):
         CreateSolution(device, region, "Potential")
     CreateSiliconPotentialOnly(device, BULK)
+    seed_potential(device)
     CreateOxidePotentialOnly(device, OXIDE, "log_damp")
 
     for contact in (BODY, SOURCE, DRAIN):
@@ -644,14 +691,22 @@ def device_name(
 
 def transfer_curve(
     benchmark: P.MosfetBenchmark, drain: float, refine: float = 1.0
-) -> list[dict[str, Any]]:
-    """One Id-Vg curve at a fixed drain bias.
+) -> tuple[list[dict[str, Any]], int]:
+    """One Id-Vg curve at a fixed drain bias, and its silicon node count.
 
     A device is built per curve rather than per point. The gate is walked from
     the first bias to the last with continuation, since the state at one bias
-    is the best guess available for the next, and the drain is already on the
-    device before any carriers exist because it went in with the equilibrium
-    Poisson solve.
+    is the best guess available for the next, and the drain went on before any
+    of it, ramped onto the coupled system once the carriers existed.
+
+    The device is deleted on the way out, and that is not tidiness. devsim's
+    `solve` takes no device argument: it solves every device in the simulation
+    at once. A generator that builds a device per curve and leaves them lying
+    around is therefore asking devsim, on the second curve, to converge two
+    devices simultaneously, one of which is already converged and contributes
+    nothing but its own roundoff to the shared error norm. Measured: building
+    the same 1 um device four times in one process fails on the third, and
+    deleting each one as its curve finishes makes all four succeed.
     """
     device = device_name(benchmark, drain, refine)
     with quiet():
@@ -676,18 +731,21 @@ def transfer_curve(
             f"    Vg={v_gate:+.3f} V  Id={rows[-1]['drain']:+.6e} A/cm",
             flush=True,
         )
-    return rows
+    nodes = node_count(device)
+    delete_device(device=device)
+    delete_mesh(mesh=device)
+    return rows, nodes
 
 
 def sweep(
     benchmark: P.MosfetBenchmark, refine: float = 1.0
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Both transfer curves of one benchmark, low drain first."""
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+    """Both transfer curves of one benchmark, low drain first, and the nodes."""
     print(f"  {benchmark.name}: Vd = {benchmark.drain_low} V", flush=True)
-    low = transfer_curve(benchmark, benchmark.drain_low, refine=refine)
+    low, nodes = transfer_curve(benchmark, benchmark.drain_low, refine=refine)
     print(f"  {benchmark.name}: Vd = {benchmark.drain_high} V", flush=True)
-    high = transfer_curve(benchmark, benchmark.drain_high, refine=refine)
-    return low, high
+    high, _ = transfer_curve(benchmark, benchmark.drain_high, refine=refine)
+    return low, high, nodes
 
 
 def relative_difference(
@@ -813,13 +871,12 @@ def main() -> int:
             f"{len(benchmark.gate_voltages)} gate biases on two curves",
             flush=True,
         )
-        low, high = sweep(benchmark)
-        nodes = node_count(device_name(benchmark, benchmark.drain_low))
+        low, high, nodes = sweep(benchmark)
 
         mesh_check = None
         if not args.no_mesh_check:
             print(f"{benchmark.name}: repeating on a halved mesh", flush=True)
-            fine, _ = sweep(benchmark, refine=2.0)
+            fine, _, _ = sweep(benchmark, refine=2.0)
             mesh_check = relative_difference(low, fine)
             print(
                 f"{benchmark.name}: worst relative change {mesh_check[0]:.3e} "
