@@ -47,6 +47,36 @@ redirect it somewhere if the progress lines are what you want to read.
 Options: name one or more benchmarks to generate a subset, `--no-mesh-check` to
 skip the second solve, `--out` to write somewhere other than `data/golden`.
 
+`generate_mos_cv.py` and `generate_mosfet.py` take the same arguments.
+
+## The MOSFET generator decides convergence itself
+
+`generate_mosfet.py` does not trust what a devsim `solve` reports, and neither
+should anything else on a device like this. A solve returns after a single
+damped step and reports its relative and absolute update as exactly zero, which
+is a statement about the size of that step rather than about the residual.
+devsim's own `python_packages/ramp.py` takes that at face value, one solve per
+bias step, and run that way this device hands back a transfer curve reading
+-2.209939 A/cm at 0.1 V of gate with every step reported as a success.
+
+So `settle` calls solve until the potential stops moving to 1e-9 V and then
+checks the state is physically possible at all, and `solve_once` underneath it
+backs the relative tolerance off 1e-8, 1e-6, 1e-4 until devsim stops refusing.
+That last part is not sloppiness: at 1e-10 devsim refuses a solve whose relative
+update is cycling at 2.17e-09 in its own roundoff, and the refusal is what used
+to stop the gate walk dead at 0.26 V. See the dated rows in
+`docs/07-decisions.md`.
+
+## The MOSFET benchmarks run a smaller model set than Phase 5
+
+The diodes and the capacitors match model for model. The MOSFETs do not: both
+codes are run at Boltzmann statistics and constant mobility, without Arora,
+Caughey-Thomas or Lombardi. That still compares the 2D transport, the geometry
+and the electrostatics, which is what threshold voltage and DIBL are made of,
+but it does not compare the mobility models, and the drain current it compares
+is not the drain current the README roll-off table reports. See the dated row
+in `docs/07-decisions.md`.
+
 ## What is matched, and what is not
 
 `parameters.py` is the single definition of the benchmark devices and of every

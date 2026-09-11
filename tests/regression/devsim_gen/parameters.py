@@ -18,6 +18,7 @@ Units follow the project convention: lengths in cm, concentrations in cm^-3.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 # ------------------------------------------------------------------ constants
@@ -511,3 +512,282 @@ def central_difference(
         midpoints.append(voltage[index])
         slopes.append((charge[index + 1] - charge[index - 1]) / span)
     return midpoints, slopes
+
+
+# --------------------------------------------------------------------- MOSFETs
+
+
+def erfcinv(target: float) -> float:
+    """Inverse of `math.erfc` on (0, 2), by bisection [1].
+
+    `scipy.special.erfcinv` is what ddsim's `device/mosfet.py` calls, and the
+    devsim interpreter has no scipy. Bisection on [0, 30] matches it to machine
+    precision over the range an implant profile asks for, which is twice the
+    ratio of two doping concentrations and so always well inside (0, 1).
+    `tests/regression/test_devsim_mosfet.py` pins the two against each other.
+    """
+    if not 0.0 < target < 2.0:
+        raise ValueError(f"erfc maps onto (0, 2), so target must too, got {target}")
+    low, high = 0.0, 30.0
+    for _ in range(200):
+        middle = 0.5 * (low + high)
+        if math.erfc(middle) > target:
+            low = middle
+        else:
+            high = middle
+    return 0.5 * (low + high)
+
+
+MOSFET_PROCESS: dict[str, float] = {
+    "substrate_doping": -1e18,
+    "sd_peak": 1e20,
+    "x_j": 2.5e-6,
+    "lateral_diffusion": 1.0e-6,
+    "t_ox": 2e-7,
+    "sd_length": 4e-5,
+    "contact_length": 2e-5,
+    "t_si": 1e-4,
+}
+"""The vertical process every MOSFET benchmark is drawn on.
+
+A literal mirror of `ddsim.extract.rolloff.SHORT_CHANNEL_PROCESS`, pinned key by
+key by `test_devsim_mosfet.py::test_process_mirrors_ddsim`. Benchmarks 6 to 8
+are that one process drawn at three gate lengths, which is what makes the set a
+roll-off measurement rather than three unrelated devices.
+"""
+
+
+def implant_shape(process: dict[str, float]) -> tuple[float, float]:
+    """The two implant lengths ddsim's `nmos` derives from a process [cm, cm].
+
+    Returns `(sigma, edge)`: the depth standard deviation of the gaussian and
+    the characteristic length of the lateral erfc. Both are closed form in
+    `ddsim/device/mosfet.py` and are reproduced here rather than imported,
+    because the generator runs under an interpreter that has no ddsim. The
+    mirror test compares the pair against the values ddsim computes.
+    """
+    Na = -process["substrate_doping"]
+    peak = process["sd_peak"]
+    sigma = process["x_j"] / math.sqrt(2.0 * math.log(peak / Na))
+    edge = process["lateral_diffusion"] / erfcinv(2.0 * Na / peak)
+    return sigma, edge
+
+
+@dataclass(frozen=True)
+class MosfetBenchmark:
+    """One NMOS from the tier 4 benchmark set of docs/04-validation.md."""
+
+    name: str
+    """Short name, also the golden file stem."""
+
+    number: int
+    """Row in the docs/04-validation.md benchmark table."""
+
+    L_gate: float
+    """Drawn gate length [cm]. 1e-4 is 1 um."""
+
+    gate_voltages: tuple[float, ...]
+    """Gate biases to record [V], ascending from the off state."""
+
+    drain_low: float
+    """Drain bias of the linear curve [V], the one thresholds are read off."""
+
+    drain_high: float
+    """Drain bias of the saturated curve [V], the one DIBL is read off."""
+
+    tolerance: float
+    """Agreement required on drain current [1], as a fraction."""
+
+    devsim_h_junction: float = 5e-7
+    """devsim column spacing at each metallurgical junction [cm].
+
+    The default is the 1 um value. The two short devices set their own, because
+    a column spacing of half a micron is wider than their whole gate.
+    """
+
+    devsim_h_channel: float = 2e-6
+    """devsim column spacing in the middle of the channel [cm].
+
+    The default is the 1 um value, for the same reason `devsim_h_junction` is.
+    """
+
+    devsim_h_contact: float = 4e-6
+    """devsim column spacing under each contact plate [cm]."""
+
+    devsim_h_surface: float = 5e-8
+    """devsim row spacing at the silicon surface [cm].
+
+    The inversion layer is a nanometre or so thick and is the only structure on
+    this device that a mesh can miss, so this is the spacing the drain current
+    is actually sensitive to, and it is the one spacing that is not coarsened.
+    Measured on the 1 um device at zero gate and 50 mV of drain, where the
+    current is drain junction leakage and so at its most mesh sensitive:
+    5e-8 gives 1.5612e-6 A/cm against ddsim's 1.4973e-6, and relaxing it alone
+    to 2e-7 gives 2.1849e-6, which is 46 percent out. No other spacing on this
+    device moves the answer anything like that far.
+    """
+
+    devsim_h_depth: float = 1e-6
+    """devsim row spacing at the implant depth [cm]."""
+
+    devsim_oxide_cells: int = 4
+    """devsim cells through the oxide.
+
+    It holds no charge, so its potential is a straight line and any number of
+    cells resolves a straight line exactly.
+    """
+
+    notes: str = ""
+    """What this device is for, carried into the golden file header."""
+
+
+CURRENT_FLOOR_MOSFET = 1e-12
+"""Below this current magnitude a transfer curve carries no information [A/cm].
+
+The off state of these devices is reverse drain junction leakage, which both
+codes compute as a difference of much larger fluxes. Points under the floor are
+checked against the floor rather than against each other, which is the rule the
+diode benchmarks already use for the same reason.
+"""
+
+
+def _gate_range(low: float, high: float, step: float) -> tuple[float, ...]:
+    """Gate biases from low to high inclusive [V], evenly spaced."""
+    count = round((high - low) / step)
+    return tuple(round(low + index * step, 10) for index in range(count + 1))
+
+
+MOSFET_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
+    MosfetBenchmark(
+        name="nmos_1um",
+        number=6,
+        L_gate=1e-4,
+        gate_voltages=_gate_range(0.0, 1.5, 0.1),
+        drain_low=0.05,
+        drain_high=1.0,
+        tolerance=0.05,
+        notes=(
+            "The long device. At 1 um this process has no short channel effect "
+            "left in it, so it is the reference the shorter ones are measured "
+            "against and the one place where a disagreement is about the 2D "
+            "transport rather than about a barrier."
+        ),
+    ),
+    MosfetBenchmark(
+        name="nmos_180nm",
+        number=7,
+        L_gate=1.8e-5,
+        gate_voltages=_gate_range(0.0, 1.5, 0.1),
+        drain_low=0.05,
+        drain_high=1.0,
+        tolerance=0.05,
+        devsim_h_junction=4.5e-7,
+        devsim_h_channel=9e-7,
+        notes=(
+            "The same process drawn at 180 nm. The lateral encroachment leaves "
+            "160 nm of metallurgical channel, so roll-off has started but the "
+            "device is still comfortably long channel."
+        ),
+    ),
+    MosfetBenchmark(
+        name="nmos_65nm",
+        number=8,
+        L_gate=6.5e-6,
+        gate_voltages=_gate_range(-0.2, 1.5, 0.1),
+        drain_low=0.05,
+        drain_high=1.0,
+        tolerance=0.08,
+        devsim_h_junction=1.625e-7,
+        devsim_h_channel=3.25e-7,
+        notes=(
+            "45 nm of metallurgical channel. This is the DIBL row: the point of "
+            "it is the gap between the two curves, so the gate sweep starts "
+            "below zero to hold the off state of both."
+        ),
+    ),
+)
+
+MOSFET_BY_NAME: dict[str, MosfetBenchmark] = {b.name: b for b in MOSFET_BENCHMARKS}
+
+MOSFET_MODEL_SUMMARY: tuple[str, ...] = (
+    "statistics:      Boltzmann",
+    "transport:       Scharfetter-Gummel, Einstein relation D = V_t * mu",
+    f"mobility:        constant, mu_n = {MU_N} and mu_p = {MU_P} cm^2/(V s)",
+    "recombination:   SRH only, no Auger, no band to band, no impact ionisation",
+    "SRH lifetimes:   Scharfetter, tau = tau_max / (1 + |N| / N_ref), with "
+    f"tau_n_max = {TAU_N_MAX} s, tau_p_max = {TAU_P_MAX} s, N_ref = {N_REF_SRH} cm^-3",
+    "SRH trap level:  midgap, n1 = p1 = n_i",
+    "source/drain:    ideal ohmic plates on the silicon surface, psi from "
+    "charge neutrality, densities pinned at equilibrium",
+    "gate:            ideal metal, Dirichlet on psi at V_gate + "
+    "(PHI_M_MIDGAP - Phi_M), no poly depletion, no gate overlap",
+    "oxide:           Poisson only, no carriers, no fixed interface charge",
+    "body:            ideal ohmic plate over the whole bottom edge, at 0 V",
+    f"constants:       q = {Q} C, k = {K_B} J/K, eps_0 = {EPS_0} F/cm, "
+    f"eps_r(Si) = {EPS_R_SI}, eps_r(ox) = {EPS_R_OX}, n_i = {N_I:.6e} cm^-3, "
+    f"T = {T} K, chi = {CHI_SI} eV, Eg = {EG:.6f} eV",
+)
+"""The model choices for the MOSFET benchmarks, verbatim into every header.
+
+Constant mobility rather than the Phase 5 stack, and Boltzmann rather than
+Fermi-Dirac. Both codes are run that way, so the comparison is still a
+comparison, but what it measures is the 2D transport, the geometry and the
+electrostatics and not the mobility models. See the dated row in
+docs/07-decisions.md.
+"""
+
+
+@dataclass
+class MosfetGoldenCurve:
+    """The two transfer curves of one MOSFET, read back from disk."""
+
+    name: str
+    header: dict[str, str] = field(default_factory=dict)
+    gate_voltage: list[float] = field(default_factory=list)
+    drain_low: list[float] = field(default_factory=list)
+    source_low: list[float] = field(default_factory=list)
+    drain_high: list[float] = field(default_factory=list)
+    source_high: list[float] = field(default_factory=list)
+
+    @property
+    def tolerance(self) -> float:
+        """The agreement the header asks for [1]."""
+        return float(self.header["tolerance"])
+
+    def imbalance(self, index: int, high: bool) -> float:
+        """How badly drain and source fail to cancel at one point [1].
+
+        The body current is many decades below either of them on a device with
+        no impact ionisation, so in steady state the two surface terminals sum
+        to zero and whatever is left is the golden datum's own numerical
+        uncertainty. A regression test has no business demanding that ddsim
+        match a number more closely than that number agrees with itself.
+        """
+        drain = (self.drain_high if high else self.drain_low)[index]
+        source = (self.source_high if high else self.source_low)[index]
+        scale = max(abs(drain), abs(source))
+        return 0.0 if scale == 0.0 else abs(drain + source) / scale
+
+
+def read_mosfet_golden(path: str) -> MosfetGoldenCurve:
+    """Read one golden transfer pair, header comments and all."""
+    curve = MosfetGoldenCurve(name="")
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            line = line.rstrip("\n")
+            if line.startswith("#"):
+                body = line[1:].strip()
+                if ":" in body:
+                    key, _, value = body.partition(":")
+                    curve.header.setdefault(key.strip(), value.strip())
+                continue
+            if not line or line.startswith("gate_voltage"):
+                continue
+            columns = line.split(",")
+            curve.gate_voltage.append(float(columns[0]))
+            curve.drain_low.append(float(columns[1]))
+            curve.source_low.append(float(columns[2]))
+            curve.drain_high.append(float(columns[3]))
+            curve.source_high.append(float(columns[4]))
+    curve.name = curve.header.get("device", "")
+    return curve
