@@ -898,6 +898,15 @@ def main() -> int:
         )
         low, high, nodes = sweep(benchmark)
 
+        path = os.path.join(args.out, f"{benchmark.name}.csv")
+        # Written before the mesh check, not after. The check is a diagnostic
+        # on a mesh nobody ships, it is the most expensive and least reliable
+        # thing in the run, and losing an hour of converged curves to a stall
+        # in it is a bad trade. Written again below with the check's number in
+        # the header, so an interrupted run leaves data that is honest about
+        # not having been checked rather than no data at all.
+        write_csv(benchmark, low, high, nodes, None, path)
+
         mesh_check = None
         if not args.no_mesh_check:
             print(f"{benchmark.name}: repeating on a halved mesh", flush=True)
@@ -918,8 +927,7 @@ def main() -> int:
                 flush=True,
             )
 
-        path = os.path.join(args.out, f"{benchmark.name}.csv")
-        write_csv(benchmark, low, high, nodes, mesh_check, path)
+            write_csv(benchmark, low, high, nodes, mesh_check, path)
         print(f"{benchmark.name}: wrote {path}", flush=True)
 
     return 0

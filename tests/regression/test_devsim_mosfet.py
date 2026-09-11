@@ -237,6 +237,12 @@ def test_golden_reference_is_converged(benchmark: P.MosfetBenchmark) -> None:
     budget is the line, the same line test_devsim_mos.py draws.
     """
     curve = P.read_mosfet_golden(str(golden_path(benchmark)))
+    assert "mesh convergence" in curve.header, (
+        f"{benchmark.name} golden data carries no mesh convergence line, so "
+        "the generator wrote its curves and then did not finish the halved "
+        "mesh check. The curves may be fine and nothing here can tell. "
+        "Re-run the generator."
+    )
     reported = curve.header["mesh convergence"].split()[0]
     assert float(reported) < 0.1 * benchmark.tolerance, (
         f"{benchmark.name} golden data is converged only to {reported}, which "
