@@ -114,10 +114,10 @@ def nmos(
     n_contact: int = 6,
     n_sd: int = 12,
     n_channel: int = 16,
-    n_silicon: int = 41,
-    n_oxide: int = 5,
+    n_silicon: int = 101,
+    n_oxide: int = 33,
     h_min_x: float = 2e-7,
-    h_min_y: float = 5e-8,
+    h_min_y: float = 6.25e-9,
     gate_voltage: float = 0.0,
     drain_voltage: float = 0.0,
     source_voltage: float = 0.0,
@@ -149,7 +149,14 @@ def nmos(
         n_silicon: rows through the silicon, including the interface.
         n_oxide: rows through the oxide, including the interface.
         h_min_x: column spacing at each junction [cm].
-        h_min_y: row spacing at the silicon surface [cm].
+        h_min_y: row spacing at the silicon surface [cm]. This is the one
+            spacing the drain current is really sensitive to, because the
+            inversion layer is the only structure on the device a mesh can
+            miss. Halve it and n_oxide together or the Si/SiO2 seam opens up,
+            see docs/05-pitfalls.md. The default is the rung of
+            tests/convergence/test_mosfet_mesh_convergence.py where the drain
+            current stops moving by more than a tenth of what benchmark 6
+            asserts.
         gate_voltage: bias on the gate [V].
         drain_voltage: bias on the drain [V].
         source_voltage: bias on the source [V].

@@ -616,27 +616,43 @@ class MosfetBenchmark:
     devsim_h_contact: float = 4e-6
     """devsim column spacing under each contact plate [cm]."""
 
-    devsim_h_surface: float = 5e-8
+    devsim_h_surface: float = 6.25e-9
     """devsim row spacing at the silicon surface [cm].
 
     The inversion layer is a nanometre or so thick and is the only structure on
     this device that a mesh can miss, so this is the spacing the drain current
     is actually sensitive to, and it is the one spacing that is not coarsened.
     Measured on the 1 um device at zero gate and 50 mV of drain, where the
-    current is drain junction leakage and so at its most mesh sensitive:
-    5e-8 gives 1.5612e-6 A/cm against ddsim's 1.4973e-6, and relaxing it alone
-    to 2e-7 gives 2.1849e-6, which is 46 percent out. No other spacing on this
-    device moves the answer anything like that far.
+    current is drain junction leakage and so at its most mesh sensitive,
+    relaxing it alone from 5e-8 to 2e-7 moved devsim's answer from 1.5612e-6 to
+    2.1849e-6 A/cm, which is 46 percent. No other spacing on this device moves
+    the answer anything like that far.
+
+    It is 6.25e-9 rather than that 5e-8 because at 5e-8 neither code was
+    converged. ddsim's own ladder, in
+    tests/convergence/test_mosfet_mesh_convergence.py, still moved 5.0 percent
+    subthreshold when the vertical mesh was halved from there, and the two
+    codes are matched at the same surface spacing on purpose, so a reference
+    left at 5e-8 would have agreed with ddsim to a fraction of a percent while
+    both sat 7 percent from the limit. This value is three halvings down, where
+    the move is 0.12 percent, inside the tenth of tolerance
+    test_devsim_mosfet.py::test_golden_reference_is_converged demands.
     """
 
     devsim_h_depth: float = 1e-6
     """devsim row spacing at the implant depth [cm]."""
 
-    devsim_oxide_cells: int = 4
+    devsim_oxide_cells: int = 32
     """devsim cells through the oxide.
 
-    It holds no charge, so its potential is a straight line and any number of
-    cells resolves a straight line exactly.
+    The oxide holds no charge, so its potential is a straight line and any
+    number of cells resolves a straight line exactly. What fixes this number is
+    the other side of the interface: t_ox / devsim_oxide_cells is the cell the
+    silicon surface spacing meets at the seam, and on this process, 2 nm of
+    oxide, 32 cells makes that 6.25e-9 and the seam ratio exactly 1. Refining
+    devsim_h_surface without following it here reopens the seam, which reads as
+    a converging refinement and is partly a widening discontinuity. See
+    docs/05-pitfalls.md.
     """
 
     notes: str = ""

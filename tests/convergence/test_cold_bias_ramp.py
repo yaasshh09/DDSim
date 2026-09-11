@@ -3,8 +3,9 @@
 The gate length sweep starts every transfer curve with one cold solve at
 gate zero and the drain already at its full bias, and on a MOSFET that is a
 long walk against the potential step limiter rather than a Newton solve.
-Measured on the 2835 node device this file uses, from the Poisson guess with
-no ramp:
+Measured on the 1 um device this file uses, from the Poisson guess with no
+ramp, at the 2835 node vertical mesh that was the nmos default when the ramp
+was written:
 
     Vd = 0.00 V    1 step,   0 limited
     Vd = 0.25 V   10 steps,  0 limited
