@@ -20,6 +20,17 @@ Adding damping before step 1 hides the bug and costs days.
 
 ## Specific traps
 
+**Refining `h_min_y` alone on a MOSFET.** `nmos` builds the silicon axis and
+the oxide axis with separate calls to `graded_mesh_1d` and concatenates them,
+so the `max_ratio` guard that refuses a neighbouring cell jump above 1.5 never
+sees the Si/SiO2 seam. At the defaults the seam is already smooth, 5e-8 of
+oxide against 5e-8 of silicon surface, ratio 1.000. Halving `h_min_y` on its
+own leaves the oxide where it was and drives that ratio to 2, then 4, then 8,
+with no complaint from anything. Measured on the 1 um device: the drain current
+moves 5.0, 1.6 and 0.57 percent down the three halvings, which reads like a
+converging refinement and is partly a widening discontinuity. Refine `n_oxide`
+alongside it, and check the seam rather than trusting the guard.
+
 **Working in unscaled units.** Silicon at 1e20 cm^-3 next to a depletion region
 at 1e-10 cm^-3, with lengths in cm and permittivity around 1e-12 F/cm. The
 condition number will be astronomical and you will blame SciPy. Scale first.

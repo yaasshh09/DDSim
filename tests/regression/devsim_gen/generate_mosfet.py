@@ -901,8 +901,17 @@ def main() -> int:
         mesh_check = None
         if not args.no_mesh_check:
             print(f"{benchmark.name}: repeating on a halved mesh", flush=True)
-            fine, _, _ = sweep(benchmark, refine=2.0)
-            mesh_check = relative_difference(low, fine)
+            fine_low, fine_high, _ = sweep(benchmark, refine=2.0)
+            # Both curves are checked because both are compared. The halved
+            # mesh run already solves both, so reading only the low one threw
+            # away the more expensive half of a measurement already paid for,
+            # and left the high drain curve's mesh error unrecorded while the
+            # header it writes is read as covering it.
+            mesh_check = max(
+                relative_difference(low, fine_low),
+                relative_difference(high, fine_high),
+                key=lambda check: check[0],
+            )
             print(
                 f"{benchmark.name}: worst relative change {mesh_check[0]:.3e} "
                 f"at {mesh_check[1]:+g} V",

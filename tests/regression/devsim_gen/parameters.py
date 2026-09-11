@@ -521,14 +521,16 @@ def erfcinv(target: float) -> float:
     """Inverse of `math.erfc` on (0, 2), by bisection [1].
 
     `scipy.special.erfcinv` is what ddsim's `device/mosfet.py` calls, and the
-    devsim interpreter has no scipy. Bisection on [0, 30] matches it to machine
-    precision over the range an implant profile asks for, which is twice the
-    ratio of two doping concentrations and so always well inside (0, 1).
+    devsim interpreter has no scipy. Bisection on [-30, 30] matches it to
+    machine precision across the whole of (0, 2). The bracket has to reach
+    below zero because erfc passes through 1 at the origin, even though an
+    implant profile only ever asks for twice the ratio of two doping
+    concentrations and so stays well inside (0, 1).
     `tests/regression/test_devsim_mosfet.py` pins the two against each other.
     """
     if not 0.0 < target < 2.0:
         raise ValueError(f"erfc maps onto (0, 2), so target must too, got {target}")
-    low, high = 0.0, 30.0
+    low, high = -30.0, 30.0
     for _ in range(200):
         middle = 0.5 * (low + high)
         if math.erfc(middle) > target:
