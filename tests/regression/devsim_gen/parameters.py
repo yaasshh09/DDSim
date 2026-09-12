@@ -743,12 +743,25 @@ MOSFET_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
         drain_low=0.05,
         drain_high=1.0,
         tolerance=0.08,
-        devsim_h_junction=1.625e-7,
-        devsim_h_channel=3.25e-7,
+        devsim_h_junction=8.125e-8,
+        devsim_h_channel=1.625e-7,
         notes=(
             "45 nm of metallurgical channel. This is the DIBL row: the point of "
             "it is the gap between the two curves, so the gate sweep starts "
-            "below zero to hold the off state of both."
+            "below zero to hold the off state of both. The lateral spacings are "
+            "half what they first were, and the columns carry that alone "
+            "because the rows cannot take up any slack. Halving one axis at a "
+            "time from the original mesh: columns alone moved the drain current "
+            "1.6606e-2 of a 1.964e-2 total, rows alone 2.6789e-3. Halving the "
+            "rows again is not available, since most of their residual is "
+            "devsim_h_surface and that is already 6.25e-9, where the next "
+            "halving is a third of an angstrom and past where a continuum "
+            "model means anything. The columns converge at order 2.07, taken "
+            "off the 180 nm device's own before and after pair rather than "
+            "assumed, so one halving takes their 1.6606e-2 to about 3.9e-3 and "
+            "leaves the pair near 6.6e-3. A quartering was tried first and its "
+            "halved mesh check could not be solved in the memory available, "
+            "11022 silicon nodes shipping and about four times that to check."
         ),
     ),
 )
