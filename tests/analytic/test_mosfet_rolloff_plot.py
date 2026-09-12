@@ -34,10 +34,24 @@ title.
 DEVSIM is not on this figure yet
 --------------------------------
 phases/PHASE-5.md asks for the sweep overlaid on DEVSIM, and benchmark 9 of
-docs/04-validation.md is the golden data for it. Benchmarks 6 to 9 have no
-golden file yet, so what is drawn here is ddsim alone and the figure says so.
-Adding the overlay is what closes the phase, and drawing an unlabelled curve
-in the meantime would be worse than drawing none.
+docs/04-validation.md is the golden data for it. All of benchmarks 6 to 9 now
+have golden files, the roll-off ones in data/golden/rolloff_200nm.csv and its
+three siblings, and this figure still draws ddsim alone and still says so.
+
+That is not an omission waiting to be fixed. Every one of those generators runs
+Boltzmann statistics and constant mobility on purpose, matched model for model
+against ddsim run the same way, because that is what makes a disagreement mean
+something. This figure runs the full Phase 5 stack, Arora inside Lombardi
+inside Caughey-Thomas with Fermi-Dirac statistics, so the drain current here is
+not the drain current those files hold and the thresholds are not theirs
+either: at 50 nm the golden data gives +0.0065 and -0.1181 V where this figure
+reports +0.0947 and -0.0258, because a constant current criterion rides on the
+current scale and mobility sets that. Overlaying the two would draw a gap that
+is the model set rather than an error. The overlay needs DEVSIM run at the full
+stack, which nothing in tier 4 does yet. Benchmark 9 compares the two codes at
+the matched reduced set instead, in tests/regression/test_devsim_mosfet.py,
+where the roll-off magnitude agrees to 0.06 percent and DIBL to 1.1 percent or
+better. See the 2026-09-12 and 2026-09-13 rows in docs/07-decisions.md.
 
 Nothing here is fitted
 ----------------------
