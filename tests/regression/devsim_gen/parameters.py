@@ -722,12 +722,17 @@ MOSFET_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
         drain_low=0.05,
         drain_high=1.0,
         tolerance=0.05,
-        devsim_h_junction=4.5e-7,
-        devsim_h_channel=9e-7,
+        devsim_h_junction=2.25e-7,
+        devsim_h_channel=4.5e-7,
         notes=(
             "The same process drawn at 180 nm. The lateral encroachment leaves "
             "160 nm of metallurgical channel, so roll-off has started but the "
-            "device is still comfortably long channel."
+            "device is still comfortably long channel. The lateral spacings "
+            "are half what they first were, because on this device the columns "
+            "and not the implant rows carry the mesh error: halving them alone "
+            "moved the drain current 6.9e-3 of a 7.3e-3 total and halving the "
+            "rows alone moved it 5.7e-4. At 4.5e-7 the gate spans 40 columns, "
+            "against the 20 it had and the 50 the 1 um device gets."
         ),
     ),
     MosfetBenchmark(
