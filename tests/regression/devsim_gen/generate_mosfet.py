@@ -169,7 +169,10 @@ def quiet():
 
 
 def build_mesh(
-    benchmark: P.MosfetBenchmark, device: str, refine: float = 1.0
+    benchmark: P.MosfetBenchmark,
+    device: str,
+    refine: float = 1.0,
+    refine_y: float | None = None,
 ) -> None:
     """Create and finalise the 2D structure for one benchmark.
 
@@ -177,6 +180,17 @@ def build_mesh(
         benchmark: the device definition.
         device: devsim device name.
         refine: divide every spacing by this. 1 is the golden mesh.
+        refine_y: divide the vertical spacings by this instead of `refine`,
+            leaving the lateral columns on `refine`. None halves both together,
+            which is what a convergence check wants.
+
+    Splitting the two axes is what turns a convergence number into a diagnosis.
+    A single knob says the answer moved and nothing about where, and on the
+    1 um device the answer was that the lateral columns carried 0.036 percent
+    of a 2.933 percent move and the rows through the implant carried the rest.
+    Refining on the strength of the total would have spent the effort on the
+    axis holding a thirtieth of the error. See the 2026-09-12 rows in
+    docs/07-decisions.md.
 
     Columns land on every boundary anything is measured against: the two
     contact edges, the two gate mask edges and the centre. Rows land on the
@@ -192,12 +206,17 @@ def build_mesh(
     L = benchmark.L_gate
     width = 2.0 * sd_length + L
 
+    vertical = refine if refine_y is None else refine_y
+    # x lines.
     h_contact = benchmark.devsim_h_contact / refine
     h_junction = benchmark.devsim_h_junction / refine
     h_channel = benchmark.devsim_h_channel / refine
-    h_surface = benchmark.devsim_h_surface / refine
-    h_depth = benchmark.devsim_h_depth / refine
-    h_oxide = t_ox / (benchmark.devsim_oxide_cells * refine)
+    # y lines. The 0.2 * t_si grading below the implant and the AIR spacings
+    # are deliberately left alone by both factors: the first is a grading rule
+    # rather than a resolution, and the padding regions hold no semiconductor.
+    h_surface = benchmark.devsim_h_surface / vertical
+    h_depth = benchmark.devsim_h_depth / vertical
+    h_oxide = t_ox / (benchmark.devsim_oxide_cells * vertical)
 
     create_2d_mesh(mesh=mesh)
     for pos, ns, ps in (
@@ -877,7 +896,10 @@ def device_name(
 
 
 def transfer_curve(
-    benchmark: P.MosfetBenchmark, drain: float, refine: float = 1.0
+    benchmark: P.MosfetBenchmark,
+    drain: float,
+    refine: float = 1.0,
+    refine_y: float | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """One Id-Vg curve at a fixed drain bias, and its silicon node count.
 
@@ -897,7 +919,7 @@ def transfer_curve(
     """
     device = device_name(benchmark, drain, refine)
     with quiet():
-        build_mesh(benchmark, device, refine=refine)
+        build_mesh(benchmark, device, refine=refine, refine_y=refine_y)
     set_material_parameters(device)
     set_doping(benchmark, device)
     with quiet():
@@ -930,13 +952,19 @@ def transfer_curve(
 
 
 def sweep(
-    benchmark: P.MosfetBenchmark, refine: float = 1.0
+    benchmark: P.MosfetBenchmark,
+    refine: float = 1.0,
+    refine_y: float | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
     """Both transfer curves of one benchmark, low drain first, and the nodes."""
     print(f"  {benchmark.name}: Vd = {benchmark.drain_low} V", flush=True)
-    low, nodes = transfer_curve(benchmark, benchmark.drain_low, refine=refine)
+    low, nodes = transfer_curve(
+        benchmark, benchmark.drain_low, refine=refine, refine_y=refine_y
+    )
     print(f"  {benchmark.name}: Vd = {benchmark.drain_high} V", flush=True)
-    high, _ = transfer_curve(benchmark, benchmark.drain_high, refine=refine)
+    high, _ = transfer_curve(
+        benchmark, benchmark.drain_high, refine=refine, refine_y=refine_y
+    )
     return low, high, nodes
 
 
