@@ -119,6 +119,9 @@ from ddsim.physics.mobility import (
 from ddsim.physics.recombination import Density, RecombinationModel
 from ddsim.physics.statistics import Degeneracy
 
+EPS = float(np.finfo(np.float64).eps)
+"""Machine epsilon for float64 [1]. The relative granularity of every term below."""
+
 
 class Unknown(IntEnum):
     """Which of a node's three unknowns, and its offset within the node."""
@@ -1318,14 +1321,42 @@ def residual_measure(
     there is nothing there to carry them. They are pinned to the identity, so
     their residual is the pinning error and goes to exactly zero in one step
     whatever it is measured against.
+
+    A scale can also vanish by degrees, and that needs the same treatment for
+    a different reason. The columns of the assembly span the whole family, so
+    the linear solve delivers each unknown to an absolute accuracy set by the
+    largest terms in it rather than to a relative one against its own. A row
+    whose terms have fallen below eps times the family maximum is therefore
+    asking for a relative residual double precision cannot deliver, and
+    dividing its already converged residual by terms that small manufactures
+    a number out of roundoff. Because it is roundoff it wanders rather than
+    settling, so it never trips the frozen residual guard in newton_solve and
+    instead turns the convergence test into a coin flip per iteration.
+
+    Measured on the 1 um NMOS of SHORT_CHANNEL_PROCESS at Vd = 1 V, in
+    inversion at Vg = 1.5 V: every raw residual in the system was at machine
+    epsilon, the worst 5.3e-15, and the reported measure was 3.8e-10. All of
+    it came from the electron row of node 2810 in the substrate, whose raw
+    residual of 9.0e-20 was divided by terms of 2.4e-10, 23 decades under the
+    6.4e+13 the family reaches in the source. Against a threshold of 1e-10
+    that put termination on a coin flip: the same bias took 8, 14 or 22
+    iterations depending only on the path taken to reach it, the iterate
+    having stopped moving at 7e-15 by step 5 in every case, and on CI it
+    exceeded a budget of 30 and stalled the transfer curve. The floor is
+    eps times the family maximum and nothing tuned, and it binds by eight
+    decades on that row while leaving every row the measure was introduced to
+    catch. See the 2026-09-12 row in docs/07-decisions.md.
     """
     weights = row_weights(scales, n_nodes)
     raw = np.abs(residual) * weights
     largest = 0.0
     for component, scale in zip(Unknown, scales, strict=True):
         rows = raw[component::UNKNOWNS_PER_NODE]
+        # Not scale > 0.0. A scale that has merely collapsed is as unusable
+        # as one that is exactly zero, and the exact test walks past it.
+        floor = EPS * float(np.max(scale))
         measured = np.divide(
-            rows, scale, out=np.zeros_like(rows), where=scale > 0.0
+            rows, scale, out=np.zeros_like(rows), where=scale > floor
         )
         largest = max(largest, float(np.max(measured)))
     return largest

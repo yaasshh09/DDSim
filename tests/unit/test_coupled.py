@@ -1012,3 +1012,63 @@ def test_a_row_with_no_terms_in_it_is_skipped_rather_than_dividing_by_zero():
     measured = residual_measure(raw / weights, scales, n_nodes)
 
     assert measured == pytest.approx(0.5)
+
+
+def test_a_row_whose_terms_collapsed_is_skipped_like_one_with_none() -> None:
+    """A scale can vanish by degrees, and the exact zero test misses that.
+
+    The row above holds no semiconductor and its scale is exactly zero. This
+    one holds semiconductor whose minority population has emptied, so its
+    terms are merely tiny, and no residual on it can be resolved relative to
+    them: the columns of the assembly span the whole family, so the linear
+    solve delivers that unknown to an absolute accuracy set by the largest
+    terms and not to a relative one against its own. Dividing an already
+    converged residual by terms that small manufactures a number out of
+    roundoff, and because it is roundoff it wanders rather than settling,
+    which makes the convergence test a coin flip.
+
+    Measured on the 1 um NMOS of SHORT_CHANNEL_PROCESS at Vd = 1 V, deep in
+    inversion: the electron row of node 2810 carried a raw residual of
+    9.0e-20 against terms of 2.4e-10, 23 decades below the 6.4e+13 the family
+    reaches in the source. That read as 3.8e-10 and decided a test set at
+    1e-10, so the same solve took 8, 14 or 22 iterations depending only on
+    the path taken to reach the bias, and exceeded a budget of 30 on CI.
+    See the 2026-09-12 row in docs/07-decisions.md.
+    """
+    n_nodes = 3
+    psi_scale = np.full(n_nodes, 2.0)
+    # Node 1's terms are positive but below the arithmetic granularity of a
+    # family that reaches 4.0, so the row carries no resolvable residual.
+    n_scale = np.array([1.0, 1e-20, 4.0])
+    p_scale = np.full(n_nodes, 8.0)
+    scales = (psi_scale, n_scale, p_scale)
+
+    weights = row_weights(scales, n_nodes)
+    raw = np.zeros(UNKNOWNS_PER_NODE * n_nodes)
+    raw[unknown_index(1, Unknown.N)] = 1e-18  # 1e-18 / 1e-20 would read 100
+    raw[unknown_index(2, Unknown.N)] = 2.0  # 2.0 / 4.0
+
+    measured = residual_measure(raw / weights, scales, n_nodes)
+
+    assert measured == pytest.approx(0.5)
+
+
+def test_a_row_just_above_the_floor_still_counts() -> None:
+    """The floor skips what cannot be resolved and nothing else.
+
+    A scale one decade above eps times the family maximum is small but real,
+    and a residual measured against it is evidence. Dropping those rows would
+    certify exactly the states the per row measure was introduced to catch.
+    """
+    n_nodes = 2
+    floor = float(np.finfo(np.float64).eps) * 4.0
+    n_scale = np.array([floor * 10.0, 4.0])
+    scales = (np.full(n_nodes, 2.0), n_scale, np.full(n_nodes, 8.0))
+
+    weights = row_weights(scales, n_nodes)
+    raw = np.zeros(UNKNOWNS_PER_NODE * n_nodes)
+    raw[unknown_index(0, Unknown.N)] = floor * 10.0 * 0.25
+
+    measured = residual_measure(raw / weights, scales, n_nodes)
+
+    assert measured == pytest.approx(0.25)
