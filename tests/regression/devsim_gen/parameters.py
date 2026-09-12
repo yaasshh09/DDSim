@@ -575,6 +575,29 @@ def implant_shape(process: dict[str, float]) -> tuple[float, float]:
     return sigma, edge
 
 
+H_DEPTH_SIGMAS = 0.25
+"""Row spacing through the implant, as a fraction of the implant sigma [1].
+
+The source and drain profile is a Gaussian of width `implant_shape(...)[0]`,
+and the row spacing that resolves it has to be derived from that width rather
+than picked. The old value was a flat 1e-6 cm, which on this process is 1.21
+sigma: more than one standard deviation per row, which puts the metallurgical
+junction in the wrong place. Measured on the 1 um device at 50 mV, halving
+every spacing from there moved the drain current 4.6 percent at zero gate and
+2.9 percent at 0.1 V, and the split showed the lateral columns contributed
+0.036 percent of it and these rows almost all the rest.
+
+A quarter of a sigma is where it stops mattering. Going from 1.21 to 0.25 sigma
+takes the same halving check to 0.53 percent at zero gate and under 0.08
+percent everywhere else, and going on to 0.125 sigma moves the answer a further
+0.015 percent, so the profile is resolved. ddsim needed no equivalent change:
+it grades its own rows and already samples this implant at 0.21 sigma at the
+junction depth, which is what `test_ddsim_resolves_the_implant` holds it to.
+"""
+
+H_DEPTH = implant_shape(MOSFET_PROCESS)[0] * H_DEPTH_SIGMAS
+"""Row spacing at the implant depth line [cm]. See `H_DEPTH_SIGMAS`."""
+
 @dataclass(frozen=True)
 class MosfetBenchmark:
     """One NMOS from the tier 4 benchmark set of docs/04-validation.md."""
@@ -639,7 +662,7 @@ class MosfetBenchmark:
     test_devsim_mosfet.py::test_golden_reference_is_converged demands.
     """
 
-    devsim_h_depth: float = 1e-6
+    devsim_h_depth: float = H_DEPTH
     """devsim row spacing at the implant depth [cm]."""
 
     devsim_oxide_cells: int = 32

@@ -31,6 +31,46 @@ moves 5.0, 1.6 and 0.57 percent down the three halvings, which reads like a
 converging refinement and is partly a widening discontinuity. Refine `n_oxide`
 alongside it, and check the seam rather than trusting the guard.
 
+**devsim dropping a mesh line you asked for, and the contacts on it.** A line
+added with `add_2d_mesh_line` is not guaranteed to appear. If the rows graded
+up to it land a node close enough to where it goes, devsim keeps the node and
+discards the line, at the node's coordinate. Asking the MOSFET generator for a
+surface spacing of 1.5625e-9 cm under rows graded from the implant depth puts
+the top silicon row at 9.99998817e-5 instead of 1e-4, a gap of 1.18e-10 cm, and
+the silicon then has no node on the interface at all. Everything defined at
+y = t_si matches nothing: both surface contacts and the si_ox interface are
+created empty, and the only word about it comes later, from the first thing to
+use one, as `Contact "source" on Device ... does not exist`. Nothing says the
+interface went too, and a mesh built that way is not a coarser device, it is a
+different one. `check_mesh_landed` in the generator refuses it at build time by
+comparing the top silicon row against `t_si` and asking devsim for its contact
+and interface lists. Do not infer mesh structure from whether a solve converged.
+
+**Picking a mesh spacing for a doping profile instead of deriving it.** The
+MOSFET source and drain are a Gaussian of width `implant_shape(...)[0]`, and
+the generator's rows through it were a flat 1e-6 cm, which on this process is
+1.21 sigma. More than a standard deviation per row puts the metallurgical
+junction in the wrong place, and it shows up nowhere near the junction: the
+subthreshold drain current depends exponentially on the surface potential, so a
+sub millivolt error in the barrier is percent of current. The reference's own
+halved mesh check moved 4.6 percent at zero gate. Splitting the halving by axis
+showed the lateral columns carried 0.036 percent of it and these rows carried
+2.9 of the 2.93. A quarter of a sigma fixes it and an eighth changes nothing
+further. ddsim never had it, because it grades its rows rather than naming a
+spacing, and `test_ddsim_resolves_the_implant` holds it there.
+
+**Reading a mesh convergence number where the finer mesh is noisier.** A
+convergence check assumes the refined answer is the better one. In the off
+state of a MOSFET it is not necessarily: the drain current is a small
+difference of much larger fluxes, and a finer mesh has more edges to lose
+digits across. Measured on the 1 um device at zero gate and 50 mV, the halved
+mesh settles to a largest potential move of 1.1e-16 V and holds its drain
+current to ten figures over 120 further passes, and still leaves drain and
+source 0.99 percent apart, while the shipping mesh balances to 1.65e-4. The two
+meshes differ by 0.53 percent at that point, so the gap is a quarter of what
+the finer of them knows about itself. That is not a mesh error, and counting it
+as one asks for a refinement that cannot help.
+
 **Working in unscaled units.** Silicon at 1e20 cm^-3 next to a depletion region
 at 1e-10 cm^-3, with lengths in cm and permittivity around 1e-12 F/cm. The
 condition number will be astronomical and you will blame SciPy. Scale first.
@@ -113,6 +153,9 @@ first, validated, then UI.
 | Converges at low bias, fails above 0.6 V | Expected for pure Gummel. Switch to Newton |
 | Depletion region smeared | Mesh under-resolves local Debye length |
 | Results differ from DEVSIM by 2x | Model settings not matched between tools |
+| devsim: `Contact "x" does not exist` after a mesh built fine | A requested mesh line was merged into a neighbouring node, so everything defined on it is empty. Check the boundary row landed |
+| Mesh refinement moves the off state and nothing else | Rows too coarse for the implant sigma, not the surface spacing |
+| Halving the mesh moves less than the terminals fail to cancel | Not a mesh error. The off state current is a flux cancellation and the finer mesh cancels worse |
 
 ## When genuinely stuck
 

@@ -46,6 +46,7 @@ import inspect
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from ddsim.device.mosfet import nmos
@@ -119,6 +120,48 @@ def test_the_surface_spacing_mirrors_ddsim() -> None:
             f"{oxide_cell / ddsim_spacing:.3g}. Follow devsim_h_surface with "
             "devsim_oxide_cells, see docs/05-pitfalls.md."
         )
+
+
+def test_ddsim_resolves_the_implant() -> None:
+    """ddsim's rows sample the source and drain Gaussian finely enough.
+
+    This is the spacing the generator got wrong. Its rows through the implant
+    depth were a flat 1e-6 cm, which on this process is 1.21 sigma, and more
+    than a sigma per row puts the metallurgical junction in the wrong place:
+    the reference's own halved mesh check moved 4.6 percent at zero gate and
+    the split showed these rows carried almost all of it. See
+    `P.H_DEPTH_SIGMAS`.
+
+    ddsim never had the bug, because it grades its rows rather than picking a
+    number, and it currently samples this implant at 0.21 sigma at the junction
+    depth. What this guards is that it stays that way. `n_silicon` and
+    `h_min_y` set the row distribution together, so a future change to either
+    could coarsen the implant while leaving the surface spacing the mirror test
+    checks untouched, and nothing else here would notice.
+
+    Half a sigma is the line. A quarter of a sigma is where the reference
+    stopped moving, and 1.21 is where it was visibly wrong.
+    """
+    process = SHORT_CHANNEL_PROCESS
+    sigma, _ = P.implant_shape(dict(process))
+    t_si = float(process["t_si"])
+    x_j = float(process["x_j"])
+
+    device = nmos(L_gate=1e-4, degenerate=False, **process)
+    rows = np.asarray(device.mesh.y_axis.x)
+    silicon = rows[rows <= t_si * (1.0 + 1e-12)]
+    spacing = np.diff(silicon)
+    # Every row from two junction depths below the surface upward, which is
+    # where the profile has any structure left to resolve.
+    inside = spacing[silicon[:-1] > t_si - 2.0 * x_j]
+    assert inside.size > 0
+    worst = float(inside.max())
+    assert worst < 0.5 * sigma, (
+        f"ddsim samples the implant at {worst / sigma:.2f} sigma at worst "
+        f"({worst:.3e} cm against a sigma of {sigma:.3e}), which is too coarse "
+        "to place the metallurgical junction. See P.H_DEPTH_SIGMAS for what "
+        "that did to the reference."
+    )
 
 
 @pytest.mark.parametrize("target", [1e-3, 0.01, 0.1, 0.5, 1.0, 1.5, 1.99])
@@ -243,11 +286,22 @@ def test_golden_reference_is_converged(benchmark: P.MosfetBenchmark) -> None:
         "mesh check. The curves may be fine and nothing here can tell. "
         "Re-run the generator."
     )
-    reported = curve.header["mesh convergence"].split()[0]
+    line = curve.header["mesh convergence"]
+    reported = line.split()[0]
     assert float(reported) < 0.1 * benchmark.tolerance, (
         f"{benchmark.name} golden data is converged only to {reported}, which "
         f"is not comfortably inside the {benchmark.tolerance} it is used to "
         "assert. Refine the generator mesh and regenerate."
+    )
+    # The check skips points whose two meshes disagree by less than the points
+    # know about themselves, which is right, and would be a way to report a
+    # small number by measuring almost nothing, which is not. See
+    # `MESH_NOISE_FACTOR` in the generator.
+    skipped, total = (int(word) for word in line.split() if word.isdigit())
+    assert skipped < 0.5 * total, (
+        f"{benchmark.name} skipped {skipped} of {total} points as "
+        "unmeasurable, so the convergence number covers less than half the "
+        f"curve and {reported} says little about the mesh."
     )
 
 

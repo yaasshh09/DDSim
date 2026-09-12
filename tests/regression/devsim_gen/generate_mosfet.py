@@ -67,6 +67,8 @@ from devsim import (  # noqa: E402
     delete_mesh,
     finalize_mesh,
     get_contact_current,
+    get_contact_list,
+    get_interface_list,
     get_node_model_values,
     get_parameter,
     node_model,
@@ -89,6 +91,15 @@ from devsim.python_packages.simple_physics import (  # noqa: E402
     ece_name,
     hce_name,
 )
+
+# Run as a script, only the script's own directory is on the path, so the
+# package qualified import below fails with no module named tests. The sibling
+# generator sidesteps it by importing `parameters` flat, which this file cannot
+# do because the test suite imports it by package path. Adding the root serves
+# both, and makes the invocation the README documents work.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+))))
 
 from tests.regression.devsim_gen import parameters as P  # noqa: E402
 
@@ -273,6 +284,50 @@ def build_mesh(
 
     finalize_mesh(mesh=mesh)
     create_device(mesh=mesh, device=device)
+    check_mesh_landed(device, t_si)
+
+
+def check_mesh_landed(device: str, t_si: float) -> None:
+    """Refuse a mesh that is not the structure `build_mesh` asked for [cm].
+
+    devsim drops a requested mesh line when it falls close enough to a node it
+    already has, and keeps the node rather than the line. Asking for a surface
+    spacing of 1.5625e-9 cm under rows graded from the implant depth lands the
+    top silicon row at 9.99998817e-5 instead of 1e-4, a gap of 1.18e-10 cm, and
+    the silicon then has no node on the interface at all. Everything defined at
+    y = t_si matches nothing: both surface contacts and the si_ox interface
+    vanish, and devsim says so only later and only about the first one, as
+    `Contact "source" on Device ... does not exist`.
+
+    A mesh that quietly lost the source contact is not a coarser mesh, it is a
+    different structure, and a convergence ladder that walks into one is
+    comparing two unrelated devices. So the structure is checked here, where
+    the answer is cheap and unambiguous, rather than inferred from a failure
+    three calls later.
+    """
+    rows = get_node_model_values(device=device, region=BULK, name="y")
+    top = max(rows)
+    if abs(top - t_si) > 1e-14 * t_si:
+        raise RuntimeError(
+            f"{device}: the top silicon row is at {top:.17e} cm and the "
+            f"interface is at {t_si:.17e}, a gap of {t_si - top:.3e} cm. "
+            "devsim merged the interface mesh line into its neighbour, so the "
+            "surface contacts and the si_ox interface have no nodes. Choose a "
+            "surface spacing the rows below it can grade onto."
+        )
+    contacts = set(get_contact_list(device=device))
+    missing = {BODY, SOURCE, DRAIN, GATE} - contacts
+    if missing:
+        raise RuntimeError(
+            f"{device}: contacts {sorted(missing)} were asked for and not "
+            f"created. devsim has {sorted(contacts)}."
+        )
+    interfaces = set(get_interface_list(device=device))
+    if "si_ox" not in interfaces:
+        raise RuntimeError(
+            f"{device}: the si_ox interface was not created. devsim has "
+            f"{sorted(interfaces)}."
+        )
 
 
 def node_count(device: str) -> int:
@@ -578,9 +633,10 @@ def settle(
     poisson_only: bool = False,
     passes: int = 400,
     tol: float = 1e-9,
+    balance_tol: float | None = None,
     stall: int = 25,
 ) -> int:
-    """Call solve until the potential stops moving, and return the pass count.
+    """Call solve until the solution stops moving, and return the pass count.
 
     One devsim solve returns after a single damped step and reports RelError
     and AbsError as exactly zero, which is not a converged state: on the 1 um
@@ -601,37 +657,94 @@ def settle(
     full pass budget. Watching for a new best is what separates the two cases,
     and cutting the budget instead is not: it refuses settles that would have
     converged.
+
+    `balance_tol` adds the second half of the answer. The potential is the
+    Poisson residual and it arrives well before the continuity one, so a settle
+    that watches only the potential returns while the current is still moving.
+    See `BALANCE_TOL`. Passing a tolerance keeps the solve going until drain
+    and source cancel to it, or until that stops improving, which is a floor
+    and not a failure. The default is None, which is the behaviour every
+    intermediate ramp step wants: those states are never reported, so paying
+    twenty extra passes for each of them buys nothing.
     """
     before = snapshot(device, poisson_only)
     moved = float("inf")
     best = float("inf")
     stalled = 0
+    arrived = False
+    imbalance = float("inf")
+    best_balance = float("inf")
+    balance_stalled = 0
     for index in range(passes):
         solve_once()
         after = snapshot(device, poisson_only)
         moved = potential_move(before, after)
         before = after
-        if moved < tol:
-            if not poisson_only and not sane(device):
-                raise RuntimeError("settled on a state no bias can produce")
-            return index + 1
-        if moved < best:
-            best, stalled = moved, 0
+
+        if not arrived and moved >= tol:
+            if moved < best:
+                best, stalled = moved, 0
+                continue
+            stalled += 1
+            if stalled >= stall:
+                raise RuntimeError(
+                    f"stalled at {best:.3e} V for {stall} passes, last move "
+                    f"{moved:.3e} V"
+                )
             continue
-        stalled += 1
-        if stalled >= stall:
-            raise RuntimeError(
-                f"stalled at {best:.3e} V for {stall} passes, last move "
-                f"{moved:.3e} V"
-            )
+
+        # The potential has arrived. It is checked once and not again: past
+        # this point the passes are being spent on the continuity residual and
+        # the potential only wanders in its own roundoff, so re-arming the
+        # stall counter on it would fail a solve that is still improving.
+        arrived = True
+        if not poisson_only and not sane(device):
+            raise RuntimeError("settled on a state no bias can produce")
+        if poisson_only or balance_tol is None:
+            return index + 1
+
+        imbalance = terminal_imbalance(device)
+        if imbalance < balance_tol:
+            return index + 1
+        # A new best has to be a real one. The potential stall counter can take
+        # any improvement as progress because the potential either converges or
+        # bounces, but the imbalance has a third behaviour: it crawls. Measured
+        # on the 1 um device at zero gate, the same solve that reaches 1.8e-5
+        # in 26 passes on one run inched to 5.1e-3 over 400 on another, gaining
+        # a little on most passes and so resetting the counter forever. Which
+        # of the two a run gets is set by the order MKL sums a factorisation,
+        # which this generator deliberately does not pin. Demanding a tenth off
+        # the record keeps every genuine descent, the early ones gain 12 to 22
+        # percent a pass, and calls the crawl what it is.
+        if imbalance < BALANCE_PROGRESS * best_balance:
+            best_balance, balance_stalled = imbalance, 0
+            continue
+        best_balance = min(best_balance, imbalance)
+        balance_stalled += 1
+        if balance_stalled >= stall:
+            # A floor, not a failure. The cancellation has found its own
+            # roundoff and no further pass will improve it, so the honest move
+            # is to hand back the best state this mesh can produce. What it
+            # came to is recorded per point in the golden file, and the
+            # comparison spends it as tolerance.
+            return index + 1
     # Reaching here is a settle that is still improving after 400 passes,
     # which has not been seen. What a stuck settle does instead is bounce, and
     # `stall` is what catches that. Cutting `passes` to catch it is the wrong
     # knob and was tried: at 60 it refuses settles that would have converged,
     # which moved the 1 um equilibrium drain current by 0.4 percent and left
     # the gate walk grinding at a knee it otherwise crosses in 35 s.
+    if arrived:
+        # The potential converged and only the balance is outstanding, so the
+        # state is settled and the leftover is a diagnostic. Raising here would
+        # turn a usable point into a failed bias step, and `ramp_to` answers a
+        # failed step by halving and retrying, which cannot help a quantity the
+        # step size does not control. The imbalance is written down per point
+        # and the comparison spends it as tolerance.
+        return passes
     raise RuntimeError(
-        f"did not settle in {passes} passes, last move {moved:.3e} V"
+        f"did not settle in {passes} passes, last move {moved:.3e} V, "
+        f"imbalance {imbalance:.3e}"
     )
 
 
@@ -704,6 +817,55 @@ def terminal_current(device: str, contact: str) -> float:
     ) + get_contact_current(device=device, contact=contact, equation=hce_name)
 
 
+BALANCE_PROGRESS = 0.9
+"""How much of the record an imbalance has to beat to count as progress [1].
+
+The potential either converges or bounces, so any improvement is progress. The
+imbalance has a third behaviour: it crawls, gaining a little on most passes
+while going nowhere, and a plain new best test reads that as convergence and
+never gives up. Requiring a tenth off the record keeps every genuine descent,
+which gains 12 to 22 percent a pass early on, and ends a crawl in `stall`
+passes. See `BALANCE_TOL`.
+"""
+
+BALANCE_TOL = 1e-3
+"""Terminal imbalance a recorded bias point is solved down to [1].
+
+Nothing in this model set generates carriers in the bulk faster than SRH
+removes them, so in steady state drain and source sum to zero and the body
+carries decades less than either. Whatever is left over is the continuity
+residual, expressed in the units of the answer.
+
+`settle` watches the potential, which is the right thing to watch while the
+solve is still moving, but the potential is the Poisson residual and it arrives
+one to two decades earlier than the continuity one. Measured on the 1 um device
+at zero gate and 50 mV of drain: on the pass `settle` returns, the largest
+potential move is already inside 1e-9 V while drain and source disagree by 12.7
+percent, and it takes about twenty further passes for that to reach its floor.
+The drain current moves 0.70 percent across those passes, from 1.453019e-6 to
+1.442909e-6 A/cm, so the early return was not free.
+
+1e-3 sits above the floor and below anything the comparison cares about. The
+floor is not zero: past about the twenty fourth pass the imbalance bounces
+between 2e-4 and 1.1e-3 while the drain current holds to seven figures, which
+is a difference of much larger fluxes finding its own roundoff. So this is a
+target and not a requirement, and `settle` accepts a stalled balance rather
+than failing on one.
+"""
+
+
+def terminal_imbalance(device: str) -> float:
+    """How badly drain and source fail to cancel on the live device [1].
+
+    The same quantity `MosfetGoldenCurve.imbalance` reports per point, measured
+    during the solve so that `settle` can keep going until it arrives.
+    """
+    drain = terminal_current(device, DRAIN)
+    source = terminal_current(device, SOURCE)
+    scale = max(abs(drain), abs(source))
+    return 0.0 if scale == 0.0 else abs(drain + source) / scale
+
+
 # ----------------------------------------------------------------- the sweeps
 
 
@@ -744,6 +906,11 @@ def transfer_curve(
     rows: list[dict[str, Any]] = []
     for v_gate in benchmark.gate_voltages:
         ramp_to(device, GATE, gate_potential(v_gate))
+        # `ramp_to` leaves the potential settled and the continuity residual
+        # still falling. This is the only state that gets written down, so it
+        # is the only one worth the extra passes. See BALANCE_TOL.
+        with quiet():
+            settle(device, balance_tol=BALANCE_TOL)
         rows.append(
             {
                 "gate": v_gate,
@@ -773,28 +940,70 @@ def sweep(
     return low, high, nodes
 
 
+MESH_NOISE_FACTOR = 3.0
+"""How much of a point's own imbalance a mesh move has to clear to count [1].
+
+The same factor and the same reasoning as the comparison tests: a point whose
+drain and source disagree by one percent is a point known to one percent, and a
+change smaller than that is not a measurement of anything.
+
+It is needed here because the imbalance floor is a property of the mesh and it
+gets worse as the mesh gets finer, which is the opposite of what a convergence
+check assumes. Measured on the 1 um device at zero gate and 50 mV: the shipping
+mesh balances to 1.65e-4, and the halved mesh it is checked against settles to
+a largest potential move of 1.1e-16 V, holds its drain current to ten figures
+across 120 further passes, and still leaves drain and source 0.99 percent
+apart. That is not an unconverged solve. It is a converged discrete solution
+whose terminal currents do not cancel, because the off state current is a small
+difference of much larger fluxes and the finer mesh has more edges to lose
+digits across.
+
+So the two meshes differ by 0.53 percent at that point while the finer of them
+knows its own answer to 0.99 percent, and attributing the gap to
+discretisation would be reading noise as signal. Points like that are skipped
+and counted, and the count goes in the header, because a skipped point is a
+point whose mesh error is unmeasurable rather than small.
+"""
+
+
 def relative_difference(
     coarse: list[dict[str, Any]], fine: list[dict[str, Any]]
-) -> tuple[float, float]:
-    """Worst relative drain current difference between two meshes [1, V].
+) -> tuple[float, float, int]:
+    """Worst relative drain current difference between two meshes [1, V, 1].
 
-    Points where both curves sit under the current floor are skipped, since a
+    Returns the worst change, the gate bias it happened at, and how many points
+    were skipped.
+
+    A point is skipped when both curves sit under the current floor, since a
     relative comparison between two numbers that are both nearly nothing says
-    nothing about the mesh.
+    nothing about the mesh, or when the change is inside what the two points
+    know about themselves. See `MESH_NOISE_FACTOR`.
     """
     worst = 0.0
     where = 0.0
+    skipped = 0
     for a, b in zip(coarse, fine, strict=True):
         if (
             abs(a["drain"]) < P.CURRENT_FLOOR_MOSFET
             and abs(b["drain"]) < P.CURRENT_FLOOR_MOSFET
         ):
+            skipped += 1
             continue
         scale = max(abs(a["drain"]), abs(b["drain"]))
         difference = abs(a["drain"] - b["drain"]) / scale
+        noise = MESH_NOISE_FACTOR * max(row_imbalance(a), row_imbalance(b))
+        if difference <= noise:
+            skipped += 1
+            continue
         if difference > worst:
             worst, where = difference, a["gate"]
-    return worst, where
+    return worst, where, skipped
+
+
+def row_imbalance(row: dict[str, Any]) -> float:
+    """How badly drain and source fail to cancel on one recorded point [1]."""
+    scale = max(abs(row["drain"]), abs(row["source"]))
+    return 0.0 if scale == 0.0 else abs(row["drain"] + row["source"]) / scale
 
 
 def write_csv(
@@ -802,7 +1011,7 @@ def write_csv(
     low: list[dict[str, Any]],
     high: list[dict[str, Any]],
     nodes: int,
-    mesh_check: tuple[float, float] | None,
+    mesh_check: tuple[float, float, int] | None,
     path: str,
 ) -> None:
     """Write one golden transfer pair, header and all."""
@@ -836,10 +1045,11 @@ def write_csv(
         ]
     )
     if mesh_check is not None:
-        worst, where = mesh_check
+        worst, where, skipped = mesh_check
         lines.append(
             f"# mesh convergence: {worst:.3e} worst relative change in drain "
-            f"current when every spacing is halved, at {where:+g} V of gate"
+            f"current when every spacing is halved, at {where:+g} V of gate, "
+            f"with {skipped} of {len(low)} points skipped as unmeasurable"
         )
     lines.append("# notes: " + benchmark.notes)
     lines.append("# models:")
@@ -923,7 +1133,7 @@ def main() -> int:
             )
             print(
                 f"{benchmark.name}: worst relative change {mesh_check[0]:.3e} "
-                f"at {mesh_check[1]:+g} V",
+                f"at {mesh_check[1]:+g} V, {mesh_check[2]} points skipped",
                 flush=True,
             )
 
