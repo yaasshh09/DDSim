@@ -47,12 +47,14 @@ import math
 from pathlib import Path
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
 from ddsim.device.mosfet import nmos
 from ddsim.device.transport import TransportModels
 from ddsim.extract.iv import IVCurve, gate_sweep
-from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
+from ddsim.extract.params import threshold_constant_current
+from ddsim.extract.rolloff import REFERENCE_CURRENT, SHORT_CHANNEL_PROCESS
 from tests.regression.devsim_gen import parameters as P
 
 GOLDEN_DIR = Path(__file__).resolve().parents[2] / "data" / "golden"
@@ -424,3 +426,220 @@ def test_ddsim_matches_devsim_drain_current(
         + "\n  ".join(failures)
     )
     assert worst <= 1.0
+
+
+# ------------------------------------------------- benchmark 9, the Lg trend
+
+
+def _threshold(
+    voltage: npt.NDArray[np.float64],
+    current: npt.NDArray[np.float64],
+    L_gate: float,
+) -> float:
+    """Constant current threshold of one curve [V].
+
+    The same extractor ddsim's own sweep uses, applied to whichever curve it
+    is given. That is the whole point: a comparison between two codes through
+    two estimators measures the estimators. The trim below is applied to both
+    codes for the same reason, even though only ddsim's curves need it.
+
+    Leading points whose drain current is not positive are dropped before
+    extracting. ddsim's drain terminal current has a floor near 2e-9 A/cm and
+    at 50 mV of drain that floor lands negative on the two longest devices,
+    three points on the 200 nm and two on the 100 nm. It is a floor and not a
+    current: from -0.4 to -0.35 V the value moves in its fourth digit, where a
+    real subthreshold current changes by a factor of four across a 50 mV step.
+    Nothing the extraction reads is lost, since the constant current target is
+    5e-3 A/cm at 200 nm and every dropped point is nine decades under it, and
+    the monotonicity `threshold_constant_current` insists on is still checked
+    over everything kept, so a genuinely non monotonic sweep still fails loudly
+    rather than being trimmed away. DEVSIM resolves this region cleanly and
+    needs no trim, which is what makes the floor ddsim's rather than the
+    sweep's. See the 2026-09-13 row in docs/07-decisions.md.
+    """
+    V = np.asarray(voltage, dtype=np.float64)
+    J = np.asarray(current, dtype=np.float64)
+    target = REFERENCE_CURRENT / L_gate
+
+    keep = int(np.argmax(J > 0.0)) if np.any(J > 0.0) else J.size
+    assert np.all(np.abs(J[:keep]) < 1e-4 * target), (
+        f"a dropped point reaches {np.abs(J[:keep]).max():.3e} A/cm against a "
+        f"target of {target:.3e}, which is too close to the current being "
+        "extracted at to be the terminal current floor. Trimming it would be "
+        "hiding a solver problem rather than ignoring roundoff."
+    )
+    return threshold_constant_current(V[keep:], J[keep:], target)
+
+
+def _devsim_thresholds(name: str) -> tuple[float, float]:
+    """DEVSIM's linear and saturated thresholds at one gate length [V]."""
+    benchmark = P.MOSFET_BY_NAME[name]
+    golden = P.read_mosfet_golden(str(golden_path(benchmark)))
+    V = np.asarray(golden.gate_voltage, dtype=np.float64)
+    return (
+        _threshold(V, np.asarray(golden.drain_low, dtype=np.float64),
+                   benchmark.L_gate),
+        _threshold(V, np.asarray(golden.drain_high, dtype=np.float64),
+                   benchmark.L_gate),
+    )
+
+
+def _ddsim_thresholds(name: str) -> tuple[float, float]:
+    """ddsim's linear and saturated thresholds at one gate length [V].
+
+    Through `ddsim_curve`, so the device is built with `degenerate=False` and
+    constant mobility, matching the generator. Running this against ddsim's
+    own Phase 5 defaults would compare two different model sets and call the
+    difference a disagreement.
+    """
+    benchmark = P.MOSFET_BY_NAME[name]
+    out = []
+    for drain in (benchmark.drain_low, benchmark.drain_high):
+        curve = ddsim_curve(benchmark, drain)
+        assert curve.complete, f"{name} at Vd = {drain} V: {curve.message}"
+        out.append(
+            _threshold(curve.voltage, curve.current, benchmark.L_gate)
+        )
+    return out[0], out[1]
+
+
+@pytest.mark.parametrize("name", P.ROLLOFF_TREND)
+def test_rolloff_golden_data_exists(name: str) -> None:
+    """Benchmark 9 has data at every gate length of the trend."""
+    benchmark = P.MOSFET_BY_NAME[name]
+    assert golden_path(benchmark).is_file(), (
+        f"no golden curves for {name}, so benchmark 9 is not running. "
+        "Generate them with tests/regression/devsim_gen/generate_mosfet.py, "
+        "see the README there."
+    )
+
+
+@pytest.mark.parametrize(
+    "benchmark", P.ROLLOFF_BENCHMARKS, ids=lambda b: b.name
+)
+def test_rolloff_reference_is_converged(benchmark: P.MosfetBenchmark) -> None:
+    """Benchmark 9's references carry their mesh error, gated on what it moves.
+
+    Same principle as `test_golden_reference_is_converged` and deliberately a
+    different line, because a different quantity is being asserted. Benchmarks
+    6 to 8 compare a drain current at every bias, so a drain current mesh error
+    reaches their conclusion undiminished and is held to a tenth of their
+    budget. Benchmark 9 compares a roll-off magnitude and a DIBL, and the drain
+    current error reaches those only after an attenuation that was measured
+    rather than assumed: halving every spacing on the 50 nm device moves its
+    worst drain current by 1.227e-2, but its DIBL by 0.14 percent and its
+    saturated threshold by 0.34 mV, which is 0.11 percent of the 318.6 mV
+    roll-off the benchmark actually compares. That is a factor near nine, and
+    it is not luck. The worst drain current point sits at -0.4 V, 400 mV below
+    threshold and six decades under the constant current target, a bias the
+    extraction never reads.
+
+    So the gate is the tolerance itself rather than a tenth of it, which after
+    the measured attenuation is the same tenth of the budget the other
+    benchmarks are held to. Refining the 50 nm mesh to meet the stricter line
+    would cost a 57000 node check to improve a number benchmark 9 does not
+    assert. See the 2026-09-13 rows in docs/07-decisions.md.
+    """
+    curve = P.read_mosfet_golden(str(golden_path(benchmark)))
+    assert "mesh convergence" in curve.header, (
+        f"{benchmark.name} golden data carries no mesh convergence line, so "
+        "the generator wrote its curves and then did not finish the halved "
+        "mesh check. Re-run the generator."
+    )
+    line = curve.header["mesh convergence"]
+    reported = float(line.split()[0])
+    assert reported < benchmark.tolerance, (
+        f"{benchmark.name} golden data is converged only to {reported:.3e}, "
+        f"which is not inside the {benchmark.tolerance} the roll-off and DIBL "
+        "are compared to even before the attenuation is counted. Refine the "
+        "generator mesh and regenerate."
+    )
+    skipped, total = (int(word) for word in line.split() if word.isdigit())
+    assert skipped < 0.5 * total, (
+        f"{benchmark.name} skipped {skipped} of {total} points as "
+        "unmeasurable, so the convergence number covers less than half the "
+        f"curve and {reported:.3e} says little about the mesh."
+    )
+
+
+@pytest.mark.parametrize("high", [False, True], ids=["Vd_low", "Vd_high"])
+def test_rolloff_threshold_falls_in_both_codes(high: bool) -> None:
+    """The trend half of benchmark 9's target, and it is the unambiguous half.
+
+    Monotonic in both codes at both drain biases. A threshold that wanders as
+    the gate shortens is not roll-off however close the endpoints land.
+    """
+    index = 1 if high else 0
+    devsim = [_devsim_thresholds(name)[index] for name in P.ROLLOFF_TREND]
+    ddsim = [_ddsim_thresholds(name)[index] for name in P.ROLLOFF_TREND]
+
+    for label, values in (("devsim", devsim), ("ddsim", ddsim)):
+        steps = np.diff(np.asarray(values))
+        assert np.all(steps < 0.0), (
+            f"{label} threshold does not fall monotonically from 1 um to "
+            f"50 nm: {[f'{v:+.4f}' for v in values]}"
+        )
+
+
+@pytest.mark.parametrize("high", [False, True], ids=["Vd_low", "Vd_high"])
+def test_rolloff_magnitude_matches_devsim(high: bool) -> None:
+    """The 10 percent half of benchmark 9's target, on a positive quantity.
+
+    docs/04-validation.md asks for the trend and 10 percent, and PHASE-5.md for
+    the Vth against Lg curve to be within 10 percent. Vth crosses zero in this
+    set, DEVSIM reading -0.1181 V at 50 nm and Vd = 1 V, so a per point
+    relative comparison on it is not a measurement: one absolute disagreement
+    reads as two percent at one gate length and unbounded at another. The
+    roll-off itself is positive and is what the deliverable plot is about, so
+    that is what carries the percentage. Per point agreement is reported in
+    millivolts below rather than gated as a fraction of a signed voltage. See
+    the 2026-09-12 row in docs/07-decisions.md.
+    """
+    index = 1 if high else 0
+    devsim = [_devsim_thresholds(name)[index] for name in P.ROLLOFF_TREND]
+    ddsim = [_ddsim_thresholds(name)[index] for name in P.ROLLOFF_TREND]
+
+    devsim_rolloff = devsim[0] - devsim[-1]
+    ddsim_rolloff = ddsim[0] - ddsim[-1]
+    relative = abs(ddsim_rolloff - devsim_rolloff) / abs(devsim_rolloff)
+
+    per_point = "\n  ".join(
+        f"{name}: devsim {d:+.4f} V, ddsim {s:+.4f} V, "
+        f"{(s - d) * 1000:+.1f} mV"
+        for name, d, s in zip(P.ROLLOFF_TREND, devsim, ddsim, strict=True)
+    )
+    assert relative <= 0.10, (
+        f"roll-off from 1 um to 50 nm disagrees by {relative:.1%}: devsim "
+        f"{devsim_rolloff * 1000:.1f} mV, ddsim {ddsim_rolloff * 1000:.1f} mV."
+        f"\n  {per_point}"
+    )
+
+
+@pytest.mark.parametrize("name", P.ROLLOFF_TREND)
+def test_rolloff_dibl_matches_devsim(name: str) -> None:
+    """DIBL at each gate length, the other positive emergent number.
+
+    Nearly mobility independent, which is what licenses comparing the two
+    codes here at a model set neither of them ships by default: the barrier
+    the drain lowers is electrostatics. Measured at 50 nm before this test
+    existed, devsim gave 131.2 mV/V against the 126.8 the README reports from
+    the full Phase 5 stack, 3.5 percent apart across two different mobility
+    models.
+    """
+    benchmark = P.MOSFET_BY_NAME[name]
+    span = benchmark.drain_high - benchmark.drain_low
+
+    d_lin, d_sat = _devsim_thresholds(name)
+    s_lin, s_sat = _ddsim_thresholds(name)
+    devsim_dibl = (d_lin - d_sat) / span
+    ddsim_dibl = (s_lin - s_sat) / span
+
+    assert devsim_dibl > 0.0, (
+        f"{name}: devsim puts the saturated threshold above the linear one, "
+        f"{d_sat:+.4f} V against {d_lin:+.4f}, which is not DIBL"
+    )
+    relative = abs(ddsim_dibl - devsim_dibl) / devsim_dibl
+    assert relative <= 0.10, (
+        f"{name} DIBL disagrees by {relative:.1%}: devsim "
+        f"{devsim_dibl * 1000:.1f} mV/V, ddsim {ddsim_dibl * 1000:.1f} mV/V"
+    )

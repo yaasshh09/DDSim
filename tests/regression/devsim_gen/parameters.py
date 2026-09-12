@@ -766,7 +766,73 @@ MOSFET_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
     ),
 )
 
-MOSFET_BY_NAME: dict[str, MosfetBenchmark] = {b.name: b for b in MOSFET_BENCHMARKS}
+def _rolloff(name: str, L_gate: float) -> MosfetBenchmark:
+    """One gate length of the benchmark 9 trend.
+
+    Args:
+        name: golden file stem.
+        L_gate: drawn gate length [cm].
+
+    Every length gets the same gate range and the same 40 columns across the
+    gate. The column count is the rule the two short benchmarks arrived at by
+    measurement rather than a guess: on both of them the lateral columns and
+    not the implant rows carried the mesh error, and 40 is what cleared the
+    gate at 180 nm and at 65 nm. It reproduces their spacings exactly, 4.5e-7
+    at 180 nm and 1.625e-7 at 65 nm. See the 2026-09-12 rows in
+    docs/07-decisions.md.
+
+    The gate range stops at +0.6 V because this benchmark reads a threshold and
+    nothing above one. The constant current target is REFERENCE_CURRENT / L, so
+    it rises as the gate shortens while the threshold falls, and both ends have
+    to be bracketed: at 1 um the target is 1e-3 A/cm and is crossed near
+    +0.21 V, and at 50 nm it is 2e-2 A/cm and is crossed near zero, lower again
+    on the saturated curve where DIBL has moved it. -0.4 V is below every one of
+    them and +0.6 V is above every one of them with room to spare.
+    """
+    return MosfetBenchmark(
+        name=name,
+        number=9,
+        L_gate=L_gate,
+        gate_voltages=_gate_range(-0.4, 0.6, 0.05),
+        drain_low=0.05,
+        drain_high=1.0,
+        tolerance=0.10,
+        devsim_h_junction=L_gate / 80.0,
+        devsim_h_channel=L_gate / 40.0,
+        notes=(
+            f"Gate length {L_gate * 1e7:g} nm, one point of the benchmark 9 "
+            "threshold roll-off trend. Not one of benchmarks 6 to 8: those "
+            "compare a drain current at every bias to 5 or 8 percent, and this "
+            "one compares an extracted threshold across gate lengths to 10."
+        ),
+    )
+
+
+ROLLOFF_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
+    _rolloff("rolloff_200nm", 2e-5),
+    _rolloff("rolloff_100nm", 1e-5),
+    _rolloff("rolloff_70nm", 7e-6),
+    _rolloff("rolloff_50nm", 5e-6),
+)
+"""Benchmark 9's gate lengths that need their own golden file.
+
+The 1 um point is not here because it does not need generating. `nmos_1um`
+already sweeps 0 to 1.5 V at 50 mV of drain and its curve crosses the 1e-3
+A/cm target near +0.21 V, so the threshold can be read straight off the file
+benchmark 6 already ships. Its subthreshold steps are 0.1 V against these
+0.05, which is a larger interpolation error on one of five points and far
+inside a 10 percent target.
+"""
+
+ROLLOFF_TREND: tuple[str, ...] = ("nmos_1um",) + tuple(
+    b.name for b in ROLLOFF_BENCHMARKS
+)
+"""Benchmark 9's five gate lengths, longest first, by golden file stem."""
+
+
+MOSFET_BY_NAME: dict[str, MosfetBenchmark] = {
+    b.name: b for b in MOSFET_BENCHMARKS + ROLLOFF_BENCHMARKS
+}
 
 MOSFET_MODEL_SUMMARY: tuple[str, ...] = (
     "statistics:      Boltzmann",
