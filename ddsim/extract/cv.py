@@ -54,6 +54,7 @@ still the minority carrier: they are the ones that had to be generated.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
@@ -361,6 +362,28 @@ class CVCurve:
         )
 
 
+@dataclass(frozen=True)
+class CVFrame:
+    """One finished capacitance point, reported while the sweep is running.
+
+    Scalars only, for the reason IVFrame carries scalars only. Nothing here
+    continues from the state, but a reader able to reach into it could still
+    change the charge and capacitance read off it at the point after.
+    """
+
+    index: int
+    """Position in the requested voltage list, from zero."""
+
+    gate_voltage: float
+    """Applied bias at the swept terminal [V]."""
+
+    capacitance: float
+    """Small signal capacitance there [F/cm^2]."""
+
+    charge: float
+    """Charge on that terminal [C/cm^2]."""
+
+
 def cv_sweep(
     device: Device,
     contact: str,
@@ -368,6 +391,7 @@ def cv_sweep(
     response: Response = Response.LOW_FREQUENCY,
     width: float | None = None,
     max_iterations: int = 50,
+    on_frame: Callable[[object], None] | None = None,
 ) -> CVCurve:
     """Sweep one terminal and measure the capacitance at each bias.
 
@@ -378,6 +402,10 @@ def cv_sweep(
         response: which carriers follow the signal. See Response.
         width: extent of the terminal transverse to the field [cm].
         max_iterations: Newton budget at each point.
+        on_frame: telemetry, or None to report nothing. Carries a
+            NewtonIteration per Poisson iteration and a CVFrame per point.
+            There is no ContinuationEvent on this path: the points are
+            independent solves rather than a ramp. See phases/PHASE-7.md.
 
     Each point is solved from the charge neutral guess rather than continued
     from the one before it. Equilibrium Poisson with the insulator filled in
@@ -411,7 +439,10 @@ def cv_sweep(
         levels = frozen_quasi_fermi(biased)
         try:
             state = solve_equilibrium(
-                biased, quasi_fermi=levels, max_iterations=max_iterations
+                biased,
+                quasi_fermi=levels,
+                max_iterations=max_iterations,
+                on_frame=on_frame,
             )
         except RuntimeError as error:
             return CVCurve(
@@ -421,23 +452,34 @@ def cv_sweep(
                 complete=False,
                 message=f"did not converge at {voltage:+g} V: {error}",
             )
+        capacitance = small_signal_capacitance(
+            biased,
+            state,
+            contact,
+            response=response,
+            quasi_fermi=levels,
+            width=width,
+        )
+        charge = terminal_charge(
+            biased, state, contact, quasi_fermi=levels, width=width
+        )
         points.append(
             CVPoint(
                 gate_voltage=voltage,
-                capacitance=small_signal_capacitance(
-                    biased,
-                    state,
-                    contact,
-                    response=response,
-                    quasi_fermi=levels,
-                    width=width,
-                ),
-                charge=terminal_charge(
-                    biased, state, contact, quasi_fermi=levels, width=width
-                ),
+                capacitance=capacitance,
+                charge=charge,
                 state=state,
             )
         )
+        if on_frame is not None:
+            on_frame(
+                CVFrame(
+                    index=len(points) - 1,
+                    gate_voltage=voltage,
+                    capacitance=capacitance,
+                    charge=charge,
+                )
+            )
 
     return CVCurve(
         contact=contact,

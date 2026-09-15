@@ -349,6 +349,26 @@ class IVCurve:
         )
 
 
+@dataclass(frozen=True)
+class IVFrame:
+    """One finished sweep point, reported while the sweep is still running.
+
+    Scalars only, the same argument NewtonIteration makes for itself. Here it
+    matters twice over: the state on an IVPoint is the guess the next point
+    continues from, so a frame carrying it would hand a reader the ability to
+    change a solve that has not happened yet.
+    """
+
+    index: int
+    """Position in the requested voltage list, from zero."""
+
+    voltage: float
+    """Applied bias at the swept contact [V]."""
+
+    current: float
+    """Terminal current at the measured contact [A/cm^2]."""
+
+
 def _walk_sweep(
     device: Device,
     contact: str,
@@ -359,12 +379,17 @@ def _walk_sweep(
     start: float,
     step: float,
     min_step: float | None,
+    on_frame: Callable[[object], None] | None = None,
 ) -> IVCurve:
     """Walk a list of biases, continuing between them, and record the current.
 
     The loop both public sweeps share. What differs between them is only how
     one bias point is solved, which arrives as `at_bias`, so the continuation
     policy and the bookkeeping are written once.
+
+    `on_frame` gets the ContinuationEvent of every attempt and an IVFrame for
+    every point that lands. The solver frames underneath arrive through the
+    same callback, which each public sweep closes its own `at_bias` over.
     """
     # Two different failures, one meaning: there is nothing to continue from.
     # A solver returns a stalled result rather than raising, but the guess it
@@ -397,6 +422,7 @@ def _walk_sweep(
             step=step,
             min_step=min_step,
             max_step=step,
+            on_event=on_frame,
         )
         state = ramp.solution
         position = ramp.parameter
@@ -410,18 +436,19 @@ def _walk_sweep(
                 message=f"stalled on the way to {target:+g} V. {ramp.message}",
             )
 
-        points.append(
-            IVPoint(
-                voltage=target,
-                current=total_current(
-                    device.with_bias(**{contact: target}),
-                    state,
-                    models,
-                    measured_at,
-                ),
-                state=state,
-            )
+        current = total_current(
+            device.with_bias(**{contact: target}), state, models, measured_at
         )
+        # The frame after the point, never instead of it. A reader that raises
+        # to cancel leaves the curve holding everything it had reached, which
+        # is what the job hands back.
+        points.append(IVPoint(voltage=target, current=current, state=state))
+        if on_frame is not None:
+            on_frame(
+                IVFrame(
+                    index=len(points) - 1, voltage=target, current=current
+                )
+            )
 
     return IVCurve(
         contact=contact,
@@ -441,6 +468,7 @@ def iv_sweep(
     start: float = 0.0,
     max_iterations: int = 200,
     update_tol: float = 1e-8,
+    on_frame: Callable[[object], None] | None = None,
 ) -> IVCurve:
     """Sweep one contact through a list of biases, continuing between them.
 
@@ -461,6 +489,9 @@ def iv_sweep(
         start: bias to begin from [V], solved directly rather than ramped to.
         max_iterations: Gummel budget at each point.
         update_tol: Gummel convergence threshold.
+        on_frame: telemetry, or None to report nothing. Carries a
+            GummelIteration per cycle, a ContinuationEvent per attempt and an
+            IVFrame per point that lands. See phases/PHASE-7.md.
 
     The list is walked in the order given, each point continued from the last,
     so it should be monotone or nearly so. A sweep from -1 V to 0.5 V is a
@@ -488,6 +519,7 @@ def iv_sweep(
             guess=guess,
             update_tol=update_tol,
             max_iterations=max_iterations,
+            on_frame=on_frame,
         )
         if solved.gummel is None or not solved.gummel.converged:
             return None
@@ -503,6 +535,7 @@ def iv_sweep(
         start=start,
         step=step,
         min_step=min_step,
+        on_frame=on_frame,
     )
 
 
@@ -516,6 +549,7 @@ def gate_sweep(
     min_step: float | None = None,
     start: float = 0.0,
     max_iterations: int = 30,
+    on_frame: Callable[[object], None] | None = None,
 ) -> IVCurve:
     """Sweep the gate and record the drain current: a transfer curve.
 
@@ -531,6 +565,10 @@ def gate_sweep(
         start: gate bias to begin from [V], solved directly rather than ramped
             to. Zero, which for an NMOS is off.
         max_iterations: Newton budget at each point.
+        on_frame: telemetry, or None to report nothing. Carries a
+            NewtonIteration per iteration, a ContinuationEvent per attempt and
+            an IVFrame per point that lands. No GummelIteration ever reaches
+            it, because this path does not run Gummel at all.
 
     Two things separate this from iv_sweep, and both of them are why it is a
     separate function rather than a flag on that one.
@@ -564,7 +602,10 @@ def gate_sweep(
         # guess from its neighbour and needs nothing.
         solved = (
             solve_bias_ramped(
-                biased, models=models, max_iterations=max_iterations
+                biased,
+                models=models,
+                max_iterations=max_iterations,
+                on_frame=on_frame,
             )
             if guess is None
             else solve_bias_newton(
@@ -572,6 +613,7 @@ def gate_sweep(
                 models=models,
                 guess=guess,
                 max_iterations=max_iterations,
+                on_frame=on_frame,
             )
         )
         # Both always attach a NewtonResult, converged or not.
@@ -588,4 +630,5 @@ def gate_sweep(
         start=start,
         step=step,
         min_step=min_step,
+        on_frame=on_frame,
     )

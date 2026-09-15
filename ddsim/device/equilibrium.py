@@ -43,6 +43,8 @@ Phase 2 replaces it by solving for phi_n and phi_p properly.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import numpy as np
 import numpy.typing as npt
 
@@ -221,6 +223,7 @@ def solve_poisson(
     residual_rtol: float = 1e-10,
     update_tol: float = 1e-10,
     solver: SparseLU | None = None,
+    on_frame: Callable[[object], None] | None = None,
 ) -> NewtonResult:
     """Solve the nonlinear Poisson equation for psi at fixed quasi-Fermi levels.
 
@@ -236,6 +239,8 @@ def solve_poisson(
         solver: a factorization to reuse. Every Gummel cycle solves this same
             system on the same mesh, so the caller inside a cycle keeps one
             rather than paying for the sparsity pattern each time.
+        on_frame: called with a NewtonIteration each time the residual is
+            measured, or None to report nothing. See phases/PHASE-7.md.
 
     This is both the whole of the equilibrium solve and the first block of
     every Gummel cycle. Keeping the densities inside Poisson as exp(psi - phi)
@@ -316,6 +321,7 @@ def solve_poisson(
         update_tol=update_tol,
         max_iterations=max_iterations,
         solver=solver,
+        on_iteration=on_frame,
     )
 
 
@@ -325,6 +331,7 @@ def solve_equilibrium(
     max_iterations: int = 50,
     residual_rtol: float = 1e-10,
     update_tol: float = 1e-10,
+    on_frame: Callable[[object], None] | None = None,
 ) -> DeviceState:
     """Solve nonlinear Poisson at equilibrium.
 
@@ -338,6 +345,7 @@ def solve_equilibrium(
             [1]. Relative rather than absolute, because the Poisson residual
             scales with the doping and so does its roundoff floor.
         update_tol: convergence threshold on max |dpsi| [1].
+        on_frame: telemetry, passed straight through to solve_poisson.
 
     Raises RuntimeError if Newton does not converge. An unconverged solution
     that is returned quietly is the worst outcome available here, because it
@@ -372,6 +380,7 @@ def solve_equilibrium(
         max_iterations=max_iterations,
         residual_rtol=residual_rtol,
         update_tol=update_tol,
+        on_frame=on_frame,
     )
 
     if not result.converged:

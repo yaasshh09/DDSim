@@ -115,6 +115,14 @@ from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve
 from ddsim.solve.linear import SparseLU
 from ddsim.solve.newton import NewtonResult, newton_solve
 
+MOBILITY_MODELS = ("constant", "arora")
+"""The low field mobility models there are, by the name `for_device` takes.
+
+Written once, here, and read by both functions that build one and by
+ddsim/api/, so that the browser offers exactly the models that exist rather
+than a list of its own that goes stale.
+"""
+
 DENSITY_REFERENCE = 1.0
 """Floor in the density update norm [1], which is n_i in scaled units.
 
@@ -438,7 +446,9 @@ def _scaled_diffusivity(
         )
     else:
         raise ValueError(
-            f"unknown mobility model {mobility!r}. Use 'constant' or 'arora'."
+            f"unknown mobility model {mobility!r}. Use "
+            + " or ".join(repr(name) for name in MOBILITY_MODELS)
+            + "."
         )
 
     return _wrapped_in_saturation(device, carrier, low_field, field_dependent)
@@ -464,7 +474,9 @@ def _surface_scattering(
         nodal_p = AroraMobility.holes(temperature)(total_doping)
     else:
         raise ValueError(
-            f"unknown mobility model {mobility!r}. Use 'constant' or 'arora'."
+            f"unknown mobility model {mobility!r}. Use "
+            + " or ".join(repr(name) for name in MOBILITY_MODELS)
+            + "."
         )
 
     semiconductor = np.ones(device.mesh.n_nodes, dtype=np.bool_)
@@ -940,6 +952,7 @@ def solve_bias_newton(
     update_tol: float = 1e-10,
     max_surface_sweeps: int = 20,
     surface_rtol: float = 1e-8,
+    on_frame: Callable[[object], None] | None = None,
 ) -> DeviceState:
     """Solve the coupled system at the device's biases by full Newton.
 
@@ -962,6 +975,14 @@ def solve_bias_newton(
         surface_rtol: how still the surface corrected diffusivity has to be,
             as a relative change on the edge that moved most, before the
             fixed point counts as reached.
+        on_frame: called with a NewtonIteration each time the residual is
+            measured, or None to report nothing. Every solve this one runs
+            reports into it, including the low field prelude and each sweep of
+            the surface fixed point, because those iterations are counted in
+            the result and a plot missing them would be missing the expensive
+            part. The equilibrium solve that builds the guess is the one
+            exception: its residual is a different quantity on a different
+            system, and it reports nothing. See phases/PHASE-7.md.
 
     The same equations as solve_bias, solved together instead of in a cycle.
     Returns the state with its NewtonResult attached, converged or not, and
@@ -1102,6 +1123,7 @@ def solve_bias_newton(
             update_tol=update_tol,
             update_norm=coupled_update_norm,
             max_iterations=max_iterations,
+            on_iteration=on_frame,
         )
 
     def solve_with(
@@ -1143,6 +1165,7 @@ def solve_bias_ramped(
     models: TransportModels | None = None,
     step: float = 0.25,
     max_iterations: int = 30,
+    on_frame: Callable[[object], None] | None = None,
 ) -> DeviceState:
     """Solve at the device's biases with no guess, ramping them in from zero.
 
@@ -1151,6 +1174,8 @@ def solve_bias_ramped(
         models: recombination and diffusivities. Built from the device if None.
         step: first continuation step, as a fraction of the applied bias [1].
         max_iterations: Newton budget at each fraction.
+        on_frame: telemetry. Carries both the ContinuationEvent per fraction
+            and the NewtonIteration frames of the solve at each one.
 
     Returns a DeviceState at the device's own biases, with its NewtonResult
     attached, converged or not. Same contract as solve_bias_newton, and the
@@ -1188,6 +1213,7 @@ def solve_bias_ramped(
             models=models,
             guess=guess,
             max_iterations=max_iterations,
+            on_frame=on_frame,
         )
         # solve_bias_newton always attaches a NewtonResult, converged or not.
         assert solved.newton is not None
@@ -1197,9 +1223,15 @@ def solve_bias_ramped(
         device.with_bias(**dict.fromkeys(applied, 0.0)),
         models=models,
         max_iterations=max_iterations,
+        on_frame=on_frame,
     )
     ramp = continue_to(
-        at_fraction, start=0.0, target=1.0, initial=off, step=step
+        at_fraction,
+        start=0.0,
+        target=1.0,
+        initial=off,
+        step=step,
+        on_event=on_frame,
     )
 
     # Unconditionally, rather than returning ramp.solution when it converged.
@@ -1212,6 +1244,7 @@ def solve_bias_ramped(
         models=models,
         guess=ramp.solution,
         max_iterations=max_iterations,
+        on_frame=on_frame,
     )
 
 
@@ -1220,6 +1253,7 @@ def _gummel_prelude(
     models: TransportModels,
     state: DeviceState,
     cycles: int,
+    on_frame: Callable[[object], None] | None = None,
 ) -> DeviceState:
     """Run a fixed number of Gummel cycles, ignoring whether they converged.
 
@@ -1242,7 +1276,11 @@ def _gummel_prelude(
     ]
     try:
         result = gummel_solve(
-            state, steps, update_tol=1e-300, max_iterations=cycles
+            state,
+            steps,
+            update_tol=1e-300,
+            max_iterations=cycles,
+            on_iteration=on_frame,
         )
     except TransportError as failure:
         return failure.state
@@ -1257,6 +1295,7 @@ def solve_bias_hybrid(
     retry_cycles: int = 5,
     max_psi_step: float = 5.0,
     max_iterations: int = 30,
+    on_frame: Callable[[object], None] | None = None,
 ) -> DeviceState:
     """Gummel for a few cycles to reach the basin, then full Newton.
 
@@ -1269,6 +1308,8 @@ def solve_bias_hybrid(
             when the first fails. Zero disables the retry.
         max_psi_step: cap on the potential update per Newton step [1], scaled.
         max_iterations: Newton budget per attempt.
+        on_frame: telemetry. Carries the prelude's cycles and Newton's
+            iterations in the order they happened, and a retry's too.
 
     The strategy docs/02-numerics.md prescribes, built against a case where it
     is measurably needed rather than on principle. On a 1e15 diode at 1.2 V on
@@ -1307,9 +1348,10 @@ def solve_bias_hybrid(
             guess=state,
             max_psi_step=max_psi_step,
             max_iterations=max_iterations,
+            on_frame=on_frame,
         )
 
-    warmed = _gummel_prelude(device, models, start, gummel_cycles)
+    warmed = _gummel_prelude(device, models, start, gummel_cycles, on_frame)
     result = newton_from(warmed)
 
     # solve_bias_newton always attaches a NewtonResult, converged or not.
@@ -1318,7 +1360,7 @@ def solve_bias_hybrid(
         return replace(result, gummel=warmed.gummel)
 
     # From the pre-Newton state, not the diverged one.
-    warmed = _gummel_prelude(device, models, warmed, retry_cycles)
+    warmed = _gummel_prelude(device, models, warmed, retry_cycles, on_frame)
     return replace(newton_from(warmed), gummel=warmed.gummel)
 
 
@@ -1328,6 +1370,7 @@ def solve_bias(
     guess: DeviceState | None = None,
     update_tol: float = 1e-8,
     max_iterations: int = 200,
+    on_frame: Callable[[object], None] | None = None,
 ) -> DeviceState:
     """Solve the coupled system at the device's contact biases.
 
@@ -1338,6 +1381,8 @@ def solve_bias(
             input there is, which is why continuation exists.
         update_tol: convergence threshold on the Gummel cycle update.
         max_iterations: cycle budget.
+        on_frame: called with a GummelIteration at the end of every cycle, or
+            None to report nothing. See phases/PHASE-7.md.
 
     Returns the state with its GummelResult attached, converged or not, and
     does not raise on failure. Above roughly 0.6 V forward bias, failing to
@@ -1357,7 +1402,11 @@ def solve_bias(
 
     try:
         result = gummel_solve(
-            start, steps, update_tol=update_tol, max_iterations=max_iterations
+            start,
+            steps,
+            update_tol=update_tol,
+            max_iterations=max_iterations,
+            on_iteration=on_frame,
         )
     except TransportError as failure:
         return replace(
