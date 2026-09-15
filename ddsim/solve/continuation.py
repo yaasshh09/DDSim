@@ -108,6 +108,7 @@ def continue_to(
     max_step: float | None = None,
     growth: float = 1.5,
     max_attempts: int = 200,
+    on_event: Callable[[ContinuationEvent], None] | None = None,
 ) -> ContinuationResult[SolutionT]:
     """Ramp the parameter from start to target, adapting the step size.
 
@@ -124,6 +125,13 @@ def continue_to(
         max_step: cap on step growth. None means the only cap is the target.
         growth: factor the step grows by after a success. 1.5 by default.
         max_attempts: total solve calls allowed, failures included.
+        on_event: called with each ContinuationEvent as it is recorded,
+            accepted and refused alike, so a ramp can be watched while it runs
+            rather than read afterwards. None, the default, calls nothing and
+            leaves the ramp bit for bit what it is without it. A ramp that is
+            already at its target makes no attempt and so reports nothing. An
+            exception raised in the callback is not caught, matching
+            newton_solve: that is the cancel path.
 
     Returns a ContinuationResult rather than raising, matching newton_solve.
     A stalled ramp is a measurement, not an accident: phases/PHASE-2.md asks
@@ -156,6 +164,11 @@ def continue_to(
     solution = initial
     events: list[ContinuationEvent] = []
 
+    def record(event: ContinuationEvent) -> None:
+        events.append(event)
+        if on_event is not None:
+            on_event(event)
+
     if target == start:
         return ContinuationResult(
             parameter=value, solution=solution, converged=True, events=()
@@ -176,14 +189,14 @@ def continue_to(
         if candidate is not None:
             value = trial
             solution = candidate
-            events.append(ContinuationEvent(trial, attempted, True))
+            record(ContinuationEvent(trial, attempted, True))
             step_size = attempted * growth
             if max_step is not None:
                 step_size = min(step_size, max_step)
             continue
 
         step_size = attempted / 2.0
-        events.append(
+        record(
             ContinuationEvent(
                 trial,
                 attempted,

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import pytest
 
-from ddsim.solve.continuation import continue_to
+from ddsim.solve.continuation import ContinuationEvent, continue_to
 
 
 def always(value: float) -> float:
@@ -280,3 +280,123 @@ def test_event_repr_reports_the_attempt() -> None:
 
     assert "step" in text
     assert "ok" in text or "failed" in text
+
+
+# ------------------------------------------------------------ live reporting
+
+
+def test_every_attempt_is_reported_as_it_is_made() -> None:
+    """The same events the result carries, handed over one at a time."""
+    seen: list[ContinuationEvent] = []
+
+    result = continue_to(
+        lambda value, guess: always(value),
+        start=0.0,
+        target=1.0,
+        initial=0.0,
+        step=0.25,
+        on_event=seen.append,
+    )
+
+    assert result.converged
+    assert tuple(seen) == result.events
+
+
+def test_an_event_arrives_before_the_next_solve_is_attempted() -> None:
+    """The whole point is watching a ramp while it runs. A stream that only
+    flushes at the end is a progress bar that fills in one jump, and the
+    assertion that separates the two is the interleaving, not the count."""
+    order: list[str] = []
+
+    def solve(value: float, guess: float) -> float:
+        order.append("solve")
+        return value
+
+    continue_to(
+        solve,
+        start=0.0,
+        target=1.0,
+        initial=0.0,
+        step=0.25,
+        on_event=lambda event: order.append("event"),
+    )
+
+    assert order[:4] == ["solve", "event", "solve", "event"]
+
+
+def test_a_failed_attempt_is_reported_too() -> None:
+    """A ramp in trouble is exactly when someone is watching. Reporting only
+    the accepted points would show a ramp slowing down for no visible reason."""
+    seen: list[ContinuationEvent] = []
+
+    continue_to(
+        fails_beyond(0.5, 0.1),
+        start=0.0,
+        target=1.0,
+        initial=0.0,
+        step=0.4,
+        on_event=seen.append,
+    )
+
+    refused = [event for event in seen if not event.converged]
+    assert refused, "this ramp has to fail somewhere for the test to mean anything"
+    assert "step halved" in refused[0].message
+
+
+def test_watching_a_ramp_does_not_change_it() -> None:
+    """Same inertness argument as the Newton callback."""
+    seen: list[ContinuationEvent] = []
+
+    quiet = continue_to(
+        fails_beyond(0.5, 0.1), start=0.0, target=1.0, initial=0.0, step=0.4
+    )
+    watched = continue_to(
+        fails_beyond(0.5, 0.1),
+        start=0.0,
+        target=1.0,
+        initial=0.0,
+        step=0.4,
+        on_event=seen.append,
+    )
+
+    assert quiet.events == watched.events
+    assert quiet.parameter == watched.parameter
+    assert quiet.converged == watched.converged
+    assert quiet.message == watched.message
+    assert tuple(seen) == watched.events
+
+
+def test_an_exception_from_the_callback_stops_the_ramp() -> None:
+    """Cancellation, the same way the Newton callback does it."""
+
+    def refuse(event: ContinuationEvent) -> None:
+        if event.parameter >= 0.5:
+            raise KeyboardInterrupt("cancelled")
+
+    with pytest.raises(KeyboardInterrupt):
+        continue_to(
+            lambda value, guess: always(value),
+            start=0.0,
+            target=1.0,
+            initial=0.0,
+            step=0.25,
+            on_event=refuse,
+        )
+
+
+def test_a_ramp_that_is_already_at_the_target_reports_nothing() -> None:
+    """No attempt was made, so there is nothing to report. An event here would
+    put a point on the plot that no solve produced."""
+    seen: list[ContinuationEvent] = []
+
+    result = continue_to(
+        lambda value, guess: always(value),
+        start=1.0,
+        target=1.0,
+        initial=1.0,
+        step=0.25,
+        on_event=seen.append,
+    )
+
+    assert result.converged
+    assert seen == []

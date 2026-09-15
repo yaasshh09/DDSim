@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from ddsim.solve.gummel import GummelResult, gummel_solve
+from ddsim.solve.gummel import GummelIteration, GummelResult, gummel_solve
 
 State = tuple[float, float]
 
@@ -218,3 +218,99 @@ def test_result_is_generic_over_the_state_type() -> None:
     result: GummelResult[list[int]] = gummel_solve([], [append])
 
     assert result.state == [0]
+
+
+# --------------------------------------------------- per iteration telemetry
+
+
+def test_a_frame_arrives_for_every_cycle() -> None:
+    """The diode sweep the browser runs first is a Gummel cycle, not a Newton
+    solve, so this is where its live residual plot gets its points."""
+    seen: list[GummelIteration] = []
+
+    result = gummel_solve(
+        (0.0, 0.0),
+        gauss_seidel_steps(4.0, 4.0, 1.0),
+        on_iteration=seen.append,
+    )
+
+    assert result.converged
+    assert len(seen) == result.iterations
+    assert [frame.iteration for frame in seen] == list(range(1, result.iterations + 1))
+
+
+def test_the_frame_update_is_the_one_in_the_history() -> None:
+    """Bit for bit. A reported number that disagrees with the number the
+    cycle was judged on is worse than no telemetry."""
+    seen: list[GummelIteration] = []
+
+    result = gummel_solve(
+        (0.0, 0.0),
+        gauss_seidel_steps(4.0, 4.0, 1.0),
+        on_iteration=seen.append,
+    )
+
+    assert [frame.update for frame in seen] == result.update_history
+
+
+def test_a_frame_arrives_before_the_next_cycle_starts() -> None:
+    """A stream that only flushes at the end is a progress bar that fills in
+    one jump. The interleaving is what separates the two."""
+    order: list[str] = []
+
+    def counted(state: State) -> tuple[State, float]:
+        order.append("cycle")
+        x, y = state
+        return (x + 1.0, y), 1.0
+
+    gummel_solve(
+        (0.0, 0.0),
+        [counted],
+        max_iterations=3,
+        on_iteration=lambda frame: order.append("frame"),
+    )
+
+    assert order == ["cycle", "frame", "cycle", "frame", "cycle", "frame"]
+
+
+def test_a_diverged_cycle_is_reported_before_the_solve_gives_up() -> None:
+    """phases/PHASE-7.md wants a failure shown rather than a stream going
+    quiet, and a non-finite update is the failure this loop detects."""
+    seen: list[GummelIteration] = []
+
+    def diverging(state: State) -> tuple[State, float]:
+        return state, float("inf")
+
+    result = gummel_solve((0.0, 0.0), [diverging], on_iteration=seen.append)
+
+    assert not result.converged
+    assert seen[-1].update == float("inf")
+
+
+def test_watching_a_cycle_does_not_change_it() -> None:
+    """The same inertness argument the Newton callback makes."""
+    seen: list[GummelIteration] = []
+
+    quiet = gummel_solve((0.0, 0.0), gauss_seidel_steps(4.0, 4.0, 1.0))
+    watched = gummel_solve(
+        (0.0, 0.0), gauss_seidel_steps(4.0, 4.0, 1.0), on_iteration=seen.append
+    )
+
+    assert quiet.state == watched.state
+    assert quiet.update_history == watched.update_history
+    assert quiet.iterations == watched.iterations
+    assert quiet.converged == watched.converged
+    assert quiet.message == watched.message
+
+
+def test_an_exception_from_the_callback_stops_the_cycle() -> None:
+    """Cancellation, the same way the other two solvers do it."""
+
+    def refuse(frame: GummelIteration) -> None:
+        if frame.iteration == 2:
+            raise KeyboardInterrupt("cancelled")
+
+    with pytest.raises(KeyboardInterrupt):
+        gummel_solve(
+            (0.0, 0.0), gauss_seidel_steps(4.0, 4.0, 1.0), on_iteration=refuse
+        )

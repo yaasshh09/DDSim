@@ -47,6 +47,24 @@ BlockStep = Callable[[StateT], tuple[StateT, float]]
 
 
 @dataclass(frozen=True)
+class GummelIteration:
+    """One completed cycle, reported while the solve is running.
+
+    Scalars only, for the same reason NewtonIteration carries scalars only: a
+    callback that cannot reach the state cannot change what the solve does, so
+    inertness is structural rather than a promise. The state at the end of a
+    cycle is on the result, where a caller reads it after the fact.
+    """
+
+    iteration: int
+    """1 for the first completed cycle."""
+
+    update: float
+    """The largest block update in this cycle, the entry appended to
+    update_history. Not finite when the iteration has diverged."""
+
+
+@dataclass(frozen=True)
 class GummelResult(Generic[StateT]):
     """Outcome of a Gummel solve, with the history needed to judge it."""
 
@@ -81,6 +99,7 @@ def gummel_solve(
     steps: Sequence[BlockStep[StateT]],
     update_tol: float = 1e-8,
     max_iterations: int = 200,
+    on_iteration: Callable[[GummelIteration], None] | None = None,
 ) -> GummelResult[StateT]:
     """Cycle the blocks until the largest update in a cycle is small.
 
@@ -89,6 +108,11 @@ def gummel_solve(
         steps: the blocks, run in this order, once per cycle.
         update_tol: convergence threshold on the largest update in a cycle.
         max_iterations: give up after this many cycles.
+        on_iteration: called with a GummelIteration at the end of every
+            cycle, the diverged one included. None, the default, calls nothing
+            and leaves the cycle bit for bit what it is without it. An
+            exception raised in the callback is not caught, matching
+            newton_solve: that is the cancel path.
 
     Returns a GummelResult rather than raising when it fails to converge. A
     failed solve is information the caller wants to inspect, and at high
@@ -116,6 +140,8 @@ def gummel_solve(
             cycle_update = max(cycle_update, update)
 
         update_history.append(cycle_update)
+        if on_iteration is not None:
+            on_iteration(GummelIteration(iteration=iteration, update=cycle_update))
 
         if not isfinite(cycle_update):
             message = (

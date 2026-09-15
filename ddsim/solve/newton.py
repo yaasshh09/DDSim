@@ -85,6 +85,47 @@ class Assembly(Protocol):
 
 
 @dataclass(frozen=True)
+class NewtonIteration:
+    """One evaluation of the residual, reported while the solve is running.
+
+    The same numbers NewtonResult carries afterwards, handed over as they are
+    produced so that a caller can watch rather than wait. Nothing here is a
+    vector: a frame carries scalars only, so a callback cannot reach into the
+    iterate or the residual and change what the solve is doing. That is the
+    whole inertness argument, and it is structural rather than a promise.
+
+    Which scalars are available is set by what this module knows, which is
+    nothing about semiconductors. The split of a residual into equation
+    families lives in the residual_norm the caller supplied, so a caller that
+    wants per family telemetry measures it there and sends it itself.
+    """
+
+    iteration: int
+    """0 for the residual at x0, then 1 for each step taken."""
+
+    residual: float
+    """The residual size, measured by the solve's own residual_norm. The entry
+    appended to residual_history at this iteration."""
+
+    update: float | None
+    """max |dx| for this step, by the solve's own update_norm, or None on
+    iteration 0 where no step has been taken. The entry appended to
+    update_history."""
+
+    damping: float | None
+    """The strongest factor the damping rule applied to any component Newton
+    asked to move, so 1.0 for a full step and smaller for a damped one. None on
+    iteration 0. A caller supplied limiter has no single factor of its own,
+    being free to damp one unknown and not another, so this is measured from
+    what it produced rather than read off the rule. Per component rather than
+    from max |dx|, which on a coupled solve is set by the density update and
+    would read 1.0 however hard the potential was capped."""
+
+    limited: bool
+    """Whether the damping rule changed this step at all."""
+
+
+@dataclass(frozen=True)
 class NewtonResult:
     """Outcome of a Newton solve, including the history needed to judge it."""
 
@@ -139,6 +180,7 @@ def newton_solve(
     max_iterations: int = 50,
     stagnation_window: int | None = 4,
     solver: SparseLU | None = None,
+    on_iteration: Callable[[NewtonIteration], None] | None = None,
 ) -> NewtonResult:
     """Solve F(x) = 0 by damped Newton.
 
@@ -210,6 +252,14 @@ def newton_solve(
             identical every time, and SparseLU keeps the part of the COO to
             CSC conversion that depends only on the pattern. It never reuses
             numbers, so a stale factorization cannot leak into a later solve.
+        on_iteration: called with a NewtonIteration each time the residual is
+            evaluated, including at x0 and including the infinite one a
+            diverged iterate produces. None, the default, calls nothing and
+            leaves the solve bit for bit what it is without it. The frame
+            carries scalars only, so a callback can watch the solve and cannot
+            change it. An exception raised in the callback is not caught, and
+            that is deliberate: it is how a caller cancels a solve in
+            progress, and swallowing it would make a cancel button do nothing.
 
     Returns a NewtonResult rather than raising, including when the Jacobian is
     singular. A failed solve is information the caller usually wants to inspect
@@ -235,9 +285,28 @@ def newton_solve(
             return float(np.max(np.abs(system.residual)))
         return float(residual_norm(system.residual, at))
 
+    def report(
+        iteration: int,
+        residual: float,
+        update: float | None,
+        damping: float | None,
+        limited: bool,
+    ) -> None:
+        if on_iteration is not None:
+            on_iteration(
+                NewtonIteration(
+                    iteration=iteration,
+                    residual=residual,
+                    update=update,
+                    damping=damping,
+                    limited=limited,
+                )
+            )
+
     system = assemble(x)
     residual_size = measure(system, x)
     residual_history.append(residual_size)
+    report(0, residual_size, None, None, False)
 
     # Fixed once, so that the threshold cannot drift as the iteration proceeds.
     reference = residual_size if residual_scale is None else abs(residual_scale)
@@ -264,14 +333,17 @@ def newton_solve(
             message = f"non-finite Newton update at iteration {iteration}"
             break
 
+        requested = delta
         raw_norm = float(np.max(np.abs(delta)))
         step_norm = raw_norm
+        was_limited = False
         if max_step is not None and step_norm > max_step:
             # Scale the whole vector by one factor. Clamping entry by entry
             # would rotate the direction and break quadratic convergence.
             delta = delta * (max_step / step_norm)
             step_norm = max_step
             limited_steps += 1
+            was_limited = True
         elif limit is not None:
             limited = np.asarray(limit(delta), dtype=np.float64)
             if limited.shape != delta.shape:
@@ -282,7 +354,23 @@ def newton_solve(
                 )
             if not np.array_equal(limited, delta):
                 limited_steps += 1
+                was_limited = True
             delta = limited
+
+        # The strongest factor the damping rule applied to any component
+        # Newton asked to move. Measured rather than read off the rule,
+        # because a caller supplied limiter is free to damp one unknown and
+        # not another and has no single factor to read. Measured per component
+        # rather than on max |dx|, because the coupled limiter caps psi and
+        # takes the density updates in full, the densities are six decades
+        # larger in scaled units, and so a ratio of the two maxima would read
+        # exactly 1.0 on every limited step of every MOSFET solve.
+        moving = requested != 0.0
+        damping = (
+            float(np.min(np.abs(delta[moving]) / np.abs(requested[moving])))
+            if np.any(moving)
+            else 1.0
+        )
 
         # Measured on the damped update, which is the one actually taken, and
         # against the iterate it is being added to rather than the one it
@@ -306,10 +394,12 @@ def newton_solve(
                 "signs before reaching for damping."
             )
             residual_history.append(float("inf"))
+            report(iteration, float("inf"), step_norm, damping, was_limited)
             break
 
         residual_size = measure(system, x)
         residual_history.append(residual_size)
+        report(iteration, residual_size, step_norm, damping, was_limited)
 
         if step_norm < update_tol and residual_size < residual_threshold:
             return NewtonResult(

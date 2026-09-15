@@ -11,14 +11,15 @@ residual norm have to pass, not just one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import FrozenInstanceError, dataclass
 
 import numpy as np
 import numpy.typing as npt
 import pytest
 
 from ddsim.solve.linear import SparseLU
-from ddsim.solve.newton import NewtonResult, newton_solve
+from ddsim.solve.newton import NewtonIteration, NewtonResult, newton_solve
 
 
 @dataclass(frozen=True)
@@ -741,3 +742,251 @@ def test_the_update_norm_is_measured_after_the_limiter() -> None:
     )
 
     assert result.update_history[0] == pytest.approx(5.0)
+
+
+# --------------------------------------------------- per iteration telemetry
+
+
+def linear_problem(target: float):
+    """F(x) = x - target, J = 1. One step from anywhere, of known size."""
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(x - np.array([target]), np.ones(1))
+
+    return assemble
+
+
+def collect() -> tuple[list[NewtonIteration], Callable[[NewtonIteration], None]]:
+    """A callback and the list it fills."""
+    frames: list[NewtonIteration] = []
+    return frames, frames.append
+
+
+def test_a_frame_arrives_for_every_residual_evaluation() -> None:
+    """The point of the hook is a live picture of residual_history, so it has
+    to carry the same number of entries the history ends up with."""
+    frames, watch = collect()
+
+    result = newton_solve(
+        square_root_problem(np.array([9.0])),
+        np.array([1.0]),
+        on_iteration=watch,
+    )
+
+    assert result.converged
+    assert len(frames) == len(result.residual_history)
+    assert [frame.iteration for frame in frames] == list(range(len(frames)))
+
+
+def test_the_frame_residual_is_the_one_in_the_history() -> None:
+    """Bit for bit, not close. A telemetry number that disagrees with the
+    number the solve was judged on is worse than no telemetry."""
+    frames, watch = collect()
+
+    result = newton_solve(
+        square_root_problem(np.array([9.0])),
+        np.array([1.0]),
+        on_iteration=watch,
+    )
+
+    assert [frame.residual for frame in frames] == result.residual_history
+
+
+def test_the_frame_update_is_the_one_in_the_history() -> None:
+    """Same argument as the residual, on the other history."""
+    frames, watch = collect()
+
+    result = newton_solve(
+        square_root_problem(np.array([9.0])),
+        np.array([1.0]),
+        on_iteration=watch,
+    )
+
+    assert [frame.update for frame in frames[1:]] == result.update_history
+
+
+def test_the_first_frame_has_no_update_because_no_step_has_been_taken() -> None:
+    """It reports the residual at x0. Calling that an update of zero would
+    put a point on the update plot that no step produced."""
+    frames, watch = collect()
+
+    newton_solve(linear_problem(8.0), np.zeros(1), on_iteration=watch)
+
+    assert frames[0].iteration == 0
+    assert frames[0].update is None
+    assert frames[0].damping is None
+    assert not frames[0].limited
+    assert frames[0].residual == pytest.approx(8.0)
+
+
+def test_a_limited_step_reports_the_factor_that_was_applied() -> None:
+    """Newton asks for 100, max_step allows 5, so the step taken is one
+    twentieth of the one requested."""
+    frames, watch = collect()
+
+    newton_solve(
+        linear_problem(100.0),
+        np.zeros(1),
+        max_step=5.0,
+        max_iterations=1,
+        on_iteration=watch,
+    )
+
+    assert frames[1].limited
+    assert frames[1].damping == pytest.approx(0.05)
+
+
+def test_an_unlimited_step_reports_a_damping_factor_of_one() -> None:
+    """Otherwise a healthy solve looks damped on the plot."""
+    frames, watch = collect()
+
+    newton_solve(
+        linear_problem(1.0),
+        np.zeros(1),
+        max_step=5.0,
+        max_iterations=1,
+        on_iteration=watch,
+    )
+
+    assert not frames[1].limited
+    assert frames[1].damping == pytest.approx(1.0)
+
+
+def test_a_caller_supplied_limiter_reports_the_ratio_it_applied() -> None:
+    """The coupled solve damps psi alone, so there is no single factor in the
+    limiter itself. The ratio of the step taken to the step asked for is the
+    honest scalar summary of what it did."""
+    frames, watch = collect()
+
+    newton_solve(
+        linear_problem(100.0),
+        np.zeros(1),
+        limit=lambda delta: delta * 0.25,
+        max_iterations=1,
+        on_iteration=watch,
+    )
+
+    assert frames[1].limited
+    assert frames[1].damping == pytest.approx(0.25)
+
+
+def test_a_diverged_iterate_emits_a_final_frame() -> None:
+    """Phase 7 wants a diverged solve to show the divergence rather than the
+    stream going quiet. The infinite residual is the last thing sent."""
+    frames, watch = collect()
+
+    with np.errstate(over="ignore"):
+        result = newton_solve(
+            exponential_problem(1.0),
+            np.array([-700.0]),
+            max_iterations=5,
+            on_iteration=watch,
+        )
+
+    assert not result.converged
+    assert frames[-1].residual == float("inf")
+    assert len(frames) == len(result.residual_history)
+
+
+def test_watching_a_solve_does_not_change_it() -> None:
+    """The inertness argument the edge list refactor used. A callback that
+    only reads cannot move a solved number, and this is what says so."""
+    frames, watch = collect()
+
+    quiet = newton_solve(
+        exponential_problem(1e6),
+        np.array([0.0]),
+        max_step=5.0,
+    )
+    watched = newton_solve(
+        exponential_problem(1e6),
+        np.array([0.0]),
+        max_step=5.0,
+        on_iteration=watch,
+    )
+
+    assert np.array_equal(quiet.x, watched.x)
+    assert quiet.residual_history == watched.residual_history
+    assert quiet.update_history == watched.update_history
+    assert quiet.iterations == watched.iterations
+    assert quiet.limited_steps == watched.limited_steps
+    assert quiet.converged == watched.converged
+    assert quiet.message == watched.message
+    assert len(frames) == len(quiet.residual_history)
+
+
+def test_an_exception_from_the_callback_stops_the_solve() -> None:
+    """This is how cancellation works. The callback is the only place the
+    solve looks up from the arithmetic, so raising there is what stops it,
+    and swallowing the exception would make a cancel button do nothing."""
+
+    def refuse(frame: NewtonIteration) -> None:
+        if frame.iteration == 2:
+            raise KeyboardInterrupt("cancelled")
+
+    with pytest.raises(KeyboardInterrupt):
+        newton_solve(
+            exponential_problem(1e6),
+            np.array([0.0]),
+            max_step=5.0,
+            on_iteration=refuse,
+        )
+
+
+def test_the_frame_is_frozen_so_a_client_cannot_edit_the_record() -> None:
+    """The API layer hands these to a serializer. A mutable frame invites a
+    client side edit that makes the transcript disagree with the solve."""
+    frames, watch = collect()
+
+    newton_solve(linear_problem(8.0), np.zeros(1), on_iteration=watch)
+
+    with pytest.raises(FrozenInstanceError):
+        frames[0].residual = 0.0  # type: ignore[misc]
+
+
+def test_damping_reports_a_rule_that_only_damps_part_of_the_vector() -> None:
+    """The coupled solve's limiter caps psi and takes the density updates in
+    full, and in scaled units the densities are six decades larger, so they
+    set max |dx| on every step. A factor measured as damped max over raw max
+    would read exactly 1.0 on every limited MOSFET step, which is the one
+    place the number is worth having. It reports the strongest factor applied
+    to any component instead."""
+    frames, watch = collect()
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(x - np.array([10.0, 1e6]), np.ones(2))
+
+    def cap_the_first(delta: np.ndarray) -> np.ndarray:
+        limited = delta.copy()
+        limited[0] = delta[0] * 0.1
+        return limited
+
+    newton_solve(
+        assemble,
+        np.zeros(2),
+        limit=cap_the_first,
+        max_iterations=1,
+        on_iteration=watch,
+    )
+
+    assert frames[1].limited
+    assert frames[1].damping == pytest.approx(0.1)
+
+
+def test_damping_ignores_components_newton_did_not_ask_to_move() -> None:
+    """A zero entry in the raw update has no factor to report, and dividing
+    by it would make the whole frame nan."""
+    frames, watch = collect()
+
+    def assemble(x: np.ndarray) -> System:
+        return diagonal_system(x - np.array([0.0, 100.0]), np.ones(2))
+
+    newton_solve(
+        assemble,
+        np.zeros(2),
+        max_step=5.0,
+        max_iterations=1,
+        on_iteration=watch,
+    )
+
+    assert frames[1].damping == pytest.approx(0.05)
