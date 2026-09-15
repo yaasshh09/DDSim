@@ -19,6 +19,7 @@ Units follow the project convention: lengths in cm, concentrations in cm^-3.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 # ------------------------------------------------------------------ constants
@@ -92,6 +93,113 @@ intrinsic level in both codes, so psi_gate = V_gate + (PHI_M_MIDGAP - Phi_M).
 
 V_T = K_B * T / Q
 """Thermal voltage [V]. 0.02585199 V at 300 K."""
+
+
+# ------------------------------------------------- the Phase 5 model stack
+# Mirrors of ddsim.physics.mobility and ddsim.physics.statistics, pinned by
+# test_full_stack_parameters_mirror_ddsim. Only benchmark 10 runs these; the
+# benchmarks 6 to 9 set is the reduced one above.
+
+ARORA_N: tuple[float, float, float, float] = (88.0, 1252.0, 1.432e17, 0.88)
+"""Arora mobility for electrons at 300 K: mu_min, mu_d, N_ref, exponent.
+
+    mu = mu_min + mu_d / (1 + (N / N_ref)^A)
+
+[cm^2/(V s)], [cm^2/(V s)], [cm^-3], [1]. The temperature exponents each
+parameter carries in ddsim are not mirrored, because every benchmark here is
+at 300 K and a factor that is exactly one is a factor a reader has to check.
+"""
+
+ARORA_P: tuple[float, float, float, float] = (54.3, 407.0, 2.67e17, 0.88)
+"""Arora mobility for holes at 300 K, same four in the same order."""
+
+LOMBARDI_N: dict[str, float] = {
+    "B": 3.61e7,
+    "C": 1.70e4,
+    "tau": 0.0233,
+    "delta": 3.58e18,
+    "A": 2.58,
+    "alpha": 6.85e-21,
+    "eta": 0.0767,
+    "kappa": 1.7,
+}
+"""Enhanced Lombardi surface mobility for electrons, DEVSIM's own values.
+
+    1/mu = 1/mu_bulk + 1/mu_ac + 1/mu_sr
+    mu_ac = B/E_perp + C N^tau E_perp^(-1/3) / (T/300)^kappa
+    mu_sr = delta E_perp^(-gamma),  gamma = A + alpha (n + p) N^(-eta)
+
+These are not mirrored out of ddsim in the direction the other constants are.
+Both codes take them from the same third place, `Klaassen.py` in devsim's own
+python_packages, which is where ddsim's `LombardiSurface.electrons` says it got
+them. The mirror test still runs, because the two copies agreeing is what makes
+the comparison a comparison.
+"""
+
+LOMBARDI_P: dict[str, float] = {
+    "B": 1.51e7,
+    "C": 4.18e3,
+    "tau": 0.0119,
+    "delta": 4.10e15,
+    "A": 2.18,
+    "alpha": 7.82e-21,
+    "eta": 0.123,
+    "kappa": 0.9,
+}
+"""The same for holes. delta is three decades below the electron value and
+that is not a transcription slip, it is in the reference."""
+
+E_PERP_FLOOR = 1.0e2
+"""Smallest normal field the surface model is evaluated at [V/cm].
+
+devsim's Klaassen.py writes this as `max(Enormal, 1e2)` inside both surface
+terms and ddsim carries the same floor for the same reason: both terms divide
+by E_perp, so an unfloored zero is an infinity in mu_ac and a nan as soon as it
+meets the reciprocal sum.
+"""
+
+V_SAT_N = 1.07e7
+"""Electron saturation velocity [cm/s]."""
+
+V_SAT_P = 8.3e6
+"""Hole saturation velocity [cm/s]."""
+
+BETA_N = 2.0
+"""Caughey-Thomas exponent for electrons [1]."""
+
+BETA_P = 1.0
+"""Caughey-Thomas exponent for holes [1]. Not a typo for the electron value."""
+
+NC_300 = 2.86e19
+"""Conduction band effective density of states at 300 K [cm^-3]."""
+
+NV_300 = 3.10e19
+"""Valence band effective density of states at 300 K [cm^-3]."""
+
+JOYCE_DIXON = (
+    1.0 / math.sqrt(8.0),
+    3.0 / 16.0 - math.sqrt(3.0) / 9.0,
+    1.48386e-4,
+    -4.42563e-6,
+)
+"""A1 to A4 of the Joyce-Dixon series, Joyce and Dixon 1977 [1].
+
+    eta = ln(u) + A1 u + A2 u^2 + A3 u^3 + A4 u^4,  u = n/Nc
+
+Everything past the logarithm is the degeneracy correction, and it is the whole
+of what Fermi-Dirac changes about a Scharfetter-Gummel flux: the carrier is
+still exponential in an effective potential psi - V_t * correction, so the
+exponential fit stays exact and the discretisation does not move.
+"""
+
+JOYCE_DIXON_MAX_U = 8.0
+"""Largest n/Nc the series is evaluated at [1].
+
+The series is a fit and it turns over eventually. Held constant above the cap
+in both codes, which keeps the density monotone in the potential. At 1e20 in
+the source and drain, u is 3.5 for electrons, so nothing on these devices
+reaches it.
+"""
 
 
 # --------------------------------------------------------------------- devices
@@ -598,6 +706,19 @@ junction depth, which is what `test_ddsim_resolves_the_implant` holds it to.
 H_DEPTH = implant_shape(MOSFET_PROCESS)[0] * H_DEPTH_SIGMAS
 """Row spacing at the implant depth line [cm]. See `H_DEPTH_SIGMAS`."""
 
+REDUCED_MODELS = "reduced"
+"""Boltzmann statistics and constant mobility. Benchmarks 6 to 9."""
+
+FULL_MODELS = "full"
+"""Fermi-Dirac by Joyce-Dixon, Arora inside Lombardi inside Caughey-Thomas.
+
+The model set the README roll-off figure runs and the one phases/PHASE-5.md
+names as not optional. Benchmark 10 is the only benchmark on it, and it exists
+because nothing else in tier 4 puts either mobility model in front of an
+outside code.
+"""
+
+
 @dataclass(frozen=True)
 class MosfetBenchmark:
     """One NMOS from the tier 4 benchmark set of docs/04-validation.md."""
@@ -676,6 +797,15 @@ class MosfetBenchmark:
     devsim_h_surface without following it here reopens the seam, which reads as
     a converging refinement and is partly a widening discontinuity. See
     docs/05-pitfalls.md.
+    """
+
+    models: str = REDUCED_MODELS
+    """Which model set this benchmark was solved with.
+
+    `REDUCED_MODELS` for benchmarks 6 to 9, which match both codes at Boltzmann
+    statistics and constant mobility so that what they compare is the 2D
+    transport and the electrostatics. `FULL_MODELS` for benchmark 10, the one
+    that puts the Phase 5 stack in front of an outside code.
     """
 
     notes: str = ""
@@ -824,6 +954,65 @@ benchmark 6 already ships. Its subthreshold steps are 0.1 V against these
 inside a 10 percent target.
 """
 
+def _full_stack(name: str, L_gate: float) -> MosfetBenchmark:
+    """One gate length of benchmark 10, the full model stack trend.
+
+    Args:
+        name: golden file stem.
+        L_gate: drawn gate length [cm].
+
+    The same five devices as benchmark 9 and the same gate range, solved with
+    Fermi-Dirac statistics and Arora inside Lombardi inside Caughey-Thomas on
+    both sides instead of Boltzmann and a constant mobility. Benchmark 9 says
+    the two codes agree about the electrostatics and the 2D transport; this one
+    is the only place either mobility model or the statistics meets an outside
+    implementation at all.
+
+    The spacings are benchmark 9's rule, 80 columns across the gate at the
+    junctions and 40 through the channel, held no coarser than the pair the
+    1 um device was measured on. At 1 um the rule alone would give 1.25e-6 and
+    2.5e-6, both coarser than the 5e-7 and 2e-6 benchmark 6 converged at, and
+    a reference mesh that gets coarser as the device gets longer is not a
+    trend, it is two experiments.
+    """
+    return MosfetBenchmark(
+        name=name,
+        number=10,
+        L_gate=L_gate,
+        gate_voltages=_gate_range(-0.4, 0.6, 0.05),
+        drain_low=0.05,
+        drain_high=1.0,
+        tolerance=0.10,
+        devsim_h_junction=min(L_gate / 80.0, 5e-7),
+        devsim_h_channel=min(L_gate / 40.0, 2e-6),
+        models=FULL_MODELS,
+        notes=(
+            f"Gate length {L_gate * 1e7:g} nm at the full Phase 5 model stack, "
+            "one point of the benchmark 10 trend. The same device as its "
+            "benchmark 9 sibling and a different set of models, which is what "
+            "makes the pair worth having: a disagreement that is in both is "
+            "the geometry, and one that is only here is a mobility model or "
+            "the statistics."
+        ),
+    )
+
+
+FULL_STACK_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
+    _full_stack("fullstack_1um", 1e-4),
+    _full_stack("fullstack_200nm", 2e-5),
+    _full_stack("fullstack_100nm", 1e-5),
+    _full_stack("fullstack_70nm", 7e-6),
+    _full_stack("fullstack_50nm", 5e-6),
+)
+"""Benchmark 10, the gate length trend at the Phase 5 model stack."""
+
+
+FULL_STACK_TREND: tuple[str, ...] = tuple(
+    b.name for b in FULL_STACK_BENCHMARKS
+)
+"""Benchmark 10's five gate lengths, longest first, by golden file stem."""
+
+
 ROLLOFF_TREND: tuple[str, ...] = ("nmos_1um",) + tuple(
     b.name for b in ROLLOFF_BENCHMARKS
 )
@@ -831,7 +1020,8 @@ ROLLOFF_TREND: tuple[str, ...] = ("nmos_1um",) + tuple(
 
 
 MOSFET_BY_NAME: dict[str, MosfetBenchmark] = {
-    b.name: b for b in MOSFET_BENCHMARKS + ROLLOFF_BENCHMARKS
+    b.name: b
+    for b in MOSFET_BENCHMARKS + ROLLOFF_BENCHMARKS + FULL_STACK_BENCHMARKS
 }
 
 MOSFET_MODEL_SUMMARY: tuple[str, ...] = (
@@ -852,14 +1042,46 @@ MOSFET_MODEL_SUMMARY: tuple[str, ...] = (
     f"eps_r(Si) = {EPS_R_SI}, eps_r(ox) = {EPS_R_OX}, n_i = {N_I:.6e} cm^-3, "
     f"T = {T} K, chi = {CHI_SI} eV, Eg = {EG:.6f} eV",
 )
-"""The model choices for the MOSFET benchmarks, verbatim into every header.
+"""The model choices for benchmarks 6 to 9, verbatim into every header.
 
 Constant mobility rather than the Phase 5 stack, and Boltzmann rather than
 Fermi-Dirac. Both codes are run that way, so the comparison is still a
 comparison, but what it measures is the 2D transport, the geometry and the
 electrostatics and not the mobility models. See the dated row in
-docs/07-decisions.md.
+docs/07-decisions.md, and see benchmark 10 for the set that does measure them.
 """
+
+
+_FULL_STACK_REPLACED = ("statistics:", "transport:", "mobility:", "source/drain:")
+"""The reduced set's lines that benchmark 10 replaces rather than keeps."""
+
+FULL_STACK_MODEL_SUMMARY: tuple[str, ...] = (
+    "statistics:      Fermi-Dirac by the Joyce-Dixon series, "
+    f"Nc = {NC_300:.3e} and Nv = {NV_300:.3e} cm^-3, series capped at "
+    f"n/Nc = {JOYCE_DIXON_MAX_U:g}",
+    "transport:       Scharfetter-Gummel in the effective potential "
+    "psi - V_t ln(gamma), Einstein relation D = V_t * mu",
+    "mobility:        Arora on the doping, corrected by enhanced Lombardi "
+    "surface scattering at the node, wrapped in Caughey-Thomas on the edge "
+    f"parallel field with v_sat = {V_SAT_N:.3e} and {V_SAT_P:.3e} cm/s and "
+    f"beta = {BETA_N:g} and {BETA_P:g}",
+    "surface term:    frozen within a solve and taken to a fixed point "
+    "across solves, in both codes",
+    "source/drain:    ideal ohmic plates on the silicon surface, psi and both "
+    "densities from neutrality against the degenerate mass action product",
+) + tuple(
+    line
+    for line in MOSFET_MODEL_SUMMARY
+    if not line.startswith(_FULL_STACK_REPLACED)
+)
+"""Benchmark 10's header, the reduced one with the model lines replaced."""
+
+
+def mosfet_model_summary(models: str) -> tuple[str, ...]:
+    """The header lines describing one model set."""
+    if models == FULL_MODELS:
+        return FULL_STACK_MODEL_SUMMARY
+    return MOSFET_MODEL_SUMMARY
 
 
 @dataclass
@@ -892,6 +1114,55 @@ class MosfetGoldenCurve:
         source = (self.source_high if high else self.source_low)[index]
         scale = max(abs(drain), abs(source))
         return 0.0 if scale == 0.0 else abs(drain + source) / scale
+
+
+def first_resolved_point(current: Sequence[float], target: float) -> int:
+    """Where a transfer curve stops being the terminal floor [index].
+
+    A constant current threshold needs a curve that rises with the gate bias,
+    and neither code gives one all the way down. Both have a terminal current
+    floor in deep subthreshold, because the terminal current is a difference of
+    much larger Scharfetter-Gummel fluxes and eventually the difference is
+    smaller than the roundoff of the fluxes. ddsim's floor is near 2e-9 A/cm
+    and lands negative, which is what the leading non positive rule caught.
+    DEVSIM's floor at the full model stack is three decades lower and does not
+    land negative: on the 100 nm device at 50 mV it reads +3.52e-11 at -0.4 V
+    and +9.56e-12 at -0.35, falling where a real subthreshold current rises by
+    a factor of about 4.5 per 50 mV step, with drain and source both positive
+    and cancelling to an imbalance of 1.01 rather than to zero.
+
+    So the rule is the sign of the slope rather than the sign of the current,
+    which is the property that actually distinguishes the two: the longest
+    strictly rising, strictly positive tail is kept and the leading run is
+    dropped. What keeps that from swallowing a genuine solver failure is the
+    caller's bound, not this function: every dropped point has to sit a
+    ten thousandth of the extraction target below it, so a break anywhere the
+    threshold could be read from fails loudly instead of being trimmed away.
+
+    Args:
+        current: drain current against gate bias, in sweep order [A/cm].
+        target: the constant current the threshold is read at [A/cm].
+
+    Returns:
+        The first index of the rising tail. Callers slice both the bias and the
+        current from it.
+    """
+    J = [float(value) for value in current]
+    start = 0
+    for index in range(len(J) - 1, 0, -1):
+        if J[index] <= J[index - 1] or J[index - 1] <= 0.0:
+            start = index
+            break
+    if start:
+        worst = max(abs(value) for value in J[:start])
+        if worst >= 1e-4 * target:
+            raise AssertionError(
+                f"a dropped point reaches {worst:.3e} A/cm against a target "
+                f"of {target:.3e}, which is too close to the current being "
+                "extracted at to be the terminal floor. Trimming it would be "
+                "hiding a solver problem rather than ignoring roundoff."
+            )
+    return start
 
 
 def read_mosfet_golden(path: str) -> MosfetGoldenCurve:

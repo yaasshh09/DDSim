@@ -61,10 +61,13 @@ from devsim import (  # noqa: E402
     add_2d_interface,
     add_2d_mesh_line,
     add_2d_region,
+    contact_equation,
     create_2d_mesh,
     create_device,
     delete_device,
     delete_mesh,
+    edge_average_model,
+    edge_from_node_model,
     finalize_mesh,
     get_contact_current,
     get_contact_list,
@@ -72,12 +75,18 @@ from devsim import (  # noqa: E402
     get_node_model_values,
     get_parameter,
     node_model,
+    node_solution,
     set_node_values,
     set_parameter,
     solve,
+    vector_gradient,
 )
 from devsim.python_packages.model_create import (  # noqa: E402
+    CreateContactNodeModel,
+    CreateEdgeModel,
+    CreateEdgeModelDerivatives,
     CreateNodeModel,
+    CreateNodeModelDerivative,
     CreateSolution,
 )
 from devsim.python_packages.simple_physics import (  # noqa: E402
@@ -88,6 +97,10 @@ from devsim.python_packages.simple_physics import (  # noqa: E402
     CreateSiliconOxideInterface,
     CreateSiliconPotentialOnly,
     CreateSiliconPotentialOnlyContact,
+    GetContactBiasName,
+    GetContactNodeModelName,
+    celec_model,
+    chole_model,
     ece_name,
     hce_name,
 )
@@ -163,6 +176,19 @@ def quiet():
     """
     with contextlib.redirect_stdout(io.StringIO()):
         yield
+
+
+def note(message: str) -> None:
+    """Write one diagnostic line that `quiet` cannot swallow.
+
+    The recorded bias point is settled inside `quiet`, which redirects stdout
+    so devsim's per iteration report does not drown the progress log. Anything
+    `settle` wants to say about how it got there goes to stderr instead, or it
+    is written only on the passes nobody is watching and not on the one state
+    that gets written down. Both streams land in the same log when the
+    generator is run with its output redirected, which is how it is run.
+    """
+    print(f"    {message}", file=sys.stderr, flush=True)
 
 
 # ------------------------------------------------------------------- the mesh
@@ -444,6 +470,432 @@ def set_lifetimes(device: str) -> None:
         )
 
 
+# --------------------------------------------------- the Phase 5 model stack
+
+
+def joyce_dixon(u: str) -> str:
+    """The Joyce-Dixon degeneracy correction, as a devsim expression in u.
+
+        eta = ln(u) + A1 u + A2 u^2 + A3 u^3 + A4 u^4
+
+    and this is everything after the logarithm, which is the whole of what
+    Fermi-Dirac changes about a Scharfetter-Gummel flux. The argument is capped
+    where the series turns over, at the same place ddsim caps it. Above the cap
+    the correction is held constant and its derivative is zero, which is what
+    `min` gives and what keeps the density monotone in the potential.
+    """
+    a1, a2, a3, a4 = P.JOYCE_DIXON
+    v = f"(min({u}, {P.JOYCE_DIXON_MAX_U:.16e}))"
+    return (
+        f"({a1:.16e}*{v} + {a2:.16e}*pow({v},2) + "
+        f"{a3:.16e}*pow({v},3) + {a4:.16e}*pow({v},4))"
+    )
+
+
+def set_full_stack_parameters(device: str) -> None:
+    """Every Phase 5 model parameter, into devsim as a named parameter.
+
+    Named rather than written into the expressions, so the model text below
+    reads like the model it is and so `get_parameter` can be asked afterwards
+    what a run actually used.
+    """
+    values: dict[str, float] = {
+        "Nc": P.NC_300,
+        "Nv": P.NV_300,
+        "v_sat_n": P.V_SAT_N,
+        "v_sat_p": P.V_SAT_P,
+        "beta_n": P.BETA_N,
+        "beta_p": P.BETA_P,
+        "E_perp_floor": P.E_PERP_FLOOR,
+    }
+    for index, name in enumerate(("mu_min", "mu_d", "N_ref", "arora_A")):
+        values[f"{name}_n"] = P.ARORA_N[index]
+        values[f"{name}_p"] = P.ARORA_P[index]
+    for key, value in P.LOMBARDI_N.items():
+        values[f"lom_{key}_n"] = value
+    for key, value in P.LOMBARDI_P.items():
+        values[f"lom_{key}_p"] = value
+    for name, value in values.items():
+        set_parameter(device=device, region=BULK, name=name, value=value)
+
+
+def create_bulk_mobility(device: str) -> None:
+    """Arora doping dependent mobility, one value per node.
+
+        mu = mu_min + mu_d / (1 + (N / N_ref)^A)
+
+    A function of the doping alone, so it is built once and never refreshed.
+    ddsim evaluates it on the same absolute net doping, which is the same
+    approximation on both sides: only the net doping exists on either device
+    and Arora wants the total. See the module docstring of
+    ddsim/physics/mobility.py.
+    """
+    for carrier in ("n", "p"):
+        CreateNodeModel(
+            device,
+            BULK,
+            f"mu_arora_{carrier}",
+            f"mu_min_{carrier} + mu_d_{carrier}/(1 + "
+            f"pow(abs(NetDoping)/N_ref_{carrier}, arora_A_{carrier}))",
+        )
+
+
+def create_surface_mobility(device: str) -> None:
+    """Lombardi surface scattering, frozen at the state of the last pass.
+
+        1/mu = 1/mu_bulk + 1/mu_ac + 1/mu_sr
+        mu_ac = B/E_perp + C N^tau E_perp^(-1/3) / (T/300)^kappa
+        mu_sr = delta E_perp^(-gamma),  gamma = A + alpha (n + p) N^(-eta)
+
+    Written as node models, which is where ddsim evaluates it too, and not as
+    the element models devsim's own Klaassen.py uses. The reason is the one
+    ddsim gives: the field normal to the interface on a horizontal channel edge
+    lives on the vertical edges above and below its endpoints and not on the
+    edge itself, so a node is the only place it has one value.
+
+    **The correction is frozen and an outer fixed point is what makes it
+    exact.** `E_perp` and the two mobilities are `node_solution` arrays, which
+    hold values and carry no derivatives, so within one devsim solve the
+    mobility is a constant and the Jacobian devsim differentiates is the
+    Jacobian of the residual it assembled. `refresh_surface_mobility`
+    re-evaluates them from the state that solve reached, and `settle` keeps
+    calling both until the potential stops moving, which it cannot do until the
+    mobility has stopped moving too. At that fixed point the frozen correction
+    is the one the answer implies. Exactly what ddsim's `SurfaceScattering`
+    does, and given up for the same reason: the rate, not the answer.
+
+    The reciprocal sum is written in the product form devsim's Klaassen.py
+    uses rather than as three reciprocals added. The two agree wherever both
+    are finite, and where the roughness term underflows to zero the product
+    form returns zero, which is the limit, while the reciprocal form returns a
+    nan.
+    """
+    # Created empty and filled by the refresh at the end of this function,
+    # which is the only thing that ever writes it.
+    node_solution(device=device, region=BULK, name="E_perp")
+    CreateNodeModel(device, BULK, "E_perp_used", "max(E_perp, E_perp_floor)")
+    # The doping the surface terms read, floored at n_i. The roughness exponent
+    # carries N^(-eta), so a node sitting exactly on the metallurgical junction
+    # would raise zero to a negative power and return an infinity. Same floor
+    # and same reason as ddsim's total_doping.
+    CreateNodeModel(
+        device, BULK, "N_surface", f"max(abs(NetDoping), {P.N_I:.16e})"
+    )
+
+    for carrier in ("n", "p"):
+        acoustic = (
+            f"lom_B_{carrier}/E_perp_used + "
+            f"lom_C_{carrier}*pow(N_surface, lom_tau_{carrier})*"
+            f"pow(E_perp_used, -1.0/3.0)/pow(T/300, lom_kappa_{carrier})"
+        )
+        gamma = (
+            f"lom_A_{carrier} + lom_alpha_{carrier}*(Electrons + Holes)*"
+            f"pow(N_surface, -lom_eta_{carrier})"
+        )
+        roughness = f"lom_delta_{carrier}*pow(E_perp_used, -({gamma}))"
+        bulk = f"mu_arora_{carrier}"
+        CreateNodeModel(device, BULK, f"mu_ac_{carrier}", acoustic)
+        CreateNodeModel(device, BULK, f"mu_sr_{carrier}", roughness)
+        CreateNodeModel(
+            device,
+            BULK,
+            f"mu_low_{carrier}_model",
+            f"{bulk}*mu_ac_{carrier}*mu_sr_{carrier} / "
+            f"({bulk}*mu_ac_{carrier} + {bulk}*mu_sr_{carrier} + "
+            f"mu_ac_{carrier}*mu_sr_{carrier})",
+        )
+        node_solution(device=device, region=BULK, name=f"mu_low_{carrier}")
+
+    refresh_surface_mobility(device)
+
+
+SURFACE_RTOL = 1e-8
+"""How still the frozen surface mobility has to be to count as arrived [1].
+
+ddsim's `_surface_fixed_point` uses the same number for the same quantity, and
+the number is not the interesting part. What matters is that there is one at
+all: refreshing on every pass forever is not a fixed point, it is two
+quantities chasing each other, and the potential can then never stop moving
+because the mobility under it never stops moving either. Measured before this
+existed: the 1 um device at 1 V of drain walked its gate to +0.50 V and then
+refused +0.55 V at every step size down to 0.1 mV, which is the signature of a
+failure the step size does not control.
+"""
+
+SURFACE_SWEEPS = 20
+"""Refreshes one `settle` is allowed before it holds the mobility still.
+
+ddsim's budget, and spent the same way: past it the correction is held at what
+it last was and the potential is solved against that, rather than the solve
+being failed. A mobility still moving after twenty refreshes is a diagnostic
+and not a reason to throw away a converged potential.
+"""
+
+
+def refresh_surface_mobility(device: str) -> float:
+    """Re-evaluate the frozen surface mobility at the state now on the device.
+
+    `vector_gradient` is devsim's nodal gradient, and its own documentation
+    says not to use what it produces in a simulation because devsim cannot
+    differentiate it. That is exactly the use here: the quantity is frozen on
+    purpose and never enters a Jacobian. ddsim reaches the same number by
+    averaging the two vertical edges either side of a node, which is a
+    different nodal gradient of the same field, and the two meshes were never
+    matched to begin with.
+
+    The magnitude is taken after the gradient and not before, for the reason
+    ddsim's `normal_field` gives: where the vertical field reverses across a
+    node the field there really is near zero, and a magnitude taken first would
+    report the average of the two large ones instead.
+
+    Returns:
+        The largest relative change in either mobility [1], which is what the
+        fixed point is watching. See `SURFACE_RTOL`.
+    """
+    vector_gradient(
+        device=device, region=BULK, node_model="Potential", calc_type="default"
+    )
+    gradient = get_node_model_values(
+        device=device, region=BULK, name="Potential_grady"
+    )
+    set_node_values(
+        device=device,
+        region=BULK,
+        name="E_perp",
+        values=[abs(value) for value in gradient],
+    )
+    moved = 0.0
+    for carrier in ("n", "p"):
+        name = f"mu_low_{carrier}"
+        before = get_node_model_values(device=device, region=BULK, name=name)
+        set_node_values(
+            device=device, region=BULK, name=name, init_from=f"{name}_model"
+        )
+        after = get_node_model_values(device=device, region=BULK, name=name)
+        for old_value, new_value in zip(before, after, strict=True):
+            if new_value != 0.0:
+                moved = max(moved, abs(new_value - old_value) / abs(new_value))
+    return moved
+
+
+def create_edge_mobility(device: str) -> None:
+    """Onto the edges, then Caughey-Thomas around what arrives.
+
+        mu(E) = mu_0 / (1 + (mu_0 |E| / v_sat)^beta)^(1/beta)
+
+    The wrapping order is ddsim's and it is the only one that makes sense: the
+    low field mobility is nodal, so it is corrected for the surface and
+    averaged onto the edge first, and the saturation factor is applied
+    afterwards with that edge's own parallel drop, because the parallel field
+    is an edge quantity with no value at a node.
+
+    **E is the component along the edge, not the magnitude of the field
+    vector.** devsim's `ElectricField` is the potential drop over the edge
+    length, which is that component, and phases/PHASE-5.md is specific that
+    using the magnitude is the common shortcut and is wrong on a graded mesh.
+
+    The average onto the edge is arithmetic, matching ddsim. devsim's own
+    helpers reach for a geometric mean, which is a different edge mobility on
+    any edge whose two ends disagree, and across an inversion layer they
+    disagree by decades.
+
+    This is the one part of the stack that is not frozen. It is a function of
+    the potential and devsim differentiates it symbolically, so velocity
+    saturation sits inside the Newton step on both sides.
+    """
+    for carrier in ("n", "p"):
+        edge_average_model(
+            device=device,
+            region=BULK,
+            node_model=f"mu_low_{carrier}",
+            edge_model=f"mu_lf_{carrier}",
+            average_type="arithmetic",
+        )
+        # The ratio squared rather than the ratio, so that the only square
+        # root in the expression is the one beta actually asks for. Written
+        # with an absolute value instead, devsim differentiates pow(E^2, 0.5)
+        # to E/pow(E^2, 0.5) and hands back a nan on every edge whose field is
+        # exactly zero, which in a neutral bulk is most of them. ddsim has the
+        # same kink and answers it the same way, by making the derivative at
+        # zero the symmetric one. 1e-300 is devsim's own guard, from the
+        # vector magnitudes in its mos_physics.py.
+        squared = (
+            f"pow(mu_lf_{carrier}*ElectricField/v_sat_{carrier}, 2) + 1e-300"
+        )
+        mobility = (
+            f"mu_lf_{carrier}*pow(1 + pow({squared}, 0.5*beta_{carrier}), "
+            f"-1.0/beta_{carrier})"
+        )
+        name = f"mu_ct_{carrier}"
+        CreateEdgeModel(device, BULK, name, mobility)
+        CreateEdgeModelDerivatives(device, BULK, name, mobility, "Potential")
+
+
+def create_degenerate_currents(device: str) -> None:
+    """Replace both Scharfetter-Gummel currents with their degenerate form.
+
+    Fermi-Dirac does not change the discretisation at all, which is the whole
+    reason Joyce-Dixon is worth having. Each carrier is still exponential in a
+    potential,
+
+        n = exp((psi_eff_n - phi_n)/V_t),  psi_eff_n = psi - V_t gamma_n(n/Nc)
+
+    so the exponential fit the Scharfetter-Gummel flux is built on stays exact
+    and the only edit is which potential the Bernoulli argument is a difference
+    of. The correction is below psi for electrons and above it for holes,
+    because filling a band means a given density needs a higher Fermi level
+    than Boltzmann says.
+
+    This one is not lagged. devsim differentiates the correction with respect
+    to Electrons and Holes symbolically, so the degeneracy is inside the Newton
+    step, which is what ddsim's coupled path does too.
+
+    The two currents keep the names devsim's own helpers gave them, because the
+    contact equations reference those names and there is nothing to gain from
+    rewiring them.
+    """
+    for carrier, density, states, sign in (
+        ("n", "Electrons", "Nc", "-"),
+        ("p", "Holes", "Nv", "+"),
+    ):
+        correction = joyce_dixon(f"{density}/{states}")
+        effective = f"Potential {sign} V_t*{correction}"
+        CreateNodeModel(device, BULK, f"Potential_{carrier}", effective)
+        for variable in ("Potential", density):
+            CreateNodeModelDerivative(
+                device, BULK, f"Potential_{carrier}", effective, variable
+            )
+        edge_from_node_model(
+            device=device, region=BULK, node_model=f"Potential_{carrier}"
+        )
+        for variable in ("Potential", density):
+            edge_from_node_model(
+                device=device,
+                region=BULK,
+                node_model=f"Potential_{carrier}:{variable}",
+            )
+
+        # Written out rather than handed to `diff`. devsim chains a derivative
+        # through an edge model it is given by name, which is how the Boltzmann
+        # current below picks up `Bern01:Potential@n0`, but it does not chain
+        # through a node model evaluated at @n0: asked for the derivative of
+        # `Potential_n@n0` with respect to `Potential@n0` it returns exactly
+        # zero. Measured, on every edge of the device. devsim's own simple_dd
+        # writes `vdiff:Potential@n0` out by hand too, which is the same
+        # workaround arrived at from the other direction.
+        drop = f"(Potential_{carrier}@n0 - Potential_{carrier}@n1)/V_t"
+        CreateEdgeModel(device, BULK, f"vdiff_{carrier}", drop)
+        for variable in ("Potential", density):
+            for node, sign in (("@n0", ""), ("@n1", "-")):
+                CreateEdgeModel(
+                    device,
+                    BULK,
+                    f"vdiff_{carrier}:{variable}{node}",
+                    f"{sign}Potential_{carrier}:{variable}{node}/V_t",
+                )
+        CreateEdgeModel(device, BULK, f"Bern01_{carrier}", f"B(vdiff_{carrier})")
+        for variable in ("Potential", density):
+            for node in ("@n0", "@n1"):
+                CreateEdgeModel(
+                    device,
+                    BULK,
+                    f"Bern01_{carrier}:{variable}{node}",
+                    f"dBdx(vdiff_{carrier}) * vdiff_{carrier}:{variable}{node}",
+                )
+
+    electrons = (
+        "ElectronCharge*mu_ct_n*EdgeInverseLength*V_t*kahan3("
+        "Electrons@n1*Bern01_n, Electrons@n1*vdiff_n, -Electrons@n0*Bern01_n)"
+    )
+    holes = (
+        "-ElectronCharge*mu_ct_p*EdgeInverseLength*V_t*kahan3("
+        "Holes@n1*Bern01_p, -Holes@n0*Bern01_p, -Holes@n0*vdiff_p)"
+    )
+    for name, current in (
+        ("ElectronCurrent", electrons),
+        ("HoleCurrent", holes),
+    ):
+        CreateEdgeModel(device, BULK, name, current)
+        for variable in ("Electrons", "Holes", "Potential"):
+            CreateEdgeModelDerivatives(device, BULK, name, current, variable)
+
+
+def degenerate_contact_expressions() -> tuple[str, str, str]:
+    """The ohmic contact, degenerate: electrons, holes, and the psi offset.
+
+    Neutrality is untouched by the statistics, n - p = N, but mass action is
+    not. With each density carrying its own degeneracy factor the product is
+
+        n p = n_i^2 gamma_n(n/Nc) gamma_p(p/Nv)
+
+    and the majority carrier is still the quadratic root while the minority
+    still comes from the product, which is what keeps mass action exact rather
+    than merely close. The product is evaluated at the Boltzmann majority
+    density, which is the same number to forty digits at any doping these
+    contacts carry: the correction to the root is 4 n_i^2 against N^2, and at
+    1e20 that is 1e20 against 1e40.
+
+    The potential is where degeneracy actually shows on this device. Inverting
+    n = n_i exp((psi - V_t gamma_n)/V_t) gives
+
+        psi = V_t ( ln(n/n_i) + gamma_n(n/Nc) )
+
+    and at 1e20 that correction is 1.18, which is 30.6 mV of built in potential
+    at the source and the drain. Dropping it because the minority carrier it
+    also moves is irrelevant would move every threshold on the sweep.
+    """
+    gamma_n = f"exp(-{joyce_dixon(f'{celec_model}/Nc')})"
+    gamma_p = f"exp(-{joyce_dixon(f'{chole_model}/Nv')})"
+    product = f"(n_i^2*{gamma_n}*{gamma_p})"
+    electrons = f"ifelse(NetDoping > 0, {celec_model}, {product}/{chole_model})"
+    holes = f"ifelse(NetDoping < 0, {chole_model}, {product}/{celec_model})"
+    potential = (
+        f"ifelse(NetDoping > 0, "
+        f"-V_t*(log({celec_model}/n_i) + {joyce_dixon(f'{celec_model}/Nc')}), "
+        f"+V_t*(log({chole_model}/n_i) + {joyce_dixon(f'{chole_model}/Nv')}))"
+    )
+    return electrons, holes, potential
+
+
+def create_degenerate_contact(device: str, contact: str) -> None:
+    """Both continuity contact equations and the potential one, degenerate.
+
+    devsim's `CreateSiliconPotentialOnlyContact` already built the potential
+    condition during the equilibrium phase with the Boltzmann offset written
+    into it. Re-creating the contact node model under the same name replaces
+    what that equation evaluates, which is cheaper and clearer than tearing the
+    equation down and building it again.
+    """
+    electrons, holes, potential = degenerate_contact_expressions()
+
+    contact_model = f"Potential -{GetContactBiasName(contact)} + {potential}"
+    CreateContactNodeModel(
+        device, contact, GetContactNodeModelName(contact), contact_model
+    )
+    CreateContactNodeModel(
+        device, contact, f"{GetContactNodeModelName(contact)}:Potential", "1"
+    )
+
+    for name, model, variable in (
+        (f"{contact}nodeelectrons", f"Electrons - ({electrons})", "Electrons"),
+        (f"{contact}nodeholes", f"Holes - ({holes})", "Holes"),
+    ):
+        CreateContactNodeModel(device, contact, name, model)
+        CreateContactNodeModel(device, contact, f"{name}:{variable}", "1")
+
+    for equation_name, node_model_name, current in (
+        (ece_name, f"{contact}nodeelectrons", "ElectronCurrent"),
+        (hce_name, f"{contact}nodeholes", "HoleCurrent"),
+    ):
+        contact_equation(
+            device=device,
+            contact=contact,
+            name=equation_name,
+            node_model=node_model_name,
+            edge_current_model=current,
+        )
+
+
 def gate_potential(v_gate: float) -> float:
     """The potential to pin the gate at [V], measured from the intrinsic level.
 
@@ -496,7 +948,9 @@ def seed_potential(device: str) -> None:
     )
 
 
-def build_physics(device: str, v_gate: float, v_drain: float) -> None:
+def build_physics(
+    device: str, v_gate: float, v_drain: float, models: str = P.REDUCED_MODELS
+) -> None:
     """Equilibrium Poisson, then the full drift diffusion system.
 
     The gate bias is set before the equilibrium solve and left there. It draws
@@ -536,9 +990,27 @@ def build_physics(device: str, v_gate: float, v_drain: float) -> None:
         CreateSolution(device, BULK, name)
         set_node_values(device=device, region=BULK, name=name, init_from=source)
     set_lifetimes(device)
-    CreateSiliconDriftDiffusion(device, BULK, mu_n="mu_n", mu_p="mu_p")
-    for contact in (BODY, SOURCE, DRAIN):
-        CreateSiliconDriftDiffusionAtContact(device, BULK, contact)
+    if models == P.REDUCED_MODELS:
+        CreateSiliconDriftDiffusion(device, BULK, mu_n="mu_n", mu_p="mu_p")
+        for contact in (BODY, SOURCE, DRAIN):
+            CreateSiliconDriftDiffusionAtContact(device, BULK, contact)
+    else:
+        set_full_stack_parameters(device)
+        create_bulk_mobility(device)
+        create_surface_mobility(device)
+        create_edge_mobility(device)
+        # Builds the Poisson and continuity equations and the Boltzmann
+        # currents, which the next call replaces in place. Going through it
+        # rather than around it keeps every other model it creates, the SRH
+        # rate and the two charge models, exactly the ones the reduced set
+        # uses, so the only thing this branch changes is what it means to
+        # change.
+        CreateSiliconDriftDiffusion(device, BULK, mu_n="mu_ct_n", mu_p="mu_ct_p")
+        create_degenerate_currents(device)
+        for contact in (BODY, SOURCE, DRAIN):
+            create_degenerate_contact(device, contact)
+        global _surface_is_live
+        _surface_is_live = True
     settle(device)
     ramp_to(device, DRAIN, v_drain)
 
@@ -602,6 +1074,16 @@ def sane(device: str) -> bool:
         if min(values) < 0.0 or max(values) > 1e22:
             return False
     return True
+
+
+_surface_is_live = False
+"""Whether `settle` should refresh the frozen surface mobility each pass.
+
+Module state rather than an argument because `settle` is reached from
+`build_physics` and from `ramp_to` as well as directly, and threading a flag
+through all three to say something that is true of a whole curve would be
+noise. `transfer_curve` clears it before every device it builds.
+"""
 
 
 SOLVE_TOLERANCES: tuple[float, ...] = (1e-8, 1e-6, 1e-4)
@@ -687,14 +1169,58 @@ def settle(
     twenty extra passes for each of them buys nothing.
     """
     before = snapshot(device, poisson_only)
+    refreshing = _surface_is_live and not poisson_only
+    surface_sweeps = 0
     moved = float("inf")
     best = float("inf")
     stalled = 0
+    since_best = 0.0
     arrived = False
     imbalance = float("inf")
     best_balance = float("inf")
     balance_stalled = 0
     for index in range(passes):
+        if refreshing:
+            # The frozen surface mobility, refreshed from the state the last
+            # pass reached. It has to happen here, inside the loop, rather
+            # than around a fully settled solve the way ddsim's
+            # `_surface_fixed_point` does it: ddsim can hold a coefficient
+            # still because its Newton carries damping and continuation, and
+            # devsim's repeated `solve` diverges outright when handed a
+            # mobility frozen at the initial guess for a whole settle.
+            surface_sweeps += 1
+            surface_moved = refresh_surface_mobility(device)
+            if (
+                surface_moved < SURFACE_RTOL
+                or surface_sweeps >= SURFACE_SWEEPS
+            ):
+                refreshing = False
+                # The mobility has stopped moving, so the potential test can
+                # start meaning something. Everything it recorded up to here
+                # was measured across a refresh that moved the potential
+                # itself, which is why the record has to be thrown away
+                # rather than carried: keeping it is what used to fail these
+                # solves. `best` would hold a coincidentally tiny move from
+                # the refreshing phase, 1.8e-7 V on the 1 um device at 1 V of
+                # drain, no later pass could beat it, and `stall` fired at a
+                # last move of 1.7e-4 V while every devsim solve inside was
+                # reporting RelError of exactly zero. `ramp_to` read that as
+                # a failed bias step and halved until it ran out of room, so
+                # a converged device died claiming no step above 0.1 mV
+                # converged.
+                best = float("inf")
+                stalled = 0
+                since_best = 0.0
+                if surface_moved >= SURFACE_RTOL:
+                    # The budget ran out rather than the mobility arriving.
+                    # `SURFACE_SWEEPS` calls that a diagnostic and not a
+                    # reason to throw away a converged potential, so say it
+                    # rather than freezing a moving coefficient in silence.
+                    note(
+                        f"surface mobility still moving at "
+                        f"{surface_moved:.3e} after {surface_sweeps} "
+                        "refreshes, frozen there"
+                    )
         solve_once()
         after = snapshot(device, poisson_only)
         moved = potential_move(before, after)
@@ -702,15 +1228,23 @@ def settle(
 
         if not arrived and moved >= tol:
             if moved < best:
-                best, stalled = moved, 0
+                best, stalled, since_best = moved, 0, 0.0
                 continue
             stalled += 1
-            if stalled >= stall:
+            since_best = max(since_best, moved)
+            if stalled < stall:
+                continue
+            if since_best >= SETTLE_FLOOR:
                 raise RuntimeError(
-                    f"stalled at {best:.3e} V for {stall} passes, last move "
-                    f"{moved:.3e} V"
+                    f"stalled at {best:.3e} V for {stall} passes, worst "
+                    f"{since_best:.3e} V, last move {moved:.3e} V"
                 )
-            continue
+            # A floor rather than a failure, and the two are told apart by
+            # how far from zero the bouncing is. See `SETTLE_FLOOR`.
+            note(
+                f"settled on the solver floor, {since_best:.3e} V over "
+                f"{stall} passes"
+            )
 
         # The potential has arrived. It is checked once and not again: past
         # this point the passes are being spent on the continuity residual and
@@ -836,6 +1370,43 @@ def terminal_current(device: str, contact: str) -> float:
     ) + get_contact_current(device=device, contact=contact, equation=hce_name)
 
 
+SETTLE_FLOOR = 1e-5
+"""Largest potential move `settle` will accept as the solver's own floor [V].
+
+A settle that is not going to arrive and a settle that has arrived and is
+bouncing in devsim's own roundoff look identical to a counter that only knows
+no pass beat the record. What separates them is how far from zero the bouncing
+is, and the two cases are two decades apart. Measured on the 1 um device at
+1 V of drain and a gate of +0.55 V, which is the only bias on any of the five
+that needs this: the genuine failure, a frozen surface mobility chasing the
+potential it was frozen from, bounced at 1.730e-4 V and never came down, while
+the full stack with that fixed bounces and never improves again. The 1 um
+curve accepts three floors, at 2.794e-7, 3.752e-7 and 1.418e-6 V, so the value
+here has seven times the headroom it needs on the run that produces the data.
+A cold solve dropped straight onto the knee, rather than walked up to it from
+-0.4 V, reaches 6.2e-6, which is the widest bouncing seen anywhere and still
+inside. The other four gate lengths reach `tol` outright and so does the whole
+reduced model set, which is why benchmarks 6 to 9 never needed this.
+
+Why it bounces at all is written down in `SOLVE_TOLERANCES`: the tolerance
+handed to devsim is a step size control rather than an accuracy control, and
+on this device at an inverted gate devsim refuses the tightest rung and the
+looser one it accepts returns a looser step. `settle` owns accuracy instead,
+by watching the solution.
+
+Two things bound what the floor can let through. The first is the model: the
+most sensitive quantity any benchmark reads is the subthreshold drain current,
+exponential in the surface potential at the ideal 1/V_t, so 1e-5 V bounds the
+current it can move to exp(1e-5/0.02585) - 1, which is 3.9e-4 relative, a
+decade under the smallest mesh error any of these files records and two under
+the 10 percent the comparison spends. The second is that accepting the floor
+does not end the solve. It marks the potential arrived and hands the rest to
+the terminal balance criterion, which is the one that certifies the current
+the benchmark reads, and whatever that reaches is written into the golden file
+per point and spent as tolerance. Anything above the floor still raises.
+"""
+
+
 BALANCE_PROGRESS = 0.9
 """How much of the record an imbalance has to beat to count as progress [1].
 
@@ -917,13 +1488,17 @@ def transfer_curve(
     the same 1 um device four times in one process fails on the third, and
     deleting each one as its curve finishes makes all four succeed.
     """
+    global _surface_is_live
+    _surface_is_live = False
     device = device_name(benchmark, drain, refine)
     with quiet():
         build_mesh(benchmark, device, refine=refine, refine_y=refine_y)
     set_material_parameters(device)
     set_doping(benchmark, device)
     with quiet():
-        build_physics(device, benchmark.gate_voltages[0], drain)
+        build_physics(
+            device, benchmark.gate_voltages[0], drain, benchmark.models
+        )
 
     rows: list[dict[str, Any]] = []
     for v_gate in benchmark.gate_voltages:
@@ -946,6 +1521,7 @@ def transfer_curve(
             flush=True,
         )
     nodes = node_count(device)
+    _surface_is_live = False
     delete_device(device=device)
     delete_mesh(mesh=device)
     return rows, nodes
@@ -1081,7 +1657,9 @@ def write_csv(
         )
     lines.append("# notes: " + benchmark.notes)
     lines.append("# models:")
-    lines.extend("#   " + line for line in P.MOSFET_MODEL_SUMMARY)
+    lines.extend(
+        "#   " + line for line in P.mosfet_model_summary(benchmark.models)
+    )
     lines.append(
         "# columns: gate bias [V], then drain and source current [A/cm] at "
         "the low drain bias and then at the high one"

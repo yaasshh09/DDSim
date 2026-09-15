@@ -67,15 +67,45 @@ update is cycling at 2.17e-09 in its own roundoff, and the refusal is what used
 to stop the gate walk dead at 0.26 V. See the dated rows in
 `docs/07-decisions.md`.
 
-## The MOSFET benchmarks run a smaller model set than Phase 5
+## The MOSFET benchmarks come in two model sets
 
-The diodes and the capacitors match model for model. The MOSFETs do not: both
-codes are run at Boltzmann statistics and constant mobility, without Arora,
-Caughey-Thomas or Lombardi. That still compares the 2D transport, the geometry
-and the electrostatics, which is what threshold voltage and DIBL are made of,
-but it does not compare the mobility models, and the drain current it compares
-is not the drain current the README roll-off table reports. See the dated row
-in `docs/07-decisions.md`.
+The diodes and the capacitors match model for model. The MOSFETs are run twice.
+
+Benchmarks 6 to 9 use the reduced set: Boltzmann statistics and constant
+mobility, without Arora, Caughey-Thomas or Lombardi. That still compares the 2D
+transport, the geometry and the electrostatics, which is what threshold voltage
+and DIBL are made of, but it does not compare the mobility models, and the
+drain current it compares is not the drain current the README roll-off table
+reports.
+
+Benchmark 10 is the same five devices on the same meshes at the full Phase 5
+stack: Fermi-Dirac by Joyce-Dixon, Arora corrected by Lombardi at the node and
+wrapped in Caughey-Thomas on the edge. It is the only benchmark in the tier
+where either mobility model or the statistics meets an implementation that is
+not ddsim's, and it is what the README roll-off figure overlays. Pick a set with
+the `models` field of `MosfetBenchmark`; the generator branches on it in
+`build_physics` and the header records which one ran. See the dated rows in
+`docs/07-decisions.md`.
+
+Three things about the full stack in devsim that cost a day between them:
+
+1. devsim chains a derivative through an edge model it is given by name, and
+   does not chain one through a node model evaluated at `@n0`. Asked for
+   `diff(Potential_n@n0, Potential@n0)` it returns exactly zero, on every edge,
+   with no complaint, and the Newton then diverges from the first step. The
+   derivative edge models of `vdiff_n` and `vdiff_p` are written out by hand
+   for that reason, the same way devsim's own `simple_dd` writes out
+   `vdiff:Potential@n0`.
+
+2. A field magnitude written as `pow(E^2, 0.5)` differentiates to
+   `E/pow(E^2, 0.5)`, which is a nan wherever the field is exactly zero, and in
+   a neutral bulk that is most edges. Caughey-Thomas is written in terms of the
+   squared ratio with devsim's own `+ 1e-300` guard instead.
+
+3. Lombardi needs the field normal to the interface, which no edge carries, so
+   it is evaluated at nodes and frozen inside a solve, with `settle` refreshing
+   it between solves until the potential stops moving. That is the same outer
+   fixed point ddsim runs, for the same reason.
 
 ## What is matched, and what is not
 
