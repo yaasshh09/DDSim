@@ -31,33 +31,36 @@ the third is what the exponent is measuring, so a sweep taken on the Phase 2
 constant mobility would be measuring something else and reporting it under this
 title.
 
-DEVSIM is not on this figure yet
---------------------------------
-phases/PHASE-5.md asks for the sweep overlaid on DEVSIM, and benchmark 9 of
-docs/04-validation.md is the golden data for it. All of benchmarks 6 to 9 now
-have golden files, the roll-off ones in data/golden/rolloff_200nm.csv and its
-three siblings, and this figure still draws ddsim alone and still says so.
+DEVSIM is on this figure
+------------------------
+phases/PHASE-5.md asks for the sweep overlaid on DEVSIM, and the open markers
+on the left panel are it, read from data/golden/fullstack_1um.csv and its four
+siblings.
 
-That is not an omission waiting to be fixed. Every one of those generators runs
-Boltzmann statistics and constant mobility on purpose, matched model for model
-against ddsim run the same way, because that is what makes a disagreement mean
-something. This figure runs the full Phase 5 stack, Arora inside Lombardi
-inside Caughey-Thomas with Fermi-Dirac statistics, so the drain current here is
-not the drain current those files hold and the thresholds are not theirs
-either: at 50 nm the golden data gives +0.0065 and -0.1181 V where this figure
-reports +0.0947 and -0.0258, because a constant current criterion rides on the
-current scale and mobility sets that. Overlaying the two would draw a gap that
-is the model set rather than an error. The overlay needs DEVSIM run at the full
-stack, which nothing in tier 4 does yet. Benchmark 9 compares the two codes at
-the matched reduced set instead, in tests/regression/test_devsim_mosfet.py,
-where the roll-off magnitude agrees to 0.06 percent and DIBL to 1.1 percent or
-better. See the 2026-09-12 and 2026-09-13 rows in docs/07-decisions.md.
+Those files are benchmark 10 of docs/04-validation.md and they exist because
+benchmark 9 could not be used here. Benchmark 9 runs both codes at Boltzmann
+statistics and constant mobility on purpose, matched model for model, because
+that is what makes a disagreement about the geometry mean something. This
+figure runs the full Phase 5 stack, so its drain current is not the current
+those files hold and its thresholds are not theirs either: at 50 nm the
+benchmark 9 data gives +0.0065 and -0.1181 V where this figure reports around
++0.09 and -0.03, because a constant current criterion rides on the current
+scale and mobility sets that. Overlaying those would have drawn a gap that was
+the model set rather than an error.
+
+So DEVSIM was run again at the same stack, Fermi-Dirac by Joyce-Dixon with
+Arora inside Lombardi inside Caughey-Thomas, on its own mesh and out of its own
+expressions, and that is what is plotted. The two codes share the parameter
+values and nothing else. The agreement is gated in
+tests/regression/test_devsim_mosfet.py rather than here, since a figure is a
+bad place to keep a tolerance. See the 2026-09-12 and 2026-09-13 rows in
+docs/07-decisions.md.
 
 Nothing here is fitted
 ----------------------
 Every device on this plot is the same process from ddsim/extract/rolloff.py.
 The oxide, the channel doping, the implant depth and the lateral encroachment
-are identical across all six, and `L_gate` is the only argument that changes.
+are identical across all five, and `L_gate` is the only argument that changes.
 No short channel term exists anywhere in the solver to be turned on.
 """
 
@@ -72,10 +75,16 @@ import pytest
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+from ddsim.extract.params import threshold_constant_current  # noqa: E402
 from ddsim.extract.rolloff import (  # noqa: E402
+    REFERENCE_CURRENT,
     SHORT_CHANNEL_PROCESS,
     gate_length_sweep,
 )
+from tests.regression.devsim_gen import parameters as P  # noqa: E402
+
+GOLDEN = pathlib.Path(__file__).resolve().parents[2] / "data" / "golden"
+"""Where benchmark 10's DEVSIM curves live."""
 
 OUTPUT = pathlib.Path(__file__).parents[2] / "docs" / "images"
 
@@ -124,10 +133,49 @@ def falling(values) -> bool:
     return bool(np.all(np.diff(np.asarray(values)) < 0.0))
 
 
+def devsim_thresholds() -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Benchmark 10's gate lengths [nm] and its two threshold curves [V].
+
+    The same constant current criterion the ddsim sweep uses, at the same
+    reference current, applied to DEVSIM's own transfer curves. Comparing two
+    codes through two different estimators would measure the estimators.
+
+    The leading points that are not yet on the rising part of the curve are
+    dropped, bounded so the drop cannot swallow a real current, by the same
+    `first_resolved_point` that tests/regression/test_devsim_mosfet.py applies
+    to ddsim's curves. Both codes need it at this model set: on the 1 um device
+    at 1 V of drain DEVSIM reports -4.5e-10 A/cm at -0.4 V of gate against a
+    target of 1e-3, and on the 100 nm at 50 mV it reports a positive +3.5e-11
+    that falls to +9.6e-12 at the next step. Sharing the rule is what keeps
+    this an overlay of two codes rather than of two preprocessings.
+    """
+    lengths: list[float] = []
+    linear: list[float] = []
+    saturated: list[float] = []
+    for name in P.FULL_STACK_TREND:
+        benchmark = P.MOSFET_BY_NAME[name]
+        golden = P.read_mosfet_golden(str(GOLDEN / f"{name}.csv"))
+        gate = np.asarray(golden.gate_voltage, dtype=np.float64)
+        target = REFERENCE_CURRENT / benchmark.L_gate
+        lengths.append(benchmark.L_gate * 1e7)
+        for curve, out in (
+            (golden.drain_low, linear),
+            (golden.drain_high, saturated),
+        ):
+            current = np.asarray(curve, dtype=np.float64)
+            keep = P.first_resolved_point(current, target)
+            out.append(
+                threshold_constant_current(
+                    gate[keep:], current[keep:], target
+                )
+            )
+    return np.array(lengths), np.array(linear), np.array(saturated)
+
+
 def label_lengths(axis, lengths) -> None:
     """Tick at the gate lengths that were solved, not at powers of ten.
 
-    A log axis holding six points between 1000 and 50 nm labels two of them by
+    A log axis holding five points between 1000 and 50 nm labels two of them by
     default and leaves the reader counting minor ticks to find the rest.
     """
     axis.set_xticks(lengths)
@@ -170,7 +218,7 @@ def test_the_threshold_rolls_off(sweep):
     """Both extraction methods, both drain biases. The source and drain
     depletion regions share channel charge the gate would otherwise have to
     deplete itself, so a shorter channel needs less gate. Nothing about the
-    doping or the oxide changed between these six devices."""
+    doping or the oxide changed between these five devices."""
     assert falling([point.threshold_linear for point in sweep])
     assert falling([point.threshold_saturated for point in sweep])
     assert falling([point.threshold_extrapolated for point in sweep])
@@ -209,6 +257,26 @@ def test_velocity_saturation_pulls_the_exponent_off_the_square_law(sweep):
     # subthreshold slope is asserted that way: the long devices differ from
     # each other by less than the extraction resolves.
     assert np.all(np.diff(exponents) < 0.01)
+
+
+def test_the_devsim_overlay_is_the_same_five_devices(sweep):
+    """The open markers sit at the gate lengths the curve was solved at.
+
+    A reference plotted at gate lengths the sweep does not contain is not an
+    overlay, it is two plots sharing an axis, and at a glance the figure would
+    not say which. The agreement between the two is gated in
+    tests/regression/test_devsim_mosfet.py, where a tolerance belongs.
+    """
+    lengths, linear, saturated = devsim_thresholds()
+
+    assert list(lengths) == pytest.approx(
+        [point.L_gate * 1e7 for point in sweep]
+    )
+    assert np.all(saturated < linear), (
+        "DEVSIM puts a saturated threshold above its linear one, which is not "
+        "drain induced barrier lowering and would draw the shaded band upside "
+        "down"
+    )
 
 
 def test_the_process_did_not_change_across_the_sweep(sweep):
@@ -260,6 +328,28 @@ def test_mosfet_rolloff_plot_is_generated(sweep):
         linewidth=1.8,
         markersize=5.0,
         label=f"$V_d$ = {DRAIN_HIGH} V",
+    )
+    devsim_lengths, devsim_linear, devsim_saturated = devsim_thresholds()
+    left.plot(
+        devsim_lengths,
+        devsim_linear,
+        "o",
+        markerfacecolor="none",
+        markeredgecolor="tab:blue",
+        markersize=11,
+        markeredgewidth=1.4,
+        linestyle="none",
+        label="DEVSIM, same models",
+    )
+    left.plot(
+        devsim_lengths,
+        devsim_saturated,
+        "s",
+        markerfacecolor="none",
+        markeredgecolor="tab:red",
+        markersize=10,
+        markeredgewidth=1.4,
+        linestyle="none",
     )
     left.annotate(
         f"{sweep[-1].dibl:.0f} mV/V",
@@ -341,7 +431,7 @@ def test_mosfet_rolloff_plot_is_generated(sweep):
         "NMOS gate length sweep, one process: "
         f"{SHORT_CHANNEL_PROCESS['t_ox'] * 1e7:.0f} nm oxide, "
         f"{-SHORT_CHANNEL_PROCESS['substrate_doping']:.0e} cm$^{{-3}}$ "
-        "channel, ddsim only, no DEVSIM overlay yet",
+        "channel, lines ddsim, open markers DEVSIM",
         fontsize=11,
     )
     figure.tight_layout()

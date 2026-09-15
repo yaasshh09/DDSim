@@ -22,9 +22,9 @@ conserves current through every cut and keeps doing it with a dielectric
 layer stacked on top.
 
 Phase 5 is the MOSFET, and its gate length sweep runs: threshold roll-off,
-DIBL and velocity saturation all come out of six devices that differ in one
-argument. What is left of the phase is the DEVSIM comparison, benchmarks 6 to
-9, which have no golden data yet.
+DIBL and velocity saturation all come out of five devices that differ in one
+argument. Benchmarks 6 to 9, the DEVSIM comparison, now have golden data and
+pass, so tier 4 covers all nine.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -315,9 +315,20 @@ which asserts every one of these claims before it draws anything.
 
 ### What is not on this figure yet
 
-DEVSIM. Benchmarks 6 to 9 of `docs/04-validation.md` are the MOSFETs and they
-have no golden data yet, so the plot is ddsim alone and says so. Generating
-them is what closes Phase 5.
+DEVSIM. Benchmarks 6 to 9 of `docs/04-validation.md` are the MOSFETs and all
+four now have golden data that passes, so this is not a missing comparison.
+It is a different one. Every one of those generators runs Boltzmann statistics
+and constant mobility on purpose, matched model for model against ddsim run the
+same way, because that is what makes a disagreement mean something. This figure
+runs the full Phase 5 stack, so its drain current is not the current those files
+hold and its thresholds are not theirs either: at 50 nm the golden data gives
++0.0065 and -0.1181 V where this figure reports +0.0947 and -0.0258, because a
+constant current criterion rides on the current scale and mobility sets that.
+Overlaying the two would draw a gap that is the model set rather than an error.
+The overlay needs DEVSIM run at the full stack, which nothing in tier 4 does
+yet. Benchmark 9 compares the two codes at the matched reduced set instead, in
+`tests/regression/test_devsim_mosfet.py`, where the roll-off magnitude agrees to
+0.06 percent and DIBL to 1.1 percent or better.
 
 ### Where these numbers stop meaning anything
 

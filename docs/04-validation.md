@@ -178,7 +178,7 @@ agree to solver tolerance. If they disagree, one of the two Jacobians is wrong.
 ## Tier 4: regression against DEVSIM
 
 DEVSIM is open source, free, and solves exactly this system. It is the ground
-truth. Install it, script the same nine devices, commit the output curves as
+truth. Install it, script the same devices, commit the output curves as
 `data/golden/*.csv`, and diff against them in CI.
 
 Benchmark set:
@@ -194,6 +194,17 @@ Benchmark set:
 | 7 | NMOS Lg = 180 nm | Id-Vg, Id-Vd | 5% |
 | 8 | NMOS Lg = 65 nm | Id-Vg (DIBL) | 8% |
 | 9 | Lg sweep 1 um to 50 nm | Vth vs Lg | trend + 10% |
+| 10 | The same Lg sweep, full Phase 5 stack | Id-Vg, Vth vs Lg, DIBL | 10% |
+
+**Benchmarks 9 and 10 are the same five devices twice.** Benchmark 9 runs
+both codes at Boltzmann statistics and a constant mobility, which is what makes
+a disagreement there a statement about the 2D transport, the geometry and the
+electrostatics alone. Benchmark 10 runs both at the Phase 5 stack, Fermi-Dirac
+by Joyce-Dixon with Arora inside Lombardi inside Caughey-Thomas, and it is the
+only benchmark in this tier where either mobility model or the statistics meets
+an implementation that is not ddsim's. Having both is what tells a mobility
+disagreement from a geometry one: a residual present in both is the device, and
+one present only in 10 is a model.
 
 **Match the models before comparing numbers.** DEVSIM's defaults for n_i,
 mobility model, and lifetime must be set explicitly to match yours or the
