@@ -86,6 +86,16 @@ class Job:
     """Frames discarded because the reader was behind. Reported rather than
     swallowed."""
 
+    result: Any = None
+    """Whatever the work returned, once it finished on its own.
+
+    Held here rather than sent as a frame because the frame queue is allowed
+    to drop its oldest entry, and a sweep's finished curve is the one thing a
+    reader cannot afford to lose. Set only on the way to DONE: a failed or
+    cancelled job stopped somewhere nobody chose, and its partial state is in
+    the frames the reader already has.
+    """
+
     frames: queue.Queue[Any] = field(default_factory=queue.Queue)
     cancelling: threading.Event = field(default_factory=threading.Event)
     finished: threading.Event = field(default_factory=threading.Event)
@@ -134,7 +144,7 @@ class JobRegistry:
     def _run(self, job: Job, work: Work) -> None:
         job.status = JobStatus.RUNNING
         try:
-            work(lambda frame: self._send(job, frame))
+            produced = work(lambda frame: self._send(job, frame))
         except CancelledError:
             job.status = JobStatus.CANCELLED
         except Exception as error:  # noqa: BLE001
@@ -143,6 +153,9 @@ class JobRegistry:
             job.status = JobStatus.FAILED
             job.message = f"{type(error).__name__}: {error}"
         else:
+            # The result before the status, so that a reader who sees DONE
+            # can read the result without racing this thread.
+            job.result = produced
             job.status = JobStatus.DONE
         finally:
             # Never a blocking put. The queue is full exactly when nobody is
@@ -188,6 +201,14 @@ class JobRegistry:
     def dropped(self, job_id: str) -> int:
         """How many frames were discarded because the reader was behind."""
         return self._job(job_id).dropped
+
+    def result(self, job_id: str) -> Any:
+        """What the work returned, or None if it has not finished cleanly.
+
+        None is also what work returning nothing gives back. The status is
+        what distinguishes the two, and a caller asks after `wait`.
+        """
+        return self._job(job_id).result
 
     def cancel(self, job_id: str) -> bool:
         """Ask the job to stop at its next frame.

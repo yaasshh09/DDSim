@@ -12,6 +12,12 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "scipy>=1.11"]
 
 [project.optional-dependencies]
+# The solver does not need these and a clone that only wants to run pytest
+# should not install them. `pip install -e .` stays numpy and scipy.
+serve = [
+  "fastapi>=0.115",
+  "uvicorn>=0.30",
+]
 dev = [
   "pytest>=8",
   "pytest-cov>=5",
@@ -19,15 +25,36 @@ dev = [
   "mypy>=1.11",
   "scipy-stubs>=1.15",
   "matplotlib>=3.8",
+  # dev carries serve so that CI runs the API tests rather than skipping them.
+  # An API whose tests are conditional is an API that breaks unnoticed.
+  "ddsim[serve]",
+  # starlette's TestClient asks for httpx2 now, and this project turns
+  # warnings into errors, so the old httpx is not an option here.
+  "httpx2>=0.29",
 ]
+
+[project.scripts]
+ddsim = "ddsim.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["ddsim*"]
 
+[tool.setuptools.package-data]
+# The browser client ships with the package. It is the whole of the frontend
+# and there is no build step, so an installed ddsim can serve it.
+ddsim = ["api/static/*.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
-filterwarnings = ["error"]
+filterwarnings = [
+  "error",
+  # starlette's TestClient reaches a deprecated anyio alias while importing,
+  # which is not this project's code and not something this project can fix.
+  # Ignored by its exact message so that the gate stays on for everything
+  # else, including any warning the solver itself ever raises.
+  "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["ddsim"]

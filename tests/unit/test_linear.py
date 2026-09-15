@@ -274,11 +274,17 @@ def test_nothing_imports_the_api_package() -> None:
     The moment a solver module imports it, the browser layer is load bearing
     for a number, and the claim that telemetry changes nothing stops being
     checkable.
+
+    cli.py is the one exception, and it is the reason the rule is written as
+    the solver rather than as everything. `ddsim serve` has to reach the
+    application somehow, and the command line sits above every layer here
+    rather than inside one. Nothing it exports is called by a solve.
     """
     root = pathlib.Path(__file__).parents[2] / "ddsim"
+    entry_points = {"cli.py"}
 
     for source in root.rglob("*.py"):
-        if source.parent.name == "api":
+        if source.parent.name == "api" or source.name in entry_points:
             continue
         for name in imported_modules(source):
             assert not name.startswith("ddsim.api"), (

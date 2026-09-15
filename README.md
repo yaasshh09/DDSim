@@ -382,6 +382,39 @@ Each bias point is continued from the one before it, which is the only way a
 forward biased solve reaches its answer. There is no such thing as a good
 initial guess at 0.5 V.
 
+## In the browser
+
+```bash
+.venv/Scripts/pip install -e ".[serve]"
+.venv/Scripts/ddsim serve
+```
+
+Then open http://127.0.0.1:8000. Describe a device by geometry and doping,
+press solve, and watch the residual fall and the curve draw itself point by
+point. The page is one file in this repo and there is no build step.
+
+The form is not written by hand. The device knobs, the sweep knobs and the
+model flags are read from the signatures of the functions behind them, so what
+the browser offers is what the code has, with the same defaults. That includes
+the mobility model, field dependence and surface scattering, which are off by
+default because every result before Phase 5 was taken without them. A MOSFET
+solved with them off has no velocity saturation in it, and the form says so by
+showing the flags rather than choosing for you.
+
+### Honest limits
+
+- Single user, local, no authentication, bound to loopback unless you pass
+  `--host` on purpose, which prints a warning. There is nothing in front of
+  this port and one request can spend minutes of CPU.
+- A 50 nm MOSFET sweep takes minutes. The page says what it is doing rather
+  than pretending to be interactive, and a solve can be cancelled.
+- Cancelling takes effect at the solver's next reported iteration. A solve that
+  has stopped reporting cannot be interrupted until it reports again.
+- The browser shows the solver's answer and cannot check it. The DEVSIM
+  regressions in CI are what check it.
+- Nothing in the client computes a physical quantity. A test greps it for the
+  transcendental functions and for every constant name in `core/constants.py`.
+
 ## How it is kept honest
 
 A drift-diffusion solver with a sign error does not crash. It converges cleanly

@@ -35,8 +35,14 @@
         cv.py               # small-signal C-V
         params.py           # Vth, SS, DIBL, ideality extraction
         compact.py          # Phase 6: fit EKV/BSIM params for SPICE
-      api/                  # Phase 7, FastAPI. Do not build early.
-      cli.py                # Phase 7, includes `ddsim serve`
+      api/                  # Phase 7, FastAPI. Nothing in the solver imports it
+        devices.py          # the device registry, read from the constructors
+        sweeps.py           # the three sweeps and the model flags
+        jobs.py             # submit, stream, cancel, on a worker thread
+        frames.py           # a frame to a message: JSON text or float32
+        app.py              # the routes and the socket
+        static/index.html   # the client. One file, no build step
+      cli.py                # `ddsim serve`
     tests/
       unit/                 # bernoulli, statistics, scaling, mobility
       analytic/             # depletion, Shockley, ideal MOS C-V
@@ -153,15 +159,36 @@ The shape of it:
 - A solve is a job, not a request. It is submitted over HTTP, streams telemetry
   over a WebSocket while it runs, and can be cancelled. A MOSFET sweep is minutes
   of Newton solves and request-response cannot express that.
-- Live telemetry is the point. Residual per equation family per Newton iteration,
-  each continuation step as it lands, each sweep point as it finishes, so the
-  curve draws itself and the convergence is visible rather than hidden behind a
-  spinner. `solve/newton.py` takes an optional per-iteration callback for this,
-  defaulting to None and bit for bit inert when unused.
+- Live telemetry is the point. Residual per Newton iteration, each continuation
+  step as it lands, each sweep point as it finishes, so the curve draws itself
+  and the convergence is visible rather than hidden behind a spinner. All three
+  loops in `solve/` take an optional per-event callback, defaulting to None and
+  bit for bit inert when unused, and the public sweeps thread one `on_frame`
+  argument down to them. Every frame carries scalars only, which is what makes
+  the inertness structural rather than a promise.
+
+  Residual per equation family is the one part of that list still outstanding.
+  `NewtonIteration` carries the scalar the solve was judged on, because the
+  split into families lives in the `residual_norm` the caller supplies; sending
+  the split means reporting from inside `transport.py`'s own measure.
+
+- Two channels, and the split is deliberate. The socket carries telemetry as
+  text, so a slow reader cannot make a solver wait and a client may connect
+  late, disconnect and come back. Field arrays are a separate GET, answered
+  from the finished curve, so asking for a profile cannot stall a solve at all.
+  The binary layout is in `api/frames.py`: a uint32 header length, a JSON
+  header naming every array with its unit and length, then float32.
 - Frontend idiom: lab instrument, matching AtomSIM. Real TCAD viewers look like
   this. Filled contour plots, current density streamlines, a draggable cutline
   producing a band diagram along it, log-scale toggles everywhere.
 - No physics in the client. It draws what the solver sends and computes nothing.
+  Checked by tests/unit/test_client.py, which refuses `Math.exp` and friends and
+  every public name in `core/constants.py`, and allows `Math.log10` in the two
+  named axis helpers and nowhere else. See docs/07-decisions.md for that one.
+- The API adds no default of its own. The device knobs, the sweep knobs and the
+  model flags are read from the signatures of the functions that have them, so
+  a knob added to `nmos()` is on the form the moment it exists and a default
+  changed in `extract/iv.py` is the default the browser shows.
 - Reuse the AtomSIM CSS constraint: `text-transform: uppercase` only on section
   headings. It will corrupt scientific notation and unit strings everywhere else.
 

@@ -14,7 +14,12 @@ from __future__ import annotations
 
 import pytest
 
-from ddsim.api.devices import DEVICE_KINDS, build_from_spec, device_parameters
+from ddsim.api.devices import (
+    DEVICE_KINDS,
+    build_from_spec,
+    device_parameters,
+    parameters_of,
+)
 
 
 def test_the_three_device_classes_are_offered() -> None:
@@ -132,3 +137,20 @@ def test_a_float_reaches_the_constructor_unchanged() -> None:
     device = build_from_spec("pn_diode", {"Na": 2.5e16})
 
     assert device.net_doping.data[0] == pytest.approx(-2.5e16)
+
+
+def test_an_argument_with_no_default_is_not_a_knob() -> None:
+    """A knob is rendered with its default beside it, and an argument with no
+    default has none: offering it would put the text <class 'inspect._empty'>
+    into a form field.
+
+    Tested on a function written here rather than on a sweep, because today
+    the only case is iv_sweep's contact and api/sweeps.py excludes the
+    terminal names for its own reason. Two rules cover the same argument by
+    coincidence, and a test that leaned on that would be checking neither.
+    """
+
+    def example(required: float, optional: float = 1.0, named: str = "x") -> None:
+        """A stand in for any function the API might offer knobs from."""
+
+    assert [p.name for p in parameters_of(example)] == ["optional", "named"]

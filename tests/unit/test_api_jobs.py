@@ -218,3 +218,73 @@ def test_waiting_for_a_job_gives_up_rather_than_hanging() -> None:
 
     with pytest.raises(TimeoutError):
         jobs.wait(job.id, timeout=0.05)
+
+
+# --------------------------------------------------------------- the result
+
+
+def test_a_finished_job_keeps_what_the_work_returned() -> None:
+    """A sweep's curve is the one thing a reader cannot afford to lose, and
+    the frame queue is allowed to drop its oldest frame. So the return value
+    is held on the job rather than sent, and a browser that connects after
+    the last point still gets the curve."""
+    jobs = JobRegistry()
+
+    job = jobs.submit(lambda send: "the curve")
+    jobs.wait(job.id, timeout=5.0)
+
+    assert jobs.result(job.id) == "the curve"
+
+
+def test_a_job_that_is_still_running_has_no_result_yet() -> None:
+    """None rather than a wait. The caller asks once the status is terminal,
+    and a None that meant either not yet or nothing returned would be the
+    same ambiguity a spinner is."""
+    jobs = JobRegistry()
+    holding = threading.Event()
+
+    job = jobs.submit(lambda send: holding.wait(timeout=5.0))
+    try:
+        assert jobs.result(job.id) is None
+    finally:
+        holding.set()
+    jobs.wait(job.id, timeout=5.0)
+
+
+def test_a_failed_job_has_no_result() -> None:
+    """Whatever the work built before it raised is not a result, and handing
+    back a half filled curve as though it were one is the worst outcome
+    available here."""
+    jobs = JobRegistry()
+
+    job = jobs.submit(lambda send: 1 / 0)
+    jobs.wait(job.id, timeout=5.0)
+
+    assert jobs.status(job.id) is JobStatus.FAILED
+    assert jobs.result(job.id) is None
+
+
+def test_a_cancelled_job_keeps_nothing_either() -> None:
+    """A cancelled sweep stopped somewhere nobody chose. Its partial curve is
+    in the frames the reader already has.
+
+    The work waits so that the cancel lands while it is still inside. Without
+    that, this work finishes before the cancel arrives and the job is DONE
+    with a result, which is the right answer to a different question.
+    """
+    jobs = JobRegistry()
+    cancelled = threading.Event()
+
+    def work(send):
+        send("one")
+        cancelled.wait(timeout=5.0)
+        send("two")
+        return "finished"
+
+    job = jobs.submit(work)
+    next(jobs.frames(job.id, timeout=5.0))
+    assert jobs.cancel(job.id)
+    cancelled.set()
+
+    assert jobs.wait(job.id, timeout=5.0) is JobStatus.CANCELLED
+    assert jobs.result(job.id) is None
