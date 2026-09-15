@@ -256,6 +256,61 @@ def test_solve_package_imports_nothing_semiconductor_specific() -> None:
                     )
 
 
+def imported_modules(source: pathlib.Path) -> list[str]:
+    """Every module name a file imports, however it spells the import."""
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    names: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names += [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            names.append(node.module)
+    return names
+
+
+def test_nothing_imports_the_api_package() -> None:
+    """phases/PHASE-7.md: api/ is a leaf.
+
+    The moment a solver module imports it, the browser layer is load bearing
+    for a number, and the claim that telemetry changes nothing stops being
+    checkable.
+    """
+    root = pathlib.Path(__file__).parents[2] / "ddsim"
+
+    for source in root.rglob("*.py"):
+        if source.parent.name == "api":
+            continue
+        for name in imported_modules(source):
+            assert not name.startswith("ddsim.api"), (
+                f"{source.relative_to(root)} imports {name}. api/ is a leaf: "
+                "nothing in the solver may depend on the browser layer"
+            )
+
+
+def test_the_api_package_goes_through_the_public_layers() -> None:
+    """phases/PHASE-7.md: api/ imports from device/, extract/ and solve/.
+
+    Reaching past those into discretize/ or physics/ would be the API
+    assembling its own system, which is how physics ends up in the browser
+    layer one helper at a time.
+    """
+    forbidden = {
+        "ddsim.core.constants",
+        "ddsim.physics",
+        "ddsim.discretize",
+        "ddsim.mesh",
+    }
+    package = pathlib.Path(__file__).parents[2] / "ddsim" / "api"
+
+    for source in package.rglob("*.py"):
+        for name in imported_modules(source):
+            for banned in forbidden:
+                assert not name.startswith(banned), (
+                    f"api/{source.name} imports {name}, which reaches past "
+                    "the public layers it is allowed to call"
+                )
+
+
 def test_fill_nnz_before_factorizing_raises() -> None:
     solver = SparseLU()
     with pytest.raises(RuntimeError, match="factorize"):
