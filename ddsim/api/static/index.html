@@ -136,9 +136,11 @@
       </h2>
       <canvas id="residual" height="200"></canvas>
       <div class="legend">
-        <span><i class="swatch" style="background:#1f6feb"></i>newton residual</span>
+        <span><i class="swatch" style="background:#1f6feb"></i>psi residual</span>
+        <span><i class="swatch" style="background:#1a7f37"></i>n residual</span>
+        <span><i class="swatch" style="background:#b23c17"></i>p residual</span>
         <span><i class="swatch" style="background:#8250df"></i>gummel update</span>
-        <span><i class="swatch" style="background:#b23c17"></i>rejected step</span>
+        <span><i class="swatch" style="background:var(--ink)"></i>rejected step</span>
         <span id="residual-note"></span>
       </div>
     </div>
@@ -183,7 +185,9 @@ const state = {
   schema: null,
   job: null,
   socket: null,
-  residual: [],   // {value, colour}, one per reported iteration or cycle
+  residual: [],   // {value, colour, families}, one per iteration or cycle
+  newton: null,   // the last Newton split, {residual, update} by family
+  stalled: null,  // that split as it was when a step was last rejected
   rejected: [],   // positions in residual where a step was rejected
   points: [],     // {voltage, value}
   curve: null,
@@ -322,19 +326,27 @@ function drawResidual() {
   if (!state.residual.length) return;
   const logY = el("residual-log").checked;
   const xs = state.residual.map((_, i) => i);
-  const ys = state.residual.map((r) => r.value);
+  // The axis spans every family, not just the largest, or the smaller two
+  // would fall off the bottom of a log plot.
+  const ys = state.residual.flatMap((r) =>
+    r.families ? Object.values(r.families).concat([r.value]) : [r.value]
+  );
   const frame = axes(box.pen, box, xs, ys, { logY: logY });
 
-  for (const colour of [BLUE, PURPLE]) {
-    line(
-      box.pen,
-      frame,
-      xs,
-      state.residual.map((r) => (r.colour === colour ? r.value : null)),
-      colour
-    );
+  // A Newton iteration that came with its split draws one line per equation
+  // family, so a stall shows which equation is stuck. One without draws its
+  // single residual, and a Gummel cycle its update.
+  const split = (family) => (r) => (r.families ? r.families[family] : null);
+  const series = [
+    [BLUE, (r) => (r.colour === BLUE ? (r.families ? r.families.psi : r.value) : null)],
+    [GREEN, split("n")],
+    [RED, split("p")],
+    [PURPLE, (r) => (r.colour === PURPLE ? r.value : null)],
+  ];
+  for (const [colour, pick] of series) {
+    line(box.pen, frame, xs, state.residual.map(pick), colour);
   }
-  box.pen.fillStyle = RED;
+  box.pen.fillStyle = ink("--ink");
   for (const at of state.rejected) {
     const r = state.residual[at];
     if (!r || !isFinite(r.value) || (logY && !(r.value > 0))) continue;
@@ -542,6 +554,8 @@ function request() {
 
 function clear() {
   state.residual = [];
+  state.newton = null;
+  state.stalled = null;
   state.rejected = [];
   state.points = [];
   state.curve = null;
@@ -602,9 +616,42 @@ function listen() {
   };
 }
 
+// The equation family carrying the largest entry of a split. A null is a
+// number that was not finite, which is the largest there is.
+function largest(families) {
+  let worst = "", size = -Infinity;
+  for (const [family, value] of Object.entries(families)) {
+    const measured = value === null ? Infinity : value;
+    if (measured > size) { size = measured; worst = family; }
+  }
+  return worst;
+}
+
+// Which equation a failed Newton attempt was stuck in. Both the residual and
+// the update are named, because an attempt fails when either misses its
+// tolerance and the page does not know the tolerances. Measured on a stalled
+// MOSFET: every residual sat at 1e-14 and the n update at 1.8e-10, so naming
+// the residual alone would have pointed at the wrong test.
+function stalled(split) {
+  if (!split || !split.residual) return "";
+  let named = "largest residual in " + largest(split.residual);
+  if (split.update) named += ", largest update in " + largest(split.update);
+  return " (" + named + ")";
+}
+
 function frame(body) {
   if (body.type === "newton") {
-    state.residual.push({ value: body.residual, colour: BLUE });
+    state.residual.push({
+      value: body.residual,
+      colour: BLUE,
+      families: body.residual_by_family,
+    });
+    if (body.residual_by_family) {
+      state.newton = {
+        residual: body.residual_by_family,
+        update: body.update_by_family,
+      };
+    }
     el("residual-note").textContent =
       "iteration " + body.iteration + (body.limited ? ", step limited" : "");
     drawResidual();
@@ -616,7 +663,9 @@ function frame(body) {
     if (!body.converged) {
       state.rejected.push(state.residual.length - 1);
       el("residual-note").textContent =
-        "rejected at " + format(body.parameter) + " V, " + body.message;
+        "rejected at " + format(body.parameter) + " V, " + body.message +
+        stalled(state.newton);
+      state.stalled = state.newton;
       drawResidual();
     }
   } else if (body.type === "point" || body.type === "cv_point") {
@@ -634,6 +683,9 @@ function frame(body) {
 async function finish(body) {
   el("state").textContent = body.status;
   if (body.message) el("message").textContent = body.message;
+  if (body.status === "failed") {
+    el("message").textContent += stalled(state.stalled || state.newton);
+  }
   if (body.dropped) {
     el("curve-note").textContent += ", " + body.dropped + " frames dropped";
   }
@@ -648,7 +700,7 @@ async function finish(body) {
   }));
   drawCurve();
   if (!state.curve.complete && state.curve.message) {
-    el("message").textContent = state.curve.message;
+    el("message").textContent = state.curve.message + stalled(state.stalled);
   }
   if (state.points.length) {
     el("point").disabled = false;
