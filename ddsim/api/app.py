@@ -315,6 +315,8 @@ def _knob(parameter: Any) -> dict[str, Any]:
         "default": parameter.default,
         "type": parameter.type,
         "choices": list(parameter.choices),
+        "explanation": parameter.explanation,
+        "unit": parameter.unit,
     }
 
 

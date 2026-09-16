@@ -36,7 +36,7 @@ def pn_diode(
         Nd: donor concentration on the n side [cm^-3], positive.
         length: device length [cm].
         junction: junction position [cm].
-        n_nodes: mesh node count.
+        n_nodes: mesh node count [1].
         h_min: mesh spacing at the junction [cm].
         anode_voltage: bias on the p side contact [V].
         cathode_voltage: bias on the n side contact [V].

@@ -487,8 +487,8 @@ def iv_sweep(
             sweep may stall, or who only wants to know roughly where, should
             raise this.
         start: bias to begin from [V], solved directly rather than ramped to.
-        max_iterations: Gummel budget at each point.
-        update_tol: Gummel convergence threshold.
+        max_iterations: Gummel budget at each point [1].
+        update_tol: Gummel convergence threshold [1].
         on_frame: telemetry, or None to report nothing. Carries a
             GummelIteration per cycle, a ContinuationEvent per attempt and an
             IVFrame per point that lands. See phases/PHASE-7.md.
@@ -564,7 +564,7 @@ def gate_sweep(
         min_step: give up once the step falls below this [V].
         start: gate bias to begin from [V], solved directly rather than ramped
             to. Zero, which for an NMOS is off.
-        max_iterations: Newton budget at each point.
+        max_iterations: Newton budget at each point [1].
         on_frame: telemetry, or None to report nothing. Carries a
             NewtonIteration per iteration, a ContinuationEvent per attempt and
             an IVFrame per point that lands. No GummelIteration ever reaches

@@ -143,11 +143,11 @@ def nmos(
             twice this.
         t_ox: oxide thickness [cm]. 2e-6 is 20 nm.
         t_si: silicon thickness [cm], several times the depletion width.
-        n_contact: columns under each contact plate.
-        n_sd: columns from a contact edge to the gate mask edge.
-        n_channel: columns in each half of the channel.
-        n_silicon: rows through the silicon, including the interface.
-        n_oxide: rows through the oxide, including the interface.
+        n_contact: columns under each contact plate [1].
+        n_sd: columns from a contact edge to the gate mask edge [1].
+        n_channel: columns in each half of the channel [1].
+        n_silicon: rows through the silicon, including the interface [1].
+        n_oxide: rows through the oxide, including the interface [1].
         h_min_x: column spacing at each junction [cm].
         h_min_y: row spacing at the silicon surface [cm]. This is the one
             spacing the drain current is really sensitive to, because the
@@ -164,6 +164,10 @@ def nmos(
         work_function: work function of the gate electrode [eV]. n+ poly by
             default, the ordinary NMOS gate.
         material: defaults to silicon at 300 K.
+        degenerate: solve with Fermi-Dirac statistics rather than Boltzmann.
+            On by default because the source and drain peak at 1e20 cm^-3,
+            where n/Nc is 3.5 and Boltzmann misplaces the Fermi level by
+            30.5 mV. See docs/07-decisions.md, 2026-09-09.
 
     The implant is separable and both halves of it are closed form, which is
     what lets a test measure the junction depth and the lateral encroachment

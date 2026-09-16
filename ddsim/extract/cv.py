@@ -401,7 +401,7 @@ def cv_sweep(
         voltages: the biases wanted [V].
         response: which carriers follow the signal. See Response.
         width: extent of the terminal transverse to the field [cm].
-        max_iterations: Newton budget at each point.
+        max_iterations: Newton budget at each point [1].
         on_frame: telemetry, or None to report nothing. Carries a
             NewtonIteration per Poisson iteration and a CVFrame per point.
             There is no ContinuationEvent on this path: the points are

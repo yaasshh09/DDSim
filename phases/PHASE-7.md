@@ -225,7 +225,7 @@ Save and load as JSON, the same as stage 4.
 
 ## Acceptance criteria for part two
 
-- Every knob `/api/schema` offers carries a non empty explanation and a unit.
+- Every knob `/api/schema` offers carries a non empty explanation, and every numeric knob a unit.
   A knob without one fails a test.
 - Every plot and legend entry on the page has an explanation file, and every
   link from an explanation into docs/ resolves. Both are tests.

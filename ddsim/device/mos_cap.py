@@ -85,9 +85,9 @@ def mos_cap(
             width, or the body contact holds the depletion region open.
         width: device width [cm]. Nothing depends on it; the capacitance is
             per unit area.
-        nx: node count across the device, at least 2.
-        n_silicon: node count through the silicon, including the interface.
-        n_oxide: node count through the oxide, including the interface.
+        nx: node count across the device, at least 2 [1].
+        n_silicon: node count through the silicon, including the interface [1].
+        n_oxide: node count through the oxide, including the interface [1].
         h_min: mesh spacing at the silicon surface [cm]. 5e-8 is 0.5 nm, which
             resolves an inversion layer.
         gate_voltage: bias on the gate [V].

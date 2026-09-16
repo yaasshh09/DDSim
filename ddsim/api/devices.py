@@ -16,6 +16,7 @@ browser invented is not a device this project ever validated.
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
@@ -68,12 +69,60 @@ class Parameter:
     is the one that refuses a name it does not know.
     """
 
+    explanation: str = ""
+    """The function's own Args: line for this argument, continuation lines
+    joined. What the page shows beside the knob."""
+
+    unit: str = ""
+    """The first [bracketed] unit in the explanation, without the brackets.
+    "1" for a dimensionless number. Empty for a switch or a name."""
+
 
 def _builder(kind: str) -> Callable[..., Device]:
     if kind not in DEVICE_KINDS:
         known = ", ".join(sorted(DEVICE_KINDS))
         raise ValueError(f"unknown device kind {kind!r}. Known kinds: {known}")
     return DEVICE_KINDS[kind]
+
+
+_ARG_LINE = re.compile(r"^    (\w+): (.*)$")
+_UNIT = re.compile(r"\[([^\]]+)\]")
+
+
+def argument_docs(function: Callable[..., Any]) -> dict[str, str]:
+    """Each argument's description from the function's Args: block.
+
+    Args:
+        function: any documented function.
+
+    Reads the Google style block this project writes everywhere: an `Args:`
+    line, then one entry per argument indented four spaces, with continuation
+    lines indented eight. The block ends at the first line that is not
+    indented.
+    """
+    docs: dict[str, str] = {}
+    current: str | None = None
+    inside = False
+    for line in (inspect.getdoc(function) or "").splitlines():
+        if line.strip() == "Args:":
+            inside = True
+            continue
+        if not inside:
+            continue
+        if line and not line.startswith(" "):
+            break
+        entry = _ARG_LINE.match(line)
+        if entry:
+            current = entry.group(1)
+            docs[current] = entry.group(2).strip()
+        elif current is not None and line.startswith("        "):
+            docs[current] += " " + line.strip()
+    return docs
+
+
+def _unit_of(explanation: str) -> str:
+    found = _UNIT.search(explanation)
+    return found.group(1) if found else ""
 
 
 def parameters_of(
@@ -87,10 +136,11 @@ def parameters_of(
             argument name. Carried through to the Parameter and not checked
             here.
 
-    Units are not carried. They live in the docstrings, which is the single
-    place this project writes them down.
+    The explanation and unit are read from the function's own docstring,
+    which is the single place this project writes them down.
     """
     named = choices or {}
+    docs = argument_docs(function)
     offered: list[Parameter] = []
     for name, parameter in inspect.signature(function).parameters.items():
         # An argument with no default is part of the request rather than a
@@ -111,6 +161,8 @@ def parameters_of(
                     choices=tuple(
                         str(member.value) for member in type(parameter.default)
                     ),
+                    explanation=docs.get(name, ""),
+                    unit=_unit_of(docs.get(name, "")),
                 )
             )
         elif str(parameter.annotation) in _EXPRESSIBLE:
@@ -120,6 +172,8 @@ def parameters_of(
                     default=parameter.default,
                     type=str(parameter.annotation),
                     choices=named.get(name, ()),
+                    explanation=docs.get(name, ""),
+                    unit=_unit_of(docs.get(name, "")),
                 )
             )
     return tuple(offered)
