@@ -23,17 +23,20 @@ negative towards p type.
 psi is fixed by Poisson's equation, which says the curvature of the potential
 is set by the net charge:
 
-$$\nabla \cdot (\varepsilon \nabla \psi) = -q\,(p - n + N_d^+ - N_a^-)$$
+$$\nabla \cdot (\varepsilon \nabla \psi) = -q\,(p - n + N_d - N_a)$$
+
+with every dopant taken as ionized, which at 300 K and moderate doping is good
+to under one percent.
 
 The electric field is $E = -\nabla\psi$, so a slope in psi is a field and a
 step in psi across a junction is the built in potential. The carriers follow
-psi through Boltzmann statistics, $n = n_i\,e^{(\psi - \phi_n)/V_T}$ and
+psi, in the Boltzmann limit as $n = n_i\,e^{(\psi - \phi_n)/V_T}$ and
 $p = n_i\,e^{(\phi_p - \psi)/V_T}$, and in equilibrium both quasi-Fermi
 potentials are zero.
 
 Numerically, the solver never works with psi in volts. It divides by the
-thermal voltage $V_T = kT/q$, about 25.9 mV at 300 K, so psi becomes a number
-of order ten across a whole device. That is the de Mari scaling. Densities are
+thermal voltage $V_T = kT/q$, about 25.9 mV at 300 K, so a one volt step in psi
+becomes a step of about 39. That is the de Mari scaling. Densities are
 divided by a reference concentration and lengths by a Debye length in the same
 way, so Poisson loses its constants and becomes
 $\nabla^2 \psi = -(p - n + N)$. The densities still span some twenty five
