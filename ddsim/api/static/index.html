@@ -222,7 +222,10 @@ function format(v) {
 
 function axes(pen, box, xs, ys, options) {
   const logY = Boolean(options && options.logY);
-  const pad = { left: 62, right: 12, top: 10, bottom: 22 };
+  // Two frames sharing one box leave room on the right for the second one.
+  const twin = Boolean(options && options.twin);
+  const right = Boolean(options && options.right);
+  const pad = { left: 62, right: twin ? 62 : 12, top: 10, bottom: 22 };
   const inner = {
     x: pad.left,
     y: pad.top,
@@ -267,16 +270,18 @@ function axes(pen, box, xs, ys, options) {
   }
   pen.stroke();
 
-  pen.fillStyle = ink("--muted");
+  pen.fillStyle = (options && options.ink) || ink("--muted");
   pen.font = "11px ui-monospace, monospace";
-  pen.textAlign = "right";
+  pen.textAlign = right ? "left" : "right";
+  const labelX = right ? inner.x + inner.width + 6 : inner.x - 6;
   for (let i = 0; i <= 4; i++) {
     const t = i / 4;
     const value = logY
       ? undecades(decades(hi) - t * (decades(hi) - decades(lo)))
       : hi - t * (hi - lo);
-    pen.fillText(format(value), inner.x - 6, inner.y + t * inner.height + 4);
+    pen.fillText(format(value), labelX, inner.y + t * inner.height + 4);
   }
+  pen.fillStyle = ink("--muted");
   pen.textAlign = "left";
   pen.fillText(format(xlo), inner.x, box.height - 6);
   pen.textAlign = "right";
@@ -358,12 +363,16 @@ function drawProfile() {
     return;
   }
   const xs = fields.arrays.x;
-  const potential = axes(box.pen, box, xs, fields.arrays.psi, { logY: false });
+  const potential = axes(box.pen, box, xs, fields.arrays.psi, {
+    logY: false, twin: true, ink: BLUE,
+  });
   line(box.pen, potential, xs, fields.arrays.psi, BLUE);
 
   // The densities span decades, so they share a log frame over the same x.
   const both = Array.from(fields.arrays.n).concat(Array.from(fields.arrays.p));
-  const carriers = axes(box.pen, box, xs, both, { logY: true });
+  const carriers = axes(box.pen, box, xs, both, {
+    logY: true, twin: true, right: true, ink: GREEN,
+  });
   line(box.pen, carriers, xs, fields.arrays.n, GREEN);
   line(box.pen, carriers, xs, fields.arrays.p, RED);
 }
@@ -385,7 +394,9 @@ function drawImage(box, fields) {
   for (let j = 0; j < ny; j++) {
     for (let i = 0; i < nx; i++) {
       const t = (values[j * nx + i] - lo) / (hi - lo);
-      const at = 4 * (j * nx + i);
+      // y[0] is the bottom of the substrate and a canvas counts rows from
+      // the top, so row j is painted at ny - 1 - j and the gate is up.
+      const at = 4 * ((ny - 1 - j) * nx + i);
       image.data[at] = Math.round(255 * clamp(1.5 * t));
       image.data[at + 1] = Math.round(255 * clamp(1.5 * t - 0.25));
       image.data[at + 2] = Math.round(255 * clamp(1.6 - 1.5 * t));
