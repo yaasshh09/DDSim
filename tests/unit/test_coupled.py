@@ -61,6 +61,8 @@ from ddsim.discretize.coupled import (
     assemble_coupled_terms,
     coupled_jacobian,
     coupled_residual,
+    coupled_update_by_family,
+    coupled_update_norm,
     edge_drop,
     pack,
     residual_measure,
@@ -1072,3 +1074,20 @@ def test_a_row_just_above_the_floor_still_counts() -> None:
     measured = residual_measure(raw / weights, scales, n_nodes)
 
     assert measured == pytest.approx(0.25)
+
+
+def test_the_update_split_puts_each_family_under_its_own_name() -> None:
+    """The browser names the family that stalled from these labels, so a psi
+    number filed under n would send someone to the wrong equation. Each family
+    is given a distinct size so a swap cannot pass."""
+    x = pack(np.zeros(3), np.array([9.0, 1.0, 3.0]), np.array([0.0, 4.0, 1.0]))
+    delta = pack(
+        np.array([0.0, -0.25, 0.1]),
+        np.array([0.0, 1.0, 0.0]),
+        np.array([0.0, 0.0, -8.0]),
+    )
+
+    split = coupled_update_by_family(delta, x)
+
+    assert split == {"psi": 0.25, "n": 0.5, "p": 4.0}
+    assert coupled_update_norm(delta, x) == 4.0

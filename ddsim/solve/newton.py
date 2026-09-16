@@ -124,6 +124,15 @@ class NewtonIteration:
     limited: bool
     """Whether the damping rule changed this step at all."""
 
+    residual_by_family: dict[str, float] | None = None
+    """The residual split by equation family, largest equal to `residual`.
+    None from newton_solve itself, which has no families. A caller that has
+    them attaches them, as the coupled transport solve does."""
+
+    update_by_family: dict[str, float] | None = None
+    """The update split the same way, largest equal to `update`. None where
+    `update` is None or the caller has no families."""
+
 
 @dataclass(frozen=True)
 class NewtonResult:

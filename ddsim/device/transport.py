@@ -83,11 +83,11 @@ from ddsim.discretize.continuity import (
 from ddsim.discretize.coupled import (
     apply_contacts_coupled,
     assemble_coupled_terms,
-    coupled_update_norm,
+    coupled_update_by_family,
     edge_drop,
     limit_psi_step,
     pack,
-    residual_measure,
+    residual_measure_by_family,
     residual_term_scales,
     row_weights,
     scale_rows,
@@ -113,7 +113,7 @@ from ddsim.physics.recombination import (
 from ddsim.solve.continuation import continue_to
 from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve
 from ddsim.solve.linear import SparseLU
-from ddsim.solve.newton import NewtonResult, newton_solve
+from ddsim.solve.newton import NewtonIteration, NewtonResult, newton_solve
 
 MOBILITY_MODELS = ("constant", "arora")
 """The low field mobility models there are, by the name `for_device` takes.
@@ -942,6 +942,67 @@ def _surface_fixed_point(
     )
 
 
+def _reported_by_family(
+    residual_by_family: Callable[
+        [npt.NDArray[np.float64], npt.NDArray[np.float64]], dict[str, float]
+    ],
+    on_frame: Callable[[object], None] | None,
+) -> tuple[
+    Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float],
+    Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float],
+    Callable[[NewtonIteration], None] | None,
+]:
+    """The two measures a coupled Newton solve is judged on, and its reporter.
+
+    Each measure is the largest of its per family split, picked rather than
+    computed, so the number the solve converges against is the same with or
+    without anyone watching. When someone is, the split from the evaluation
+    a frame was built from rides along on that frame, which is what lets the
+    browser say whether Poisson or a continuity equation stalled.
+
+    A split is attached only when its largest entry is exactly the frame's own
+    scalar. newton_solve reports a diverged iterate as infinite without
+    measuring it, and pairing that frame with the last split measured would
+    name a family for a residual the split never saw.
+    """
+    last: dict[str, dict[str, float]] = {}
+
+    def residual_norm(
+        residual: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+    ) -> float:
+        split = residual_by_family(residual, x)
+        last["residual"] = split
+        return max(0.0, *split.values())
+
+    def update_norm(
+        delta: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+    ) -> float:
+        split = coupled_update_by_family(delta, x)
+        last["update"] = split
+        return max(split.values())
+
+    if on_frame is None:
+        return residual_norm, update_norm, None
+    send = on_frame
+
+    def matching(kind: str, value: float | None) -> dict[str, float] | None:
+        split = last.get(kind)
+        if split is None or value is None or max(split.values()) != value:
+            return None
+        return split
+
+    def report(frame: NewtonIteration) -> None:
+        send(
+            replace(
+                frame,
+                residual_by_family=matching("residual", frame.residual),
+                update_by_family=matching("update", frame.update),
+            )
+        )
+
+    return residual_norm, update_norm, report
+
+
 def solve_bias_newton(
     device: Device,
     models: TransportModels | None = None,
@@ -1079,7 +1140,7 @@ def solve_bias_newton(
         return assemble
 
     def measured(active: TransportModels) -> Callable[
-        [npt.NDArray[np.float64], npt.NDArray[np.float64]], float
+        [npt.NDArray[np.float64], npt.NDArray[np.float64]], dict[str, float]
     ]:
         """The residual size, measured row by row against its own terms.
 
@@ -1093,7 +1154,7 @@ def solve_bias_newton(
 
         def norm(
             residual: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
-        ) -> float:
+        ) -> dict[str, float]:
             _, n, p = unpack(x)
             scales = residual_term_scales(
                 h,
@@ -1106,24 +1167,27 @@ def solve_bias_newton(
                 geometry,
                 device.degeneracy,
             )
-            return residual_measure(residual, scales, mesh.n_nodes)
+            return residual_measure_by_family(residual, scales, mesh.n_nodes)
 
         return norm
 
     def run(
         active: TransportModels, x: npt.NDArray[np.float64]
     ) -> NewtonResult:
+        residual_norm, update_norm, report = _reported_by_family(
+            measured(active), on_frame
+        )
         return newton_solve(
             assembler(active),
             x,
             limit=lambda delta: limit_psi_step(delta, max_psi_step),
             residual_scale=1.0,
-            residual_norm=measured(active),
+            residual_norm=residual_norm,
             residual_rtol=residual_rtol,
             update_tol=update_tol,
-            update_norm=coupled_update_norm,
+            update_norm=update_norm,
             max_iterations=max_iterations,
-            on_iteration=on_frame,
+            on_iteration=report,
         )
 
     def solve_with(

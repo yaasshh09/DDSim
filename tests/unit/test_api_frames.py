@@ -79,7 +79,28 @@ def test_a_newton_iteration_crosses_as_the_numbers_it_carries() -> None:
         "update": 2.0e-4,
         "damping": 0.5,
         "limited": True,
+        "residual_by_family": None,
+        "update_by_family": None,
     }
+
+
+def test_a_newton_iteration_carries_its_split_by_equation_family() -> None:
+    """So the page can draw psi, n and p apart and name the one that stalled.
+    A family that went non finite crosses as null like any other number."""
+    body = as_json(
+        NewtonIteration(
+            iteration=2,
+            residual=math.inf,
+            update=1e-3,
+            damping=1.0,
+            limited=False,
+            residual_by_family={"psi": 1e-9, "n": math.inf, "p": 3e-7},
+            update_by_family={"psi": 1e-3, "n": 2e-4, "p": 5e-5},
+        )
+    )
+
+    assert body["residual_by_family"] == {"psi": 1e-9, "n": None, "p": 3e-7}
+    assert body["update_by_family"] == {"psi": 1e-3, "n": 2e-4, "p": 5e-5}
 
 
 def test_the_first_newton_iteration_says_there_was_no_step() -> None:

@@ -1287,6 +1287,10 @@ def row_weights(scales: TermScales, n_nodes: int) -> npt.NDArray[np.float64]:
     return weights
 
 
+FAMILIES = tuple(unknown.name.lower() for unknown in Unknown)
+"""("psi", "n", "p"), the names a per family measure is reported under."""
+
+
 def residual_measure(
     residual: npt.NDArray[np.float64], scales: TermScales, n_nodes: int
 ) -> float:
@@ -1347,10 +1351,23 @@ def residual_measure(
     decades on that row while leaving every row the measure was introduced to
     catch. See the 2026-09-12 row in docs/07-decisions.md.
     """
+    # The largest family, picked rather than computed, so the number is the
+    # one each family reports and not a rounding of it.
+    return max(0.0, *residual_measure_by_family(residual, scales, n_nodes).values())
+
+
+def residual_measure_by_family(
+    residual: npt.NDArray[np.float64], scales: TermScales, n_nodes: int
+) -> dict[str, float]:
+    """residual_measure for each equation family on its own [1].
+
+    Keyed by FAMILIES. The browser shows these so that a solve which stalls
+    says which equation stalled, and residual_measure is the largest of them.
+    """
     weights = row_weights(scales, n_nodes)
     raw = np.abs(residual) * weights
-    largest = 0.0
-    for component, scale in zip(Unknown, scales, strict=True):
+    by_family: dict[str, float] = {}
+    for component, scale, name in zip(Unknown, scales, FAMILIES, strict=True):
         rows = raw[component::UNKNOWNS_PER_NODE]
         # Not scale > 0.0. A scale that has merely collapsed is as unusable
         # as one that is exactly zero, and the exact test walks past it.
@@ -1358,8 +1375,8 @@ def residual_measure(
         measured = np.divide(
             rows, scale, out=np.zeros_like(rows), where=scale > floor
         )
-        largest = max(largest, float(np.max(measured)))
-    return largest
+        by_family[name] = float(np.max(measured))
+    return by_family
 
 
 def scale_rows(
@@ -1413,11 +1430,21 @@ def coupled_update_norm(
     n is 1e6 in scaled units and its last bit is 1e-10. Every solve above
     0.2 V reported failure while sitting on the exact answer.
     """
+    return max(coupled_update_by_family(delta, x).values())
+
+
+def coupled_update_by_family(
+    delta: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+) -> dict[str, float]:
+    """coupled_update_norm for each equation family on its own [1].
+
+    Keyed by FAMILIES, and coupled_update_norm is the largest of them.
+    """
     dpsi, dn, dp = unpack(delta)
     _, n, p = unpack(x)
 
-    return max(
-        float(np.max(np.abs(dpsi))),
-        float(np.max(np.abs(dn) / (np.abs(n) + 1.0))),
-        float(np.max(np.abs(dp) / (np.abs(p) + 1.0))),
-    )
+    return {
+        "psi": float(np.max(np.abs(dpsi))),
+        "n": float(np.max(np.abs(dn) / (np.abs(n) + 1.0))),
+        "p": float(np.max(np.abs(dp) / (np.abs(p) + 1.0))),
+    }

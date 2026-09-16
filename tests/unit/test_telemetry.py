@@ -32,16 +32,18 @@ from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import (
+    _reported_by_family,
     solve_bias,
     solve_bias_hybrid,
     solve_bias_newton,
     solve_bias_ramped,
 )
+from ddsim.discretize.assembly import SparseAssembly
 from ddsim.extract.cv import CVFrame, cv_sweep
 from ddsim.extract.iv import IVFrame, gate_sweep, iv_sweep
 from ddsim.solve.continuation import ContinuationEvent
 from ddsim.solve.gummel import GummelIteration
-from ddsim.solve.newton import NewtonIteration
+from ddsim.solve.newton import NewtonIteration, newton_solve
 
 MICRON = 1e-4
 """One micron [cm]."""
@@ -112,6 +114,73 @@ def test_a_newton_solve_reports_its_iterations() -> None:
     assert state.newton is not None
     iterations = of_type(frames, NewtonIteration)
     assert [frame.residual for frame in iterations] == state.newton.residual_history
+
+
+def test_a_coupled_newton_iteration_names_each_equation_family() -> None:
+    """phases/PHASE-7.md item 5: residual and update per equation family, so
+    a stalled solve can say whether Poisson or a continuity equation stalled.
+    The split has to be the scalar the solve was judged on, taken apart: its
+    largest family is that scalar exactly, not approximately."""
+    frames, send = collect()
+
+    solve_bias_newton(diode(anode_voltage=0.4), on_frame=send)
+
+    iterations = of_type(frames, NewtonIteration)
+    assert len(iterations) > 2
+    for frame in iterations:
+        assert frame.residual_by_family is not None
+        assert list(frame.residual_by_family) == ["psi", "n", "p"]
+        assert max(frame.residual_by_family.values()) == frame.residual
+        if frame.update is None:
+            assert frame.update_by_family is None
+        else:
+            assert frame.update_by_family is not None
+            assert list(frame.update_by_family) == ["psi", "n", "p"]
+            assert max(frame.update_by_family.values()) == frame.update
+
+    # Three copies of one number would pass every check above.
+    assert any(
+        len(set(frame.residual_by_family.values())) == 3 for frame in iterations
+    )
+
+
+def test_a_diverged_iterate_is_not_paired_with_an_older_split() -> None:
+    """newton_solve reports a diverged iterate as infinite without measuring
+    it. The split from the evaluation before would otherwise ride along, and
+    the browser would name a stalled family from a residual that was finite."""
+    frames, send = collect()
+    residual_norm, _, report = _reported_by_family(
+        lambda residual, x: {"psi": 1e-3, "n": 2e-3, "p": 5e-4}, send
+    )
+    assert report is not None
+
+    residual_norm(np.zeros(3), np.zeros(3))
+    report(NewtonIteration(1, 2e-3, 0.1, 1.0, False))
+    report(NewtonIteration(2, float("inf"), 0.1, 1.0, False))
+
+    assert frames[0].residual_by_family == {"psi": 1e-3, "n": 2e-3, "p": 5e-4}
+    assert frames[1].residual_by_family is None
+
+
+def test_a_newton_solve_that_knows_no_families_reports_none() -> None:
+    """newton_solve knows nothing about semiconductors. The split is the
+    coupled transport solve's to give, and a bare solve does not invent one."""
+    frames, send = collect()
+
+    def assemble(x):
+        return SparseAssembly(
+            residual=x - 1.0,
+            rows=np.array([0]),
+            cols=np.array([0]),
+            values=np.array([1.0]),
+            shape=(1, 1),
+        )
+
+    newton_solve(assemble, np.array([3.0]), on_iteration=send)
+
+    assert frames
+    assert all(frame.residual_by_family is None for frame in frames)
+    assert all(frame.update_by_family is None for frame in frames)
 
 
 def test_an_equilibrium_solve_reports_its_iterations() -> None:

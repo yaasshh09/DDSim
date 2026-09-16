@@ -108,6 +108,15 @@ def _finite(value: float | None) -> float | None:
     return value
 
 
+def _finite_by_family(
+    split: dict[str, float] | None,
+) -> dict[str, float | None] | None:
+    """A per family split JSON can carry, family by family. See _finite."""
+    if split is None:
+        return None
+    return {family: _finite(value) for family, value in split.items()}
+
+
 def _body(frame: object) -> dict[str, Any]:
     """One frame as the object the client switches on, by its own type."""
     if isinstance(frame, NewtonIteration):
@@ -118,6 +127,8 @@ def _body(frame: object) -> dict[str, Any]:
             "update": _finite(frame.update),
             "damping": _finite(frame.damping),
             "limited": frame.limited,
+            "residual_by_family": _finite_by_family(frame.residual_by_family),
+            "update_by_family": _finite_by_family(frame.update_by_family),
         }
     if isinstance(frame, GummelIteration):
         return {
