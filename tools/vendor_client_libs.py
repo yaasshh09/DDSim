@@ -80,8 +80,8 @@ def main() -> None:
             }
         )
 
-    (VENDOR / "VENDOR.json").write_text(
-        json.dumps({"packages": packages}, indent=2) + "\n", encoding="utf-8"
+    (VENDOR / "VENDOR.json").write_bytes(
+        (json.dumps({"packages": packages}, indent=2) + "\n").encode("utf-8")
     )
 
 
