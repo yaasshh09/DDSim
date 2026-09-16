@@ -46,6 +46,7 @@ from ddsim.api.frames import (
     point_voltage,
 )
 from ddsim.api.jobs import JobRegistry, JobStatus, Send
+from ddsim.api.learn import KNOB_TOPICS, load_topic, topic_names
 from ddsim.api.sweeps import (
     SWEEP_KINDS,
     check_request,
@@ -164,6 +165,28 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 for kind in SWEEP_KINDS
             },
             "models": [_knob(p) for p in model_parameters()],
+        }
+
+    @app.get("/api/learn")
+    def topics() -> list[dict[str, str]]:
+        """Every explanation, by name, title and one line."""
+        return [
+            {"name": t.name, "title": t.title, "summary": t.summary}
+            for t in (load_topic(name) for name in topic_names())
+        ]
+
+    @app.get("/api/learn/{name}")
+    def topic(name: str) -> dict[str, Any]:
+        """One explanation, in its two layers, with the knobs it explains."""
+        found = _found(lambda: load_topic(name))
+        return {
+            "name": found.name,
+            "title": found.title,
+            "summary": found.summary,
+            "docs": list(found.docs),
+            "plain": found.plain,
+            "depth": found.depth,
+            "knobs": sorted(k for k, t in KNOB_TOPICS.items() if t == found.name),
         }
 
     @app.post("/api/jobs")
