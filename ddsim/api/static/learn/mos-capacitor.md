@@ -58,5 +58,5 @@ The body is a plate across the whole bottom edge rather than a point, because a
 point would leave the rest of that edge reflecting, which is a different
 device. The default mesh is 3 columns by 125 rows, graded hard towards the
 surface in the silicon and uniform in the oxide, where the potential is a
-straight line. The two MOS capacitor benchmarks agree with DEVSIM to 0.053
-percent.
+straight line. The two MOS capacitor benchmarks agree with DEVSIM on charge
+to 0.440 percent with a 5 nm oxide and 0.053 percent with a 20 nm one.

@@ -46,8 +46,8 @@ In a sweep each requested voltage is the target of its own ramp, started from
 the one before, and the step never grows past the `step` knob: 0.05 V by
 default on the diode, 0.1 V on the transfer curve. So growth only earns back
 the size lost to a halving. A C-V sweep does not continue at all. Each of its
-points is an independent equilibrium solve, so one bias that fails does not
-spoil the rest.
+points is an independent equilibrium solve from a fresh guess, and the sweep
+stops at the first bias that fails, returning the points before it.
 
 The first point is a jump too. A transfer curve starts at zero gate with the
 drain already at its bias, so the solve that begins the ramp is exactly the
