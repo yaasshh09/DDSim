@@ -9,7 +9,8 @@ architecture AtomSIM uses.
 The binary layout, which the client reads and nothing else does:
 
     uint32 little endian   length of the header in bytes
-    utf-8 JSON             the header
+    utf-8 JSON             the header, space padded so the payload starts
+                           on a multiple of 4
     float32 little endian  every array end to end, in the header's order
 
 The header names each array, its unit and its length, so the client slices the
@@ -182,6 +183,9 @@ def encode(frame: object) -> str | bytes:
                 ],
             }
         ).encode("utf-8")
+        # A Float32Array view throws unless it starts on a multiple of 4, so
+        # the header is padded with spaces, which JSON reads as nothing.
+        header += b" " * (-(4 + len(header)) % 4)
         payload = b"".join(
             np.ascontiguousarray(values, dtype=WIRE_DTYPE).tobytes()
             for _, _, values in frame.arrays

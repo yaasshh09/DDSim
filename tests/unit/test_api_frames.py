@@ -22,7 +22,7 @@ import struct
 import numpy as np
 import pytest
 
-from ddsim.api.frames import decode_fields, encode, field_frame
+from ddsim.api.frames import FieldFrame, decode_fields, encode, field_frame
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
@@ -175,6 +175,29 @@ def test_a_field_frame_is_a_json_header_followed_by_float32() -> None:
     assert header["type"] == "fields"
     total = sum(array["length"] for array in header["arrays"])
     assert len(payload) == 4 * total
+
+
+@pytest.mark.parametrize("index", [0, 10, 100, 1000])
+def test_the_float32_payload_starts_on_a_four_byte_boundary(index) -> None:
+    """The browser reads the payload as a Float32Array view, and that throws
+    unless the offset is a multiple of 4. numpy's frombuffer does not care, so
+    decode_fields passed while the page drew nothing. Four index widths make
+    four consecutive header lengths, which covers every residue."""
+    frame = FieldFrame(
+        index=index,
+        voltage=0.5,
+        shape=(3,),
+        arrays=(("psi", "V", np.array([0.1, 0.2, 0.3])),),
+    )
+
+    message = encode(frame)
+    (length,) = struct.unpack_from("<I", message, 0)
+
+    assert (4 + length) % 4 == 0
+    assert header_of(message)["index"] == index
+    np.testing.assert_allclose(
+        decode_fields(message)["psi"], [0.1, 0.2, 0.3], rtol=1e-6
+    )
 
 
 def test_the_arrays_arrive_in_the_order_the_header_lists_them() -> None:

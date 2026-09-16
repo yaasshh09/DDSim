@@ -177,7 +177,9 @@ The shape of it:
   late, disconnect and come back. Field arrays are a separate GET, answered
   from the finished curve, so asking for a profile cannot stall a solve at all.
   The binary layout is in `api/frames.py`: a uint32 header length, a JSON
-  header naming every array with its unit and length, then float32.
+  header naming every array with its unit and length, space padded so the
+  float32 that follows starts on a multiple of 4 (a browser Float32Array
+  view refuses any other offset).
 - Frontend idiom: lab instrument, matching AtomSIM. Real TCAD viewers look like
   this. Filled contour plots, current density streamlines, a draggable cutline
   producing a band diagram along it, log-scale toggles everywhere.
