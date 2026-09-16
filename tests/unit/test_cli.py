@@ -76,3 +76,19 @@ def test_no_command_at_all_is_refused() -> None:
         main([])
 
     assert raised.value.code == 2
+
+
+def test_the_real_server_can_upgrade_to_a_websocket() -> None:
+    """The residual reaches the page over a websocket, and bare uvicorn has no
+    websocket library of its own. Without one it answers every upgrade with a
+    404 and the page sits at "solving" forever. TestClient never goes through
+    uvicorn, so every route test passed while the first real browser failed.
+    This asks uvicorn directly which protocol it would serve."""
+    import uvicorn
+
+    from ddsim.api.app import create_app
+
+    config = uvicorn.Config(create_app(), ws="auto")
+    config.load()
+
+    assert config.ws_protocol_class is not None
