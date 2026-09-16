@@ -46,7 +46,13 @@ from ddsim.api.frames import (
     point_voltage,
 )
 from ddsim.api.jobs import JobRegistry, JobStatus, Send
-from ddsim.api.learn import KNOB_TOPICS, load_topic, topic_names
+from ddsim.api.learn import (
+    KNOB_TOPICS,
+    PLOT_TOPICS,
+    STATUS_TOPICS,
+    load_topic,
+    topic_names,
+)
 from ddsim.api.sweeps import (
     SWEEP_KINDS,
     check_request,
@@ -165,6 +171,8 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 for kind in SWEEP_KINDS
             },
             "models": [_knob(p) for p in model_parameters()],
+            "plots": dict(PLOT_TOPICS),
+            "statuses": dict(STATUS_TOPICS),
         }
 
     @app.get("/api/learn")
@@ -340,6 +348,7 @@ def _knob(parameter: Any) -> dict[str, Any]:
         "choices": list(parameter.choices),
         "explanation": parameter.explanation,
         "unit": parameter.unit,
+        "topic": KNOB_TOPICS.get(parameter.name, ""),
     }
 
 

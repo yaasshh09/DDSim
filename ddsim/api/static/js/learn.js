@@ -1,0 +1,71 @@
+// The explanation drawer. Renders what /api/learn sends: markdown through
+// marked, maths through KaTeX. Nothing here knows any physics; it shows text.
+
+function explainButton(onClick) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "explain";
+  button.textContent = "i";
+  button.setAttribute("aria-label", "explain");
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClick();
+  });
+  return button;
+}
+
+function escapeText(text) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderInto(element, markdown) {
+  // marked reads \, \! \| and \\ inside the TeX as markdown escapes and drops
+  // the backslash, so each $...$ is set aside before marked and put back,
+  // escaped as plain text, for KaTeX to find.
+  const maths = [];
+  const lifted = markdown.replace(/\$\$[\s\S]+?\$\$|\$[^$]+?\$/g, (tex) => {
+    maths.push(tex);
+    return "@@MATH" + (maths.length - 1) + "@@";
+  });
+  element.innerHTML = marked
+    .parse(lifted)
+    .replace(/@@MATH(\d+)@@/g, (_, index) => escapeText(maths[Number(index)]));
+  renderMathInElement(element, {
+    delimiters: [
+      { left: "$$", right: "$$", display: true },
+      { left: "$", right: "$", display: false },
+    ],
+    throwOnError: false,
+  });
+}
+
+async function explain(topicName, knob) {
+  el("drawer-knob").textContent = knob
+    ? knob.name + (knob.unit ? " [" + knob.unit + "]" : "") + ": " +
+      knob.explanation + " Default " + String(knob.default) + "."
+    : "";
+  el("drawer-title").textContent = knob ? knob.name : "";
+  el("drawer-plain").textContent = "";
+  el("drawer-depth").textContent = "";
+  el("drawer-docs").textContent = "";
+  if (topicName) {
+    const response = await fetch("/api/learn/" + encodeURIComponent(topicName));
+    if (response.ok) {
+      const topic = await response.json();
+      el("drawer-title").textContent = topic.title;
+      renderInto(el("drawer-plain"), topic.plain);
+      renderInto(el("drawer-depth"), topic.depth);
+      el("drawer-docs").textContent = "In the repo: " + topic.docs.join(", ");
+    }
+  }
+  el("drawer").classList.add("open");
+}
+
+function markExplainable(root, topics) {
+  for (const target of root.querySelectorAll("[data-topic-id]")) {
+    if (target.querySelector(":scope > .explain")) continue;
+    const topic = topics[target.dataset.topicId];
+    target.appendChild(explainButton(() => explain(topic)));
+  }
+}

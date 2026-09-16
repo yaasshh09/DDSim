@@ -84,6 +84,13 @@
   #message { margin-top: 10px; white-space: pre-wrap; color: var(--warn); }
   #state { color: var(--muted); }
   .legend { display: flex; gap: 12px; color: var(--muted); margin-top: 4px; flex-wrap: wrap; }
+  #drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100%);
+    background: var(--paper); border-left: 1px solid var(--line); padding: 16px;
+    overflow-y: auto; transform: translateX(100%); transition: transform 0.15s; z-index: 10; }
+  #drawer.open { transform: none; }
+  .explain { border: 1px solid var(--line); border-radius: 50%; width: 16px; height: 16px;
+    font-size: 10px; line-height: 14px; padding: 0; margin-left: 4px; cursor: pointer;
+    background: var(--paper); color: var(--muted); }
   .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -102,13 +109,13 @@
   <section id="controls">
     <fieldset>
       <legend>device</legend>
-      <label><span>kind</span><select id="device-kind"></select></label>
+      <label data-topic-id="device-kind"><span>kind</span><select id="device-kind"></select></label>
       <div id="device-knobs"></div>
     </fieldset>
 
     <fieldset>
       <legend>sweep</legend>
-      <label><span>kind</span><select id="sweep-kind"></select></label>
+      <label data-topic-id="sweep-kind"><span>kind</span><select id="sweep-kind"></select></label>
       <label><span>contact</span><input id="contact" type="text"></label>
       <label><span>measure at</span><input id="measure-at" type="text" placeholder="drain"></label>
       <label><span>voltages [V]</span></label>
@@ -130,7 +137,7 @@
 
   <section id="plots">
     <div class="panel">
-      <h2>residual
+      <h2 data-topic-id="residual-plot">residual
         <span class="tools">
           <label style="display:inline-flex"><span>log</span>
             <input id="residual-log" type="checkbox" checked></label>
@@ -138,17 +145,17 @@
       </h2>
       <canvas id="residual" height="200"></canvas>
       <div class="legend">
-        <span><i class="swatch" style="background:#1f6feb"></i>psi residual</span>
-        <span><i class="swatch" style="background:#1a7f37"></i>n residual</span>
-        <span><i class="swatch" style="background:#b23c17"></i>p residual</span>
-        <span><i class="swatch" style="background:#8250df"></i>gummel update</span>
-        <span><i class="swatch" style="background:var(--ink)"></i>rejected step</span>
+        <span data-topic-id="legend-psi-residual"><i class="swatch" style="background:#1f6feb"></i>psi residual</span>
+        <span data-topic-id="legend-n-residual"><i class="swatch" style="background:#1a7f37"></i>n residual</span>
+        <span data-topic-id="legend-p-residual"><i class="swatch" style="background:#b23c17"></i>p residual</span>
+        <span data-topic-id="legend-gummel-update"><i class="swatch" style="background:#8250df"></i>gummel update</span>
+        <span data-topic-id="legend-rejected-step"><i class="swatch" style="background:var(--ink)"></i>rejected step</span>
         <span id="residual-note"></span>
       </div>
     </div>
 
     <div class="panel">
-      <h2>curve
+      <h2 data-topic-id="curve-plot">curve
         <span class="tools">
           <label style="display:inline-flex"><span>log</span>
             <input id="curve-log" type="checkbox"></label>
@@ -159,7 +166,7 @@
     </div>
 
     <div class="panel">
-      <h2>profile
+      <h2 data-topic-id="profile-plot">profile
         <span class="tools">
           <label style="display:inline-flex"><span>point</span>
             <input id="point" type="range" min="0" max="0" value="0" disabled></label>
@@ -167,18 +174,28 @@
       </h2>
       <canvas id="profile" height="220"></canvas>
       <div class="legend">
-        <span><i class="swatch" style="background:#1f6feb"></i>psi [V]</span>
-        <span><i class="swatch" style="background:#1a7f37"></i>n [cm^-3]</span>
-        <span><i class="swatch" style="background:#b23c17"></i>p [cm^-3]</span>
+        <span data-topic-id="legend-psi"><i class="swatch" style="background:#1f6feb"></i>psi [V]</span>
+        <span data-topic-id="legend-n"><i class="swatch" style="background:#1a7f37"></i>n [cm^-3]</span>
+        <span data-topic-id="legend-p"><i class="swatch" style="background:#b23c17"></i>p [cm^-3]</span>
         <span id="profile-note"></span>
       </div>
     </div>
   </section>
 </main>
 
+<aside id="drawer" aria-live="polite">
+  <button id="drawer-close" class="flat" type="button">close</button>
+  <h2 id="drawer-title"></h2>
+  <p id="drawer-knob"></p>
+  <div id="drawer-plain"></div>
+  <details open><summary>In more depth</summary><div id="drawer-depth"></div></details>
+  <p id="drawer-docs"></p>
+</aside>
+
 <script src="/static/vendor/marked/marked.umd.js"></script>
 <script src="/static/vendor/katex/katex.min.js"></script>
 <script src="/static/vendor/katex/contrib/auto-render.min.js"></script>
 <script src="/static/js/app.js"></script>
+<script src="/static/js/learn.js"></script>
 </body>
 </html>

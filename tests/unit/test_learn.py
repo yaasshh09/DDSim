@@ -83,7 +83,6 @@ def test_every_mapping_points_at_a_topic_that_exists() -> None:
         assert not missing, sorted(missing)
 
 
-@pytest.mark.xfail(strict=True, reason="Task 8 adds the data-topic-id markers")
 def test_every_marked_element_in_the_page_has_a_topic() -> None:
     page = (LEARN.parent / "index.html").read_text(encoding="utf-8")
     ids = set(re.findall(r'data-topic-id="([^"]+)"', page))

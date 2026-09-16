@@ -96,7 +96,7 @@ def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) -> N
             )
             wait_until(
                 page,
-                "el('state').textContent === 'done' && state.fields !== null",
+                "el('state').textContent.startsWith('done') && state.fields !== null",
                 errors,
             )
 
@@ -106,5 +106,39 @@ def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) -> N
             assert hosts == {server.split("/")[2]}, f"requests left: {hosts}"
             assert page.evaluate("typeof marked.parse") == "function"
             assert page.evaluate("typeof renderMathInElement") == "function"
+        finally:
+            browser.close()
+
+
+def test_a_knob_explains_itself_with_rendered_maths(server) -> None:
+    """Part two: every knob one click from its explanation, and the depth
+    layer's equations rendered rather than shown as LaTeX source."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.click('label:has([data-name="Na"]) .explain')
+
+            wait_until(page, "el('drawer').classList.contains('open')", errors)
+            wait_until(
+                page, "document.querySelector('#drawer-depth .katex') !== null", errors
+            )
+
+            assert "cm^-3" in page.inner_text("#drawer-knob")
+            assert page.inner_text("#drawer-title")
+            assert "$$" not in page.inner_text("#drawer-depth")
+            # marked reads \, as a markdown escape and drops the backslash,
+            # so KaTeX would draw a comma. Its annotation keeps what it got.
+            tex = page.evaluate(
+                "[...document.querySelectorAll('#drawer-depth annotation')]"
+                ".map((a) => a.textContent).join(' ')"
+            )
+            assert r"\," in tex, tex
+            assert errors == []
         finally:
             browser.close()

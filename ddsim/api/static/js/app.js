@@ -253,6 +253,7 @@ function knob(parameter) {
   const name = document.createElement("span");
   name.textContent = parameter.name;
   label.appendChild(name);
+  name.appendChild(explainButton(() => explain(parameter.topic, parameter)));
 
   let input;
   if (parameter.type === "bool") {
@@ -342,6 +343,8 @@ async function schema() {
   onDeviceKind();
   onSweepKind();
   el("state").textContent = "ready";
+  el("drawer-close").addEventListener("click", () => el("drawer").classList.remove("open"));
+  markExplainable(document, state.schema.plots);
 }
 
 function voltages() {
@@ -505,6 +508,10 @@ function frame(body) {
 
 async function finish(body) {
   el("state").textContent = body.status;
+  const statusTopic = state.schema.statuses[body.status];
+  if (statusTopic) {
+    el("state").appendChild(explainButton(() => explain(statusTopic)));
+  }
   if (body.message) el("message").textContent = body.message;
   if (body.status === "failed") {
     el("message").textContent += stalled(state.stalled || state.newton);
