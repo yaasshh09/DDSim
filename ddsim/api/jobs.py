@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import queue
 import threading
+import time
 import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
@@ -245,6 +246,32 @@ class JobRegistry:
             if frame is _END:
                 return
             yield frame
+
+    def close(self, timeout: float | None = None) -> None:
+        """Cancel every job still running and wait until each has stopped.
+
+        Called when the app shuts down. A solver thread that outlives the
+        interpreter dies inside numpy, and Python then exits 120 over a run
+        that was otherwise clean.
+
+        Args:
+            timeout: seconds to wait for all of them together [s], or None.
+
+        Raises TimeoutError when a job has not stopped in time. Cancellation
+        lands at a job's next frame, so work that never reports cannot be
+        stopped, and a shutdown that hung on it would be worse than saying so.
+        """
+        with self._lock:
+            jobs = list(self._jobs.values())
+        for job in jobs:
+            if job.status not in _TERMINAL:
+                job.cancelling.set()
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        for job in jobs:
+            left = None if deadline is None else max(0.0, deadline - time.monotonic())
+            if not job.finished.wait(timeout=left):
+                raise TimeoutError(f"job {job.id} did not stop within {timeout} s")
 
     def wait(self, job_id: str, timeout: float | None = None) -> JobStatus:
         """Block until the job reaches a terminal status, and return it."""

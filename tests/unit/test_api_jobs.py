@@ -288,3 +288,35 @@ def test_a_cancelled_job_keeps_nothing_either() -> None:
 
     assert jobs.wait(job.id, timeout=5.0) is JobStatus.CANCELLED
     assert jobs.result(job.id) is None
+
+
+def test_closing_the_registry_stops_every_running_job() -> None:
+    """A solver thread still running when the interpreter exits dies inside
+    numpy, and Python reports exit code 120 over a test run that passed. So
+    close cancels what is running and does not return until it has stopped."""
+    jobs = JobRegistry()
+
+    def forever(send) -> None:
+        while True:
+            send("iteration")
+
+    running = [jobs.submit(forever) for _ in range(3)]
+    finished = jobs.submit(lambda send: send("done"))
+    jobs.wait(finished.id, timeout=5.0)
+
+    jobs.close(timeout=5.0)
+
+    assert all(jobs.status(job.id) is JobStatus.CANCELLED for job in running)
+    assert jobs.status(finished.id) is JobStatus.DONE
+
+
+def test_closing_gives_up_on_work_that_never_reports() -> None:
+    """Cancellation lands at the next frame, so work that never sends one
+    cannot be stopped. close says so rather than hanging the shutdown."""
+    release = threading.Event()
+    jobs = JobRegistry()
+    jobs.submit(lambda send: release.wait(timeout=5.0))
+
+    with pytest.raises(TimeoutError):
+        jobs.close(timeout=0.1)
+    release.set()

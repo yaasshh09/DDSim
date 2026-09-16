@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 
 from ddsim.api.app import create_app
 from ddsim.api.frames import decode_fields
-from ddsim.api.jobs import JobStatus
+from ddsim.api.jobs import JobRegistry, JobStatus
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
@@ -438,3 +438,22 @@ def test_the_page_is_served_from_the_root(client) -> None:
 
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
+
+
+def test_the_page_is_revalidated_rather_than_cached(client) -> None:
+    """The client and the wire format ship together. A browser that keeps an
+    old page after the package changes draws with yesterday's reader, and the
+    first time I opened this page it did exactly that."""
+    response = client.get("/")
+
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_shutting_the_app_down_cancels_what_is_still_solving() -> None:
+    """Ctrl+C on `ddsim serve` mid sweep, or a test that walks away from a
+    long job. Either way the solver thread must not outlive the app."""
+    registry = JobRegistry()
+    with TestClient(create_app(registry)) as client:
+        job = submit(client, diode_request(voltages=LONG))
+
+    assert registry.status(job) is JobStatus.CANCELLED

@@ -25,6 +25,8 @@ sweep the CLI would call, and forwards what comes back.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -53,6 +55,10 @@ from ddsim.api.sweeps import (
 from ddsim.device.builder import Device
 from ddsim.extract.cv import CVCurve
 from ddsim.extract.iv import IVCurve
+
+SHUTDOWN_TIMEOUT = 30.0
+"""How long shutdown waits for running solves to reach their next frame [s].
+One Newton iteration on the finest MOSFET mesh is well inside this."""
 
 PAGE = Path(__file__).parent / "static" / "index.html"
 """The client. One file, no build step, which is what phases/PHASE-7.md means
@@ -117,7 +123,14 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             fresh one per app otherwise, since one process is one instrument.
     """
     jobs = registry if registry is not None else JobRegistry()
-    app = FastAPI(title="DDSim")
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+        # Nothing solves after the app is gone. See JobRegistry.close.
+        jobs.close(timeout=SHUTDOWN_TIMEOUT)
+
+    app = FastAPI(title="DDSim", lifespan=lifespan)
 
     @app.get("/api/schema")
     def schema() -> dict[str, Any]:
@@ -272,7 +285,10 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
     @app.get("/")
     def page() -> FileResponse:
         """The client."""
-        return FileResponse(PAGE, media_type="text/html")
+        # The page and the wire format change together, so never a stale page.
+        return FileResponse(
+            PAGE, media_type="text/html", headers={"Cache-Control": "no-cache"}
+        )
 
     return app
 
