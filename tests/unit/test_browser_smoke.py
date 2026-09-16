@@ -81,6 +81,8 @@ def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) -> N
             page = browser.new_page()
             errors: list[str] = []
             page.on("pageerror", lambda error: errors.append(str(error)))
+            hosts: set[str] = set()
+            page.on("request", lambda request: hosts.add(request.url.split("/")[2]))
 
             page.goto(server)
             page.wait_for_function("el('state').textContent === 'ready'")
@@ -101,5 +103,8 @@ def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) -> N
             assert page.evaluate("state.points.length") == 7
             assert page.evaluate("state.fields.arrays.psi.length") > 0
             assert errors == []
+            assert hosts == {server.split("/")[2]}, f"requests left: {hosts}"
+            assert page.evaluate("typeof marked.parse") == "function"
+            assert page.evaluate("typeof renderMathInElement") == "function"
         finally:
             browser.close()

@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DDSim</title>
+<link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 <!--
-  The client. One file, no build step, no dependencies.
+  The client. No build step. Its only libraries, marked and KaTeX, are
+  vendored under /static/vendor, so nothing loads from the network.
 
   It computes no physical quantity. Every number it draws arrived from the
   solver over the socket or over HTTP, and the only arithmetic here maps a
@@ -174,6 +176,9 @@
   </section>
 </main>
 
+<script src="/static/vendor/marked/marked.umd.js"></script>
+<script src="/static/vendor/katex/katex.min.js"></script>
+<script src="/static/vendor/katex/contrib/auto-render.min.js"></script>
 <script src="/static/js/app.js"></script>
 </body>
 </html>
