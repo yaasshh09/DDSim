@@ -34,6 +34,9 @@ dev = [
   # starlette's TestClient asks for httpx2 now, and this project turns
   # warnings into errors, so the old httpx is not an option here.
   "httpx2>=0.29",
+  # the one browser smoke test. Needs `python -m playwright install chromium`
+  # once after installing, which CI does.
+  "playwright>=1.45",
 ]
 
 [project.scripts]

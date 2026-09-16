@@ -360,6 +360,7 @@ and saying why.
 ```bash
 python -m venv .venv
 .venv/Scripts/pip install -e ".[dev]"
+.venv/Scripts/python -m playwright install chromium   # once, for the browser smoke test
 .venv/Scripts/pytest
 ```
 
