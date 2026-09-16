@@ -76,7 +76,6 @@ def test_every_knob_points_at_a_topic() -> None:
     assert not missing, sorted(missing)
 
 
-@pytest.mark.xfail(strict=True, reason="the topics land in Tasks 5 to 7")
 def test_every_mapping_points_at_a_topic_that_exists() -> None:
     known = set(topic_names())
     for mapping in (KNOB_TOPICS, PLOT_TOPICS, STATUS_TOPICS):
