@@ -35,6 +35,7 @@ import anyio
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
+from starlette.staticfiles import StaticFiles
 
 from ddsim.api.devices import DEVICE_KINDS, build_from_spec, device_parameters
 from ddsim.api.frames import (
@@ -61,8 +62,21 @@ SHUTDOWN_TIMEOUT = 30.0
 One Newton iteration on the finest MOSFET mesh is well inside this."""
 
 PAGE = Path(__file__).parent / "static" / "index.html"
-"""The client. One file, no build step, which is what phases/PHASE-7.md means
-by someone runs one command and has a working page."""
+"""The client page. Its scripts sit next to it under static/js, with no build
+step, which is what phases/PHASE-7.md means by someone runs one command and
+has a working page."""
+
+
+class _Revalidated(StaticFiles):
+    """Static files the browser must check before reusing. The page, its
+    scripts and the wire format change together, and a cached script is
+    yesterday's reader."""
+
+    async def get_response(self, path: str, scope: Any) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
 
 _QUIET_POLL = 0.25
 """Seconds to wait for a frame before looking at the job's status [s].
@@ -131,6 +145,7 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
         jobs.close(timeout=SHUTDOWN_TIMEOUT)
 
     app = FastAPI(title="DDSim", lifespan=lifespan)
+    app.mount("/static", _Revalidated(directory=PAGE.parent), name="static")
 
     @app.get("/api/schema")
     def schema() -> dict[str, Any]:

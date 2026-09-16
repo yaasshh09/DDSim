@@ -48,7 +48,12 @@ include = ["ddsim*"]
 [tool.setuptools.package-data]
 # The browser client ships with the package. It is the whole of the frontend
 # and there is no build step, so an installed ddsim can serve it.
-ddsim = ["api/static/*.html"]
+ddsim = [
+  "api/static/*.html",
+  "api/static/js/*.js",
+  "api/static/learn/*.md",
+  "api/static/vendor/**/*",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

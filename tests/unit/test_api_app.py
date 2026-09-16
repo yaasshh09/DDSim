@@ -457,3 +457,19 @@ def test_shutting_the_app_down_cancels_what_is_still_solving() -> None:
         job = submit(client, diode_request(voltages=LONG))
 
     assert registry.status(job) is JobStatus.CANCELLED
+
+
+def test_client_scripts_are_served_and_revalidated(client) -> None:
+    """The page loads its script from /static. Revalidated for the same
+    reason as the page: the script and the wire format ship together."""
+    response = client.get("/static/js/app.js")
+
+    assert response.status_code == 200
+    assert "javascript" in response.headers["content-type"]
+    assert response.headers["cache-control"] == "no-cache"
+
+
+def test_the_page_loads_its_script_rather_than_inlining_it(client) -> None:
+    page = client.get("/").text
+
+    assert '<script src="/static/js/app.js"></script>' in page
