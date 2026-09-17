@@ -209,6 +209,44 @@ def test_streamlines_trace_through_a_mosfet(server) -> None:
             )
 
             assert count > 0
+
+            # Before anyone drags a cutline, that canvas has never been sized
+            # by fit(), so a width bound stretches its default 300 by 200 shape
+            # and leaves the panel hundreds of pixels tall with nothing in it.
+            cutline_height = page.evaluate(
+                "el('cutline').getBoundingClientRect().height"
+            )
+
+            assert cutline_height == pytest.approx(200, abs=1)
+            assert errors == []
+        finally:
+            browser.close()
+
+
+def test_an_equation_wider_than_the_drawer_can_be_reached(server) -> None:
+    """A display equation that does not fit the drawer has to scroll. The
+    Scharfetter-Gummel topic has one 586 px wide in a 427 px drawer, and
+    without this it was simply cut off at the edge with no way to see it."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.evaluate("explain('scharfetter-gummel')")
+            wait_until(
+                page, "el('drawer-depth').querySelector('.katex') !== null", errors
+            )
+
+            clipped = page.evaluate(
+                """[...el('drawer-depth').querySelectorAll('.katex-display')]
+                   .filter(block => block.scrollWidth > block.clientWidth + 1
+                       && getComputedStyle(block).overflowX === 'visible').length"""
+            )
+
+            assert clipped == 0
             assert errors == []
         finally:
             browser.close()

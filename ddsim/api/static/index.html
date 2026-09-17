@@ -81,6 +81,9 @@
   .panel h2 { font-size: 12px; margin: 0 0 6px; color: var(--muted); letter-spacing: 0.06em; font-weight: normal; }
   .panel .tools { float: right; font-weight: normal; }
   canvas { width: 100%; display: block; }
+  /* Until a drag draws it, fit() has never sized this one, and a width bound
+     canvas with no height of its own grows to keep its default 300 by 200. */
+  #cutline { height: 200px; }
   #message { margin-top: 10px; white-space: pre-wrap; color: var(--warn); }
   #state { color: var(--muted); }
   .legend { display: flex; gap: 12px; color: var(--muted); margin-top: 4px; flex-wrap: wrap; }
@@ -88,6 +91,9 @@
     background: var(--paper); border-left: 1px solid var(--line); padding: 16px;
     overflow-y: auto; transform: translateX(100%); transition: transform 0.15s; z-index: 10; }
   #drawer.open { transform: none; }
+  /* An equation wider than the drawer scrolls sideways rather than being cut
+     off at the edge, which is where the Bernoulli pair ended up. */
+  #drawer .katex-display { overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
   .explain { border: 1px solid var(--line); border-radius: 50%; width: 16px; height: 16px;
     font-size: 10px; line-height: 14px; padding: 0; margin-left: 4px; cursor: pointer;
     background: var(--paper); color: var(--muted); }
