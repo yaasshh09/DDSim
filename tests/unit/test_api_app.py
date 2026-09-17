@@ -114,6 +114,17 @@ def test_the_schema_carries_the_model_flags_and_their_choices(client) -> None:
     assert flags["field_dependent"]["default"] is False
 
 
+def test_the_schema_carries_the_coarse_presets_and_their_notes(client) -> None:
+    """One click to a mesh that solves in seconds, and the note that says what
+    the click costs. Both come from the server, so the page never holds a
+    second copy of the knobs or of the measured difference."""
+    presets = client.get("/api/schema").json()["presets"]
+
+    assert set(presets) == {"mos_cap", "nmos"}
+    assert presets["nmos"]["parameters"]["n_silicon"] == 29
+    assert "0.621 percent" in presets["nmos"]["note"]
+
+
 # -------------------------------------------------------- refusing a request
 
 

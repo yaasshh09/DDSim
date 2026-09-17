@@ -46,6 +46,78 @@ is where `str` is earning its place. See ddsim/api/sweeps.py."""
 
 
 @dataclass(frozen=True)
+class Preset:
+    """A coarse mesh offered beside a device's converged one.
+
+    Knob settings and nothing else, so a preset cannot change what is solved,
+    only how finely. The converged mesh needs no entry here: it is the
+    constructor's own defaults, which is what clearing the preset goes back
+    to.
+    """
+
+    parameters: dict[str, float | int]
+    """What to set, by knob name. Every name is one the device has, and a test
+    holds that."""
+
+    note: str
+    """What choosing it costs, with the numbers it was measured with. The page
+    shows this next to the device, because a student reading a current off a
+    coarse mesh should know how far off it is."""
+
+
+COARSE: dict[str, Preset] = {
+    "mos_cap": Preset(
+        parameters={"n_silicon": 41, "n_oxide": 3, "h_min": 2e-7},
+        note=(
+            "A coarse mesh: 129 nodes against the converged 375. Measured "
+            "2026-09-17 over a -2 V to 2 V C-V, the capacitance reads 0.556 "
+            "percent high in accumulation and 0.714 percent high in "
+            "depletion, and the sweep solves 1.8 times faster. The shape of "
+            "the curve is the same; the numbers on it are not the validated "
+            "ones."
+        ),
+    ),
+    "nmos": Preset(
+        parameters={
+            "n_contact": 4,
+            "n_sd": 10,
+            "n_channel": 12,
+            "n_silicon": 29,
+            "n_oxide": 4,
+            "h_min_x": 5e-7,
+            "h_min_y": 1e-7,
+        },
+        note=(
+            "A coarse mesh: 1504 nodes against the converged 8379. Measured "
+            "2026-09-17 over a 0 V to 1.2 V transfer at 50 mV drain, the "
+            "drain current at 1.2 V reads 0.621 percent high and the "
+            "extrapolated threshold moves 0.7 mV, for a sweep that takes "
+            "5.1 s instead of 20.4 s. Good enough to watch a MOSFET switch, "
+            "not the mesh any number in the README was taken on."
+        ),
+    ),
+}
+"""The coarse mesh on offer per device, for the devices the page does not
+solve live.
+
+The diode has none. Measured on the same day, its converged mesh solves a
+seven point I-V in 0.2 s, so a second mesh there would cost a student an
+explanation and save them nothing. See phases/PHASE-7.md Stage 2.
+"""
+
+
+def node_count(device: Device) -> int:
+    """How many nodes a built device's mesh has [1].
+
+    Measured on the mesh rather than added up from the node knobs, because a
+    2D mesh is a tensor product of several of them and a 1D one has a single
+    knob that is not spelled the same way.
+    """
+    mesh = device.mesh
+    return mesh.nx * mesh.ny if isinstance(mesh, Mesh2D) else int(mesh.x.size)
+
+
+@dataclass(frozen=True)
 class Parameter:
     """One settable knob, as the browser needs to render it.
 

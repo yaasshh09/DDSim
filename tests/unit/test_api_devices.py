@@ -15,9 +15,12 @@ from __future__ import annotations
 import pytest
 
 from ddsim.api.devices import (
+    COARSE,
     DEVICE_KINDS,
     build_from_spec,
+    device_dimension,
     device_parameters,
+    node_count,
     parameters_of,
 )
 
@@ -154,3 +157,50 @@ def test_an_argument_with_no_default_is_not_a_knob() -> None:
         """A stand in for any function the API might offer knobs from."""
 
     assert [p.name for p in parameters_of(example)] == ["optional", "named"]
+
+
+def test_a_coarse_preset_exists_for_every_device_not_solved_live() -> None:
+    """The 2D ones. phases/PHASE-7.md keeps the solve button on those because
+    a 2D solve is seconds to minutes, and a coarse mesh is what makes the wait
+    bearable while a student is still finding their way around.
+
+    The diode has none on purpose. Measured 2026-09-17, its converged mesh
+    solves a seven point I-V in 0.2 s, so there is nothing to save and a
+    second mesh to explain instead.
+    """
+    live = {kind for kind in DEVICE_KINDS if device_dimension(kind) == 1}
+
+    assert set(COARSE) == set(DEVICE_KINDS) - live
+
+
+@pytest.mark.parametrize("kind", sorted(COARSE))
+def test_a_coarse_preset_only_names_knobs_its_device_has(kind) -> None:
+    """A preset is knob settings, not a second constructor. A name that has
+    gone from the device would be a refusal on the first click."""
+    known = {parameter.name for parameter in device_parameters(kind)}
+
+    assert set(COARSE[kind].parameters) <= known
+
+
+@pytest.mark.parametrize("kind", sorted(COARSE))
+def test_a_coarse_preset_builds_and_is_coarser(kind) -> None:
+    """Coarser is the whole claim, so it is measured on the mesh the preset
+    actually builds rather than read off the node knobs, which are one axis
+    each on a device whose mesh is a tensor product of several."""
+    coarse = build_from_spec(kind, dict(COARSE[kind].parameters))
+    converged = build_from_spec(kind, {})
+
+    assert node_count(coarse) < node_count(converged)
+
+
+@pytest.mark.parametrize("kind", sorted(COARSE))
+def test_a_coarse_preset_says_what_changes(kind) -> None:
+    """phases/PHASE-7.md: marked as coarse, with a note on what changes. A
+    preset that only said 'faster' would be asking a student to trust a number
+    nobody measured."""
+    note = COARSE[kind].note
+
+    assert "percent" in note, f"{kind}: {note!r} names no measured difference"
+    assert str(node_count(build_from_spec(kind, {}))) in note, (
+        f"{kind}: {note!r} does not say what it is coarse against"
+    )

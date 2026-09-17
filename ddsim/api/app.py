@@ -38,6 +38,7 @@ from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
 
 from ddsim.api.devices import (
+    COARSE,
     DEVICE_KINDS,
     build_from_spec,
     device_dimension,
@@ -180,6 +181,12 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             # constructor builds, so a device that grew a second axis stops
             # being dragged rather than solving for minutes on every drag.
             "dimensions": {kind: device_dimension(kind) for kind in DEVICE_KINDS},
+            # The coarse mesh on offer per device, with what it costs. Only
+            # the devices that have one appear.
+            "presets": {
+                kind: {"parameters": dict(preset.parameters), "note": preset.note}
+                for kind, preset in COARSE.items()
+            },
             "sweeps": {
                 kind: [_knob(p) for p in sweep_parameters(kind)] for kind in SWEEP_KINDS
             },
