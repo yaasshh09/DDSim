@@ -15,8 +15,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from ddsim.device.builder import build_device
+from ddsim.device.doping import abrupt_junction
+from ddsim.device.transport import TransportModels, solve_bias
+from ddsim.discretize.boundary import OhmicContact
 from ddsim.extract import iv
 from ddsim.extract.iv import current_densities, node_current_density
+from ddsim.mesh.mesh1d import uniform_mesh_1d
 from ddsim.physics.recombination import NoRecombination
 from tests.invariant.test_current_continuity import solved as solved_1d
 from tests.invariant.test_current_continuity_2d import (
@@ -104,3 +109,31 @@ def test_the_oxide_carries_no_current() -> None:
 
     assert np.all(Jx[oxide] == 0.0)
     assert np.all(Jy[oxide] == 0.0)
+
+
+def test_a_degenerate_junction_at_rest_carries_no_current() -> None:
+    """Under Fermi-Dirac the solver puts psi + ln(gamma) inside the Bernoulli
+    argument, not psi. A current read back with plain psi does not cancel on
+    the degenerate side, and on a 1e17 / 1e20 junction at 0 V it reported
+    5.8e7 A/cm^2, which drew streamlines out of a MOSFET's source and drain
+    into its bulk. At rest there is no current, so the edges have to say so.
+
+    Read correctly it is 4.0e-6 A/cm^2, which is cancellation: each edge term
+    on the 1e20 side is about 1e9 A/cm^2, and 4e-6 of that is 3e-15 relative.
+    The bound sits ten decades under the broken reading and well over that.
+    """
+    n_nodes = 201
+    device = build_device(
+        mesh=uniform_mesh_1d(length=1e-4, n_nodes=n_nodes),
+        doping=abrupt_junction(Na=1e17, Nd=1e20, position=0.5e-4),
+        contacts=(
+            OhmicContact(name="anode", node=0, voltage=0.0),
+            OhmicContact(name="cathode", node=n_nodes - 1, voltage=0.0),
+        ),
+        degenerate=True,
+    )
+    models = TransportModels.for_device(device)
+    state = solve_bias(device, models=models)
+    Jn, Jp = current_densities(device, state, models)
+
+    assert np.max(np.abs(Jn.data + Jp.data)) < 1e-3

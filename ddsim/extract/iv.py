@@ -57,6 +57,7 @@ from ddsim.discretize.continuity import electron_current, hole_current
 from ddsim.discretize.coupled import (
     coupled_residual,
     edge_drop,
+    effective_potentials,
     pack,
     unpack,
 )
@@ -131,12 +132,19 @@ def current_densities(
     Dn = diffusivity_at(models.Dn, drop, mesh.h)
     Dp = diffusivity_at(models.Dp, drop, mesh.h)
 
+    # Under Fermi-Dirac the solve puts each carrier's effective potential
+    # inside the Bernoulli argument, so the current has to be read with the
+    # same one. With plain psi the two terms stop cancelling on a degenerate
+    # side. Under Boltzmann both are psi itself and nothing moves.
+    psi_n, psi_p = effective_potentials(
+        state.psi.data, state.n.data, state.p.data, device.degeneracy
+    )
     Jn = _per_unit_face(
-        electron_current(mesh.h, Dn, state.psi.data, state.n.data, mesh.geometry),
+        electron_current(mesh.h, Dn, psi_n, state.n.data, mesh.geometry),
         mesh.geometry,
     )
     Jp = _per_unit_face(
-        hole_current(mesh.h, Dp, state.psi.data, state.p.data, mesh.geometry),
+        hole_current(mesh.h, Dp, psi_p, state.p.data, mesh.geometry),
         mesh.geometry,
     )
 
