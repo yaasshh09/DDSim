@@ -392,7 +392,8 @@ initial guess at 0.5 V.
 
 Then open http://127.0.0.1:8000. Describe a device by geometry and doping,
 press solve, and watch the residual fall and the curve draw itself point by
-point. The page is one file in this repo and there is no build step.
+point. The page is a few static files in this repo, with marked and KaTeX
+vendored so it works offline, and there is no build step.
 
 The form is not written by hand. The device knobs, the sweep knobs and the
 model flags are read from the signatures of the functions behind them, so what
@@ -401,6 +402,18 @@ the mobility model, field dependence and surface scattering, which are off by
 default because every result before Phase 5 was taken without them. A MOSFET
 solved with them off has no velocity saturation in it, and the form says so by
 showing the flags rather than choosing for you.
+
+### Learning with it
+
+Every knob, plot and legend entry has an `i` button beside it. Pressing it
+opens an explanation in two layers: a plain one first, then the equations and
+the numerics behind it, with a pointer to the docs in this repo it came from.
+The pictures show what the solver actually computed. The diode gets a band
+diagram with both quasi-Fermi levels, and on the 2D devices you can drag a
+cutline to see the bands along it, or switch on streamlines to watch the
+current leave the source, crowd into the channel and reach the drain. The
+server computes every energy and every current vector; the page only draws
+them.
 
 ### Honest limits
 
