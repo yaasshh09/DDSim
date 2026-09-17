@@ -168,3 +168,47 @@ def test_the_band_view_draws_after_a_diode_solve(server) -> None:
             assert errors == []
         finally:
             browser.close()
+
+
+COARSE_FET = {
+    "n_contact": "4",
+    "n_sd": "10",
+    "n_channel": "12",
+    "n_silicon": "29",
+    "n_oxide": "4",
+    "h_min_x": "5e-7",
+    "h_min_y": "1e-7",
+    "drain_voltage": "0.05",
+}
+
+
+def test_streamlines_trace_through_a_mosfet(server) -> None:
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.select_option("#device-kind", "nmos")
+            page.select_option("#sweep-kind", "transfer")
+            for name, value in COARSE_FET.items():
+                page.fill(f'[data-name="{name}"]', value)
+            page.fill("#measure-at", "drain")
+            page.fill("#voltages", "1.0")
+            page.click("#solve")
+            wait_until(
+                page,
+                "el('state').textContent.startsWith('done') && state.fields !== null",
+                errors,
+            )
+
+            count = page.evaluate(
+                "traceStreamlines(state.fields, 12, 6).filter(l => l.length > 5).length"
+            )
+
+            assert count > 0
+            assert errors == []
+        finally:
+            browser.close()

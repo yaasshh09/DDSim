@@ -106,3 +106,13 @@ def test_the_client_does_not_convert_between_scaled_and_physical() -> None:
 
     for scaling in ("V_T", "0.0259", "38.7", "kT", "thermal"):
         assert scaling not in script
+
+
+def test_streamline_tracing_uses_no_physical_function() -> None:
+    """The one numerical method in the client, bounded: it steps through a
+    vector field it was handed, with Math.hypot for a length and nothing that
+    could be a Boltzmann factor or a potential."""
+    tracing = (JS / "streamlines.js").read_text(encoding="utf-8")
+
+    for forbidden in ("Math.exp", "Math.log", "Math.pow", "Math.sinh"):
+        assert forbidden not in tracing

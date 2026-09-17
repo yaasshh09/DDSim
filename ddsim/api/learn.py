@@ -155,11 +155,11 @@ PLOT_TOPICS: dict[str, str] = {
     "bands-view": "band-diagram",
     "legend-quasi-fermi": "quasi-fermi-levels",
     "cutline": "cutline",
+    "streamlines": "current-flow",
     "sweep-kind": "sweep-kinds",
     "device-kind": "devices",
 }
-"""Which topic explains each marked element on the page, by its data-topic-id.
-Task 12 adds streamlines when it creates that element."""
+"""Which topic explains each marked element on the page, by its data-topic-id."""
 
 STATUS_TOPICS: dict[str, str] = {
     "done": "convergence",

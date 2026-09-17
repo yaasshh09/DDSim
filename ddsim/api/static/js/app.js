@@ -197,6 +197,9 @@ function drawProfile() {
   if (fields.shape.length === 2) {
     el("cutline-panel").hidden = false;
     drawImage(box, fields);
+    if (el("streamlines").checked && fields.arrays.Jx) {
+      drawStreamlines(box, fields, traceStreamlines(fields, 12, 6));
+    }
     // A cutline already drawn follows the point slider to the new state.
     if (state.cutline) drawCutline(fields, state.cutline.from, state.cutline.to);
     return;
@@ -598,6 +601,7 @@ el("cancel").addEventListener("click", cancel);
 el("residual-log").addEventListener("change", drawResidual);
 el("curve-log").addEventListener("change", drawCurve);
 el("bands").addEventListener("change", drawProfile);
+el("streamlines").addEventListener("change", drawProfile);
 el("point").addEventListener("change", (event) =>
   profile(Number(event.target.value))
 );
