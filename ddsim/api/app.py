@@ -37,7 +37,12 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
 
-from ddsim.api.devices import DEVICE_KINDS, build_from_spec, device_parameters
+from ddsim.api.devices import (
+    DEVICE_KINDS,
+    build_from_spec,
+    device_dimension,
+    device_parameters,
+)
 from ddsim.api.frames import (
     Status,
     curve_body,
@@ -171,9 +176,12 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 kind: [_knob(p) for p in device_parameters(kind)]
                 for kind in DEVICE_KINDS
             },
+            # Which devices the page will solve live. Read from the mesh each
+            # constructor builds, so a device that grew a second axis stops
+            # being dragged rather than solving for minutes on every drag.
+            "dimensions": {kind: device_dimension(kind) for kind in DEVICE_KINDS},
             "sweeps": {
-                kind: [_knob(p) for p in sweep_parameters(kind)]
-                for kind in SWEEP_KINDS
+                kind: [_knob(p) for p in sweep_parameters(kind)] for kind in SWEEP_KINDS
             },
             "models": [_knob(p) for p in model_parameters()],
             "plots": dict(PLOT_TOPICS),
@@ -355,6 +363,11 @@ def _knob(parameter: Any) -> dict[str, Any]:
         "explanation": parameter.explanation,
         "unit": parameter.unit,
         "topic": KNOB_TOPICS.get(parameter.name, ""),
+        # Null where the knob declares no range. The page reads that as no
+        # slider rather than filling in ends of its own.
+        "low": parameter.low,
+        "high": parameter.high,
+        "axis": parameter.axis,
     }
 
 

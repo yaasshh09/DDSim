@@ -33,13 +33,29 @@ def pn_diode(
 
     Args:
         Na: acceptor concentration on the p side [cm^-3], positive.
+            Range 1e14 to 1e19, log. Below 1e14 the p side is close to
+            intrinsic at 300 K, and above 1e18 the closed form V_bi this
+            device is checked against degrades, as the module docstring says.
         Nd: donor concentration on the n side [cm^-3], positive.
-        length: device length [cm].
-        junction: junction position [cm].
-        n_nodes: mesh node count [1].
-        h_min: mesh spacing at the junction [cm].
-        anode_voltage: bias on the p side contact [V].
-        cathode_voltage: bias on the n side contact [V].
+            Range 1e14 to 1e19, log. The same ends and the same reason as Na.
+        length: device length [cm]. Range 1e-5 to 1e-3, log. 0.1 um to 10 um,
+            from a few Debye lengths of quasi-neutral material on each side
+            of the junction out to the long base limit.
+        junction: junction position [cm], inside length.
+            Range 1e-5 to 9e-5. A junction outside the mesh is refused by
+            graded_mesh_1d rather than clamped here: the pair this makes with
+            length belongs to whoever set them, and a silent clamp would solve
+            a device nobody asked for.
+        n_nodes: mesh node count [1]. Range 51 to 1001. The low end is coarse
+            enough to show what too few nodes across the depletion region do
+            to the answer, which is worth being able to see.
+        h_min: mesh spacing at the junction [cm]. Range 1e-8 to 1e-6, log.
+            Half of the 41 nm Debye length at 1e16 sits in the middle of this.
+        anode_voltage: bias on the p side contact [V]. Range -5 to 1. Above
+            roughly 1.3 V the equilibrium guess a cold solve starts from stops
+            converging on this device, see docs/07-decisions.md.
+        cathode_voltage: bias on the n side contact [V]. Range -5 to 1. The
+            same ends as the anode.
         material: defaults to silicon at 300 K.
     """
     mesh = graded_mesh_1d(

@@ -20,12 +20,14 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
+from functools import cache
 from typing import Any
 
 from ddsim.device.builder import Device
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
+from ddsim.mesh.mesh2d import Mesh2D
 
 DEVICE_KINDS: dict[str, Callable[..., Device]] = {
     "pn_diode": pn_diode,
@@ -77,6 +79,21 @@ class Parameter:
     """The first [bracketed] unit in the explanation, without the brackets.
     "1" for a dimensionless number. Empty for a switch or a name."""
 
+    low: float | None = None
+    """The bottom of the range the explanation declares, or None where it
+    declares none. A slider needs two ends, and where they belong is a claim
+    about the device rather than about the page, so it is written where the
+    knob is and read from there. None means no slider, not a guessed pair."""
+
+    high: float | None = None
+    """The top of that range, or None."""
+
+    axis: str = "linear"
+    """How a slider should space the range, "linear" or "log". A doping that
+    runs over five decades is unusable on a linear slider: every setting below
+    1e18 sits inside the last tenth of the travel. The same argument as the log
+    axis on the plots, and the same answer: this is a position on a screen."""
+
 
 def _builder(kind: str) -> Callable[..., Device]:
     if kind not in DEVICE_KINDS:
@@ -87,6 +104,13 @@ def _builder(kind: str) -> Callable[..., Device]:
 
 _ARG_LINE = re.compile(r"^    (\w+): (.*)$")
 _UNIT = re.compile(r"\[([^\]]+)\]")
+
+_NUMBER = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
+_RANGE = re.compile(rf"Range\s+({_NUMBER})\s+to\s+({_NUMBER})(,\s*log)?")
+"""`Range 1e14 to 1e19, log.` in an Args: line, spelled out rather than
+inferred from the numbers. Docstrings here are full of pairs of numbers that
+are not ranges, and a parser that took any of them would put a slider on the
+wrong span without anyone noticing."""
 
 
 def argument_docs(function: Callable[..., Any]) -> dict[str, str]:
@@ -125,6 +149,40 @@ def _unit_of(explanation: str) -> str:
     return found.group(1) if found else ""
 
 
+def _range_of(explanation: str) -> tuple[float | None, float | None, str]:
+    """The declared slider range, as (low, high, axis).
+
+    (None, None, "linear") where the explanation declares none, which is what
+    every knob the page renders as a text box looks like.
+    """
+    found = _RANGE.search(explanation)
+    if found is None:
+        return None, None, "linear"
+    return (
+        float(found.group(1)),
+        float(found.group(2)),
+        "log" if found.group(3) else "linear",
+    )
+
+
+@cache
+def device_dimension(kind: str) -> int:
+    """How many axes the device this kind builds actually has, 1 or 2.
+
+    Read from the mesh the constructor returns rather than from a list here,
+    for the reason every other fact in this module is read from the code that
+    owns it. It decides which devices the page will solve live: a 2D solve is
+    seconds to minutes, so phases/PHASE-7.md keeps the solve button on those.
+
+    Args:
+        kind: a key of DEVICE_KINDS.
+
+    Cached, because the answer cannot change while the process runs and
+    building an nmos to ask is a mesh and a doping profile.
+    """
+    return 2 if isinstance(_builder(kind)().mesh, Mesh2D) else 1
+
+
 def parameters_of(
     function: Callable[..., Any], choices: dict[str, tuple[str, ...]] | None = None
 ) -> tuple[Parameter, ...]:
@@ -142,6 +200,21 @@ def parameters_of(
     named = choices or {}
     docs = argument_docs(function)
     offered: list[Parameter] = []
+
+    def described(name: str, **rest: Any) -> Parameter:
+        """One Parameter with everything the docstring says about it."""
+        explanation = docs.get(name, "")
+        low, high, axis = _range_of(explanation)
+        return Parameter(
+            name=name,
+            explanation=explanation,
+            unit=_unit_of(explanation),
+            low=low,
+            high=high,
+            axis=axis,
+            **rest,
+        )
+
     for name, parameter in inspect.signature(function).parameters.items():
         # An argument with no default is part of the request rather than a
         # knob on a form: there is nothing to render beside it and nothing to
@@ -154,26 +227,22 @@ def parameters_of(
         # has to know the type exists.
         if isinstance(parameter.default, Enum):
             offered.append(
-                Parameter(
-                    name=name,
+                described(
+                    name,
                     default=parameter.default.value,
                     type="str",
                     choices=tuple(
                         str(member.value) for member in type(parameter.default)
                     ),
-                    explanation=docs.get(name, ""),
-                    unit=_unit_of(docs.get(name, "")),
                 )
             )
         elif str(parameter.annotation) in _EXPRESSIBLE:
             offered.append(
-                Parameter(
-                    name=name,
+                described(
+                    name,
                     default=parameter.default,
                     type=str(parameter.annotation),
                     choices=named.get(name, ()),
-                    explanation=docs.get(name, ""),
-                    unit=_unit_of(docs.get(name, "")),
                 )
             )
     return tuple(offered)
@@ -262,9 +331,7 @@ def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
     return _builder(kind)(**checked_arguments(kind, offered, parameters))
 
 
-def _checked(
-    kind: str, parameter: Parameter, value: Any
-) -> float | int | bool | str:
+def _checked(kind: str, parameter: Parameter, value: Any) -> float | int | bool | str:
     """One value against one declared type.
 
     bool is a subclass of int in Python, so isinstance alone lets True through

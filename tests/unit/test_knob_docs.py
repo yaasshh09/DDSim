@@ -4,6 +4,13 @@ The explanation is the Args: line of the function the knob belongs to, so
 there is one place a knob is described and it is next to the code that reads
 it. A knob added without a docstring line never reaches a student unexplained,
 because this file fails first.
+
+Stage 2 adds the same rule for the bounds a slider needs. A slider has to know
+where its ends are, and where they belong is a claim about the device rather
+than about the page: below 1e14 the diode is near intrinsic, and above 1e19
+the closed form built in potential docs/04-validation.md checks against
+degrades. So the range is declared where the knob is, on the same Args: line
+as the unit, and the page reads it rather than inventing one.
 """
 
 from __future__ import annotations
@@ -12,7 +19,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ddsim.api.app import create_app
-from ddsim.api.devices import DEVICE_KINDS, argument_docs, device_parameters
+from ddsim.api.devices import (
+    DEVICE_KINDS,
+    argument_docs,
+    device_dimension,
+    device_parameters,
+    parameters_of,
+)
 from ddsim.api.sweeps import SWEEP_KINDS, model_parameters, sweep_parameters
 
 
@@ -29,6 +42,18 @@ def every_knob():
 
 KNOBS = list(every_knob())
 IDS = [f"{owner} {parameter.name}" for owner, parameter in KNOBS]
+
+SLIDER_KNOBS = [
+    (kind, parameter)
+    for kind in DEVICE_KINDS
+    if device_dimension(kind) == 1
+    for parameter in device_parameters(kind)
+    if parameter.type in ("float", "int")
+]
+"""Every numeric knob a slider can reach: the knobs of the devices the page
+solves live, which phases/PHASE-7.md limits to the 1D ones."""
+
+SLIDER_IDS = [f"{kind} {parameter.name}" for kind, parameter in SLIDER_KNOBS]
 
 
 @pytest.fixture
@@ -72,3 +97,76 @@ def test_a_knob_crosses_the_schema_with_its_explanation(client) -> None:
 
     assert na["unit"] == "cm^-3"
     assert "acceptor" in na["explanation"]
+
+
+@pytest.mark.parametrize(("kind", "parameter"), SLIDER_KNOBS, ids=SLIDER_IDS)
+def test_every_slider_knob_declares_a_range(kind, parameter) -> None:
+    """A knob on a live device without a declared range gets no slider, and a
+    device whose knobs cannot all be dragged is a half built form. This is the
+    test the units rule already has: the page cannot reach a knob the code has
+    not described."""
+    assert parameter.low is not None and parameter.high is not None, (
+        f"device {kind} {parameter.name}: no 'Range lo to hi' in "
+        f"{parameter.explanation!r}"
+    )
+    assert parameter.low < parameter.high
+    assert parameter.low <= parameter.default <= parameter.high, (
+        f"device {kind} {parameter.name}: the default {parameter.default} is "
+        f"outside its own range {parameter.low} to {parameter.high}"
+    )
+
+
+def test_the_parser_reads_a_declared_range() -> None:
+    """The range rides on the Args: line, where the unit already is."""
+
+    def sample(depth: float = 1.0, doping: float = 1e16) -> None:
+        """Nothing.
+
+        Args:
+            depth: how far down [cm]. Range 1e-5 to 1e-3.
+            doping: how much [cm^-3]. Range 1e14 to 1e19, log.
+        """
+
+    by_name = {p.name: p for p in parameters_of(sample)}
+
+    assert (by_name["depth"].low, by_name["depth"].high) == (1e-5, 1e-3)
+    assert by_name["depth"].axis == "linear"
+    assert (by_name["doping"].low, by_name["doping"].high) == (1e14, 1e19)
+    assert by_name["doping"].axis == "log"
+
+
+def test_a_knob_with_no_declared_range_offers_none() -> None:
+    """None rather than a guessed pair. A range the page invented is a second
+    claim about what the models cover, and it would not be in the docstring
+    where someone changing the device would see it."""
+
+    def sample(depth: float = 1.0) -> None:
+        """Nothing.
+
+        Args:
+            depth: how far down [cm].
+        """
+
+    only = parameters_of(sample)[0]
+
+    assert only.low is None
+    assert only.high is None
+    assert only.axis == "linear"
+
+
+def test_a_range_crosses_the_schema(client) -> None:
+    knobs = client.get("/api/schema").json()["devices"]["pn_diode"]
+    na = next(knob for knob in knobs if knob["name"] == "Na")
+
+    assert na["low"] == 1e14
+    assert na["high"] == 1e19
+    assert na["axis"] == "log"
+
+
+def test_the_schema_says_which_devices_are_one_dimensional(client) -> None:
+    """Which devices take a slider is decided by the mesh each one actually
+    builds, not by a list in the page. A device that grew a second axis would
+    lose its sliders here rather than solving for minutes on every drag."""
+    dimensions = client.get("/api/schema").json()["dimensions"]
+
+    assert dimensions == {"pn_diode": 1, "mos_cap": 2, "nmos": 2}
