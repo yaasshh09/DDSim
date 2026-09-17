@@ -29,7 +29,8 @@ with them. The browser computes no energy.
 What it does do is geometry. The line you drag is recorded in the image's own
 coordinates, which are fractional mesh indices, because the image is drawn one
 pixel per node. It is then sampled at 200 evenly spaced steps, and at each step
-every array is bilinearly interpolated from the four surrounding nodes. The
+each of the four energies is bilinearly interpolated from the four surrounding
+nodes. The
 distance axis is worked out from the true mesh coordinates of each sample, so
 it is a real length even though the image it was drawn on is spaced by index.
 
@@ -37,3 +38,8 @@ Two consequences follow. A cutline cannot show structure finer than the mesh,
 because between nodes it is a straight blend. And since the samples are even in
 index rather than in distance, the plotted points crowd together where the mesh
 is fine, which is where the bands change fastest.
+
+An oxide node has no silicon band edges, and the server sends it as NaN. A
+sample that touches one is NaN too, and the plot leaves a gap there rather
+than drawing a band through an insulator. On a line drawn down from the gate
+the bands begin at the first sample below the silicon surface.

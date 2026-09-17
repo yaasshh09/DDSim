@@ -196,7 +196,7 @@ def run_sweep(
     models: dict[str, Any] | None = None,
     measure_at: str | None = None,
     on_frame: Callable[[object], None] | None = None,
-) -> IVCurve | CVCurve:
+) -> tuple[IVCurve | CVCurve, TransportModels | None]:
     """Run one sweep on one device and report it as it goes.
 
     Args:
@@ -212,29 +212,38 @@ def run_sweep(
             elsewhere rather than silently ignored.
         on_frame: telemetry, handed straight to the sweep.
 
-    Returns whichever curve the sweep returns, complete or as far as it got. A
-    sweep that stalls is a measurement and not an error, and the curve says
-    which it was.
+    Returns the curve, complete or as far as it got, and the transport models
+    it was solved with, or None for a C-V. A sweep that stalls is a
+    measurement and not an error, and the curve says which it was.
     """
     accepted = check_request(kind, device, contact, settings, models, measure_at)
 
+    if kind not in _TRANSPORT:
+        curve = cv_sweep(device, contact, list(voltages), on_frame=on_frame, **accepted)
+        return curve, None
+
+    built = build_models(device, models)
     if kind == "transfer":
-        return gate_sweep(
-            device,
-            list(voltages),
-            contact=contact,
-            measure_at="drain" if measure_at is None else measure_at,
-            models=build_models(device, models),
-            on_frame=on_frame,
-            **accepted,
+        return (
+            gate_sweep(
+                device,
+                list(voltages),
+                contact=contact,
+                measure_at="drain" if measure_at is None else measure_at,
+                models=built,
+                on_frame=on_frame,
+                **accepted,
+            ),
+            built,
         )
-    if kind == "iv":
-        return iv_sweep(
+    return (
+        iv_sweep(
             device,
             contact,
             list(voltages),
-            models=build_models(device, models),
+            models=built,
             on_frame=on_frame,
             **accepted,
-        )
-    return cv_sweep(device, contact, list(voltages), on_frame=on_frame, **accepted)
+        ),
+        built,
+    )

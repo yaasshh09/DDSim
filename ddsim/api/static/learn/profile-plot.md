@@ -17,12 +17,15 @@ cm. The blue line is psi, the electrostatic potential in V, read on the left
 axis. The green line is the electron density n and the red line the hole
 density p, both in cm^-3 and sharing a log axis on the right, because they span
 many decades. A junction shows up as a step in psi, with n and p crossing over.
+Tick `bands` and the same plot shows the band diagram instead: the band edges in
+blue and the quasi-Fermi levels in green and red, all in eV.
 
 On a 2D device, the MOS capacitor or the MOSFET, the plot becomes an image of
 psi alone, low potential in blue through to high potential in yellow, with the
 gate at the top and the body at the bottom. It has no axes and no colour scale,
 so it shows the shape of the potential rather than values. n and p are sent
-for a 2D device but not drawn.
+for a 2D device but not drawn as an image. Drag across the image to draw a
+cutline, and the band diagram along it appears underneath.
 
 ## In more depth
 

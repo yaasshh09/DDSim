@@ -44,8 +44,10 @@ import numpy.typing as npt
 from ddsim.core.field import Field
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
+from ddsim.device.transport import TransportModels
+from ddsim.extract.bands import band_edges
 from ddsim.extract.cv import CVCurve, CVFrame, CVPoint
-from ddsim.extract.iv import IVCurve, IVFrame, IVPoint
+from ddsim.extract.iv import IVCurve, IVFrame, IVPoint, node_current_density
 from ddsim.solve.continuation import ContinuationEvent
 from ddsim.solve.gummel import GummelIteration
 from ddsim.solve.newton import NewtonIteration
@@ -287,7 +289,11 @@ def _physical(field: Field, device: Device) -> npt.NDArray[np.float64]:
 
 
 def field_frame(
-    device: Device, state: DeviceState, index: int, voltage: float
+    device: Device,
+    state: DeviceState,
+    index: int,
+    voltage: float,
+    models: TransportModels | None = None,
 ) -> FieldFrame:
     """The arrays for one converged state, in physical units.
 
@@ -297,6 +303,11 @@ def field_frame(
             DeviceState's are, and they are converted here.
         index: which sweep point this is, from zero.
         voltage: the bias it was solved at [V].
+        models: the transport models the state was solved with; when given,
+            the node current density Jx, Jy [A/cm^2] travels too.
+
+    The band edges and quasi-Fermi levels Ec, Ev, Efn, Efp [eV] always
+    travel, from extract/bands.py, NaN at oxide nodes.
 
     The mesh axes travel with the fields because the client cannot know them
     otherwise, and because the mesh is graded: a plot against node number
@@ -318,14 +329,19 @@ def field_frame(
         shape = (mesh.n_nodes,)
         axes = (("x", "cm", np.asarray(mesh.x, dtype=np.float64)),)
 
-    return FieldFrame(
-        index=index,
-        voltage=voltage,
-        shape=shape,
-        arrays=(
-            *axes,
-            ("psi", "V", _physical(state.psi, device)),
-            ("n", "cm^-3", _physical(state.n, device)),
-            ("p", "cm^-3", _physical(state.p, device)),
-        ),
-    )
+    bands = band_edges(device, state)
+    arrays: list[tuple[str, str, npt.NDArray[np.float64]]] = [
+        *axes,
+        ("psi", "V", _physical(state.psi, device)),
+        ("n", "cm^-3", _physical(state.n, device)),
+        ("p", "cm^-3", _physical(state.p, device)),
+        ("Ec", "eV", bands.Ec),
+        ("Ev", "eV", bands.Ev),
+        ("Efn", "eV", bands.Efn),
+        ("Efp", "eV", bands.Efp),
+    ]
+    if models is not None:
+        Jx, Jy = node_current_density(device, state, models)
+        arrays += [("Jx", "A/cm^2", Jx), ("Jy", "A/cm^2", Jy)]
+
+    return FieldFrame(index=index, voltage=voltage, shape=shape, arrays=tuple(arrays))

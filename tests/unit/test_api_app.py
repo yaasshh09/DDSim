@@ -385,7 +385,9 @@ def test_the_fields_of_a_point_come_back_as_float32_behind_a_header(
 
     assert response.status_code == 200
     arrays = decode_fields(response.content)
-    assert list(arrays) == ["x", "psi", "n", "p"]
+    assert list(arrays) == [
+        "x", "psi", "n", "p", "Ec", "Ev", "Efn", "Efp", "Jx", "Jy"
+    ]
     assert np.max(arrays["n"]) > 1e15
 
 

@@ -168,6 +168,8 @@
     <div class="panel">
       <h2 data-topic-id="profile-plot">profile
         <span class="tools">
+          <label style="display:inline-flex" data-topic-id="bands-view"><span>bands</span>
+            <input id="bands" type="checkbox"></label>
           <label style="display:inline-flex"><span>point</span>
             <input id="point" type="range" min="0" max="0" value="0" disabled></label>
         </span>
@@ -177,7 +179,15 @@
         <span data-topic-id="legend-psi"><i class="swatch" style="background:#1f6feb"></i>psi [V]</span>
         <span data-topic-id="legend-n"><i class="swatch" style="background:#1a7f37"></i>n [cm^-3]</span>
         <span data-topic-id="legend-p"><i class="swatch" style="background:#b23c17"></i>p [cm^-3]</span>
+        <span id="legend-bands" data-topic-id="legend-quasi-fermi" hidden>
+          <i class="swatch" style="background:#1f6feb"></i>Ec, Ev [eV]
+          <i class="swatch" style="background:#1a7f37"></i>Efn
+          <i class="swatch" style="background:#b23c17"></i>Efp</span>
         <span id="profile-note"></span>
+      </div>
+      <div id="cutline-panel" data-topic-id="cutline" hidden>
+        <canvas id="cutline" height="200"></canvas>
+        <div class="legend"><span id="cutline-note">drag across the image to draw a cutline</span></div>
       </div>
     </div>
   </section>
@@ -197,5 +207,6 @@
 <script src="/static/vendor/katex/contrib/auto-render.min.js"></script>
 <script src="/static/js/app.js"></script>
 <script src="/static/js/learn.js"></script>
+<script src="/static/js/bands.js"></script>
 </body>
 </html>

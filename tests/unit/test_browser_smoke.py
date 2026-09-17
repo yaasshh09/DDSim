@@ -142,3 +142,29 @@ def test_a_knob_explains_itself_with_rendered_maths(server) -> None:
             assert errors == []
         finally:
             browser.close()
+
+
+def test_the_band_view_draws_after_a_diode_solve(server) -> None:
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.fill("#voltages", "0, 0.3")
+            page.click("#solve")
+            wait_until(
+                page,
+                "el('state').textContent.startsWith('done') && state.fields !== null",
+                errors,
+            )
+
+            page.check("#bands")
+
+            assert page.evaluate("state.fields.arrays.Ec.length") > 0
+            assert page.is_visible("#legend-bands")
+            assert errors == []
+        finally:
+            browser.close()

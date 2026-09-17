@@ -61,6 +61,7 @@ from ddsim.api.sweeps import (
     sweep_parameters,
 )
 from ddsim.device.builder import Device
+from ddsim.device.transport import TransportModels
 from ddsim.extract.cv import CVCurve
 from ddsim.extract.iv import IVCurve
 
@@ -134,6 +135,10 @@ class Finished:
 
     device: Device
     curve: IVCurve | CVCurve
+    models: TransportModels | None
+    """The transport models the curve was solved with, so the node currents
+    of a field frame come from the same mobility and recombination. None for
+    a C-V."""
 
 
 def create_app(registry: JobRegistry | None = None) -> FastAPI:
@@ -221,7 +226,7 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
         )
 
         def work(send: Send) -> Finished:
-            curve = run_sweep(
+            curve, models = run_sweep(
                 sweep.kind,
                 device,
                 sweep.contact,
@@ -231,7 +236,7 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 measure_at=sweep.measure_at,
                 on_frame=send,
             )
-            return Finished(device=device, curve=curve)
+            return Finished(device=device, curve=curve, models=models)
 
         return {"id": jobs.submit(work).id}
 
@@ -267,7 +272,7 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
 
     @app.get("/api/jobs/{job_id}/fields/{index}")
     def fields(job_id: str, index: int) -> Response:
-        """psi, n and p at one solved bias point, as float32 with a header."""
+        """The fields at one solved bias point, as float32 with a header."""
         done = _finished(jobs, job_id)
         points = done.curve.points
         if not 0 <= index < len(points):
@@ -285,6 +290,7 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 point.state,
                 index=index,
                 voltage=point_voltage(point),
+                models=done.models,
             )
         )
         assert isinstance(message, bytes)

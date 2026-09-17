@@ -15,6 +15,7 @@ const state = {
   points: [],     // {voltage, value}
   curve: null,
   fields: null,
+  cutline: null,  // {from, to} in fractional mesh indices, on a 2D image
   valueName: "current",
 };
 
@@ -194,7 +195,16 @@ function drawProfile() {
   if (!fields) return;
 
   if (fields.shape.length === 2) {
+    el("cutline-panel").hidden = false;
     drawImage(box, fields);
+    // A cutline already drawn follows the point slider to the new state.
+    if (state.cutline) drawCutline(fields, state.cutline.from, state.cutline.to);
+    return;
+  }
+  const banded = el("bands").checked;
+  el("legend-bands").hidden = !banded;
+  if (banded) {
+    drawBands(box, fields.arrays.x, (name) => fields.arrays[name]);
     return;
   }
   const xs = fields.arrays.x;
@@ -345,6 +355,7 @@ async function schema() {
   el("state").textContent = "ready";
   el("drawer-close").addEventListener("click", () => el("drawer").classList.remove("open"));
   markExplainable(document, state.schema.plots);
+  wireCutline();
 }
 
 function voltages() {
@@ -386,6 +397,8 @@ function clear() {
   state.points = [];
   state.curve = null;
   state.fields = null;
+  state.cutline = null;
+  el("cutline-panel").hidden = true;
   el("message").textContent = "";
   el("curve-note").textContent = "no points yet";
   el("residual-note").textContent = "";
@@ -584,6 +597,7 @@ el("solve").addEventListener("click", solve);
 el("cancel").addEventListener("click", cancel);
 el("residual-log").addEventListener("change", drawResidual);
 el("curve-log").addEventListener("change", drawCurve);
+el("bands").addEventListener("change", drawProfile);
 el("point").addEventListener("change", (event) =>
   profile(Number(event.target.value))
 );

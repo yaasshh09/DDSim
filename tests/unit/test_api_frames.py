@@ -27,7 +27,8 @@ from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
-from ddsim.device.transport import solve_bias_ramped
+from ddsim.device.transport import TransportModels, solve_bias_ramped
+from ddsim.extract.bands import band_edges
 from ddsim.extract.cv import CVFrame
 from ddsim.extract.iv import IVFrame
 from ddsim.solve.continuation import ContinuationEvent
@@ -229,7 +230,7 @@ def test_the_arrays_arrive_in_the_order_the_header_lists_them() -> None:
 
     arrays = decode_fields(encode(field_frame(device, state, index=0, voltage=0.0)))
 
-    assert list(arrays) == ["x", "psi", "n", "p"]
+    assert list(arrays) == ["x", "psi", "n", "p", "Ec", "Ev", "Efn", "Efp"]
     np.testing.assert_allclose(arrays["x"], device.mesh.x, rtol=1e-6)
 
 
@@ -269,7 +270,7 @@ def test_a_two_dimensional_device_carries_both_axes_and_its_shape() -> None:
     arrays = decode_fields(message)
 
     assert header["shape"] == [device.mesh.ny, device.mesh.nx]
-    assert list(arrays) == ["x", "y", "psi", "n", "p"]
+    assert list(arrays) == ["x", "y", "psi", "n", "p", "Ec", "Ev", "Efn", "Efp"]
     assert arrays["psi"].size == device.mesh.ny * device.mesh.nx
     np.testing.assert_allclose(arrays["x"], device.mesh.x_axis.x, rtol=1e-6)
     np.testing.assert_allclose(arrays["y"], device.mesh.y_axis.x, rtol=1e-6)
@@ -296,4 +297,35 @@ def test_the_units_of_every_array_travel_with_it() -> None:
     header = header_of(encode(field_frame(device, state, index=0, voltage=0.0)))
     units = {array["name"]: array["unit"] for array in header["arrays"]}
 
-    assert units == {"x": "cm", "psi": "V", "n": "cm^-3", "p": "cm^-3"}
+    assert units == {
+        "x": "cm",
+        "psi": "V",
+        "n": "cm^-3",
+        "p": "cm^-3",
+        "Ec": "eV",
+        "Ev": "eV",
+        "Efn": "eV",
+        "Efp": "eV",
+    }
+
+
+def test_a_transport_frame_carries_the_node_currents() -> None:
+    device = nmos(**COARSE_FET)
+    state = solve_bias_ramped(device)
+    models = TransportModels.for_device(device)
+
+    arrays = decode_fields(
+        encode(field_frame(device, state, index=0, voltage=0.0, models=models))
+    )
+
+    assert list(arrays)[-2:] == ["Jx", "Jy"]
+    assert arrays["Jx"].size == device.mesh.nx * device.mesh.ny
+
+
+def test_the_band_edges_cross_in_ev() -> None:
+    device = diode()
+    state = solve_equilibrium(device)
+
+    arrays = decode_fields(encode(field_frame(device, state, index=0, voltage=0.0)))
+
+    np.testing.assert_allclose(arrays["Ec"], band_edges(device, state).Ec, rtol=1e-6)

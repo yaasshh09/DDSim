@@ -28,7 +28,9 @@ from ddsim.api.sweeps import (
     run_sweep,
     sweep_parameters,
 )
-from ddsim.device.transport import MOBILITY_MODELS
+from ddsim.device.mos_cap import mos_cap
+from ddsim.device.pn_diode import pn_diode
+from ddsim.device.transport import MOBILITY_MODELS, TransportModels
 from ddsim.extract.cv import CVCurve, CVFrame, Response
 from ddsim.extract.iv import IVCurve, IVFrame
 
@@ -185,7 +187,7 @@ def test_measuring_at_another_terminal_is_refused_where_it_means_nothing() -> No
 
 
 def test_a_diode_sweep_comes_back_as_an_iv_curve() -> None:
-    curve = run_sweep("iv", diode(), "anode", [0.0, 0.2])
+    curve, _ = run_sweep("iv", diode(), "anode", [0.0, 0.2])
 
     assert isinstance(curve, IVCurve)
     assert curve.complete
@@ -193,7 +195,7 @@ def test_a_diode_sweep_comes_back_as_an_iv_curve() -> None:
 
 
 def test_a_capacitance_sweep_comes_back_as_a_cv_curve() -> None:
-    curve = run_sweep("cv", build_from_spec("mos_cap", CAP), "gate", [-1.0, 0.0])
+    curve, _ = run_sweep("cv", build_from_spec("mos_cap", CAP), "gate", [-1.0, 0.0])
 
     assert isinstance(curve, CVCurve)
     assert curve.complete
@@ -202,7 +204,7 @@ def test_a_capacitance_sweep_comes_back_as_a_cv_curve() -> None:
 def test_a_capacitance_sweep_takes_the_response_it_is_given() -> None:
     """The high frequency approximation is a different curve, not a different
     presentation of the same one."""
-    curve = run_sweep(
+    curve, _ = run_sweep(
         "cv",
         build_from_spec("mos_cap", CAP),
         "gate",
@@ -215,7 +217,7 @@ def test_a_capacitance_sweep_takes_the_response_it_is_given() -> None:
 
 def test_a_transfer_curve_measures_the_drain_by_default() -> None:
     """No current flows in a gate, so a gate current curve is flat at zero."""
-    curve = run_sweep(
+    curve, _ = run_sweep(
         "transfer",
         build_from_spec("nmos", FET),
         "gate",
@@ -245,6 +247,20 @@ def test_arora_makes_the_diffusivity_vary_along_the_device() -> None:
 
     assert np.asarray(constant.Dn).ndim == 0
     assert np.asarray(arora.Dn).ndim == 1
+
+
+def test_a_sweep_hands_back_the_models_it_solved_with() -> None:
+    device = pn_diode(n_nodes=61, h_min=5e-7)
+    _, models = run_sweep("iv", device, "anode", [0.0, 0.1])
+
+    assert isinstance(models, TransportModels)
+
+
+def test_a_capacitance_sweep_has_no_transport_models() -> None:
+    device = mos_cap()
+    _, models = run_sweep("cv", device, "gate", [0.0])
+
+    assert models is None
 
 
 # ----------------------------------------------------------------- telemetry
