@@ -177,6 +177,58 @@ def edge_current_face(device: Device) -> npt.NDArray[np.float64]:
     return np.asarray(face * device.scale.x_0**power)
 
 
+def node_current_density(
+    device: Device,
+    state: DeviceState,
+    models: TransportModels | None = None,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    """Total current density (Jx, Jy) at every node [A/cm^2], for streamlines.
+
+    Args:
+        device: the device the state was solved on.
+        state: a solved state.
+        models: the transport models of the solve, as for current_densities.
+
+    Each component is the face weighted mean of Jn + Jp on the edges along
+    that axis that touch the node: horizontal edges for Jx, vertical edges for
+    Jy. An edge density is a current over the face it offers a carrier, so the
+    face weighted mean is the current through those edges over their face.
+    That also keeps a node at an interface from being diluted by an oxide edge
+    that carries nothing, and a node with no carrying edge reports zero. On a
+    1D device Jy is zero. Post processing only, no solved number moves.
+    """
+    Jn, Jp = current_densities(device, state, models)
+    total = Jn.data + Jp.data
+    # In 1D the face is the scalar unit cross section, so give it one entry
+    # per edge before it is sliced by family.
+    face = np.broadcast_to(edge_current_face(device), total.shape)
+    mesh = device.mesh
+    n_nodes = mesh.n_nodes
+
+    def spread(edges: slice) -> npt.NDArray[np.float64]:
+        """Face weighted mean onto nodes of the edges in one family [A/cm^2]."""
+        tail = mesh.edge_nodes[edges, 0]
+        head = mesh.edge_nodes[edges, 1]
+        current = total[edges] * face[edges]
+        weighted = np.zeros(n_nodes)
+        weight = np.zeros(n_nodes)
+        np.add.at(weighted, tail, current)
+        np.add.at(weighted, head, current)
+        np.add.at(weight, tail, face[edges])
+        np.add.at(weight, head, face[edges])
+        return np.divide(
+            weighted, weight, out=np.zeros(n_nodes), where=weight > 0.0
+        )
+
+    if isinstance(mesh, Mesh1D):
+        return spread(slice(None)), np.zeros(n_nodes)
+
+    # Horizontal edges come first in a Mesh2D edge list, vertical ones after.
+    horizontal = slice(0, mesh.n_horizontal)
+    vertical = slice(mesh.n_horizontal, mesh.n_edges)
+    return spread(horizontal), spread(vertical)
+
+
 def continuity_residuals(
     device: Device,
     state: DeviceState,
