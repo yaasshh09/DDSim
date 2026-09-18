@@ -113,6 +113,12 @@
   #lesson-steps li { margin-bottom: 10px; }
   #lesson-steps li > button { margin-left: 10px; padding: 1px 8px; font-size: 12px; }
   #lesson-panel .katex-display { overflow-x: auto; overflow-y: hidden; }
+  /* One region per line: dopant, length, doping, remove. Narrower boxes than
+     a knob's, so the four fit the sidebar. */
+  .region { display: flex; gap: 4px; align-items: center; margin: 4px 0; }
+  .region select { width: 44px; }
+  .region input[type=text] { width: 96px; }
+  .region button { padding: 1px 6px; }
   .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -138,6 +144,15 @@
       <legend>device</legend>
       <label data-topic-id="device-kind"><span>kind</span><select id="device-kind"></select></label>
       <div id="device-knobs"></div>
+      <div id="stack" hidden>
+        <div class="row" data-topic-id="stack-regions"><span>regions, left contact first</span></div>
+        <div id="regions"></div>
+        <div class="row"><button id="region-add" class="flat" type="button">add region</button></div>
+        <div id="stack-note" class="aside">A device you built. The solver is
+          validated against DEVSIM; this structure is not validated by
+          anything, so its numbers are the validated solver's answer on an
+          unchecked structure.</div>
+      </div>
       <div class="row" id="mesh-choice" hidden>
         <span>mesh</span>
         <button id="mesh-coarse" class="flat" type="button">coarse</button>
@@ -145,6 +160,11 @@
       </div>
       <div id="mesh-note" class="aside"></div>
       <div id="live-note" class="aside"></div>
+      <div class="row" data-topic-id="device-file">
+        <button id="device-save" class="flat" type="button">save device</button>
+        <button id="device-open" class="flat" type="button">load device</button>
+        <input id="device-load" type="file" accept=".json,application/json" hidden>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -207,7 +227,8 @@
         </span>
       </h2>
       <canvas id="curve" height="220"></canvas>
-      <div class="legend"><span id="curve-note">no points yet</span></div>
+      <div class="legend"><span id="curve-note">no points yet</span>
+        <span id="built-note" hidden>a device built on this page: validated solver, unvalidated structure</span></div>
       <div class="legend" id="runs-note" data-topic-id="compare-runs"></div>
     </div>
 
@@ -258,5 +279,6 @@
 <script src="/static/js/bands.js"></script>
 <script src="/static/js/streamlines.js"></script>
 <script src="/static/js/lessons.js"></script>
+<script src="/static/js/stack.js"></script>
 </body>
 </html>

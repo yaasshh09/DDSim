@@ -106,6 +106,25 @@ Halen-Pulfrey). Test any implementation against tabulated F_{1/2} values.
 `ddsim/physics/statistics.py` refuses above n/Nc = 8, which is where the
 measured error in n and in the Einstein ratio is still inside 1 percent.
 
+## Doping range
+
+The 1D devices are solved with Boltzmann statistics, the Arora mobility and
+the Scharfetter lifetime, all functions of |net doping|. I use them over
+**1e14 to 1e19 cm^-3**, and the 1D stack builder refuses a region outside it.
+
+The top end is where Boltzmann stops being close. Measured 2026-09-18
+against Fermi-Dirac with Nc = 2.86e19: at 1e19 the Fermi level sits 3.2 mV
+off and the Einstein ratio D/(mu V_T) reads 1.122 rather than 1. At 3e19
+those are 9.5 mV and 1.361, and the error keeps growing from there. A degenerate
+region needs the Fermi-Dirac path the MOSFET uses, not a wider range here.
+Complete ionization, assumed below, is also poorest at the top end.
+
+The bottom end is not a model breaking. Mobility and lifetime both flatten
+to their undoped values there. Below it the Debye length passes 0.4 um, so a
+region of a few tenths of a micron has no quasi-neutral part at all, and the
+bottom end matches the range the pn diode's own knobs declare. An intrinsic
+layer, the i of a pin, is drawn as a 1e14 region.
+
 ## Incomplete ionization
 
 Ignore through Phase 4. Assume Nd+ = Nd, Na- = Na. At 300K and moderate doping

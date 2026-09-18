@@ -339,6 +339,8 @@ PLOT_TOPICS: dict[str, str] = {
     "streamlines": "current-flow",
     "sweep-kind": "sweep-kinds",
     "device-kind": "devices",
+    "stack-regions": "device-builder",
+    "device-file": "device-builder",
 }
 """Which topic explains each marked element on the page, by its data-topic-id."""
 

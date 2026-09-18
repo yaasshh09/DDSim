@@ -250,7 +250,12 @@ function settings(body) {
   };
   const sources = [body.device.parameters, body.sweep.settings, body.sweep.models];
   for (const source of sources) {
-    for (const [name, value] of Object.entries(source || {})) flat[name] = value;
+    for (const [name, value] of Object.entries(source || {})) {
+      // A stack's regions, spelled out rather than printed as objects.
+      flat[name] = Array.isArray(value)
+        ? value.map((r) => r.dopant + " " + show(r.length) + " cm " + show(r.concentration)).join(", ")
+        : value;
+    }
   }
   return flat;
 }
@@ -384,11 +389,8 @@ function withValues(parameters, values) {
 // request leaves out goes back to the function's own default. Nothing solves:
 // the lesson says when to press solve.
 function setUp(body, meshNote) {
-  const device = body.device, sweep = body.sweep;
-  el("device-kind").value = device.kind;
-  onDeviceKind();
-  fill(el("device-knobs"),
-    withValues(state.schema.devices[device.kind], device.parameters));
+  const sweep = body.sweep;
+  putDevice(body.device);
   el("sweep-kind").value = sweep.kind;
   onSweepKind();
   fill(el("sweep-knobs"),
@@ -398,6 +400,16 @@ function setUp(body, meshNote) {
   el("measure-at").value = sweep.measure_at || "";
   el("voltages").value = sweep.voltages.join(", ");
   if (meshNote) el("mesh-note").textContent = meshNote;
+}
+
+// Put the device half of a request on the form: a lesson's, or one loaded
+// from a file. A stack's regions become rows; left out, the defaults stay.
+function putDevice(device) {
+  const parameters = device.parameters || {};
+  el("device-kind").value = device.kind;
+  onDeviceKind();
+  fill(el("device-knobs"), withValues(state.schema.devices[device.kind], parameters));
+  if (parameters.regions) showRegions(parameters.regions);
 }
 
 function knob(parameter) {
@@ -495,12 +507,14 @@ function collect(container) {
 }
 
 function defaultContact() {
-  return el("device-kind").value === "pn_diode" ? "anode" : "gate";
+  const contacts = { pn_diode: "anode", stack: "left" };
+  return contacts[el("device-kind").value] || "gate";
 }
 
 function onDeviceKind() {
   const kind = el("device-kind").value;
   fill(el("device-knobs"), state.schema.devices[kind]);
+  showRegions(state.schema.regions[kind] || null);
   el("contact").value = defaultContact();
 
   // A 1D device solves while you drag it. A 2D one is seconds to minutes, so
@@ -595,13 +609,15 @@ function request() {
   if (kind === "transfer" && el("measure-at").value.trim()) {
     sweep.measure_at = el("measure-at").value.trim();
   }
-  return {
-    device: {
-      kind: el("device-kind").value,
-      parameters: collect(el("device-knobs")),
-    },
-    sweep: sweep,
-  };
+  return { device: deviceRequest(), sweep: sweep };
+}
+
+// The device half of a request, which is also what a saved device file holds.
+function deviceRequest() {
+  const parameters = collect(el("device-knobs"));
+  const regions = collectRegions();
+  if (regions) parameters.regions = regions;
+  return { kind: el("device-kind").value, parameters: parameters };
 }
 
 function clear() {
@@ -637,6 +653,7 @@ async function solve() {
   keep(body);
   state.request = body;
   clear();
+  el("built-note").hidden = body.device.kind !== "stack";
 
   const response = await fetch("/api/jobs", {
     method: "POST",

@@ -14,6 +14,7 @@ the page. Whether the numbers are right is every other test's job.
 
 from __future__ import annotations
 
+import json
 import socket
 import threading
 from collections.abc import Iterator
@@ -494,6 +495,94 @@ def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server) -> None
             wait_until(page, "el('device-kind').value === 'nmos'", errors)
             assert page.input_value('[data-name="n_silicon"]') == "29"
             assert "coarse mesh" in page.inner_text("#mesh-note")
+            assert errors == []
+        finally:
+            browser.close()
+
+
+def set_region(page: Page, row: int, dopant: str, length: str, doping: str) -> None:
+    """Fill in one row of the region editor, counted from 1."""
+    rows = f"#regions > div:nth-child({row})"
+    page.select_option(f"{rows} [data-region=dopant]", dopant)
+    page.fill(f"{rows} [data-region=length]", length)
+    page.fill(f"{rows} [data-region=concentration]", doping)
+
+
+def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(
+    server, tmp_path
+) -> None:
+    """phases/PHASE-7.md Stage 4 from the page: regions stacked left to
+    right, a refusal that says why, and a device that goes to a file and
+    comes back from one, which is how students hand each other a device."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+
+            assert page.is_hidden("#stack")
+            page.select_option("#device-kind", "stack")
+            assert page.is_visible("#stack")
+            assert page.locator("#regions > div").count() == 2
+            assert page.input_value("#contact") == "left"
+            assert "not validated" in page.inner_text("#stack-note")
+
+            page.click("#region-add")
+            assert page.locator("#regions > div").count() == 3
+            set_region(page, 1, "p", "2e-5", "1e18")
+            set_region(page, 2, "n", "1e-4", "1e14")
+            set_region(page, 3, "n", "2e-5", "1e18")
+            page.fill("#voltages", "0, 0.2")
+            solved(page, errors)
+            assert page.evaluate("state.points.length") == 2
+            # The result is labelled as the validated solver on a structure
+            # nobody validated, and a benchmark device's is not.
+            assert page.is_visible("#built-note")
+
+            # A second run with the base lightly doped the other way. Its
+            # overlay label names the regions rather than printing objects.
+            set_region(page, 2, "p", "1e-4", "1e14")
+            solved(page, errors)
+            label = page.inner_text("#runs-note")
+            assert "regions" in label and "object" not in label
+
+            set_region(page, 2, "n", "1e-4", "1e21")
+            page.click("#solve")
+            wait_until(page, "el('state').textContent === 'refused'", errors)
+            refusal = page.inner_text("#message")
+            assert "region 2" in refusal and "docs/01-physics.md" in refusal
+            set_region(page, 2, "n", "1e-4", "1e14")
+
+            with page.expect_download() as saving:
+                page.click("#device-save")
+            saved = json.loads(saving.value.path().read_text(encoding="utf-8"))
+            assert saved["kind"] == "stack"
+            assert saved["parameters"]["regions"][1] == {
+                "dopant": "n",
+                "length": 1e-4,
+                "concentration": 1e14,
+            }
+
+            page.select_option("#device-kind", "pn_diode")
+            assert page.is_hidden("#stack")
+            handed_over = tmp_path / "pin.json"
+            handed_over.write_text(json.dumps(saved), encoding="utf-8")
+            page.set_input_files("#device-load", str(handed_over))
+            wait_until(page, "el('device-kind').value === 'stack'", errors)
+            assert page.locator("#regions > div").count() == 3
+            base = "#regions > div:nth-child(2) [data-region=concentration]"
+            assert page.input_value(base) == "1e+14"
+
+            page.click("#regions > div:nth-child(3) [data-region=remove]")
+            assert page.locator("#regions > div").count() == 2
+
+            broken = tmp_path / "broken.json"
+            broken.write_text("{not json", encoding="utf-8")
+            page.set_input_files("#device-load", str(broken))
+            wait_until(page, "el('message').textContent.includes('JSON')", errors)
             assert errors == []
         finally:
             browser.close()
