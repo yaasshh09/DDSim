@@ -16,6 +16,7 @@ import pytest
 from ddsim.mesh.mesh1d import (
     Mesh1D,
     graded_mesh_1d,
+    graded_mesh_1d_at,
     stacked_mesh_1d,
     uniform_mesh_1d,
 )
@@ -482,3 +483,89 @@ class TestStackedMesh:
         )
         with pytest.raises(ValueError, match="starts at"):
             stacked_mesh_1d(uniform_mesh_1d(MICRON, 3), shifted)
+
+
+# ------------------------------------------------- graded towards several points
+
+
+THIN_BASE = (10 * MICRON, 10.05 * MICRON, 10.1 * MICRON)
+"""Three junctions, two of them 50 nm apart either side of a thin base, in a
+20.1 um device. Grading each junction on its own and joining halfway broke
+here, with neighbouring cells jumping by up to 2.7."""
+
+
+def worst_ratio(mesh: Mesh1D) -> float:
+    ratios = mesh.h[1:] / mesh.h[:-1]
+    return float(max(ratios.max(), (1.0 / ratios).max()))
+
+
+def test_one_point_is_graded_mesh_1d_bit_for_bit() -> None:
+    np.testing.assert_array_equal(
+        graded_mesh_1d_at(MICRON, 201, (0.5 * MICRON,), NANOMETRE).x,
+        graded_mesh_1d(MICRON, 201, 0.5 * MICRON, NANOMETRE).x,
+    )
+
+
+@pytest.mark.parametrize("n_nodes", [201, 301, 401, 801])
+def test_every_point_is_a_node_with_h_min_either_side(n_nodes) -> None:
+    mesh = graded_mesh_1d_at(20.1 * MICRON, n_nodes, THIN_BASE, NANOMETRE)
+    assert mesh.n_nodes == n_nodes
+    assert mesh.x[-1] == 20.1 * MICRON
+    for point in THIN_BASE:
+        node = int(np.flatnonzero(mesh.x == point)[0])
+        np.testing.assert_allclose(mesh.h[node - 1 : node + 1], NANOMETRE, rtol=1e-6)
+
+
+@pytest.mark.parametrize("n_nodes", [201, 301, 401, 801])
+def test_several_points_grade_as_gently_as_one(n_nodes) -> None:
+    """One growth rate over the whole mesh, so nowhere is harsher than the
+    limit graded_mesh_1d holds a single junction to."""
+    mesh = graded_mesh_1d_at(20.1 * MICRON, n_nodes, THIN_BASE, NANOMETRE)
+    assert worst_ratio(mesh) <= 1.5
+
+
+def test_more_nodes_grade_more_gently() -> None:
+    ratios = [
+        worst_ratio(graded_mesh_1d_at(20.1 * MICRON, n, THIN_BASE, NANOMETRE))
+        for n in (201, 401, 801)
+    ]
+    assert ratios[0] > ratios[1] > ratios[2]
+
+
+def test_the_spacing_grows_away_from_every_point() -> None:
+    """Coarsest halfway between two points and at the far ends, finest at
+    the points, and monotone in between."""
+    mesh = graded_mesh_1d_at(20.1 * MICRON, 301, THIN_BASE, NANOMETRE)
+    marks = [0] + [int(np.flatnonzero(mesh.x == p)[0]) for p in THIN_BASE]
+    marks.append(mesh.n_nodes - 1)
+    first = mesh.h[: marks[1]]
+    assert np.all(np.diff(first) <= 0.0)
+    last = mesh.h[marks[-2] :]
+    assert np.all(np.diff(last) >= 0.0)
+    for left, right in zip(marks[1:-2], marks[2:-1], strict=True):
+        between = mesh.h[left:right]
+        peak = int(np.argmax(between))
+        assert np.all(np.diff(between[: peak + 1]) >= 0.0)
+        assert np.all(np.diff(between[peak:]) <= 0.0)
+
+
+def test_the_dual_cells_still_sum_to_the_length() -> None:
+    mesh = graded_mesh_1d_at(20.1 * MICRON, 301, THIN_BASE, NANOMETRE)
+    assert mesh.volume.sum() == pytest.approx(20.1 * MICRON, rel=1e-14)
+
+
+def test_more_nodes_than_fit_at_h_min_are_refused() -> None:
+    with pytest.raises(ValueError, match="room for 101 nodes"):
+        graded_mesh_1d_at(10 * NANOMETRE * 10, 102, (5e-6, 6e-6), NANOMETRE)
+
+
+def test_too_few_nodes_to_grade_gently_are_refused() -> None:
+    with pytest.raises(ValueError, match="max_ratio"):
+        graded_mesh_1d_at(20.1 * MICRON, 31, THIN_BASE, NANOMETRE)
+
+
+def test_points_must_be_inside_and_increasing() -> None:
+    with pytest.raises(ValueError, match="increasing"):
+        graded_mesh_1d_at(MICRON, 201, (0.6 * MICRON, 0.4 * MICRON), NANOMETRE)
+    with pytest.raises(ValueError, match="inside"):
+        graded_mesh_1d_at(MICRON, 201, (0.5 * MICRON, MICRON), NANOMETRE)

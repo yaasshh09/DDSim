@@ -429,6 +429,132 @@ def graded_mesh_1d(
     return _assemble(x)
 
 
+def graded_mesh_1d_at(
+    length: float,
+    n_nodes: int,
+    points: tuple[float, ...],
+    h_min: float,
+    max_ratio: float = 1.5,
+) -> Mesh1D:
+    """A mesh refined to h_min at every one of several points.
+
+    Args:
+        length: domain length [cm].
+        n_nodes: total node count.
+        points: where the finest spacing goes [cm], increasing, each strictly
+            inside the domain. A stack of doped regions passes its junctions.
+        h_min: spacing either side of every point [cm].
+        max_ratio: largest allowed ratio between neighbouring cells [1].
+
+    One point is graded_mesh_1d exactly, which is what keeps a two region
+    stack the Phase 2 diode to the last bit.
+
+    Several points are graded together, with one growth rate for the whole
+    mesh. Grading each point on its own over its share of the domain and
+    joining the shares halfway does not work: each share's growth is set by
+    its own longest side, so two shares meet at different spacings, and a
+    thin region between two junctions joined its neighbours with jumps of up
+    to 2.7.
+
+    The spacing the mesh aims for grows linearly with the distance d to the
+    nearest point, h = h_min + g d, which is what geometric growth by 1 + g
+    per cell looks like as a function of position. A side of length D then
+    wants ln(1 + g D / h_min) / g cells, and g is solved so that the sides
+    add up to the node count. Each side is then laid exactly as
+    graded_mesh_1d lays one, geometric from h_min, so every point is a node
+    with h_min either side of it. The two halves between neighbouring points
+    are the same length and get the same count, so they are mirror images
+    and meet at equal cells.
+    """
+    if len(points) == 1:
+        if not 0.0 < points[0] < length:
+            raise ValueError(
+                f"the point must lie inside (0, {length:g}), got {points[0]:g}"
+            )
+        return graded_mesh_1d(length, n_nodes, points[0], h_min, max_ratio)
+    if not points:
+        raise ValueError("a graded mesh needs at least one point to grade towards")
+    if any(np.diff(points) <= 0.0):
+        raise ValueError(f"the points must be increasing, got {points}")
+    if not (0.0 < points[0] and points[-1] < length):
+        raise ValueError(
+            f"every point must lie inside (0, {length:g}), got {points}"
+        )
+
+    # Each side runs outward from one point, towards a boundary or halfway to
+    # the next point. Reversed means it runs right to left in the mesh.
+    sides: list[tuple[float, bool]] = [(points[0], True)]
+    for left, right in zip(points[:-1], points[1:], strict=True):
+        half = 0.5 * (right - left)
+        sides += [(half, False), (half, True)]
+    sides.append((length - points[-1], False))
+    spans = np.array([span for span, _ in sides])
+    room = np.floor(spans / h_min * (1.0 + _DEGENERATE_TOLERANCE)).astype(np.int64)
+
+    cells_wanted = n_nodes - 1
+    if cells_wanted > room.sum():
+        raise ValueError(
+            f"n_nodes={n_nodes} is more than this mesh holds: at h_min={h_min:g} "
+            f"cm everywhere it has room for {room.sum() + 1} nodes. Use fewer "
+            "nodes or a smaller h_min."
+        )
+
+    def wanted(g: float) -> npt.NDArray[np.float64]:
+        """Cells each side wants at growth rate g [1]."""
+        return np.asarray(np.log1p(g * spans / h_min) / g)
+
+    # Fewer cells the faster the spacing grows. At g -> 0 every side is at
+    # h_min, which is the room just checked, so the bracket holds.
+    low, high = 1e-12, 1e6
+    for _ in range(200):
+        middle = np.sqrt(low * high)
+        if wanted(middle).sum() > cells_wanted:
+            low = middle
+        else:
+            high = middle
+    counts = np.clip(np.rint(wanted(high)), 1, room).astype(np.int64)
+
+    # Rounding leaves the total a few cells out. The two end sides take the
+    # difference, the longer first, so the mirrored halves stay mirrored.
+    short = cells_wanted - int(counts.sum())
+    for end in sorted((0, len(sides) - 1), key=lambda side: -spans[side]):
+        moved = int(np.clip(counts[end] + short, 1, room[end])) - int(counts[end])
+        counts[end] += moved
+        short -= moved
+    if short:  # pragma: no cover
+        # Both ends full or down to one cell, which needs end sides a few
+        # h_min long. Refused rather than taken out of a mirrored pair.
+        raise ValueError(
+            f"could not share {n_nodes} nodes between the sides of this mesh. "
+            "Change n_nodes by one or two."
+        )
+
+    pieces = []
+    for (span, reversed_), count in zip(sides, counts, strict=True):
+        ratio = float(_solve_ratios(span, h_min, np.array([count]))[0])
+        spacing = _side_spacings(span, h_min, int(count), ratio)
+        pieces.append(spacing[::-1] if reversed_ else spacing)
+    spacings = np.concatenate(pieces)
+
+    neighbour_ratios = spacings[1:] / spacings[:-1]
+    worst = float(max(neighbour_ratios.max(), (1.0 / neighbour_ratios).max()))
+    if worst > max_ratio:
+        raise ValueError(
+            f"the gentlest mesh meeting these constraints jumps by {worst:.3f} "
+            f"between neighbouring cells, above max_ratio={max_ratio}. Add "
+            "nodes, relax h_min, or raise max_ratio deliberately."
+        )
+
+    x = np.empty(n_nodes, dtype=np.float64)
+    x[0] = 0.0
+    x[1:] = np.cumsum(spacings)
+    # Pin every point and the far end, as graded_mesh_1d pins its one point.
+    at_point = np.cumsum(counts)[0::2][: len(points)]
+    x[at_point] = points
+    x[-1] = length
+    return _assemble(x)
+
+
 def stacked_mesh_1d(*layers: Mesh1D) -> Mesh1D:
     """Several meshes laid end to end, sharing one node at every join.
 
