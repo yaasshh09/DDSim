@@ -17,6 +17,7 @@ from __future__ import annotations
 import socket
 import threading
 from collections.abc import Iterator
+from dataclasses import dataclass
 
 import pytest
 import uvicorn
@@ -24,6 +25,7 @@ from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PageTimeout
 
 from ddsim.api.app import create_app
+from ddsim.api.jobs import JobRegistry, JobStatus
 
 STARTUP_TIMEOUT = 10.0
 """Seconds to wait for uvicorn to start listening [s]."""
@@ -38,12 +40,26 @@ def free_port() -> int:
         return int(probe.getsockname()[1])
 
 
+@dataclass(frozen=True)
+class Served:
+    """A running server and the registry its jobs land in.
+
+    The registry is here because the live slider criterion is about jobs and
+    not about pixels: what has to be true is that five drags leave one solve
+    running rather than five, and only the server can answer that.
+    """
+
+    url: str
+    jobs: JobRegistry
+
+
 @pytest.fixture
-def server() -> Iterator[str]:
+def served() -> Iterator[Served]:
     """The real uvicorn, on its own thread, with the app `ddsim serve` builds."""
     port = free_port()
+    registry = JobRegistry()
     config = uvicorn.Config(
-        create_app(), host="127.0.0.1", port=port, log_level="warning"
+        create_app(registry), host="127.0.0.1", port=port, log_level="warning"
     )
     running = uvicorn.Server(config)
     thread = threading.Thread(target=running.run, daemon=True)
@@ -56,10 +72,16 @@ def server() -> Iterator[str]:
         waited.wait(0.05)
     assert running.started, "uvicorn did not start"
 
-    yield f"http://127.0.0.1:{port}"
+    yield Served(url=f"http://127.0.0.1:{port}", jobs=registry)
 
     running.should_exit = True
     thread.join(timeout=STARTUP_TIMEOUT)
+
+
+@pytest.fixture
+def server(served: Served) -> str:
+    """Just the address, which is all most of these tests want."""
+    return served.url
 
 
 def wait_until(page: Page, condition: str, errors: list[str]) -> None:
@@ -247,6 +269,181 @@ def test_an_equation_wider_than_the_drawer_can_be_reached(server) -> None:
             )
 
             assert clipped == 0
+            assert errors == []
+        finally:
+            browser.close()
+
+
+# ------------------------------------------------------ stage 2, the sandbox
+
+
+def solved(page: Page, errors: list[str]) -> None:
+    """Press solve and wait for the curve to arrive."""
+    page.click("#solve")
+    wait_until(page, "el('state').textContent.startsWith('done')", errors)
+
+
+def until(page: Page, ready, what: str, seconds: float = 30.0) -> None:
+    """Wait for something on the server side to become true.
+
+    The page's own status text says what the browser last heard, which is not
+    the same question as what the job is doing, and a slider test that read
+    the text would pass by racing past a solve that had already ended.
+
+    The wait goes through the page because Playwright's sync API only runs
+    its event handlers while a call into it is in progress; a plain sleep
+    would leave every response the page received unheard.
+    """
+    for _ in range(int(seconds / 0.02)):
+        if ready():
+            return
+        page.wait_for_timeout(20)
+    pytest.fail(f"waited {seconds} s for {what}")
+
+
+def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
+    server,
+) -> None:
+    """The acceptance criterion: an overlay is the earlier run's numbers,
+    never recomputed. So the test reads the first curve off the page, solves a
+    different device, and demands the kept copy be the same array to the last
+    digit rather than something solved again on the new knobs."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+
+            page.fill("#voltages", "0, 0.2, 0.4")
+            solved(page, errors)
+            first = page.evaluate("state.points.map((p) => [p.voltage, p.value])")
+
+            page.fill('[data-name="Na"]', "2e17")
+            solved(page, errors)
+            second = page.evaluate("state.points.map((p) => [p.voltage, p.value])")
+
+            kept = page.evaluate(
+                "state.runs.map((r) => r.points.map((p) => [p.voltage, p.value]))"
+            )
+            labels = page.evaluate("state.runs.map((r) => r.label)")
+
+            assert kept == [first], "the overlay is not the first run's own numbers"
+            assert second != first, "the second solve did not move the curve"
+            # Labelled by what differs from the run before it.
+            assert "Na" in labels[0], labels
+
+            page.click("#clear-runs")
+            assert page.evaluate("state.runs.length") == 0
+            assert errors == []
+        finally:
+            browser.close()
+
+
+def test_five_slider_moves_in_a_second_leave_one_solve_running(served) -> None:
+    """The acceptance criterion, in two halves. Moving faster than the page
+    submits collapses to a single job, and a move that lands while a solve is
+    running cancels it rather than queueing behind it. Either way the process
+    is idle once the last one finishes."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            submitted: list[str] = []
+
+            def note_job(response) -> None:
+                if response.request.method == "POST" and response.url.endswith(
+                    "/api/jobs"
+                ):
+                    submitted.append(response.json()["id"])
+
+            page.on("response", note_job)
+            page.goto(served.url)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+
+            # Five moves inside a second, faster than the page submits.
+            page.evaluate(
+                """(async () => {
+                  const slider = document.querySelector('[data-slider="Na"]');
+                  for (const at of [0.2, 0.3, 0.4, 0.5, 0.6]) {
+                    slider.value = String(
+                      Number(slider.min) + at * (slider.max - slider.min)
+                    );
+                    slider.dispatchEvent(new Event("input", { bubbles: true }));
+                    await new Promise((done) => setTimeout(done, 50));
+                  }
+                })()"""
+            )
+            wait_until(page, "el('state').textContent.startsWith('done')", errors)
+
+            assert len(submitted) == 1, f"five moves submitted {len(submitted)} jobs"
+            assert served.jobs.status(submitted[0]) is JobStatus.DONE
+
+            # And a move that lands while a solve is running replaces it. The
+            # long voltage list is what gives the move something to interrupt,
+            # and the waits are on the job rather than on the page, so this
+            # cannot pass by racing past a solve that already finished.
+            page.fill("#voltages", ", ".join(str(v / 50) for v in range(40)))
+            move = """(() => {
+                  const slider = document.querySelector('[data-slider="Na"]');
+                  slider.value = String(
+                    Number(slider.min) + AT * (slider.max - slider.min)
+                  );
+                  slider.dispatchEvent(new Event("input", { bubbles: true }));
+                })()"""
+
+            page.evaluate(move.replace("AT", "0.7"))
+            until(page, lambda: len(submitted) == 2, "a second job to be submitted")
+            until(
+                page,
+                lambda: served.jobs.status(submitted[1]) is JobStatus.RUNNING,
+                "the second job to start solving",
+            )
+
+            page.evaluate(move.replace("AT", "0.8"))
+            until(page, lambda: len(submitted) == 3, "a third job to be submitted")
+            wait_until(page, "el('state').textContent.startsWith('done')", errors)
+
+            assert served.jobs.status(submitted[1]) is JobStatus.CANCELLED
+            assert served.jobs.status(submitted[2]) is JobStatus.DONE
+            assert errors == []
+        finally:
+            # Before the close, or a response still in flight reaches a
+            # handler whose page is already gone.
+            page.remove_listener("response", note_job)
+            browser.close()
+
+
+def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) -> None:
+    """phases/PHASE-7.md: live sliders on the 1D devices only, and the page
+    says why. The 2D ones get the coarse mesh instead, with the note on what
+    choosing it costs."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+
+            sliders = "document.querySelectorAll('[data-slider]').length"
+            assert page.evaluate(sliders) > 0
+
+            page.select_option("#device-kind", "nmos")
+            assert page.evaluate(sliders) == 0
+            assert page.is_visible("#mesh-coarse")
+
+            page.click("#mesh-coarse")
+            assert page.input_value('[data-name="n_silicon"]') == "29"
+            assert "percent" in page.inner_text("#mesh-note")
+
+            page.click("#mesh-converged")
+            assert page.input_value('[data-name="n_silicon"]') == "101"
             assert errors == []
         finally:
             browser.close()

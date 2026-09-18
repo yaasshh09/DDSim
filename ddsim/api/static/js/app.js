@@ -4,6 +4,11 @@ const BLUE = "#1f6feb", PURPLE = "#8250df", GREEN = "#1a7f37", RED = "#b23c17";
 
 const el = (id) => document.getElementById(id);
 
+// How long the page waits after a slider stops moving before it submits.
+// Shorter than a 1D solve so a drag feels live, and long enough that one
+// sweep of the hand is one job rather than five.
+const LIVE_DELAY = 200;
+
 const state = {
   schema: null,
   job: null,
@@ -17,6 +22,9 @@ const state = {
   fields: null,
   cutline: null,  // {from, to} in fractional mesh indices, on a 2D image
   valueName: "current",
+  runs: [],       // finished runs kept as overlays: {points, request, label}
+  request: null,  // what the run on screen was asked for
+  pending: null,  // the timer a moving slider keeps resetting
 };
 
 // ---------------------------------------------------------------- plotting
@@ -180,13 +188,111 @@ function drawResidual() {
   }
 }
 
+// Every run that finished is still on the plot, faded, until it is cleared.
+// An overlay is the points that run was drawn with, held as they were: no
+// overlay is ever solved again, so the earlier curve cannot drift when the
+// knobs move under it.
 function drawCurve() {
   const box = fit(el("curve"));
-  if (!state.points.length) return;
-  const xs = state.points.map((p) => p.voltage);
-  const ys = state.points.map((p) => p.value);
+  if (!state.points.length && !state.runs.length) return;
+
+  // One frame over every run on the plot, or the older ones would be drawn
+  // against an axis that does not reach them.
+  const xs = [], ys = [];
+  for (const run of state.runs.concat([{ points: state.points }])) {
+    for (const point of run.points) {
+      xs.push(point.voltage);
+      ys.push(point.value);
+    }
+  }
   const frame = axes(box.pen, box, xs, ys, { logY: el("curve-log").checked });
-  line(box.pen, frame, xs, ys, GREEN, { dots: true });
+
+  box.pen.globalAlpha = 0.4;
+  for (const run of state.runs) {
+    line(
+      box.pen, frame,
+      run.points.map((p) => p.voltage),
+      run.points.map((p) => p.value),
+      BLUE
+    );
+  }
+  box.pen.globalAlpha = 1;
+  line(
+    box.pen, frame,
+    state.points.map((p) => p.voltage),
+    state.points.map((p) => p.value),
+    GREEN,
+    { dots: true }
+  );
+  showRuns();
+}
+
+function showRuns() {
+  const note = el("runs-note");
+  note.textContent = "";
+  for (const run of state.runs) {
+    const entry = document.createElement("span");
+    entry.innerHTML = '<i class="swatch" style="background:#1f6feb;opacity:0.4"></i>';
+    entry.appendChild(document.createTextNode(run.label));
+    note.appendChild(entry);
+  }
+}
+
+// What one request asks for, flattened to names and values. Used only to say
+// how two runs differ, which is a comparison of the requests and not of any
+// physics: the page is reading back what it sent.
+function settings(body) {
+  const flat = {
+    device: body.device.kind,
+    sweep: body.sweep.kind,
+    contact: body.sweep.contact,
+    voltages: body.sweep.voltages.join(" "),
+  };
+  const sources = [body.device.parameters, body.sweep.settings, body.sweep.models];
+  for (const source of sources) {
+    for (const [name, value] of Object.entries(source || {})) flat[name] = value;
+  }
+  return flat;
+}
+
+function show(value) {
+  const number = Number(value);
+  return typeof value === "number" || (value !== "" && isFinite(number))
+    ? format(number)
+    : String(value);
+}
+
+// This run described by what it does not share with another one. An overlay
+// is labelled against the run that came after it, so the label says what made
+// this curve the one it is.
+function differences(mine, other) {
+  if (!other) return "the run on screen";
+  const a = settings(mine), b = settings(other);
+  const changed = Object.keys(a).filter((k) => String(a[k]) !== String(b[k]));
+  if (!changed.length) return "the same settings";
+  return changed.map((k) => k + " " + show(a[k])).join(", ");
+}
+
+// The run on screen becomes an overlay, and every overlay is relabelled
+// against the run that follows it, the newest against `next`.
+function keep(next) {
+  if (state.curve && state.points.length && state.request) {
+    state.runs.push({
+      points: state.points.slice(),
+      request: state.request,
+      label: "",
+    });
+  }
+  for (let i = 0; i < state.runs.length; i++) {
+    const after = i + 1 < state.runs.length ? state.runs[i + 1].request : next;
+    state.runs[i].label = differences(state.runs[i].request, after);
+  }
+}
+
+function clearRuns() {
+  state.runs = [];
+  drawCurve();
+  showRuns();
 }
 
 function drawProfile() {
@@ -289,8 +395,46 @@ function knob(parameter) {
   }
   input.dataset.name = parameter.name;
   input.dataset.kind = parameter.type;
-  label.appendChild(input);
+
+  const control = document.createElement("span");
+  control.className = "control";
+  control.appendChild(input);
+  const drag = slider(parameter, input);
+  if (drag) control.appendChild(drag);
+  label.appendChild(control);
   return label;
+}
+
+// A knob with a range declared in its own docstring gets a slider over that
+// range. A knob without one gets the box alone: the page has no business
+// inventing ends for a span it was told nothing about.
+function slider(parameter, box) {
+  if (parameter.low === null || parameter.high === null) return null;
+  const log = parameter.axis === "log";
+  const at = (value) => (log ? decades(value) : value);
+
+  const drag = document.createElement("input");
+  drag.type = "range";
+  drag.dataset.slider = parameter.name;
+  drag.min = String(at(parameter.low));
+  drag.max = String(at(parameter.high));
+  // A whole number knob steps by one, everything else by a two hundredth of
+  // its travel, which is finer than the slider has pixels.
+  drag.step = String(
+    !log && parameter.type === "int"
+      ? 1
+      : (at(parameter.high) - at(parameter.low)) / 200
+  );
+  drag.value = String(at(parameter.default));
+
+  drag.addEventListener("input", () => {
+    const raw = Number(drag.value);
+    const value = log ? undecades(raw) : raw;
+    box.value =
+      parameter.type === "int" ? String(Math.round(value)) : format(value);
+    nudge();
+  });
+  return drag;
 }
 
 function fill(container, parameters) {
@@ -322,8 +466,43 @@ function defaultContact() {
 }
 
 function onDeviceKind() {
-  fill(el("device-knobs"), state.schema.devices[el("device-kind").value]);
+  const kind = el("device-kind").value;
+  fill(el("device-knobs"), state.schema.devices[kind]);
   el("contact").value = defaultContact();
+
+  // A 1D device solves while you drag it. A 2D one is seconds to minutes, so
+  // it keeps the solve button and is offered a coarse mesh instead, and the
+  // page says which it is rather than leaving a student to find out.
+  el("mesh-choice").hidden = !state.schema.presets[kind];
+  el("mesh-note").textContent = "";
+  el("live-note").textContent = live()
+    ? "moving a slider re-solves this device."
+    : "press solve: this device has two axes and takes seconds to minutes.";
+}
+
+function live() {
+  return state.schema.dimensions[el("device-kind").value] === 1;
+}
+
+// The coarse mesh, or back to the one the constructor declares. Only the
+// knobs the preset names are touched, so a doping a student set stays set.
+function useMesh(coarse) {
+  const kind = el("device-kind").value;
+  const preset = state.schema.presets[kind];
+  if (!preset) return;
+  const defaults = {};
+  for (const parameter of state.schema.devices[kind]) {
+    defaults[parameter.name] = parameter.default;
+  }
+  for (const name of Object.keys(preset.parameters)) {
+    const input = el("device-knobs").querySelector('[data-name="' + name + '"]');
+    if (input) {
+      input.value = String(coarse ? preset.parameters[name] : defaults[name]);
+    }
+  }
+  el("mesh-note").textContent = coarse
+    ? preset.note
+    : "The mesh this device is validated on.";
 }
 
 function onSweepKind() {
@@ -414,8 +593,6 @@ function clear() {
 }
 
 async function solve() {
-  clear();
-
   let body;
   try {
     body = request();
@@ -423,6 +600,10 @@ async function solve() {
     el("message").textContent = String(problem.message || problem);
     return;
   }
+  // Before anything is cleared: whatever finished is now an overlay.
+  keep(body);
+  state.request = body;
+  clear();
 
   const response = await fetch("/api/jobs", {
     method: "POST",
@@ -594,10 +775,41 @@ async function cancel() {
   el("state").textContent = body.cancelled ? "cancelling" : "already finished";
 }
 
+// A slider moved. The page waits for the hand to stop, then replaces the
+// solve in flight rather than adding to it, so a drag across a knob leaves
+// one job running however many positions it passed through.
+function nudge() {
+  if (!live()) return;
+  clearTimeout(state.pending);
+  state.pending = setTimeout(() => {
+    state.pending = null;
+    stop().then(solve);
+  }, LIVE_DELAY);
+}
+
+// Put down the job on screen without saying anything about it. The socket
+// goes first, so the frames of a solve nobody is waiting for any more stop
+// reaching the plots, and the cancel lands at that solve's next iteration.
+async function stop() {
+  const socket = state.socket;
+  if (socket) {
+    state.socket = null;
+    socket.onclose = null;
+    socket.onmessage = null;
+    socket.close();
+  }
+  if (state.job) {
+    await fetch("/api/jobs/" + state.job + "/cancel", { method: "POST" });
+  }
+}
+
 el("device-kind").addEventListener("change", onDeviceKind);
 el("sweep-kind").addEventListener("change", onSweepKind);
 el("solve").addEventListener("click", solve);
 el("cancel").addEventListener("click", cancel);
+el("clear-runs").addEventListener("click", clearRuns);
+el("mesh-coarse").addEventListener("click", () => useMesh(true));
+el("mesh-converged").addEventListener("click", () => useMesh(false));
 el("residual-log").addEventListener("change", drawResidual);
 el("curve-log").addEventListener("change", drawCurve);
 el("bands").addEventListener("change", drawProfile);

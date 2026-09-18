@@ -148,6 +148,7 @@ PLOT_TOPICS: dict[str, str] = {
     "legend-gummel-update": "gummel",
     "legend-rejected-step": "continuation",
     "curve-plot": "curve-plot",
+    "compare-runs": "curve-plot",
     "profile-plot": "profile-plot",
     "legend-psi": "potential",
     "legend-n": "carrier-densities",

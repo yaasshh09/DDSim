@@ -29,6 +29,14 @@ being flipped.
 Points are joined in the order you listed the voltages, so a list that is not
 in order zigzags.
 
+Every run that finished stays on the plot as a faded blue line until you press
+`clear runs`. Each one is labelled with the settings that differ from the run
+after it, so `Na 2e+17` means that curve was solved with Na at 2e17 and the
+next one was not. The label compares what the page sent, not the physics, and
+a faded line is the numbers that run gave. Nothing is solved again, so an old
+curve never drifts when you move a knob. A run you cancelled, or one a moving
+slider replaced, never finished, so it is not kept.
+
 ## In more depth
 
 Every dot is a converged solve at exactly that voltage. Nothing on this plot is

@@ -66,6 +66,14 @@
   }
   input[type=text], input[type=number], select { width: 140px; }
   input[type=checkbox] { width: auto; }
+  /* A knob that declares a range gets its slider under its box, so the pair
+     keeps the one line width the sidebar has room for. */
+  .control { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .control input[type=range] { width: 140px; padding: 0; }
+  .aside { color: var(--muted); margin-top: 6px; }
+  .tools button { padding: 1px 6px; font-size: 11px; }
+  #runs-note { display: block; }
+  #runs-note span { display: block; }
   textarea { width: 100%; resize: vertical; }
   button {
     background: var(--accent);
@@ -117,6 +125,13 @@
       <legend>device</legend>
       <label data-topic-id="device-kind"><span>kind</span><select id="device-kind"></select></label>
       <div id="device-knobs"></div>
+      <div class="row" id="mesh-choice" hidden>
+        <span>mesh</span>
+        <button id="mesh-coarse" class="flat" type="button">coarse</button>
+        <button id="mesh-converged" class="flat" type="button">converged</button>
+      </div>
+      <div id="mesh-note" class="aside"></div>
+      <div id="live-note" class="aside"></div>
     </fieldset>
 
     <fieldset>
@@ -163,12 +178,14 @@
     <div class="panel">
       <h2 data-topic-id="curve-plot">curve
         <span class="tools">
+          <button id="clear-runs" class="flat" type="button">clear runs</button>
           <label style="display:inline-flex"><span>log</span>
             <input id="curve-log" type="checkbox"></label>
         </span>
       </h2>
       <canvas id="curve" height="220"></canvas>
       <div class="legend"><span id="curve-note">no points yet</span></div>
+      <div class="legend" id="runs-note" data-topic-id="compare-runs"></div>
     </div>
 
     <div class="panel">
