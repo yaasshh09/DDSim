@@ -56,6 +56,8 @@ from ddsim.api.learn import (
     KNOB_TOPICS,
     PLOT_TOPICS,
     STATUS_TOPICS,
+    lesson_names,
+    load_lesson,
     load_topic,
     topic_names,
 )
@@ -215,6 +217,33 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             "plain": found.plain,
             "depth": found.depth,
             "knobs": sorted(k for k, t in KNOB_TOPICS.items() if t == found.name),
+        }
+
+    @app.get("/api/lessons")
+    def lessons() -> list[dict[str, str]]:
+        """Every guided experiment, by name, title and one line."""
+        return [
+            {"name": found.name, "title": found.title, "summary": found.summary}
+            for found in (load_lesson(name) for name in lesson_names())
+        ]
+
+    @app.get("/api/lessons/{name}")
+    def lesson(name: str) -> dict[str, Any]:
+        """One guided experiment, with every request it sets up whole."""
+        found = _found(lambda: load_lesson(name))
+        return {
+            "name": found.name,
+            "title": found.title,
+            "summary": found.summary,
+            "claims": list(found.claims),
+            "request": found.request,
+            "mesh_note": found.mesh_note,
+            "steps": [
+                {"title": s.title, "text": s.text, "request": s.request}
+                for s in found.steps
+            ],
+            "look_for": found.look_for,
+            "explanation": found.explanation,
         }
 
     @app.post("/api/jobs")

@@ -52,6 +52,7 @@ ddsim = [
   "api/static/*.html",
   "api/static/js/*.js",
   "api/static/learn/*.md",
+  "api/lessons/*.md",
   "api/static/vendor/**/*",
 ]
 
