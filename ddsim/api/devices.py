@@ -27,7 +27,6 @@ from ddsim.device.builder import Device
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
-from ddsim.mesh.mesh2d import Mesh2D
 
 DEVICE_KINDS: dict[str, Callable[..., Device]] = {
     "pn_diode": pn_diode,
@@ -113,8 +112,7 @@ def node_count(device: Device) -> int:
     2D mesh is a tensor product of several of them and a 1D one has a single
     knob that is not spelled the same way.
     """
-    mesh = device.mesh
-    return mesh.nx * mesh.ny if isinstance(mesh, Mesh2D) else int(mesh.x.size)
+    return device.mesh.n_nodes
 
 
 @dataclass(frozen=True)
@@ -252,7 +250,9 @@ def device_dimension(kind: str) -> int:
     Cached, because the answer cannot change while the process runs and
     building an nmos to ask is a mesh and a doping profile.
     """
-    return 2 if isinstance(_builder(kind)().mesh, Mesh2D) else 1
+    # Asked of the mesh rather than by importing its class, since api/ stops at
+    # device/ and does not reach into mesh/. Only a 2D mesh has rows.
+    return 2 if hasattr(_builder(kind)().mesh, "ny") else 1
 
 
 def parameters_of(
