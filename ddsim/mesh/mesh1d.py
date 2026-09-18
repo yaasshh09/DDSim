@@ -555,6 +555,150 @@ def graded_mesh_1d_at(
     return _assemble(x)
 
 
+def graded_mesh_1d_through(
+    length: float,
+    n_nodes: int,
+    lines: tuple[float, ...],
+    points: tuple[float, ...],
+    h_min: float,
+    max_ratio: float = 1.5,
+) -> Mesh1D:
+    """A mesh with a node on every line, refined to h_min at every point.
+
+    Args:
+        length: domain length [cm].
+        n_nodes: total node count [1].
+        lines: positions that must be nodes [cm], anywhere in [0, length]. A
+            drawn 2D device passes the edges of everything drawn on it, since
+            a cell that is half oxide has no single permittivity.
+        points: positions the spacing is graded towards [cm], also nodes. A
+            drawn device passes its doping edges and its Si/SiO2 interfaces.
+            Empty for an axis with nothing to resolve, which then spaces its
+            nodes as evenly as the lines allow.
+        h_min: spacing aimed for at every point [cm].
+        max_ratio: largest allowed ratio between neighbouring cells [1].
+
+    The spacing aimed for is graded_mesh_1d_at's, h = h_min + g d with d the
+    distance to the nearest point, which is geometric growth written as a
+    function of position. Its node density 1/h integrates in closed form, and
+    g is solved so that the integral over the axis is the cell count. Each
+    span between neighbouring lines then takes a whole number of cells, the
+    integral over it rounded, and lays them at equal steps of the integral.
+    The density is continuous across a line, so a line lands where the
+    grading already was rather than where two gradings meet, which is what
+    kept Stage 4's thin base from jumping by 2.7.
+
+    The price of pinning the lines is the rounding: a span's spacing is
+    stretched by up to half a cell's worth, so h_min at a point is near
+    rather than exact.
+    """
+    for name, positions in (("line", lines), ("point", points)):
+        for position in positions:
+            if not 0.0 <= position <= length:
+                raise ValueError(
+                    f"every {name} must lie inside [0, {length:g}], got {position:g}"
+                )
+
+    breaks = np.unique(np.concatenate([[0.0, length], lines, points]))
+    spans = len(breaks) - 1
+    if n_nodes - 1 < spans:
+        raise ValueError(
+            f"n_nodes={n_nodes} cannot put a node on every line: the lines cut "
+            f"the axis into {spans} spans, so it needs at least {spans + 1} nodes"
+        )
+    room = int(np.floor(length / h_min * (1.0 + _DEGENERATE_TOLERANCE)))
+    if n_nodes - 1 > room:
+        raise ValueError(
+            f"n_nodes={n_nodes} is more than this mesh holds: at h_min={h_min:g} "
+            f"cm everywhere it has room for {room + 1} nodes. Use fewer nodes "
+            "or a smaller h_min."
+        )
+
+    centres = np.unique(np.asarray(points, dtype=np.float64))
+    # Between two points d rises from each towards the midpoint, so the axis
+    # splits at the points and the midpoints, and on each piece d is a
+    # straight line of slope +1 or -1.
+    knots = np.unique(
+        np.concatenate([[0.0, length], centres, 0.5 * (centres[1:] + centres[:-1])])
+    )
+
+    def distance(at: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """Distance to the nearest point [cm]."""
+        return np.asarray(np.min(np.abs(at[:, None] - centres[None, :]), axis=1))
+
+    def piece(
+        d_a: npt.NDArray[np.float64], d_b: npt.NDArray[np.float64], g: float
+    ) -> npt.NDArray[np.float64]:
+        """Cells between two distances on one straight piece of d [1]."""
+        return np.asarray(
+            np.abs(np.log1p(g * d_b / h_min) - np.log1p(g * d_a / h_min)) / g
+        )
+
+    def integral(x: npt.NDArray[np.float64], g: float) -> npt.NDArray[np.float64]:
+        """Cells from 0 to x at growth rate g, the integral of 1/h [1]."""
+        if centres.size == 0:
+            return np.asarray(x / h_min)
+        whole = piece(distance(knots[:-1]), distance(knots[1:]), g)
+        before = np.concatenate([[0.0], np.cumsum(whole)])
+        which = np.clip(np.searchsorted(knots, x, side="right") - 1, 0, whole.size - 1)
+        return np.asarray(
+            before[which] + piece(distance(knots[which]), distance(x), g)
+        )
+
+    cells_wanted = n_nodes - 1
+    g = 1.0
+    if centres.size:
+        # Fewer cells the faster the spacing grows, and at g -> 0 every cell
+        # is h_min, which is the room just checked, so the bracket holds.
+        low, high = 1e-12, 1e6
+        for _ in range(200):
+            middle = float(np.sqrt(low * high))
+            if integral(np.array([length]), middle)[0] > cells_wanted:
+                low = middle
+            else:
+                high = middle
+        g = high
+
+    at_breaks = integral(breaks, g)
+    share = np.diff(at_breaks) * cells_wanted / at_breaks[-1]
+
+    # Whole cells per span, at least one each, the remainder going to the
+    # spans rounded down furthest, so the total is exactly the node count.
+    counts = np.maximum(np.floor(share), 1.0).astype(np.int64)
+    while counts.sum() > cells_wanted:
+        spare = np.flatnonzero(counts > 1)
+        counts[spare[np.argmin((share - counts)[spare])]] -= 1
+    while counts.sum() < cells_wanted:
+        counts[np.argmax(share - counts)] += 1
+
+    pieces = [np.array([0.0])]
+    for a, b, start, end, count in zip(
+        breaks[:-1], breaks[1:], at_breaks[:-1], at_breaks[1:], counts, strict=True
+    ):
+        # Equal steps of the integral across the span, each position found by
+        # bisection, since the integral is monotone in x.
+        targets = np.linspace(start, end, int(count) + 1)[1:-1]
+        left, right = np.full_like(targets, a), np.full_like(targets, b)
+        for _ in range(100):
+            halfway = 0.5 * (left + right)
+            below = integral(halfway, g) < targets
+            left = np.where(below, halfway, left)
+            right = np.where(below, right, halfway)
+        pieces += [0.5 * (left + right), np.array([b])]
+    nodes = np.concatenate(pieces)
+
+    spacings = np.diff(nodes)
+    neighbour_ratios = spacings[1:] / spacings[:-1]
+    worst = float(max(neighbour_ratios.max(), (1.0 / neighbour_ratios).max()))
+    if worst > max_ratio:
+        raise ValueError(
+            f"the gentlest mesh through these lines jumps by {worst:.3f} "
+            f"between neighbouring cells, above max_ratio={max_ratio}. Add "
+            "nodes, relax h_min, or raise max_ratio deliberately."
+        )
+    return _assemble(nodes)
+
+
 def stacked_mesh_1d(*layers: Mesh1D) -> Mesh1D:
     """Several meshes laid end to end, sharing one node at every join.
 

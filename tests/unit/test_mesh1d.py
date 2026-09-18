@@ -17,6 +17,7 @@ from ddsim.mesh.mesh1d import (
     Mesh1D,
     graded_mesh_1d,
     graded_mesh_1d_at,
+    graded_mesh_1d_through,
     stacked_mesh_1d,
     uniform_mesh_1d,
 )
@@ -579,3 +580,98 @@ def test_points_must_be_inside_and_increasing() -> None:
         graded_mesh_1d_at(MICRON, 201, (0.6 * MICRON, 0.4 * MICRON), NANOMETRE)
     with pytest.raises(ValueError, match="inside"):
         graded_mesh_1d_at(MICRON, 201, (0.5 * MICRON, MICRON), NANOMETRE)
+
+
+# ------------------------------------------- a node on every line, 2D drawings
+
+# A drawn 2D device, one axis of it: the edges of what was drawn are lines the
+# mesh has to put a node on, and the doping edges and interfaces are points it
+# grades towards. The nmos x axis drawn from rectangles has both kinds.
+DRAWN_LINES = (0.2 * MICRON, 0.4 * MICRON, 1.4 * MICRON, 1.6 * MICRON)
+DRAWN_POINTS = (0.4 * MICRON, 1.4 * MICRON)
+
+
+@pytest.mark.parametrize("n_nodes", [81, 121, 161])
+def test_every_line_and_point_is_a_node(n_nodes) -> None:
+    mesh = graded_mesh_1d_through(
+        1.8 * MICRON, n_nodes, DRAWN_LINES, DRAWN_POINTS, 2 * NANOMETRE
+    )
+    assert mesh.n_nodes == n_nodes
+    assert mesh.x[0] == 0.0
+    assert mesh.x[-1] == 1.8 * MICRON
+    for position in DRAWN_LINES + DRAWN_POINTS:
+        assert position in mesh.x
+
+
+def test_the_spacing_at_every_point_is_near_h_min() -> None:
+    """Near, not exact: each span between lines takes a whole number of
+    cells, which stretches its spacing by the rounding. Measured the other
+    way, a mesh that ignored the points would sit at 1.8 um / 120, 75 times
+    h_min, so ten percent is a real test."""
+    mesh = graded_mesh_1d_through(
+        1.8 * MICRON, 121, DRAWN_LINES, DRAWN_POINTS, 2 * NANOMETRE
+    )
+    for point in DRAWN_POINTS:
+        node = int(np.flatnonzero(mesh.x == point)[0])
+        np.testing.assert_allclose(mesh.h[node - 1 : node + 1], 2 * NANOMETRE, rtol=0.1)
+
+
+@pytest.mark.parametrize("n_nodes", [81, 121, 161])
+def test_lines_do_not_break_the_grading(n_nodes) -> None:
+    """A line pinned where the grading did not want a node is where a jump
+    would come from, so the whole mesh is held to the same limit as one
+    junction."""
+    mesh = graded_mesh_1d_through(
+        1.8 * MICRON, n_nodes, DRAWN_LINES, DRAWN_POINTS, 2 * NANOMETRE
+    )
+    assert worst_ratio(mesh) <= 1.5
+
+
+def test_the_spacing_grows_away_from_a_point() -> None:
+    mesh = graded_mesh_1d_through(
+        MICRON, 101, (0.3 * MICRON,), (0.5 * MICRON,), NANOMETRE
+    )
+    centre = int(np.flatnonzero(mesh.x == 0.5 * MICRON)[0])
+    assert mesh.h[centre] < mesh.h[centre + 10] < mesh.h[-1]
+    assert mesh.h[centre - 1] < mesh.h[centre - 10] < mesh.h[0]
+
+
+def test_with_no_points_the_lines_share_the_nodes_evenly() -> None:
+    """Nothing to grade towards, so the spacing is as even as whole cells
+    between the lines allow."""
+    mesh = graded_mesh_1d_through(MICRON, 11, (0.35 * MICRON,), (), NANOMETRE)
+    assert 0.35 * MICRON in mesh.x
+    np.testing.assert_allclose(mesh.h, 0.1 * MICRON, rtol=0.2)
+
+
+def test_the_dual_cells_sum_to_the_length_through_lines() -> None:
+    mesh = graded_mesh_1d_through(
+        1.8 * MICRON, 121, DRAWN_LINES, DRAWN_POINTS, 2 * NANOMETRE
+    )
+    assert mesh.volume.sum() == pytest.approx(1.8 * MICRON, rel=1e-14)
+
+
+def test_more_nodes_than_h_min_holds_are_refused_through_lines() -> None:
+    with pytest.raises(ValueError, match="room for 101 nodes"):
+        graded_mesh_1d_through(100 * NANOMETRE, 102, (), (50 * NANOMETRE,), NANOMETRE)
+
+
+def test_fewer_nodes_than_lines_need_are_refused() -> None:
+    with pytest.raises(ValueError, match="at least 6 nodes"):
+        graded_mesh_1d_through(
+            1.8 * MICRON, 5, DRAWN_LINES, DRAWN_POINTS, 2 * NANOMETRE
+        )
+
+
+def test_too_few_nodes_to_grade_through_lines_are_refused() -> None:
+    with pytest.raises(ValueError, match="max_ratio"):
+        graded_mesh_1d_through(
+            1.8 * MICRON, 13, DRAWN_LINES, DRAWN_POINTS, 2 * NANOMETRE
+        )
+
+
+def test_lines_and_points_must_lie_on_the_axis() -> None:
+    with pytest.raises(ValueError, match="inside"):
+        graded_mesh_1d_through(MICRON, 101, (2 * MICRON,), (), NANOMETRE)
+    with pytest.raises(ValueError, match="inside"):
+        graded_mesh_1d_through(MICRON, 101, (), (-MICRON,), NANOMETRE)
