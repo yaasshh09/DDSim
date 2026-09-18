@@ -119,8 +119,9 @@ those are 9.5 mV and 1.361, and the error keeps growing from there. A degenerate
 region needs the Fermi-Dirac path the MOSFET uses, not a wider range here.
 Complete ionization, assumed below, is also poorest at the top end.
 
-The bottom end is not a model breaking. Mobility and lifetime both flatten
-to their undoped values there. Below it the Debye length passes 0.4 um, so a
+The bottom end is not a model breaking. Mobility and lifetime have both
+flattened there: at 1e14 the Arora electron mobility is 0.16 percent below its
+zero doping value and the Scharfetter lifetime 0.2 percent below tau_max. At 1e14 the Debye length is already 0.41 um, so a
 region of a few tenths of a micron has no quasi-neutral part at all, and the
 bottom end matches the range the pn diode's own knobs declare. An intrinsic
 layer, the i of a pin, is drawn as a 1e14 region.

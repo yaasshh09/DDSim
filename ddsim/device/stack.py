@@ -123,11 +123,13 @@ def stack(
             Shared between the junctions by how far each one's grading has to
             grow, so a stack of many junctions wants more.
         h_min: mesh spacing at every junction [cm]. Range 1e-8 to 1e-6, log.
-            The 41 nm Debye length at 1e16 wants it below 20 nm, and 1e19,
-            the top of the doping range, wants it near 1 nm.
+            docs/02-numerics.md wants it below half the Debye length: 20 nm
+            at 1e16 and 0.65 nm at 1e19, the top of the doping range, so the
+            1 nm default under-resolves the heaviest regions.
         left_voltage: bias on the left contact [V]. Range -5 to 1. The same
-            ends as the diode's contacts: a cold solve past about 1.3 V
-            forward does not converge from the equilibrium guess.
+            ends as the diode's contacts. Where a cold solve stops converging
+            was measured on the Phase 2 diode, near 1.3 V forward, and not on
+            other stacks.
         right_voltage: bias on the right contact [V]. Range -5 to 1. The same
             ends as the left contact.
         material: defaults to silicon at 300 K.
