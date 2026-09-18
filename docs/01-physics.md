@@ -126,6 +126,10 @@ region of a few tenths of a micron has no quasi-neutral part at all, and the
 bottom end matches the range the pn diode's own knobs declare. An intrinsic
 layer, the i of a pin, is drawn as a 1e14 region.
 
+A 2D drawing takes the same range, and with Fermi-Dirac statistics on it
+takes up to **1e20 cm^-3**, the peak of the nmos source and drain, where
+n/Nc is 3.5 and the Joyce-Dixon inversion above still holds.
+
 ## Incomplete ionization
 
 Ignore through Phase 4. Assume Nd+ = Nd, Na- = Na. At 300K and moderate doping
