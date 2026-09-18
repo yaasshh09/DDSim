@@ -32,7 +32,11 @@ const state = {
 function fit(canvas) {
   const ratio = window.devicePixelRatio || 1;
   const width = canvas.clientWidth || 600;
-  const height = Number(canvas.getAttribute("height"));
+  // The height the page declares, read once. Setting canvas.height below
+  // rewrites the attribute, so on a screen whose ratio is above 1 reading it
+  // again would grow the canvas by that ratio on every redraw.
+  if (!canvas.dataset.height) canvas.dataset.height = canvas.getAttribute("height");
+  const height = Number(canvas.dataset.height);
   canvas.width = Math.round(width * ratio);
   canvas.height = Math.round(height * ratio);
   const pen = canvas.getContext("2d");
@@ -251,10 +255,17 @@ function settings(body) {
   const sources = [body.device.parameters, body.sweep.settings, body.sweep.models];
   for (const source of sources) {
     for (const [name, value] of Object.entries(source || {})) {
-      // A stack's regions, spelled out rather than printed as objects.
-      flat[name] = Array.isArray(value)
-        ? value.map((r) => r.dopant + " " + show(r.length) + " cm " + show(r.concentration)).join(", ")
-        : value;
+      // A stack's regions, spelled out rather than printed as objects, and a
+      // drawing's parts the same way, one record's values after another.
+      if (name === "regions") {
+        flat[name] = value
+          .map((r) => r.dopant + " " + show(r.length) + " cm " + show(r.concentration))
+          .join(", ");
+      } else if (Array.isArray(value)) {
+        flat[name] = value.map((r) => Object.values(r).map(show).join(" ")).join(", ");
+      } else {
+        flat[name] = value;
+      }
     }
   }
   return flat;
@@ -410,6 +421,7 @@ function putDevice(device) {
   onDeviceKind();
   fill(el("device-knobs"), withValues(state.schema.devices[device.kind], parameters));
   if (parameters.regions) showRegions(parameters.regions);
+  if (parameters.blocks) showDrawing(parameters);
 }
 
 function knob(parameter) {
@@ -515,6 +527,7 @@ function onDeviceKind() {
   const kind = el("device-kind").value;
   fill(el("device-knobs"), state.schema.devices[kind]);
   showRegions(state.schema.regions[kind] || null);
+  showDrawing(state.schema.drawings[kind] || null);
   el("contact").value = defaultContact();
 
   // A 1D device solves while you drag it. A 2D one is seconds to minutes, so
@@ -579,6 +592,7 @@ async function schema() {
     el("sweep-kind").appendChild(option);
   }
   fill(el("model-knobs"), state.schema.models);
+  el("node-budget").textContent = String(state.schema.node_budget);
   onDeviceKind();
   onSweepKind();
   el("state").textContent = "ready";
@@ -617,6 +631,7 @@ function deviceRequest() {
   const parameters = collect(el("device-knobs"));
   const regions = collectRegions();
   if (regions) parameters.regions = regions;
+  Object.assign(parameters, collectDrawing() || {});
   return { kind: el("device-kind").value, parameters: parameters };
 }
 
@@ -653,7 +668,8 @@ async function solve() {
   keep(body);
   state.request = body;
   clear();
-  el("built-note").hidden = body.device.kind !== "stack";
+  el("built-note").hidden =
+    !state.schema.regions[body.device.kind] && !state.schema.drawings[body.device.kind];
 
   const response = await fetch("/api/jobs", {
     method: "POST",

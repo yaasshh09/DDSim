@@ -125,7 +125,10 @@ async function loadDevice(file) {
   // the form without a word, so the page says which.
   const known = new Set(state.schema.devices[device.kind].map((p) => p.name));
   const unknown = Object.keys(device.parameters || {}).filter(
-    (name) => !known.has(name) && !(name === "regions" && state.schema.regions[device.kind])
+    (name) =>
+      !known.has(name) &&
+      !(name === "regions" && state.schema.regions[device.kind]) &&
+      !(state.schema.drawings[device.kind] && name in state.schema.drawings[device.kind])
   );
   el("message").textContent = unknown.length
     ? file.name + " sets " + unknown.join(", ") + ", which " + device.kind +

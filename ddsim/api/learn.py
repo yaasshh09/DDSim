@@ -285,6 +285,7 @@ KNOB_TOPICS: dict[str, str] = {
     "t_si": "mos-capacitor",
     "width": "mos-capacitor",
     "nx": "mesh",
+    "ny": "mesh",
     "n_silicon": "mesh",
     "n_oxide": "mesh",
     "gate_voltage": "contacts-and-bias",
@@ -341,6 +342,7 @@ PLOT_TOPICS: dict[str, str] = {
     "device-kind": "devices",
     "stack-regions": "device-builder",
     "device-file": "device-builder",
+    "drawing-parts": "device-drawing",
 }
 """Which topic explains each marked element on the page, by its data-topic-id."""
 
