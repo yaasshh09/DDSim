@@ -242,6 +242,14 @@ def test_a_feature_thinner_than_the_mesh_resolves_is_refused() -> None:
         drawn_cap(blocks=thin, electrodes=raised, h_min_y=2 * NM)
 
 
+def test_a_rectangle_spanning_the_device_is_not_a_feature_across_it() -> None:
+    """mos_cap solves on 3 columns because nothing varies across it, and its
+    blocks span the whole width. A rectangle as wide as the device is the
+    device along that axis, not something the mesh could miss."""
+    device = drawn_cap(nx=3, ny=125, h_min_y=5e-8, degenerate=False)
+    assert device.mesh.nx == 3
+
+
 def test_a_mesh_over_the_node_budget_is_refused() -> None:
     with pytest.raises(ValueError, match=f"budget of {NODE_BUDGET}"):
         drawn_nmos(nx=200, ny=200)

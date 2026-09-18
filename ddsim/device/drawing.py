@@ -501,6 +501,13 @@ def drawing(
     for what, thing in drawn[: len(blocks) + len(implants)]:
         inside_x = int(np.count_nonzero((columns > thing.x0) & (columns < thing.x1)))
         inside_y = int(np.count_nonzero((rows > thing.y0) & (rows < thing.y1)))
+        # A rectangle spanning the whole device along an axis is the device
+        # along it, not a feature on it, which is how mos_cap gets away with
+        # three columns.
+        if thing.x0 == 0.0 and thing.x1 == width:
+            inside_x = NODES_INSIDE
+        if thing.y0 == 0.0 and thing.y1 == height:
+            inside_y = NODES_INSIDE
         if min(inside_x, inside_y) < NODES_INSIDE:
             raise ValueError(
                 f"{_box(what, thing.x0, thing.x1, thing.y0, thing.y1)} is smaller "
