@@ -675,3 +675,10 @@ def test_lines_and_points_must_lie_on_the_axis() -> None:
         graded_mesh_1d_through(MICRON, 101, (2 * MICRON,), (), NANOMETRE)
     with pytest.raises(ValueError, match="inside"):
         graded_mesh_1d_through(MICRON, 101, (), (-MICRON,), NANOMETRE)
+
+
+def test_with_no_points_h_min_limits_nothing() -> None:
+    """The MOS capacitor's x axis: 0.1 um across with nothing to grade
+    towards, which takes any number of columns whatever h_min says."""
+    mesh = graded_mesh_1d_through(0.1 * MICRON, 63, (), (), 2 * NANOMETRE)
+    np.testing.assert_allclose(mesh.h, 0.1 * MICRON / 62, rtol=1e-12)

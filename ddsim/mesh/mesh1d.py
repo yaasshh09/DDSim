@@ -606,15 +606,15 @@ def graded_mesh_1d_through(
             f"n_nodes={n_nodes} cannot put a node on every line: the lines cut "
             f"the axis into {spans} spans, so it needs at least {spans + 1} nodes"
         )
+    centres = np.unique(np.asarray(points, dtype=np.float64))
+    # With nothing to grade towards h_min plays no part, so it limits nothing.
     room = int(np.floor(length / h_min * (1.0 + _DEGENERATE_TOLERANCE)))
-    if n_nodes - 1 > room:
+    if centres.size and n_nodes - 1 > room:
         raise ValueError(
             f"n_nodes={n_nodes} is more than this mesh holds: at h_min={h_min:g} "
             f"cm everywhere it has room for {room + 1} nodes. Use fewer nodes "
             "or a smaller h_min."
         )
-
-    centres = np.unique(np.asarray(points, dtype=np.float64))
     # Between two points d rises from each towards the midpoint, so the axis
     # splits at the points and the midpoints, and on each piece d is a
     # straight line of slope +1 or -1.
