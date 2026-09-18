@@ -18,7 +18,7 @@ from __future__ import annotations
 import inspect
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from functools import cache
 from typing import Any
@@ -27,11 +27,13 @@ from ddsim.device.builder import Device
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
+from ddsim.device.stack import Region, stack
 
 DEVICE_KINDS: dict[str, Callable[..., Device]] = {
     "pn_diode": pn_diode,
     "mos_cap": mos_cap,
     "nmos": nmos,
+    "stack": stack,
 }
 """Every device the API will build, by the name the client sends."""
 
@@ -388,19 +390,99 @@ def checked_arguments(
     return accepted
 
 
+def region_defaults(kind: str) -> list[dict[str, Any]] | None:
+    """The regions a stack device starts from, as the page sends them.
+
+    Args:
+        kind: a key of DEVICE_KINDS.
+
+    Read from the constructor's own default, like every other default here.
+    None for a device that is not built from regions. A list of regions is
+    not one number, so it is not among the knobs: the page draws it as rows.
+    """
+    argument = inspect.signature(_builder(kind)).parameters.get("regions")
+    if argument is None:
+        return None
+    return [asdict(region) for region in argument.default]
+
+
+_REGION_FIELDS = {field.name: field.type for field in fields(Region)}
+"""Each field a region has, with its annotation as written: "str" or "float"."""
+
+
+def regions_from_json(sent: Any) -> tuple[Region, ...]:
+    """Regions as the page or a saved device file sends them, checked.
+
+    Args:
+        sent: a list of objects, each with exactly the fields of Region.
+
+    A saved file is a student's own, edited by hand as often as not, so what
+    is wrong with it is named by region number and field. Whether the regions
+    make a device the models cover is the stack's own judgement, not this.
+    """
+    if not isinstance(sent, list):
+        raise TypeError(
+            f"regions is a list of regions, got {type(sent).__name__}"
+        )
+    regions = []
+    for number, entry in enumerate(sent, start=1):
+        if not isinstance(entry, dict):
+            raise TypeError(
+                f"region {number} is {type(entry).__name__}, not an object with "
+                f"{', '.join(_REGION_FIELDS)}"
+            )
+        missing = [name for name in _REGION_FIELDS if name not in entry]
+        extra = [name for name in entry if name not in _REGION_FIELDS]
+        if missing or extra:
+            raise ValueError(
+                f"region {number} has the fields {', '.join(_REGION_FIELDS)}; "
+                f"missing {missing}, not a field {extra}"
+            )
+        for name, annotation in _REGION_FIELDS.items():
+            value = entry[name]
+            # bool is an int in Python, so it is refused by exact type, as
+            # _checked does for a knob.
+            fits = (
+                type(value) is str
+                if annotation == "str"
+                else type(value) in (int, float)
+            )
+            if not fits:
+                raise TypeError(
+                    f"region {number}: {name} is a "
+                    f"{'name' if annotation == 'str' else 'number'}, got "
+                    f"{type(value).__name__}"
+                )
+        regions.append(
+            Region(
+                dopant=entry["dopant"],
+                length=float(entry["length"]),
+                concentration=float(entry["concentration"]),
+            )
+        )
+    return tuple(regions)
+
+
 def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
     """Build a device from a name and a dict of constructor arguments.
 
     Args:
         kind: a key of DEVICE_KINDS.
         parameters: argument names and values. Anything left out keeps the
-            constructor's default.
+            constructor's default. A stack's regions come as a list of
+            objects, see regions_from_json.
 
     Raises ValueError for a name the device does not have and TypeError for a
     value of the wrong kind. See checked_arguments for why neither falls back.
     """
     offered = {p.name: p for p in device_parameters(kind)}
-    return _builder(kind)(**checked_arguments(kind, offered, parameters))
+    knobs = dict(parameters)
+    structured: dict[str, Any] = {}
+    if "regions" in knobs:
+        if region_defaults(kind) is None:
+            raise ValueError(f"{kind} is not built from regions")
+        structured["regions"] = regions_from_json(knobs.pop("regions"))
+    return _builder(kind)(**checked_arguments(kind, offered, knobs), **structured)
 
 
 def _checked(kind: str, parameter: Parameter, value: Any) -> float | int | bool | str:

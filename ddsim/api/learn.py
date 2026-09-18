@@ -276,6 +276,9 @@ KNOB_TOPICS: dict[str, str] = {
     "h_min": "mesh",
     "anode_voltage": "contacts-and-bias",
     "cathode_voltage": "contacts-and-bias",
+    # 1D stack
+    "left_voltage": "contacts-and-bias",
+    "right_voltage": "contacts-and-bias",
     # MOS capacitor
     "substrate_doping": "doping",
     "t_ox": "mos-capacitor",

@@ -22,12 +22,15 @@ from ddsim.api.devices import (
     device_parameters,
     node_count,
     parameters_of,
+    region_defaults,
 )
+from ddsim.api.sweeps import run_sweep
 
 
-def test_the_three_device_classes_are_offered() -> None:
-    """The three phases/PHASE-7.md names in its acceptance criteria."""
-    assert set(DEVICE_KINDS) == {"pn_diode", "mos_cap", "nmos"}
+def test_the_device_classes_are_offered() -> None:
+    """The three phases/PHASE-7.md names in its acceptance criteria, and the
+    1D stack of its Stage 4."""
+    assert set(DEVICE_KINDS) == {"pn_diode", "mos_cap", "nmos", "stack"}
 
 
 def test_the_parameters_come_from_the_constructor_signature() -> None:
@@ -204,3 +207,91 @@ def test_a_coarse_preset_says_what_changes(kind) -> None:
     assert str(node_count(build_from_spec(kind, {}))) in note, (
         f"{kind}: {note!r} does not say what it is coarse against"
     )
+
+
+# ------------------------------------------------------------- the 1D stack
+
+PIN = [
+    {"dopant": "p", "length": 2e-5, "concentration": 1e18},
+    {"dopant": "n", "length": 1e-4, "concentration": 1e14},
+    {"dopant": "n", "length": 2e-5, "concentration": 1e18},
+]
+"""A pin diode as the page sends one, and as a saved device file holds it."""
+
+
+def test_a_stack_is_built_from_the_regions_the_page_sends() -> None:
+    device = build_from_spec("stack", {"regions": PIN, "n_nodes": 301})
+    assert device.mesh.n_nodes == 301
+    assert device.mesh.x[-1] == pytest.approx(1.4e-4, rel=1e-14)
+
+
+def test_the_default_regions_are_offered_as_the_page_sends_them() -> None:
+    """The form is filled from these, and building them back is the default
+    stack, so there is no second copy of the default anywhere."""
+    regions = region_defaults("stack")
+    assert regions == [
+        {"dopant": "p", "length": 5e-5, "concentration": 1e16},
+        {"dopant": "n", "length": 5e-5, "concentration": 1e16},
+    ]
+    assert (
+        build_from_spec("stack", {"regions": regions}).mesh.x
+        == build_from_spec("stack", {}).mesh.x
+    ).all()
+
+
+def test_a_device_without_regions_offers_none() -> None:
+    assert region_defaults("pn_diode") is None
+
+
+def test_regions_are_not_a_knob_on_the_form() -> None:
+    """A list of regions is not one number, so it is not rendered as a box.
+    The page draws it as rows, from region_defaults."""
+    assert "regions" not in {p.name for p in device_parameters("stack")}
+
+
+def test_the_stack_is_solved_live() -> None:
+    assert device_dimension("stack") == 1
+
+
+@pytest.mark.parametrize(
+    ("regions", "complaint"),
+    [
+        ("pn", "list of regions"),
+        (["p"], "region 1 is"),
+        ([{"dopant": "p", "length": 1e-4}], "region 1.*concentration"),
+        (
+            [{"dopant": "p", "length": 1e-4, "concentration": 1e16, "x": 1}],
+            "region 1.*'x'",
+        ),
+        ([{"dopant": "p", "length": "1e-4", "concentration": 1e16}], "length"),
+        ([{"dopant": "p", "length": 1e-4, "concentration": True}], "concentration"),
+        ([{"dopant": 1, "length": 1e-4, "concentration": 1e16}], "dopant"),
+    ],
+    ids=["not a list", "not an object", "missing", "extra", "string", "bool", "number"],
+)
+def test_a_malformed_region_is_refused_naming_it(regions, complaint) -> None:
+    """A saved file is a student's own, edited by hand as often as not. What
+    is wrong with it is said by region number and field name."""
+    with pytest.raises((TypeError, ValueError), match=complaint):
+        build_from_spec("stack", {"regions": regions})
+
+
+def test_regions_are_refused_on_a_device_that_has_none() -> None:
+    with pytest.raises(ValueError, match="regions"):
+        build_from_spec("pn_diode", {"regions": PIN})
+
+
+def test_the_phase_2_diode_drawn_as_a_stack_has_the_same_i_v() -> None:
+    """phases/PHASE-7.md part two: a 1D stack drawn as the Phase 2 diode
+    reproduces pn_diode's I-V. Bit for bit, through the same request path the
+    page uses, so no tolerance needs recording."""
+    voltages = [0.0, 0.2, 0.4, -0.5]
+    diode, _ = run_sweep("iv", build_from_spec("pn_diode", {}), "anode", voltages)
+    drawn, _ = run_sweep(
+        "iv",
+        build_from_spec("stack", {"regions": region_defaults("stack")}),
+        "left",
+        voltages,
+    )
+    assert diode.complete and drawn.complete
+    assert [p.current for p in drawn.points] == [p.current for p in diode.points]

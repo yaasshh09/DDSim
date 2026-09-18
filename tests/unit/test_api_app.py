@@ -90,7 +90,7 @@ def drain(client, job_id: str) -> list[Any]:
 def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     body = client.get("/api/schema").json()
 
-    assert set(body["devices"]) == {"pn_diode", "mos_cap", "nmos"}
+    assert set(body["devices"]) == {"pn_diode", "mos_cap", "nmos", "stack"}
     assert set(body["sweeps"]) == {"iv", "transfer", "cv"}
 
 
@@ -486,3 +486,31 @@ def test_the_page_loads_its_script_rather_than_inlining_it(client) -> None:
     page = client.get("/").text
 
     assert '<script src="/static/js/app.js"></script>' in page
+
+
+# ------------------------------------------------------------- the 1D stack
+
+
+def test_the_schema_offers_the_stack_regions(client) -> None:
+    schema = client.get("/api/schema").json()
+    assert schema["regions"]["stack"][0]["dopant"] == "p"
+    assert "pn_diode" not in schema["regions"]
+
+
+def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(client) -> None:
+    """The refusal a student sees names the region and the range, and says
+    where the range is written down."""
+    regions = [
+        {"dopant": "p", "length": 5e-5, "concentration": 1e16},
+        {"dopant": "n", "length": 5e-5, "concentration": 1e21},
+    ]
+    response = client.post(
+        "/api/jobs",
+        json={
+            "device": {"kind": "stack", "parameters": {"regions": regions}},
+            "sweep": {"kind": "iv", "contact": "left", "voltages": [0.1]},
+        },
+    )
+    assert response.status_code == 400
+    assert "region 2" in response.json()["detail"]
+    assert "docs/01-physics.md" in response.json()["detail"]

@@ -43,6 +43,7 @@ from ddsim.api.devices import (
     build_from_spec,
     device_dimension,
     device_parameters,
+    region_defaults,
 )
 from ddsim.api.frames import (
     Status,
@@ -183,6 +184,13 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             # constructor builds, so a device that grew a second axis stops
             # being dragged rather than solving for minutes on every drag.
             "dimensions": {kind: device_dimension(kind) for kind in DEVICE_KINDS},
+            # The regions each stack device starts from, drawn by the page as
+            # rows rather than boxes. Only the devices built from regions.
+            "regions": {
+                kind: regions
+                for kind in DEVICE_KINDS
+                if (regions := region_defaults(kind)) is not None
+            },
             # The coarse mesh on offer per device, with what it costs. Only
             # the devices that have one appear.
             "presets": {
