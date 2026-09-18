@@ -137,7 +137,8 @@ def test_a_lesson_on_its_own_device_says_what_its_own_coarse_mesh_costs() -> Non
         "mesh_note: Measured on this lesson's device.",
     )
 
-    assert parse_lesson("example", text).mesh_note == "Measured on this lesson's device."
+    note = parse_lesson("example", text).mesh_note
+    assert note == "Measured on this lesson's device."
 
 
 def test_a_lesson_on_the_converged_mesh_carries_no_note() -> None:
