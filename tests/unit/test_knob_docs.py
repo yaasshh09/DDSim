@@ -169,4 +169,10 @@ def test_the_schema_says_which_devices_are_one_dimensional(client) -> None:
     lose its sliders here rather than solving for minutes on every drag."""
     dimensions = client.get("/api/schema").json()["dimensions"]
 
-    assert dimensions == {"pn_diode": 1, "mos_cap": 2, "nmos": 2, "stack": 1}
+    assert dimensions == {
+        "pn_diode": 1,
+        "mos_cap": 2,
+        "nmos": 2,
+        "stack": 1,
+        "drawing": 2,
+    }

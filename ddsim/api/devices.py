@@ -24,6 +24,7 @@ from functools import cache
 from typing import Any
 
 from ddsim.device.builder import Device
+from ddsim.device.drawing import Block, Electrode, Implant, drawing
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
@@ -34,6 +35,7 @@ DEVICE_KINDS: dict[str, Callable[..., Device]] = {
     "mos_cap": mos_cap,
     "nmos": nmos,
     "stack": stack,
+    "drawing": drawing,
 }
 """Every device the API will build, by the name the client sends."""
 
@@ -95,6 +97,18 @@ COARSE: dict[str, Preset] = {
             "extrapolated threshold moves 0.7 mV, for a sweep that takes "
             "5.1 s instead of 20.4 s. Good enough to watch a MOSFET switch, "
             "not the mesh any number in the README was taken on."
+        ),
+    ),
+    "drawing": Preset(
+        parameters={"nx": 39, "ny": 35, "h_min_x": 5e-7, "h_min_y": 1e-7},
+        note=(
+            "A coarse mesh: 1365 nodes against the converged 8379. Measured "
+            "2026-09-18 on the default drawing, the benchmark nmos, over a 0 V "
+            "to 1.2 V transfer at 50 mV drain: the drain current reads 0.75 "
+            "percent high at 1.2 V and up to 3.9 percent high between 0.5 and "
+            "0.7 V, and the extrapolated threshold moves 1.5 mV, for a sweep "
+            "that takes 4.0 s instead of 18.9 s. A drawing of your own was not "
+            "measured and can be further off."
         ),
     ),
 }
@@ -390,56 +404,82 @@ def checked_arguments(
     return accepted
 
 
-def region_defaults(kind: str) -> list[dict[str, Any]] | None:
-    """The regions a stack device starts from, as the page sends them.
+RECORDS: dict[str, type] = {
+    "regions": Region,
+    "blocks": Block,
+    "implants": Implant,
+    "electrodes": Electrode,
+}
+"""The arguments a device takes as a list of records rather than one number,
+by argument name, with the record each entry is. A stack is built from
+regions; a drawing from blocks, implants and electrodes. None of them is a
+knob: the page draws each as rows."""
+
+DRAWING_PARTS = ("blocks", "implants", "electrodes")
+"""The record lists a drawn device is made of, in the order the page shows."""
+
+
+def record_defaults(kind: str, name: str) -> list[dict[str, Any]] | None:
+    """The records a device starts from under one argument, as the page sends
+    them, or None for a device without that argument.
 
     Args:
         kind: a key of DEVICE_KINDS.
+        name: a key of RECORDS.
 
     Read from the constructor's own default, like every other default here.
-    None for a device that is not built from regions. A list of regions is
-    not one number, so it is not among the knobs: the page draws it as rows.
     """
-    argument = inspect.signature(_builder(kind)).parameters.get("regions")
+    argument = inspect.signature(_builder(kind)).parameters.get(name)
     if argument is None:
         return None
-    return [asdict(region) for region in argument.default]
+    return [asdict(record) for record in argument.default]
 
 
-_REGION_FIELDS = {field.name: field.type for field in fields(Region)}
-"""Each field a region has, with its annotation as written: "str" or "float"."""
+def region_defaults(kind: str) -> list[dict[str, Any]] | None:
+    """The regions a stack device starts from, or None. See record_defaults."""
+    return record_defaults(kind, "regions")
 
 
-def regions_from_json(sent: Any) -> tuple[Region, ...]:
-    """Regions as the page or a saved device file sends them, checked.
+def drawing_defaults(kind: str) -> dict[str, list[dict[str, Any]]] | None:
+    """The blocks, implants and electrodes a drawn device starts from, or None
+    for a device that is not drawn."""
+    if record_defaults(kind, "blocks") is None:
+        return None
+    return {name: record_defaults(kind, name) or [] for name in DRAWING_PARTS}
+
+
+def records_from_json(name: str, sent: Any) -> tuple[Any, ...]:
+    """Records as the page or a saved device file sends them, checked.
 
     Args:
-        sent: a list of objects, each with exactly the fields of Region.
+        name: a key of RECORDS, which says what each entry is.
+        sent: a list of objects, each with exactly the fields of that record.
 
     A saved file is a student's own, edited by hand as often as not, so what
-    is wrong with it is named by region number and field. Whether the regions
-    make a device the models cover is the stack's own judgement, not this.
+    is wrong with it is named by entry number and field. Whether the records
+    make a device the models cover is the device's own judgement, not this.
     """
+    record = RECORDS[name]
+    what = name[:-1]
+    expected = {field.name: field.type for field in fields(record)}
     if not isinstance(sent, list):
-        raise TypeError(
-            f"regions is a list of regions, got {type(sent).__name__}"
-        )
-    regions = []
+        raise TypeError(f"{name} is a list of {name}, got {type(sent).__name__}")
+    records = []
     for number, entry in enumerate(sent, start=1):
         if not isinstance(entry, dict):
             raise TypeError(
-                f"region {number} is {type(entry).__name__}, not an object with "
-                f"{', '.join(_REGION_FIELDS)}"
+                f"{what} {number} is {type(entry).__name__}, not an object with "
+                f"{', '.join(expected)}"
             )
-        missing = [name for name in _REGION_FIELDS if name not in entry]
-        extra = [name for name in entry if name not in _REGION_FIELDS]
+        missing = [field for field in expected if field not in entry]
+        extra = [field for field in entry if field not in expected]
         if missing or extra:
             raise ValueError(
-                f"region {number} has the fields {', '.join(_REGION_FIELDS)}; "
+                f"{what} {number} has the fields {', '.join(expected)}; "
                 f"missing {missing}, not a field {extra}"
             )
-        for name, annotation in _REGION_FIELDS.items():
-            value = entry[name]
+        for field, annotation in expected.items():
+            value = entry[field]
             # bool is an int in Python, so it is refused by exact type, as
             # _checked does for a knob.
             fits = (
@@ -449,18 +489,26 @@ def regions_from_json(sent: Any) -> tuple[Region, ...]:
             )
             if not fits:
                 raise TypeError(
-                    f"region {number}: {name} is a "
+                    f"{what} {number}: {field} is a "
                     f"{'name' if annotation == 'str' else 'number'}, got "
                     f"{type(value).__name__}"
                 )
-        regions.append(
-            Region(
-                dopant=entry["dopant"],
-                length=float(entry["length"]),
-                concentration=float(entry["concentration"]),
+        records.append(
+            record(
+                **{
+                    field: entry[field]
+                    if annotation == "str"
+                    else float(entry[field])
+                    for field, annotation in expected.items()
+                }
             )
         )
-    return tuple(regions)
+    return tuple(records)
+
+
+def regions_from_json(sent: Any) -> tuple[Region, ...]:
+    """A stack's regions, checked. See records_from_json."""
+    return records_from_json("regions", sent)
 
 
 def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
@@ -469,8 +517,9 @@ def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
     Args:
         kind: a key of DEVICE_KINDS.
         parameters: argument names and values. Anything left out keeps the
-            constructor's default. A stack's regions come as a list of
-            objects, see regions_from_json.
+            constructor's default. A stack's regions and a drawing's blocks,
+            implants and electrodes come as lists of objects, see
+            records_from_json.
 
     Raises ValueError for a name the device does not have and TypeError for a
     value of the wrong kind. See checked_arguments for why neither falls back.
@@ -478,10 +527,11 @@ def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
     offered = {p.name: p for p in device_parameters(kind)}
     knobs = dict(parameters)
     structured: dict[str, Any] = {}
-    if "regions" in knobs:
-        if region_defaults(kind) is None:
-            raise ValueError(f"{kind} is not built from regions")
-        structured["regions"] = regions_from_json(knobs.pop("regions"))
+    for name in RECORDS:
+        if name in knobs:
+            if record_defaults(kind, name) is None:
+                raise ValueError(f"{kind} is not built from {name}")
+            structured[name] = records_from_json(name, knobs.pop(name))
     return _builder(kind)(**checked_arguments(kind, offered, knobs), **structured)
 
 

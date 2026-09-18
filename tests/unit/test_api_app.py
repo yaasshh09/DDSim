@@ -90,7 +90,7 @@ def drain(client, job_id: str) -> list[Any]:
 def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     body = client.get("/api/schema").json()
 
-    assert set(body["devices"]) == {"pn_diode", "mos_cap", "nmos", "stack"}
+    assert set(body["devices"]) == {"pn_diode", "mos_cap", "nmos", "stack", "drawing"}
     assert set(body["sweeps"]) == {"iv", "transfer", "cv"}
 
 
@@ -120,7 +120,8 @@ def test_the_schema_carries_the_coarse_presets_and_their_notes(client) -> None:
     second copy of the knobs or of the measured difference."""
     presets = client.get("/api/schema").json()["presets"]
 
-    assert set(presets) == {"mos_cap", "nmos"}
+    assert set(presets) == {"mos_cap", "nmos", "drawing"}
+    assert "1.5 mV" in presets["drawing"]["note"]
     assert presets["nmos"]["parameters"]["n_silicon"] == 29
     assert "0.621 percent" in presets["nmos"]["note"]
 
@@ -495,6 +496,13 @@ def test_the_schema_offers_the_stack_regions(client) -> None:
     schema = client.get("/api/schema").json()
     assert schema["regions"]["stack"][0]["dopant"] == "p"
     assert "pn_diode" not in schema["regions"]
+
+
+def test_the_schema_offers_the_drawing_parts(client) -> None:
+    drawings = client.get("/api/schema").json()["drawings"]
+    assert set(drawings) == {"drawing"}
+    assert drawings["drawing"]["blocks"][0]["material"] == "silicon"
+    assert drawings["drawing"]["electrodes"][2]["name"] == "gate"
 
 
 def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(client) -> None:

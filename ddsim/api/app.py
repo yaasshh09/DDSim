@@ -43,6 +43,7 @@ from ddsim.api.devices import (
     build_from_spec,
     device_dimension,
     device_parameters,
+    drawing_defaults,
     region_defaults,
 )
 from ddsim.api.frames import (
@@ -70,6 +71,7 @@ from ddsim.api.sweeps import (
     sweep_parameters,
 )
 from ddsim.device.builder import Device
+from ddsim.device.drawing import NODE_BUDGET
 from ddsim.device.transport import TransportModels
 from ddsim.extract.cv import CVCurve
 from ddsim.extract.iv import IVCurve
@@ -191,6 +193,15 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 for kind in DEVICE_KINDS
                 if (regions := region_defaults(kind)) is not None
             },
+            # The blocks, implants and electrodes each drawn device starts
+            # from, drawn by the page as rows. Only the devices drawn in 2D.
+            "drawings": {
+                kind: parts
+                for kind in DEVICE_KINDS
+                if (parts := drawing_defaults(kind)) is not None
+            },
+            # The most nodes a drawn mesh may have, which the page states.
+            "node_budget": NODE_BUDGET,
             # The coarse mesh on offer per device, with what it costs. Only
             # the devices that have one appear.
             "presets": {

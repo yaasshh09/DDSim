@@ -20,6 +20,7 @@ from ddsim.api.devices import (
     build_from_spec,
     device_dimension,
     device_parameters,
+    drawing_defaults,
     node_count,
     parameters_of,
     region_defaults,
@@ -28,9 +29,9 @@ from ddsim.api.sweeps import run_sweep
 
 
 def test_the_device_classes_are_offered() -> None:
-    """The three phases/PHASE-7.md names in its acceptance criteria, and the
-    1D stack of its Stage 4."""
-    assert set(DEVICE_KINDS) == {"pn_diode", "mos_cap", "nmos", "stack"}
+    """The three phases/PHASE-7.md names in its acceptance criteria, the 1D
+    stack of its Stage 4 and the 2D drawing of its Stage 5."""
+    assert set(DEVICE_KINDS) == {"pn_diode", "mos_cap", "nmos", "stack", "drawing"}
 
 
 def test_the_parameters_come_from_the_constructor_signature() -> None:
@@ -295,3 +296,69 @@ def test_the_phase_2_diode_drawn_as_a_stack_has_the_same_i_v() -> None:
     )
     assert diode.complete and drawn.complete
     assert [p.current for p in drawn.points] == [p.current for p in diode.points]
+
+
+# ---------------------------------------------------------- the 2D drawing
+
+
+def test_a_drawing_sent_as_its_defaults_is_the_default_drawing() -> None:
+    """The records cross the wire as plain objects and come back as the same
+    device, which is what saving and loading a drawing relies on."""
+    import numpy as np
+
+    from ddsim.device.drawing import drawing
+
+    sent = build_from_spec("drawing", drawing_defaults("drawing"))
+    built = drawing()
+    np.testing.assert_array_equal(sent.mesh.node_x, built.mesh.node_x)
+    np.testing.assert_array_equal(sent.mesh.node_y, built.mesh.node_y)
+    np.testing.assert_array_equal(sent.net_doping.data, built.net_doping.data)
+    assert [c.nodes for c in sent.contacts] == [c.nodes for c in built.contacts]
+
+
+def test_only_a_drawn_device_has_drawing_defaults() -> None:
+    parts = drawing_defaults("drawing")
+    assert set(parts) == {"blocks", "implants", "electrodes"}
+    assert {e["name"] for e in parts["electrodes"]} == {
+        "source",
+        "drain",
+        "gate",
+        "body",
+    }
+    assert drawing_defaults("nmos") is None
+
+
+def test_the_drawing_lists_are_not_knobs() -> None:
+    names = {p.name for p in device_parameters("drawing")}
+    assert not names & {"blocks", "implants", "electrodes", "material"}
+    assert {"nx", "ny", "h_min_x", "h_min_y", "degenerate"} <= names
+
+
+@pytest.mark.parametrize(
+    ("change", "complaint"),
+    [
+        (lambda e: e.pop("voltage"), r"electrode 2 .*missing \['voltage'\]"),
+        (lambda e: e.update(colour="red"), r"electrode 2 .*not a field \['colour'\]"),
+        (lambda e: e.update(x0="left"), "electrode 2: x0 is a number"),
+        (lambda e: e.update(name=3.0), "electrode 2: name is a name"),
+    ],
+)
+def test_a_bad_drawing_entry_is_named_by_number_and_field(change, complaint) -> None:
+    parts = drawing_defaults("drawing")
+    change(parts["electrodes"][1])
+    with pytest.raises((TypeError, ValueError), match=complaint):
+        build_from_spec("drawing", parts)
+
+
+def test_a_device_not_drawn_refuses_drawing_parts() -> None:
+    with pytest.raises(ValueError, match="not built from blocks"):
+        build_from_spec("stack", {"blocks": []})
+
+
+def test_a_drawing_refusal_reaches_the_caller_with_its_reason() -> None:
+    parts = drawing_defaults("drawing")
+    gate = next(e for e in parts["electrodes"] if e["name"] == "gate")
+    gate["y0"] = gate["y1"] = 0.0
+    gate["x0"], gate["x1"] = 0.5e-4, 1.0e-4
+    with pytest.raises(ValueError, match="Schottky"):
+        build_from_spec("drawing", parts)
