@@ -140,7 +140,7 @@ function extent(parts) {
 // From drawing coordinates to the canvas and back. The two axes are scaled
 // apart, so a 10 nm oxide on a 2 um device is still a band you can see and
 // drag on. The numbers in the rows are the drawing, not the picture.
-function frame(box, parts) {
+function previewFrame(box, parts) {
   const size = extent(parts);
   return {
     x: (v) => (v / size.width) * box.width,
@@ -157,7 +157,7 @@ function drawPreview() {
   const parts = drawingSoFar();
   const box = fit(el("drawing-view"));
   if (!parts) return;
-  const at = frame(box, parts);
+  const at = previewFrame(box, parts);
   const pen = box.pen;
   for (const block of parts.blocks) {
     pen.fillStyle = MATERIAL_FILL[block.material] || "#000";
@@ -212,7 +212,7 @@ function addFromDrag(from, to) {
   const parts = drawingSoFar();
   if (!parts) return;
   const box = fit(el("drawing-view"));
-  const at = frame(box, parts);
+  const at = previewFrame(box, parts);
   const xs = [0, at.size.width], ys = [0, at.size.height];
   for (const list of Object.values(parts)) {
     for (const r of list) { xs.push(r.x0, r.x1); ys.push(r.y0, r.y1); }
