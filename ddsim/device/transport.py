@@ -466,6 +466,19 @@ def _surface_scattering(
     """
     temperature = device.material.T
 
+    # normal_field reads dpsi/dy, the normal to a flat interface. A drawn
+    # device can have an oxide wall standing up in the silicon, where the
+    # normal is x, and the model would read the field along the wall instead.
+    if device.regions is not None:
+        cells = device.regions.cell_material
+        if (cells[:, 1:] != cells[:, :-1]).any():
+            raise ValueError(
+                "surface mobility reads the field normal to a flat Si/SiO2 "
+                "interface, dpsi/dy, and this device has a vertical one, an "
+                "oxide wall beside silicon, where the normal is x. Solve it "
+                "without surface scattering."
+            )
+
     if mobility == "constant":
         nodal_n = ConstantMobility(C.mu_n(temperature))(total_doping)
         nodal_p = ConstantMobility(C.mu_p(temperature))(total_doping)

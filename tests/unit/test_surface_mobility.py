@@ -676,3 +676,41 @@ def test_the_surface_model_alone_solves_at_a_drain_bias():
     state = solve_bias_newton(device, models, max_iterations=60)
 
     assert state.newton.converged, state.newton.message
+
+
+# ------------------------------------------------- a drawing with a side wall
+
+
+def _trench_drawing():
+    """The drawn MOS capacitor with an oxide trench cut into its silicon, so
+    it has a vertical Si/SiO2 wall as well as the flat surface."""
+    from ddsim.device.drawing import MOS_CAP_DRAWING, Block, drawing
+
+    blocks, implants, electrodes = MOS_CAP_DRAWING
+    trench = Block("oxide", 0.4e-5, 0.6e-5, 1.5e-4, 2e-4)
+    return drawing(blocks + (trench,), implants, electrodes, nx=41)
+
+
+def test_surface_mobility_refuses_a_vertical_interface() -> None:
+    """normal_field reads dpsi/dy, which is the normal to a flat interface
+    only. On a side wall it would read the field along the wall and scatter
+    carriers off it by the wrong amount, with nothing to show for it."""
+    from ddsim.device.transport import TransportModels
+
+    with pytest.raises(ValueError, match="vertical"):
+        TransportModels.for_device(_trench_drawing(), surface=True)
+
+
+def test_the_trench_still_solves_without_surface_mobility() -> None:
+    from ddsim.device.transport import TransportModels
+
+    models = TransportModels.for_device(_trench_drawing(), mobility="arora")
+    assert models.surface is None
+
+
+def test_a_drawing_with_only_flat_interfaces_takes_surface_mobility() -> None:
+    from ddsim.device.drawing import drawing
+    from ddsim.device.transport import TransportModels
+
+    models = TransportModels.for_device(drawing(), surface=True)
+    assert models.surface is not None
