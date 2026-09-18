@@ -367,6 +367,39 @@ function drawImage(box, fields) {
 
 // ----------------------------------------------------------------- the form
 
+// What a knob shows first: the value a lesson handed it, or the function's
+// own default. The default itself is left alone, because the drawer quotes it.
+function start(parameter) {
+  return "value" in parameter ? parameter.value : parameter.default;
+}
+
+function withValues(parameters, values) {
+  return parameters.map((p) =>
+    p.name in values ? Object.assign({}, p, { value: values[p.name] }) : p
+  );
+}
+
+// Put a whole request on the form, as a lesson hands it over. Every knob is
+// rebuilt from the schema, so a slider lands where its box says and a knob the
+// request leaves out goes back to the function's own default. Nothing solves:
+// the lesson says when to press solve.
+function setUp(body, meshNote) {
+  const device = body.device, sweep = body.sweep;
+  el("device-kind").value = device.kind;
+  onDeviceKind();
+  fill(el("device-knobs"),
+    withValues(state.schema.devices[device.kind], device.parameters));
+  el("sweep-kind").value = sweep.kind;
+  onSweepKind();
+  fill(el("sweep-knobs"),
+    withValues(state.schema.sweeps[sweep.kind], sweep.settings || {}));
+  fill(el("model-knobs"), withValues(state.schema.models, sweep.models || {}));
+  el("contact").value = sweep.contact;
+  el("measure-at").value = sweep.measure_at || "";
+  el("voltages").value = sweep.voltages.join(", ");
+  if (meshNote) el("mesh-note").textContent = meshNote;
+}
+
 function knob(parameter) {
   const label = document.createElement("label");
   const name = document.createElement("span");
@@ -378,7 +411,7 @@ function knob(parameter) {
   if (parameter.type === "bool") {
     input = document.createElement("input");
     input.type = "checkbox";
-    input.checked = Boolean(parameter.default);
+    input.checked = Boolean(start(parameter));
   } else if (parameter.choices && parameter.choices.length) {
     input = document.createElement("select");
     for (const choice of parameter.choices) {
@@ -387,11 +420,11 @@ function knob(parameter) {
       option.textContent = choice;
       input.appendChild(option);
     }
-    input.value = String(parameter.default);
+    input.value = String(start(parameter));
   } else {
     input = document.createElement("input");
     input.type = "text";
-    input.value = String(parameter.default);
+    input.value = String(start(parameter));
   }
   input.dataset.name = parameter.name;
   input.dataset.kind = parameter.type;
@@ -425,7 +458,7 @@ function slider(parameter, box) {
       ? 1
       : (at(parameter.high) - at(parameter.low)) / 200
   );
-  drag.value = String(at(parameter.default));
+  drag.value = String(at(start(parameter)));
 
   drag.addEventListener("input", () => {
     const raw = Number(drag.value);

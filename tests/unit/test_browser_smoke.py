@@ -449,3 +449,51 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) ->
             assert errors == []
         finally:
             browser.close()
+
+
+def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server) -> None:
+    """phases/PHASE-7.md Stage 3: a lesson sets up its device, tells the
+    student what to change, and can be left at any point with the device kept
+    as a sandbox. The step is solved here too, since a request the page builds
+    from a lesson and the server then refuses is exactly the kind of break
+    that only a real page finds."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            wait_until(page, "el('lesson').options.length === 6", errors)
+
+            page.select_option("#lesson", "02-bias")
+            wait_until(page, "!el('lesson-panel').hidden", errors)
+            assert page.input_value("#device-kind") == "pn_diode"
+            assert page.input_value("#voltages").startswith("0, 0.05, 0.1")
+            # The explanation's maths is rendered, not left as TeX.
+            rendered = "document.querySelector('#lesson-saw .katex') !== null"
+            assert page.evaluate(rendered)
+
+            page.click("#lesson-steps li:has-text('Reverse bias') button")
+            assert float(page.input_value('[data-name="length"]')) == 4e-4
+            assert page.input_value("#voltages") == "0, -0.5, -1, -2"
+            # The slider was rebuilt at the lesson's value, to within the one
+            # step it snaps to, rather than at the default of -4 decades.
+            slider = float(page.input_value('[data-slider="length"]'))
+            assert abs(slider - (-3.3979)) <= 0.01
+
+            solved(page, errors)
+            assert page.evaluate("state.points.length") == 4
+
+            page.click("#lesson-leave")
+            assert page.is_hidden("#lesson-panel")
+            assert float(page.input_value('[data-name="length"]')) == 4e-4
+
+            page.select_option("#lesson", "04-mosfet")
+            wait_until(page, "el('device-kind').value === 'nmos'", errors)
+            assert page.input_value('[data-name="n_silicon"]') == "29"
+            assert "coarse mesh" in page.inner_text("#mesh-note")
+            assert errors == []
+        finally:
+            browser.close()

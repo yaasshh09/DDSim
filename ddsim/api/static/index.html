@@ -108,6 +108,11 @@
   .explain { border: 1px solid var(--line); border-radius: 50%; width: 16px; height: 16px;
     font-size: 10px; line-height: 14px; padding: 0; margin-left: 4px; cursor: pointer;
     background: var(--paper); color: var(--muted); }
+  #lesson-panel { font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.5; }
+  #lesson-panel h2 { font-size: 15px; color: var(--ink); }
+  #lesson-steps li { margin-bottom: 10px; }
+  #lesson-steps li > button { margin-left: 10px; padding: 1px 8px; font-size: 12px; }
+  #lesson-panel .katex-display { overflow-x: auto; overflow-y: hidden; }
   .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 4px; vertical-align: -1px; }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -124,6 +129,11 @@
 </header>
 <main>
   <section id="controls">
+    <fieldset>
+      <legend>lesson</legend>
+      <label><span>guide me</span><select id="lesson">
+        <option value="">none, free sandbox</option></select></label>
+    </fieldset>
     <fieldset>
       <legend>device</legend>
       <label data-topic-id="device-kind"><span>kind</span><select id="device-kind"></select></label>
@@ -160,6 +170,16 @@
   </section>
 
   <section id="plots">
+    <div class="panel" id="lesson-panel" hidden>
+      <h2><span id="lesson-title"></span>
+        <span class="tools"><button id="lesson-leave" class="flat" type="button">leave lesson, keep the device</button></span>
+      </h2>
+      <p id="lesson-summary"></p>
+      <ol id="lesson-steps"></ol>
+      <details open><summary>What to look for</summary><div id="lesson-look"></div></details>
+      <details><summary>What you saw, and why</summary><div id="lesson-saw"></div>
+        <p id="lesson-claims" class="aside"></p></details>
+    </div>
     <div class="panel">
       <h2 data-topic-id="residual-plot">residual
         <span class="tools">
@@ -237,5 +257,6 @@
 <script src="/static/js/learn.js"></script>
 <script src="/static/js/bands.js"></script>
 <script src="/static/js/streamlines.js"></script>
+<script src="/static/js/lessons.js"></script>
 </body>
 </html>
