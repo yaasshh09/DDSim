@@ -101,6 +101,28 @@ def _junction_mesh(
     )
 
 
+def implant_lengths(
+    x_j: float, lateral_diffusion: float, sd_peak: float, Na: float
+) -> tuple[float, float]:
+    """The source implant's depth sigma and lateral erfc length [cm].
+
+    Args:
+        x_j: junction depth [cm].
+        lateral_diffusion: how far the junction reaches under the mask [cm].
+        sd_peak: surface concentration of the implant [cm^-3].
+        Na: the substrate acceptor concentration it meets [cm^-3].
+
+    The implant, in closed form both ways. sigma is set by where the depth
+    profile is to cross the substrate doping, and the erfc length by where
+    the lateral one is, so x_j and lateral_diffusion are what they say. Here
+    rather than inside nmos so a MOSFET drawn from rectangles uses the same
+    two numbers to the last bit.
+    """
+    sigma = x_j / math.sqrt(2.0 * math.log(sd_peak / Na))
+    edge = lateral_diffusion / float(_erfcinv(2.0 * Na / sd_peak))
+    return sigma, edge
+
+
 def nmos(
     L_gate: float = 1e-4,
     sd_length: float = 4e-5,
@@ -309,12 +331,7 @@ def nmos(
         ),
     )
 
-    # The implant, in closed form both ways. sigma is set by where the depth
-    # profile is to cross the substrate doping, and the erfc length by where
-    # the lateral one is, so x_j and lateral_diffusion are what they say.
-    sigma = x_j / math.sqrt(2.0 * math.log(sd_peak / Na))
-    edge = lateral_diffusion / float(_erfcinv(2.0 * Na / sd_peak))
-
+    sigma, edge = implant_lengths(x_j, lateral_diffusion, sd_peak, Na)
     source = (
         Along(Erfc(peak=0.5, position=sd_length, length=edge), "x")
         * Along(Gaussian(peak=1.0, centre=t_si, sigma=sigma), "y")
