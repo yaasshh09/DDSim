@@ -29,6 +29,7 @@ the same array back, bit for bit.
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Literal
@@ -253,6 +254,83 @@ class Erfc(DopingProfile):
         """Net doping [cm^-3] at the positions `at` [cm]."""
         values = Coordinates.of(at).x
         return np.asarray(self.peak * _erfc((values - self.position) / self.length))
+
+
+WindowEdge = Literal["abrupt", "gaussian", "erfc"]
+"""How a window falls off outside its edges."""
+
+
+@dataclass(frozen=True)
+class Window(DopingProfile):
+    """One inside [low, high], and falling off outside it, along x.
+
+    One axis of a drawn implant's rectangle. Three edges:
+
+    - "abrupt": one inside, both edges included, zero outside.
+    - "gaussian": one inside, exp(-d^2 / (2 length^2)) at a distance d
+      outside. The depth of an implant: the peak holds over the drawn
+      rectangle and the straggle carries it past.
+    - "erfc": 0.5 (erfc((x - high)/length) - erfc((x - low)/length)), which
+      is the window blurred by a Gaussian, half the peak at each edge. The
+      side of an implant, spreading under a mask edge. Not flat inside: a
+      window narrower than a few lengths never reaches its peak, which is
+      what a slit in a mask does.
+
+    An infinite edge has nothing to fall off from, and it is how a drawn
+    rectangle flush with the device boundary is carried, since the implant
+    does not stop where the drawing does. A window open on one side is then
+    one term, written the way nmos writes its source, so a drawn MOSFET's
+    lateral factor is nmos's own to the last bit.
+    """
+
+    low: float
+    """Lower edge [cm], or -inf."""
+
+    high: float
+    """Upper edge [cm], or +inf."""
+
+    edge: WindowEdge = "abrupt"
+    """How the window falls off outside."""
+
+    length: float = 0.0
+    """The fall off [cm]: the Gaussian's sigma, or the erfc's length. Unused
+    by an abrupt window."""
+
+    def __post_init__(self) -> None:
+        if self.edge not in ("abrupt", "gaussian", "erfc"):
+            raise ValueError(
+                f"a window edge is abrupt, gaussian or erfc, got {self.edge!r}"
+            )
+        if not self.low <= self.high:
+            raise ValueError(
+                f"a window needs low <= high, got low={self.low:g} and "
+                f"high={self.high:g}"
+            )
+        if self.edge != "abrupt" and not self.length > 0.0:
+            raise ValueError(
+                f"a {self.edge} window needs a positive length, got {self.length:g}"
+            )
+
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """The window's value [1] at the positions `at` [cm]."""
+        x = Coordinates.of(at).x
+        if self.edge == "abrupt":
+            return np.where((x >= self.low) & (x <= self.high), 1.0, 0.0)
+        if self.edge == "gaussian":
+            outside = np.maximum(np.maximum(self.low - x, x - self.high), 0.0)
+            return np.asarray(np.exp(-(outside**2) / (2.0 * self.length**2)))
+        # Open on the right, the general form would be 0.5 (2 - erfc), which
+        # cancels to nothing in the tail. Open on the left needs no case: its
+        # second term is erfc(+inf) = 0 exactly, which leaves nmos's source.
+        if math.isinf(self.high) and not math.isinf(self.low):
+            return np.asarray(0.5 * _erfc((self.low - x) / self.length))
+        return np.asarray(
+            0.5
+            * (
+                _erfc((x - self.high) / self.length)
+                - _erfc((x - self.low) / self.length)
+            )
+        )
 
 
 @dataclass(frozen=True)

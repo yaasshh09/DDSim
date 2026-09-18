@@ -26,6 +26,7 @@ from ddsim.device.doping import (
     Product,
     Step,
     Uniform,
+    Window,
     abrupt_junction,
 )
 
@@ -479,3 +480,114 @@ def test_layers_needs_one_more_value_than_boundaries() -> None:
 def test_layers_needs_increasing_boundaries() -> None:
     with pytest.raises(ValueError, match="increasing"):
         Layers(boundaries=(2.0 * MICRON, MICRON), values=(1.0, 2.0, 3.0))
+
+
+# -------------------------------------------------------------------- window
+
+# One axis of a drawn implant's rectangle. What matters most is the erfc edge:
+# drawn with its outer edge on the device boundary it has to be the nmos
+# source's lateral factor exactly, or a drawn MOSFET is a different device.
+ACROSS = np.linspace(-0.5 * MICRON, 1.5 * MICRON, 401)
+
+
+def test_an_abrupt_window_is_one_inside_and_zero_outside() -> None:
+    window = Window(low=0.2 * MICRON, high=0.6 * MICRON)
+    values = window(ACROSS)
+    inside = (ACROSS >= 0.2 * MICRON) & (ACROSS <= 0.6 * MICRON)
+    np.testing.assert_array_equal(values, np.where(inside, 1.0, 0.0))
+
+
+def test_an_abrupt_window_holds_both_of_its_edges() -> None:
+    """Closed, so a node on a drawn edge is inside the rectangle drawn."""
+    window = Window(low=0.2 * MICRON, high=0.6 * MICRON)
+    np.testing.assert_array_equal(window(np.array([0.2, 0.6]) * MICRON), [1.0, 1.0])
+
+
+def test_a_gaussian_window_holds_its_peak_inside_and_falls_off_outside() -> None:
+    sigma = 0.05 * MICRON
+    window = Window(low=0.2 * MICRON, high=0.6 * MICRON, edge="gaussian", length=sigma)
+    values = window(ACROSS)
+    inside = (ACROSS >= 0.2 * MICRON) & (ACROSS <= 0.6 * MICRON)
+    assert np.all(values[inside] == 1.0)
+    below = ACROSS < 0.2 * MICRON
+    expected = np.exp(-((0.2 * MICRON - ACROSS[below]) ** 2) / (2.0 * sigma**2))
+    np.testing.assert_allclose(values[below], expected, rtol=1e-15)
+    above = ACROSS > 0.6 * MICRON
+    expected = np.exp(-((ACROSS[above] - 0.6 * MICRON) ** 2) / (2.0 * sigma**2))
+    np.testing.assert_allclose(values[above], expected, rtol=1e-15)
+
+
+def test_a_gaussian_window_below_an_open_top_is_the_nmos_depth_profile() -> None:
+    """The nmos source in depth: a Gaussian centred on the silicon surface.
+    Drawn as a window from the surface up through the top of the device, the
+    part below the surface is that Gaussian to the last bit."""
+    t_si, sigma = 1.0 * MICRON, 0.05 * MICRON
+    depth = np.linspace(0.0, t_si, 301)
+    window = Window(low=t_si, high=math.inf, edge="gaussian", length=sigma)
+    np.testing.assert_array_equal(
+        window(depth), Gaussian(peak=1.0, centre=t_si, sigma=sigma)(depth)
+    )
+
+
+def test_an_erfc_window_open_on_the_left_is_the_nmos_lateral_edge() -> None:
+    """Bit for bit: the drawn source's lateral factor is nmos's own."""
+    edge = 0.046 * MICRON
+    window = Window(low=-math.inf, high=0.4 * MICRON, edge="erfc", length=edge)
+    np.testing.assert_array_equal(
+        window(ACROSS), Erfc(peak=0.5, position=0.4 * MICRON, length=edge)(ACROSS)
+    )
+
+
+def test_an_erfc_window_open_on_the_right_is_the_mirrored_edge() -> None:
+    """The nmos drain is its source mirrored. Equal to rounding rather than
+    to the bit, because the mirror adds the reflection in another order."""
+    edge, width = 0.046 * MICRON, 1.8 * MICRON
+    window = Window(low=1.4 * MICRON, high=math.inf, edge="erfc", length=edge)
+    source = Erfc(peak=0.5, position=0.4 * MICRON, length=edge)
+    np.testing.assert_allclose(
+        window(ACROSS), Mirrored(source, 0.5 * width)(ACROSS), rtol=1e-12, atol=1e-300
+    )
+
+
+def test_an_erfc_window_is_half_its_peak_at_a_mask_edge() -> None:
+    edge = 0.02 * MICRON
+    window = Window(low=0.2 * MICRON, high=1.2 * MICRON, edge="erfc", length=edge)
+    np.testing.assert_allclose(
+        window(np.array([0.2, 1.2]) * MICRON), [0.5, 0.5], rtol=1e-12
+    )
+    assert window(np.array([0.7 * MICRON]))[0] == pytest.approx(1.0, rel=1e-12)
+
+
+def test_a_narrow_erfc_window_never_reaches_its_peak() -> None:
+    """The mask opening is narrower than the spread, so the middle is short
+    of full: what an implant through a slit actually does."""
+    window = Window(
+        low=0.5 * MICRON, high=0.51 * MICRON, edge="erfc", length=0.05 * MICRON
+    )
+    assert window(np.array([0.505 * MICRON]))[0] < 0.2
+
+
+def test_a_window_open_on_both_sides_is_one_everywhere() -> None:
+    window = Window(low=-math.inf, high=math.inf, edge="erfc", length=0.01 * MICRON)
+    np.testing.assert_array_equal(window(ACROSS), 1.0)
+
+
+def test_a_window_reads_the_axis_it_is_put_along() -> None:
+    window = Along(Window(low=0.0, high=0.5 * MICRON), "y")
+    at = Coordinates(x=np.array([0.0, 0.0]), y=np.array([0.2, 0.8]) * MICRON)
+    np.testing.assert_array_equal(window(at), [1.0, 0.0])
+
+
+def test_a_window_is_refused_upside_down() -> None:
+    with pytest.raises(ValueError, match="low"):
+        Window(low=0.6 * MICRON, high=0.2 * MICRON)
+
+
+def test_a_soft_window_needs_a_length() -> None:
+    with pytest.raises(ValueError, match="length"):
+        Window(low=0.2 * MICRON, high=0.6 * MICRON, edge="erfc")
+
+
+def test_a_window_edge_is_one_of_three() -> None:
+    with pytest.raises(ValueError, match="abrupt, gaussian or erfc"):
+        Window(low=0.2 * MICRON, high=0.6 * MICRON, edge="linear", length=1e-6)  # type: ignore[arg-type]
