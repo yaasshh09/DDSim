@@ -564,6 +564,16 @@ def test_too_few_nodes_to_grade_gently_are_refused() -> None:
         graded_mesh_1d_at(20.1 * MICRON, 31, THIN_BASE, NANOMETRE)
 
 
+def test_a_single_point_must_be_inside_too() -> None:
+    with pytest.raises(ValueError, match="inside"):
+        graded_mesh_1d_at(MICRON, 201, (MICRON,), NANOMETRE)
+
+
+def test_no_points_is_refused() -> None:
+    with pytest.raises(ValueError, match="at least one point"):
+        graded_mesh_1d_at(MICRON, 201, (), NANOMETRE)
+
+
 def test_points_must_be_inside_and_increasing() -> None:
     with pytest.raises(ValueError, match="increasing"):
         graded_mesh_1d_at(MICRON, 201, (0.6 * MICRON, 0.4 * MICRON), NANOMETRE)
