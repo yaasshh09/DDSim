@@ -586,3 +586,111 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(
             assert errors == []
         finally:
             browser.close()
+
+
+# ------------------------------------------------------ stage 5, drawing in 2D
+
+
+def electrode(page: Page, row: int, field: str, value: str) -> None:
+    """Type one field of one electrode row, as a student would."""
+    box = page.locator("#drawing-electrodes > div").nth(row)
+    box.locator(f"[data-part={field}]").fill(value)
+    box.locator(f"[data-part={field}]").dispatch_event("change")
+
+
+def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
+    server, tmp_path
+) -> None:
+    """The whole Stage 5 path in a real browser: the drawing opens as the
+    benchmark nmos, a gate dragged onto silicon is refused as a Schottky
+    contact, the coarse mesh solves, the result is labelled as an unvalidated
+    structure, and the saved file loads back as the same drawing."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+
+            assert page.is_hidden("#drawing")
+            page.select_option("#device-kind", "drawing")
+            assert page.is_visible("#drawing")
+            assert page.locator("#drawing-blocks > div").count() == 2
+            assert page.locator("#drawing-implants > div").count() == 3
+            assert page.locator("#drawing-electrodes > div").count() == 4
+            assert page.input_value("#contact") == "gate"
+            assert "20000" in page.inner_text("#drawing-note")
+
+            # A drag along the bottom edge with the gate tool adds a gate
+            # there, snapped onto y = 0, which is silicon.
+            page.select_option("#drawing-tool", "gate")
+            view = page.locator("#drawing-view").bounding_box()
+            bottom = view["y"] + view["height"] - 2
+            page.mouse.move(view["x"] + 0.3 * view["width"], bottom)
+            page.mouse.down()
+            page.mouse.move(view["x"] + 0.7 * view["width"], bottom)
+            page.mouse.up()
+            assert page.locator("#drawing-electrodes > div").count() == 5
+            added = page.locator("#drawing-electrodes > div").nth(4)
+            assert added.locator("[data-part=y0]").input_value() == "0"
+            assert added.locator("[data-part=kind]").input_value() == "gate"
+
+            page.click("#mesh-coarse")
+            page.select_option("#sweep-kind", "transfer")
+            page.fill("#voltages", "0.6, 1.2")
+            page.click("#solve")
+            wait_until(page, "el('state').textContent === 'refused'", errors)
+            assert "Schottky" in page.inner_text("#message")
+
+            added.locator("button").click()
+            assert page.locator("#drawing-electrodes > div").count() == 4
+            electrode(page, 1, "voltage", "0.05")
+            solved(page, errors)
+            assert page.evaluate("state.points.length") == 2
+            assert page.evaluate("state.points[1].value > state.points[0].value")
+            assert page.is_visible("#built-note")
+
+            with page.expect_download() as saving:
+                page.click("#device-save")
+            saved = json.loads(saving.value.path().read_text(encoding="utf-8"))
+            assert saved["kind"] == "drawing"
+            assert saved["parameters"]["electrodes"][1]["voltage"] == 0.05
+            assert saved["parameters"]["nx"] == 39
+
+            page.select_option("#device-kind", "nmos")
+            assert page.is_hidden("#drawing")
+            handed_over = tmp_path / "drawn.json"
+            handed_over.write_text(json.dumps(saved), encoding="utf-8")
+            page.set_input_files("#device-load", str(handed_over))
+            wait_until(page, "el('device-kind').value === 'drawing'", errors)
+            assert page.locator("#drawing-electrodes > div").count() == 4
+            second = page.locator("#drawing-electrodes > div").nth(1)
+            assert second.locator("[data-part=voltage]").input_value() == "0.05"
+            assert page.inner_text("#message") == ""
+            assert errors == []
+        finally:
+            browser.close()
+
+
+def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server) -> None:
+    """fit() used to read back the height it had just multiplied by the
+    device pixel ratio, so every redraw grew the canvas by that ratio."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page(device_scale_factor=2)
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.select_option("#device-kind", "drawing")
+            heights = page.evaluate(
+                "[1, 2, 3].map(() => { drawPreview(); "
+                "return el('drawing-view').height; })"
+            )
+            assert heights == [360, 360, 360]
+            assert errors == []
+        finally:
+            browser.close()
