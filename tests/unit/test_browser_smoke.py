@@ -433,6 +433,8 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) ->
 
             sliders = "document.querySelectorAll('[data-slider]').length"
             assert page.evaluate(sliders) > 0
+            # The diode has no coarse mesh, so no buttons offering one.
+            assert page.is_hidden("#mesh-coarse")
 
             page.select_option("#device-kind", "nmos")
             assert page.evaluate(sliders) == 0

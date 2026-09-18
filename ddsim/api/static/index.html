@@ -26,6 +26,9 @@
     --grid: #e6e8eb;
   }
   * { box-sizing: border-box; }
+  /* A class that sets display, like .row, beats the hidden attribute's own
+     display: none, which left the mesh buttons showing on the diode. */
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--paper);
