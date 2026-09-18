@@ -171,6 +171,40 @@ class Step(DopingProfile):
 
 
 @dataclass(frozen=True)
+class Layers(DopingProfile):
+    """Constant doping in each of several regions laid end to end along x.
+
+    Step generalised to any number of junctions, for a 1D stack of doped
+    regions. Each value is picked rather than built by adding steps, so a
+    region holds exactly the number it was given: a sum of steps would leave
+    a region at left + (right - left), which is not always right to the last
+    bit. Right continuous at every boundary, the same choice Step makes.
+    """
+
+    boundaries: tuple[float, ...]
+    """Where each region ends and the next begins [cm], increasing."""
+
+    values: tuple[float, ...]
+    """Net doping in each region [cm^-3], one more than there are boundaries."""
+
+    def __post_init__(self) -> None:
+        if len(self.values) != len(self.boundaries) + 1:
+            raise ValueError(
+                f"layers need one more value than boundaries, got "
+                f"{len(self.values)} values and {len(self.boundaries)} boundaries"
+            )
+        if any(np.diff(self.boundaries) <= 0.0):
+            raise ValueError(
+                f"layer boundaries must be increasing, got {self.boundaries}"
+            )
+
+    def __call__(self, at: Position) -> npt.NDArray[np.float64]:
+        """Net doping [cm^-3] at the positions `at` [cm]."""
+        region = np.searchsorted(self.boundaries, Coordinates.of(at).x, side="right")
+        return np.asarray(self.values, dtype=np.float64)[region]
+
+
+@dataclass(frozen=True)
 class Gaussian(DopingProfile):
     """An implanted profile, peak * exp(-(x - centre)^2 / (2 sigma^2))."""
 

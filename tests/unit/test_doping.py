@@ -21,6 +21,7 @@ from ddsim.device.doping import (
     Coordinates,
     Erfc,
     Gaussian,
+    Layers,
     Mirrored,
     Product,
     Step,
@@ -442,3 +443,39 @@ def test_mirroring_a_bare_position_reflects_it() -> None:
         ),
         shape(MICRON - depth),
     )
+
+
+# -------------------------------------------------------------------- layers
+
+
+def test_layers_takes_each_region_value_inside_it() -> None:
+    profile = Layers(boundaries=(MICRON, 2.0 * MICRON), values=(-1e18, 1e14, 1e18))
+    x = np.array([0.5, 1.5, 2.5]) * MICRON
+    np.testing.assert_array_equal(profile(x), [-1e18, 1e14, 1e18])  # [cm^-3]
+
+
+def test_layers_is_right_continuous_at_every_boundary() -> None:
+    """The same choice Step makes, so a node sitting on a junction reads the
+    region to its right whichever of the two built the device."""
+    profile = Layers(boundaries=(MICRON, 2.0 * MICRON), values=(-1.0, 2.0, 3.0))
+    np.testing.assert_array_equal(profile(np.array([MICRON, 2.0 * MICRON])), [2.0, 3.0])
+
+
+def test_one_boundary_layers_is_the_abrupt_junction_bit_for_bit() -> None:
+    """A two region stack is the Phase 2 diode, and it has to be that diode
+    exactly, not to a tolerance."""
+    x = np.linspace(0.0, MICRON, 201)
+    np.testing.assert_array_equal(
+        Layers(boundaries=(0.5 * MICRON,), values=(-1e16, 1e16))(x),
+        abrupt_junction(Na=1e16, Nd=1e16, position=0.5 * MICRON)(x),
+    )
+
+
+def test_layers_needs_one_more_value_than_boundaries() -> None:
+    with pytest.raises(ValueError, match="one more value"):
+        Layers(boundaries=(MICRON,), values=(1.0,))
+
+
+def test_layers_needs_increasing_boundaries() -> None:
+    with pytest.raises(ValueError, match="increasing"):
+        Layers(boundaries=(2.0 * MICRON, MICRON), values=(1.0, 2.0, 3.0))
