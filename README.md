@@ -395,6 +395,14 @@ press solve, and watch the residual fall and the curve draw itself point by
 point. The page is a few static files in this repo, with marked and KaTeX
 vendored so it works offline, and there is no build step.
 
+![An nmos Id-Vg solving live in the browser](docs/images/mosfet_live.gif)
+
+That is the 1 um nmos on the page's coarse mesh, drain at 50 mV, gate stepped
+from 0 to 1.2 V with constant mobility, recorded from the real page at real
+speed. Each sawtooth in the residual plot is one bias point: the potential,
+electron and hole residuals fall together to the floor, then the next step
+starts. `tools/record_live_solve.py` records it again.
+
 The form is not written by hand. The device knobs, the sweep knobs and the
 model flags are read from the signatures of the functions behind them, so what
 the browser offers is what the code has, with the same defaults. That includes
