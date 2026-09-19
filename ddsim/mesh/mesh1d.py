@@ -592,6 +592,8 @@ def graded_mesh_1d_through(
     stretched by up to half a cell's worth, so h_min at a point is near
     rather than exact.
     """
+    if h_min <= 0.0:
+        raise ValueError(f"h_min must be positive, got {h_min}")
     for name, positions in (("line", lines), ("point", points)):
         for position in positions:
             if not 0.0 <= position <= length:

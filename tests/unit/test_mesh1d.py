@@ -682,3 +682,12 @@ def test_with_no_points_h_min_limits_nothing() -> None:
     towards, which takes any number of columns whatever h_min says."""
     mesh = graded_mesh_1d_through(0.1 * MICRON, 63, (), (), 2 * NANOMETRE)
     np.testing.assert_allclose(mesh.h, 0.1 * MICRON / 62, rtol=1e-12)
+
+
+@pytest.mark.parametrize("h_min", [0.0, -2 * NANOMETRE])
+def test_a_spacing_that_is_not_positive_is_refused_by_name(h_min) -> None:
+    """graded_mesh_1d refuses it by name. This one divided by zero, which
+    reached the page as a bare 500 when a drawing's h_min was typed as 0, and
+    a negative one reported room for a negative number of nodes."""
+    with pytest.raises(ValueError, match="h_min must be positive"):
+        graded_mesh_1d_through(1.8 * MICRON, 81, DRAWN_LINES, DRAWN_POINTS, h_min)
