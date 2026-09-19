@@ -271,12 +271,31 @@ def test_an_empty_curve_still_has_a_repr() -> None:
 def test_a_sweep_with_no_starting_guess_raises() -> None:
     """Every point is continued from the starting bias, so that one must solve.
 
-    Starting cold at 5 V is far outside any basin of attraction. The fallback
-    guess is the Phase 1 equilibrium solve, which raises rather than returning
-    something unconverged, and the sweep says what that means for the sweep.
+    Starting cold at 5 V is far outside the equilibrium solve's basin, and
+    with one iteration per fraction the ramp that falls back on cannot reach
+    it either, so the sweep says what that means for the sweep.
     """
     with pytest.raises(RuntimeError, match="could not be started"):
-        iv_sweep(diode(), "anode", [5.1], start=5.0, max_iterations=5)
+        iv_sweep(diode(), "anode", [5.1], start=5.0, max_iterations=1)
+
+
+def test_a_sweep_that_cannot_start_cold_ramps_its_held_bias_in() -> None:
+    """Found by pushing every api knob to its extremes: a diode with its
+    cathode held 20 V into reverse could not start, because the cold start is
+    the equilibrium solve with the whole bias already on. The iv path now
+    falls back to ramping it in, and only when the cold start fails, so no
+    sweep that started before starts any differently.
+
+    Deep in reverse the current is generation in the depletion region, which
+    grows only as the region widens, about as the square root of the bias. A
+    tenth of a volt on top of twenty moves it well under five percent.
+    """
+    curve = iv_sweep(pn_diode(cathode_voltage=20.0), "anode", [0.0, 0.1])
+
+    assert curve.complete
+    first, second = curve.current
+    assert first != 0.0
+    assert abs(second - first) / abs(first) < 0.05
 
 
 def test_a_sweep_whose_first_point_stalls_raises() -> None:

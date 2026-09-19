@@ -571,9 +571,8 @@ def iv_sweep(
     if models is None:
         models = TransportModels.for_device(device)
 
-    def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
-        biased = device.with_bias(**{contact: voltage})
-        solved = solve_bias(
+    def gummel(biased: Device, guess: DeviceState | None) -> DeviceState:
+        return solve_bias(
             biased,
             models=models,
             guess=guess,
@@ -581,9 +580,43 @@ def iv_sweep(
             max_iterations=max_iterations,
             on_frame=on_frame,
         )
-        if solved.gummel is None or not solved.gummel.converged:
+
+    def converged(solved: DeviceState | None) -> bool:
+        return (
+            solved is not None
+            and solved.gummel is not None
+            and solved.gummel.converged
+        )
+
+    def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
+        biased = device.with_bias(**{contact: voltage})
+        if guess is not None:
+            warm = gummel(biased, guess)
+            return warm if converged(warm) else None
+
+        # The cold start is the equilibrium solve with every bias already on,
+        # and a contact held far from zero is outside its basin. Only when it
+        # fails is the bias ramped in, by the coupled solver that already
+        # ramps a MOSFET's cold start, and Gummel carries on from there. A
+        # sweep that started before starts exactly as it did.
+        cold: DeviceState | None = None
+        refused: RuntimeError | None = None
+        try:
+            cold = gummel(biased, None)
+        except RuntimeError as error:
+            refused = error
+        if converged(cold):
+            return cold
+        ramped = solve_bias_ramped(
+            biased, models=models, max_iterations=max_iterations, on_frame=on_frame
+        )
+        assert ramped.newton is not None
+        if not ramped.newton.converged:
+            if refused is not None:
+                raise refused
             return None
-        return solved
+        solved = gummel(biased, ramped)
+        return solved if converged(solved) else None
 
     return _walk_sweep(
         device=device,
