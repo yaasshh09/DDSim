@@ -179,7 +179,16 @@ def check_request(
     # which is why that one asks for the ohmic contacts. Asking for them on a
     # gated device is itself the refusal, and it is the same one iv_sweep
     # gives, so a diode sweep of a MOSFET is answered here rather than later.
-    terminals = device.ohmic_contacts if kind == "iv" else device.contacts
+    try:
+        terminals = device.ohmic_contacts if kind == "iv" else device.contacts
+    except TypeError as gated:
+        # The device says why a gate cannot be pinned. What the page can do
+        # about it is the api's to say: the transfer sweep takes any contact.
+        raise TypeError(
+            f"{gated} An iv sweep cannot hold a gate anywhere on the device. "
+            "To sweep a drain or a body with the gate held, use a transfer "
+            "sweep with that terminal as its contact."
+        ) from gated
     known = sorted(terminal.name for terminal in terminals)
     if kind == "transfer" and measure_at is None:
         measure_at = MEASURED_BY_DEFAULT

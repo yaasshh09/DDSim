@@ -193,6 +193,14 @@ def test_a_transfer_sweep_checks_the_drain_it_measures_by_default() -> None:
         check_request("transfer", build_from_spec("mos_cap", CAP), "gate")
 
 
+def test_an_iv_refusal_on_a_gated_device_says_what_to_use_instead() -> None:
+    """The iv path pins every contact as ohmic, so a gate anywhere on the
+    device refuses it, whichever contact is swept. The refusal already said
+    why. It now says that a transfer sweep with the drain as its contact is
+    how to get an Id-Vd curve."""
+    with pytest.raises(TypeError, match="transfer"):
+        check_request("iv", build_from_spec("mos_cap", CAP), "body")
+
 
 # -------------------------------------------------------------- what it runs
 
