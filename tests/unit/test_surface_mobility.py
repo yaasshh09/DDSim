@@ -145,10 +145,12 @@ def test_surface_mobility_on_a_line_is_refused():
     Refused where it is asked for rather than returning a mobility computed
     from whichever axis happened to be there."""
     diode = pn_diode(Na=1e16, Nd=1e16, length=2e-4, n_nodes=41)
-    models = TransportModels.for_device(diode, mobility="arora", surface=True)
 
+    # When the models are built, not at the first solve: a sweep through the
+    # api builds them before its job starts, so the refusal reaches the page
+    # as a refusal instead of a job that died.
     with pytest.raises(TypeError, match="Mesh2D"):
-        solve_bias_newton(diode, models)
+        TransportModels.for_device(diode, mobility="arora", surface=True)
 
 
 # ------------------------------------------------------- the fixed point

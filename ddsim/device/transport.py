@@ -466,6 +466,13 @@ def _surface_scattering(
     """
     temperature = device.material.T
 
+    if not isinstance(device.mesh, Mesh2D):
+        raise TypeError(
+            "surface mobility needs a direction normal to the interface "
+            f"and a {type(device.mesh).__name__} has none. Build the device on "
+            "a Mesh2D, which is what a MOSFET is on."
+        )
+
     # normal_field reads dpsi/dy, the normal to a flat interface. A drawn
     # device can have an oxide wall standing up in the silicon, where the
     # normal is x, and the model would read the field along the wall instead.

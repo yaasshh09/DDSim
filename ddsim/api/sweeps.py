@@ -167,6 +167,11 @@ def check_request(
             f"the {kind} sweep runs no transport models, so it cannot take "
             f"{sorted(models)}. Every point is an equilibrium Poisson solve."
         )
+    if models and kind in _TRANSPORT:
+        # Built once here and thrown away, so that a flag this device cannot
+        # take, surface mobility on a 1D mesh, is refused with the solver's
+        # own reason before a job exists rather than inside it.
+        build_models(device, models)
     if measure_at is not None and kind != "transfer":
         raise ValueError(
             f"the {kind} sweep measures the terminal it sweeps, so measure_at "

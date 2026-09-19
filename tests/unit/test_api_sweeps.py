@@ -193,6 +193,14 @@ def test_a_transfer_sweep_checks_the_drain_it_measures_by_default() -> None:
         check_request("transfer", build_from_spec("mos_cap", CAP), "gate")
 
 
+def test_a_model_the_device_cannot_take_is_refused_before_the_job() -> None:
+    """Lessons 4 and 5 switch surface mobility on. Moving to the diode left
+    the flag on, and the check before the job never built the models, so the
+    job started and died on the solver's own refusal a second later."""
+    with pytest.raises(TypeError, match="surface mobility"):
+        check_request("iv", diode(), "anode", models={"surface": True})
+
+
 def test_an_iv_refusal_on_a_gated_device_says_what_to_use_instead() -> None:
     """The iv path pins every contact as ohmic, so a gate anywhere on the
     device refuses it, whichever contact is swept. The refusal already said
