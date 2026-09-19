@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import anyio
-from fastapi import FastAPI, HTTPException, WebSocket
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from starlette.staticfiles import StaticFiles
@@ -374,28 +374,34 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             await socket.close(code=1008, reason=str(missing))
             return
 
-        while True:
-            frame = await anyio.to_thread.run_sync(_poll, jobs, job_id)
-            if frame is _ENDED:
-                break
-            if frame is _NOTHING_YET:
-                # Nothing waiting and the job is over: someone else read this
-                # stream to its end. There is nothing more coming.
-                if jobs.status(job_id) in _TERMINAL:
+        # A page that moves on mid solve, a slider dragged again or a tab
+        # closed, stops reading. That ends this stream and nothing else: the
+        # job is cancelled, or not, by its own request.
+        try:
+            while True:
+                frame = await anyio.to_thread.run_sync(_poll, jobs, job_id)
+                if frame is _ENDED:
                     break
-                continue
-            await _send(socket, encode(frame))
+                if frame is _NOTHING_YET:
+                    # Nothing waiting and the job is over: someone else read
+                    # this stream to its end. There is nothing more coming.
+                    if jobs.status(job_id) in _TERMINAL:
+                        break
+                    continue
+                await _send(socket, encode(frame))
 
-        await _send(
-            socket,
-            encode(
-                Status(
-                    status=jobs.status(job_id).value,
-                    message=jobs.message(job_id),
-                    dropped=jobs.dropped(job_id),
-                )
-            ),
-        )
+            await _send(
+                socket,
+                encode(
+                    Status(
+                        status=jobs.status(job_id).value,
+                        message=jobs.message(job_id),
+                        dropped=jobs.dropped(job_id),
+                    )
+                ),
+            )
+        except WebSocketDisconnect:
+            return
 
     @app.get("/")
     def page() -> FileResponse:
