@@ -24,7 +24,7 @@ from functools import cache
 from typing import Any
 
 from ddsim.device.builder import Device
-from ddsim.device.drawing import Block, Electrode, Implant, drawing
+from ddsim.device.drawing import NODE_BUDGET, Block, Electrode, Implant, drawing
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
@@ -521,8 +521,9 @@ def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
             implants and electrodes come as lists of objects, see
             records_from_json.
 
-    Raises ValueError for a name the device does not have and TypeError for a
-    value of the wrong kind. See checked_arguments for why neither falls back.
+    Raises ValueError for a name the device does not have, or for a mesh over
+    NODE_BUDGET, and TypeError for a value of the wrong kind. See
+    checked_arguments for why neither falls back.
     """
     offered = {p.name: p for p in device_parameters(kind)}
     knobs = dict(parameters)
@@ -532,7 +533,23 @@ def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
             if record_defaults(kind, name) is None:
                 raise ValueError(f"{kind} is not built from {name}")
             structured[name] = records_from_json(name, knobs.pop(name))
-    return _builder(kind)(**checked_arguments(kind, offered, knobs), **structured)
+    accepted = checked_arguments(kind, offered, knobs)
+    # Every integer knob is a node count. One over the budget cannot make a
+    # mesh under it, so it is refused before a typo gets to allocate one.
+    # ponytail: several knobs each under the budget can still multiply into
+    # a mesh too big to build; bound the product per device if that happens.
+    for name, value in accepted.items():
+        if type(value) is int and value > NODE_BUDGET:
+            raise ValueError(
+                f"{kind}.{name} = {value} is over the node budget of {NODE_BUDGET}"
+            )
+    device = _builder(kind)(**accepted, **structured)
+    if node_count(device) > NODE_BUDGET:
+        raise ValueError(
+            f"this {kind} mesh is {node_count(device)} nodes, over the budget of "
+            f"{NODE_BUDGET}. Fewer nodes along one axis, or the coarse mesh."
+        )
+    return device
 
 
 def _checked(kind: str, parameter: Parameter, value: Any) -> float | int | bool | str:

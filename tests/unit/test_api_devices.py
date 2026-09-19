@@ -26,6 +26,7 @@ from ddsim.api.devices import (
     region_defaults,
 )
 from ddsim.api.sweeps import run_sweep
+from ddsim.device.drawing import NODE_BUDGET
 
 
 def test_the_device_classes_are_offered() -> None:
@@ -362,3 +363,17 @@ def test_a_drawing_refusal_reaches_the_caller_with_its_reason() -> None:
     gate["x0"], gate["x1"] = 0.5e-4, 1.0e-4
     with pytest.raises(ValueError, match="Schottky"):
         build_from_spec("drawing", parts)
+
+
+def test_a_node_count_over_the_budget_is_refused_before_anything_is_built() -> None:
+    """Only a drawing had a node budget. A diode typed with 2e8 nodes was
+    built as asked, and one request could take the whole server with it."""
+    with pytest.raises(ValueError, match=f"budget of {NODE_BUDGET}"):
+        build_from_spec("pn_diode", {"n_nodes": NODE_BUDGET + 1})
+
+
+def test_a_2d_mesh_over_the_budget_is_refused_though_no_knob_is() -> None:
+    """A 2D mesh is a tensor product, so knobs each under the budget can
+    still multiply past it. 1000 silicon rows times the nmos columns does."""
+    with pytest.raises(ValueError, match=f"budget of {NODE_BUDGET}"):
+        build_from_spec("nmos", {"n_silicon": 1000})
