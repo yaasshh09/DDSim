@@ -448,15 +448,20 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) ->
             # The diode has no coarse mesh, so no buttons offering one.
             assert page.is_hidden("#mesh-coarse")
 
+            assert page.is_visible("#bands")
             page.select_option("#device-kind", "nmos")
             assert page.evaluate(sliders) == 0
             assert page.is_visible("#mesh-coarse")
+            # The band view draws a 1D profile. A 2D device gets bands from
+            # the cutline, so the checkbox would do nothing there.
+            assert page.is_hidden("#bands")
             # An iv sweep takes ohmic contacts only, and a 2D device starts on
             # its gate, so leaving the diode's iv would make the first solve a
             # refusal. Going back to a 1D device goes back to iv.
             assert page.input_value("#sweep-kind") == "transfer"
             page.select_option("#device-kind", "pn_diode")
             assert page.input_value("#sweep-kind") == "iv"
+            assert page.is_visible("#bands")
             page.select_option("#device-kind", "nmos")
 
             page.click("#mesh-coarse")

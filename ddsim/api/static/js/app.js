@@ -318,6 +318,7 @@ function drawProfile() {
 
   if (fields.shape.length === 2) {
     el("cutline-panel").hidden = false;
+    el("legend-bands").hidden = true;
     drawImage(box, fields);
     if (el("streamlines").checked && fields.arrays.Jx) {
       drawStreamlines(box, fields, traceStreamlines(fields, 12, 6));
@@ -538,6 +539,8 @@ function onDeviceKind() {
   // page says which it is rather than leaving a student to find out.
   el("mesh-choice").hidden = !state.schema.presets[kind];
   el("mesh-note").textContent = "";
+  // The band view is a 1D profile. On a 2D device the cutline draws bands.
+  el("bands").parentElement.style.display = live() ? "inline-flex" : "none";
   el("live-note").textContent = live()
     ? "moving a slider re-solves this device."
     : "press solve: this device has two axes and takes seconds to minutes.";
