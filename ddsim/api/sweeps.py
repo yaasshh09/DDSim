@@ -58,6 +58,10 @@ _MODEL_CHOICES: dict[str, tuple[str, ...]] = {"mobility": MOBILITY_MODELS}
 """Read from transport.py rather than written here. See MOBILITY_MODELS."""
 
 _REQUEST_ARGUMENTS = ("contact", "measure_at")
+
+MEASURED_BY_DEFAULT = "drain"
+"""The terminal a transfer curve reads when measure_at is not named. It is
+here once so that the check before a job and the job itself agree on it."""
 """Terminal names, which the request carries in its own right.
 
 gate_sweep declares defaults for both, so without this they would be offered
@@ -177,6 +181,8 @@ def check_request(
     # gives, so a diode sweep of a MOSFET is answered here rather than later.
     terminals = device.ohmic_contacts if kind == "iv" else device.contacts
     known = sorted(terminal.name for terminal in terminals)
+    if kind == "transfer" and measure_at is None:
+        measure_at = MEASURED_BY_DEFAULT
     for terminal_name in (contact, measure_at):
         if terminal_name is not None and terminal_name not in known:
             raise KeyError(
@@ -229,7 +235,7 @@ def run_sweep(
                 device,
                 list(voltages),
                 contact=contact,
-                measure_at="drain" if measure_at is None else measure_at,
+                measure_at=MEASURED_BY_DEFAULT if measure_at is None else measure_at,
                 models=built,
                 on_frame=on_frame,
                 **accepted,

@@ -24,6 +24,7 @@ from ddsim.api.devices import build_from_spec
 from ddsim.api.sweeps import (
     SWEEP_KINDS,
     build_models,
+    check_request,
     model_parameters,
     run_sweep,
     sweep_parameters,
@@ -181,6 +182,16 @@ def test_measuring_at_another_terminal_is_refused_where_it_means_nothing() -> No
     """Only a transfer curve sweeps one terminal and measures another."""
     with pytest.raises(ValueError, match="measure_at"):
         run_sweep("iv", diode(), "anode", [0.1], measure_at="cathode")
+
+
+def test_a_transfer_sweep_checks_the_drain_it_measures_by_default() -> None:
+    """A transfer curve with no measure_at reads the drain. A MOS capacitor
+    has no drain, and the check that runs before a job is started let that
+    through because it only looked at a measure_at that was named, so the job
+    started and died on a KeyError a second later."""
+    with pytest.raises(KeyError, match="drain"):
+        check_request("transfer", build_from_spec("mos_cap", CAP), "gate")
+
 
 
 # -------------------------------------------------------------- what it runs
