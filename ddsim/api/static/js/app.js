@@ -869,7 +869,21 @@ async function stop() {
   }
 }
 
-el("device-kind").addEventListener("change", onDeviceKind);
+// A student picking a device, not a file being loaded: loading keeps the sweep
+// the file names. An iv sweep takes only ohmic contacts and a 2D device starts
+// on its gate, so the diode's iv would make the first 2D solve a refusal.
+function chooseDevice() {
+  onDeviceKind();
+  const sweep = el("sweep-kind").value;
+  const wanted = live() ? (sweep === "transfer" ? "iv" : sweep)
+    : (sweep === "iv" ? "transfer" : sweep);
+  if (wanted !== sweep) {
+    el("sweep-kind").value = wanted;
+    onSweepKind();
+  }
+}
+
+el("device-kind").addEventListener("change", chooseDevice);
 el("sweep-kind").addEventListener("change", onSweepKind);
 el("solve").addEventListener("click", solve);
 el("cancel").addEventListener("click", cancel);

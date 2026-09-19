@@ -15,6 +15,7 @@ the page. Whether the numbers are right is every other test's job.
 from __future__ import annotations
 
 import json
+import logging
 import socket
 import threading
 from collections.abc import Iterator
@@ -63,6 +64,13 @@ def served() -> Iterator[Served]:
         create_app(registry), host="127.0.0.1", port=port, log_level="warning"
     )
     running = uvicorn.Server(config)
+    # A page that leaves mid solve is a normal thing for a page to do, and the
+    # server has to take it quietly. uvicorn logs an escaped exception here and
+    # the page never sees it, so this is the only place it can be caught.
+    server_errors: list[logging.LogRecord] = []
+    catcher = logging.Handler(level=logging.ERROR)
+    catcher.emit = server_errors.append  # type: ignore[method-assign]
+    logging.getLogger("uvicorn.error").addHandler(catcher)
     thread = threading.Thread(target=running.run, daemon=True)
     thread.start()
 
@@ -77,6 +85,8 @@ def served() -> Iterator[Served]:
 
     running.should_exit = True
     thread.join(timeout=STARTUP_TIMEOUT)
+    logging.getLogger("uvicorn.error").removeHandler(catcher)
+    assert [record.getMessage() for record in server_errors] == []
 
 
 @pytest.fixture
@@ -440,6 +450,13 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) ->
             page.select_option("#device-kind", "nmos")
             assert page.evaluate(sliders) == 0
             assert page.is_visible("#mesh-coarse")
+            # An iv sweep takes ohmic contacts only, and a 2D device starts on
+            # its gate, so leaving the diode's iv would make the first solve a
+            # refusal. Going back to a 1D device goes back to iv.
+            assert page.input_value("#sweep-kind") == "transfer"
+            page.select_option("#device-kind", "pn_diode")
+            assert page.input_value("#sweep-kind") == "iv"
+            page.select_option("#device-kind", "nmos")
 
             page.click("#mesh-coarse")
             assert page.input_value('[data-name="n_silicon"]') == "29"
