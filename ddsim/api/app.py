@@ -442,7 +442,9 @@ def _checked(call: Any) -> Any:
     try:
         return call()
     except (ValueError, TypeError, KeyError) as refusal:
-        raise HTTPException(status_code=400, detail=str(refusal)) from refusal
+        # str() of a KeyError is the repr of its message, quotes and all.
+        said = refusal.args[0] if refusal.args else str(refusal)
+        raise HTTPException(status_code=400, detail=str(said)) from refusal
 
 
 def _found(call: Any) -> Any:

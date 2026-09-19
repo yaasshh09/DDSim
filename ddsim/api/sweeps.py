@@ -164,12 +164,12 @@ def check_request(
 
     if models and kind not in _TRANSPORT:
         raise ValueError(
-            f"a {kind} sweep runs no transport models, so it cannot take "
+            f"the {kind} sweep runs no transport models, so it cannot take "
             f"{sorted(models)}. Every point is an equilibrium Poisson solve."
         )
     if measure_at is not None and kind != "transfer":
         raise ValueError(
-            f"a {kind} sweep measures the terminal it sweeps, so measure_at "
+            f"the {kind} sweep measures the terminal it sweeps, so measure_at "
             f"is not a choice it has"
         )
 
@@ -195,7 +195,7 @@ def check_request(
     for terminal_name in (contact, measure_at):
         if terminal_name is not None and terminal_name not in known:
             raise KeyError(
-                f"no contact named {terminal_name!r} that a {kind} sweep can "
+                f"no contact named {terminal_name!r} that the {kind} sweep can "
                 f"use on this device, which has {known}"
             )
 

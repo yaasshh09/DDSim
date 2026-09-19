@@ -168,6 +168,9 @@ def test_a_contact_the_device_does_not_have_is_refused(client) -> None:
 
     assert response.status_code == 400
     assert "gate" in response.json()["detail"]
+    # str() of a KeyError is its repr, so the page used to show the whole
+    # message wrapped in quotes, and "a iv sweep" read badly.
+    assert response.json()["detail"].startswith("no contact named 'gate' that the iv")
 
 
 def test_a_request_missing_its_sweep_is_refused_by_the_schema(client) -> None:
