@@ -378,7 +378,10 @@ function drawImage(box, fields) {
   sheet.height = ny;
   sheet.getContext("2d").putImageData(image, 0, 0);
   box.pen.imageSmoothingEnabled = true;
-  box.pen.drawImage(sheet, 0, 0, box.width, box.height);
+  // Pixel k of the sheet is centred on (k + 0.5), so cropping half a pixel
+  // off every side puts node i at i / (nx - 1) of the width, where the
+  // cutline and the streamlines put it.
+  box.pen.drawImage(sheet, 0.5, 0.5, nx - 1, ny - 1, 0, 0, box.width, box.height);
 }
 
 // ----------------------------------------------------------------- the form

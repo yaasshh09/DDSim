@@ -711,3 +711,54 @@ def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server) -> None:
             assert errors == []
         finally:
             browser.close()
+
+
+def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
+    server,
+) -> None:
+    """The cutline and the streamlines put node i at i / (nx - 1) of the
+    width. The image used to stretch nx pixels across it, which put node i at
+    (i + 0.5) / nx, so a cutline landed up to half a cell from what the
+    picture showed under the cursor. A ramp in i, read back at each node's
+    pixel, has to be that node's own colour."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+
+            read = page.evaluate(
+                """() => {
+                  const nx = 5, ny = 3;
+                  const psi = new Float64Array(nx * ny);
+                  for (let j = 0; j < ny; j++)
+                    for (let i = 0; i < nx; i++) psi[j * nx + i] = i;
+                  const box = fit(el('profile'));
+                  drawImage(box, { shape: [ny, nx], arrays: { psi: psi } });
+                  const ratio = window.devicePixelRatio || 1;
+                  return [1, 2, 3].map((i) => {
+                    const x = Math.round((i / (nx - 1)) * box.width * ratio);
+                    const y = Math.round(0.5 * box.height * ratio);
+                    return Array.from(
+                      box.pen.getImageData(x, y, 1, 1).data.slice(0, 3));
+                  });
+                }"""
+            )
+
+            def clamp(t: float) -> float:
+                return min(1.0, max(0.0, t))
+
+            for i, rgb in zip([1, 2, 3], read, strict=True):
+                t = i / 4
+                own = [
+                    round(255 * clamp(1.5 * t)),
+                    round(255 * clamp(1.5 * t - 0.25)),
+                    round(255 * clamp(1.6 - 1.5 * t)),
+                ]
+                assert rgb == pytest.approx(own, abs=4), (i, rgb, own)
+            assert errors == []
+        finally:
+            browser.close()
