@@ -353,6 +353,26 @@ def test_a_non_finite_residual_is_reported_as_divergence() -> None:
     assert result.residual_history[-1] == float("inf")
 
 
+def test_an_assembly_that_overflows_is_reported_as_divergence() -> None:
+    """A row scaled by its own terms can overflow before the residual does,
+    and the assembly raises FloatingPointError saying so. That is the same
+    diverged iterate as a non-finite residual and ends the same way, rather
+    than escaping and taking a continuation with it."""
+    calls = []
+
+    def assemble(x: np.ndarray) -> System:
+        calls.append(x)
+        if len(calls) > 1:
+            raise FloatingPointError("the iterate has diverged")
+        return diagonal_system(x - 1.0, np.full_like(x, 1e-3))
+
+    result = newton_solve(assemble, np.array([0.0]), max_iterations=5)
+
+    assert not result.converged
+    assert "diverged" in result.message
+    assert result.residual_history[-1] == float("inf")
+
+
 def test_a_non_finite_newton_update_is_reported() -> None:
     """A finite residual over a zero-ish Jacobian gives an infinite step.
 

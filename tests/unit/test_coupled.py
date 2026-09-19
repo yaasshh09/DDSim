@@ -909,6 +909,22 @@ def test_a_state_with_no_carriers_anywhere_is_refused():
         residual_term_scales(h, volume, x, np.zeros(5), Dn=1.0, Dp=1.0)
 
 
+def test_a_state_whose_terms_overflow_is_a_diverged_iterate_not_a_bad_state():
+    """A Newton iterate that overshoots can carry a density whose flux terms
+    overflow. That is divergence, which newton_solve reports and continuation
+    backs off from, so it raises FloatingPointError for newton_solve to catch
+    rather than the ValueError reserved for a state with nothing in it. Found
+    with the drain held at 10 V: the ramp died on the ValueError before it
+    could take a smaller step."""
+    h = np.full(4, 0.1)
+    volume = np.full(5, 0.1)
+    x = pack(np.zeros(5), np.full(5, np.inf), np.ones(5))
+
+    with np.errstate(invalid="ignore", over="ignore"):
+        with pytest.raises(FloatingPointError, match="diverged"):
+            residual_term_scales(h, volume, x, np.zeros(5), Dn=1.0, Dp=1.0)
+
+
 def test_the_shared_path_reproduces_the_standalone_functions_exactly(
     device, geometry, models, perturbed_x
 ):

@@ -393,8 +393,14 @@ def newton_solve(
         x = x + delta
         update_history.append(step_norm)
 
-        system = assemble(x)
-        if not np.all(np.isfinite(system.residual)):
+        try:
+            system = assemble(x)
+            finite = bool(np.all(np.isfinite(system.residual)))
+        except FloatingPointError:
+            # An assembly that scales its rows by their own terms meets the
+            # overflow before the residual does, and says so this way.
+            finite = False
+        if not finite:
             # A diverged iterate, not a crash. Undamped Newton on a stiff
             # exponential overshoots far enough to overflow exp in one step.
             message = (

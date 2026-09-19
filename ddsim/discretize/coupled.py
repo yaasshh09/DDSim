@@ -1213,9 +1213,17 @@ def _term_scales_from(
     )
 
     scales = (psi_scale, electron_scale, hole_scale)
-    if not all(
-        np.any(scale > 0.0) and bool(np.all(np.isfinite(scale))) for scale in scales
-    ):
+    # Two different failures. A term that overflowed belongs to an iterate
+    # Newton overshot, which is divergence: newton_solve catches this one and
+    # reports it, so a continuation can take a smaller step. A state with no
+    # terms at all is not something Newton makes, and stays a ValueError.
+    if not all(bool(np.all(np.isfinite(scale))) for scale in scales):
+        raise FloatingPointError(
+            "a residual term overflowed, the iterate has diverged: term scales "
+            f"max to {tuple(float(np.max(scale)) for scale in scales)} for "
+            "(psi, n, p)."
+        )
+    if not all(np.any(scale > 0.0) for scale in scales):
         raise ValueError(
             f"the state has no terms to measure a residual against: term "
             f"scales max to "
