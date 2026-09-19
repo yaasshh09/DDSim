@@ -22,6 +22,7 @@ from ddsim.device.drawing import (
     NODE_BUDGET,
     Block,
     Electrode,
+    Implant,
     drawing,
 )
 from ddsim.device.mosfet import nmos
@@ -198,6 +199,59 @@ def test_a_silicon_island_no_ohmic_contact_touches_is_refused() -> None:
     )
     with pytest.raises(ValueError, match="floats"):
         drawn_cap(blocks=thick + (island,), electrodes=raised, nx=41)
+
+
+def _soi_film(body_tie: bool) -> tuple[tuple[Block, ...], tuple, tuple]:
+    """The film on BOX whose Newton stalled: p 1e17 between n+ source and
+    drain, contacted on top at both, and a body tie on the channel if asked."""
+    width, box, top = 1 * MICRON, 0.2 * MICRON, 0.3 * MICRON
+    blocks = (
+        Block("oxide", 0.0, width, 0.0, box),
+        Block("silicon", 0.0, width, box, top),
+    )
+    implants = (
+        Implant("p", 1e17, 0.0, width, box, top),
+        Implant("n", 1e20, 0.0, 0.3 * MICRON, box, top),
+        Implant("n", 1e20, width - 0.3 * MICRON, width, box, top),
+    )
+    electrodes: tuple[Electrode, ...] = (
+        Electrode("source", "ohmic", 0.0, 0.2 * MICRON, top, top),
+        Electrode("drain", "ohmic", width - 0.2 * MICRON, width, top, top),
+    )
+    if body_tie:
+        tie = Electrode("body", "ohmic", 0.46 * MICRON, 0.54 * MICRON, top, top)
+        electrodes += (tie,)
+    return blocks, implants, electrodes
+
+
+def test_a_p_body_whose_holes_reach_no_contact_is_refused() -> None:
+    """The floating body of an SOI film. The silicon island is contacted, at
+    source and drain, but the p body is not: its holes leave only through a
+    junction, whose leakage is too small next to the other terms for the
+    Newton solve to pin the body's potential in double precision."""
+    with pytest.raises(ValueError, match="p silicon .* floats"):
+        drawing(*_soi_film(body_tie=False))
+
+
+def test_the_same_film_with_a_body_tie_is_drawn() -> None:
+    device = drawing(*_soi_film(body_tie=True))
+    assert {c.name for c in device.contacts} == {"source", "drain", "body"}
+
+
+def test_an_n_pocket_whose_electrons_reach_no_contact_is_refused() -> None:
+    """The same rule for the other carrier: an n+ region in the mos_cap body,
+    with no electrode on it, is a floating n region."""
+    blocks, implants, electrodes = MOS_CAP_DRAWING
+    pocket = Implant(
+        "n",
+        1e19,
+        0.3 * CAP_WIDTH,
+        0.7 * CAP_WIDTH,
+        0.5 * CAP_SURFACE,
+        0.6 * CAP_SURFACE,
+    )
+    with pytest.raises(ValueError, match="n silicon .* floats"):
+        drawn_cap(implants=implants + (pocket,), nx=41)
 
 
 def test_a_gate_on_silicon_is_refused_as_a_schottky_contact() -> None:

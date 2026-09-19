@@ -37,10 +37,12 @@ Guard rails
 -----------
 Each refusal names what it is about. A silicon island no ohmic contact
 touches floats, since nothing sets its Fermi level. A gate on silicon is a
-Schottky contact, which this solver does not model. An ohmic contact on oxide
-has no carriers to pin. Two edges closer than h_min, or a rectangle with fewer
-than two node lines inside it, is a feature smaller than the mesh resolves. A
-mesh over NODE_BUDGET is refused before it is built.
+Schottky contact, which this solver does not model. The island rule holds for
+each doping type too: a p or n region no ohmic contact touches is a floating
+body, which the solve cannot pin, so an SOI film needs a body tie. An ohmic
+contact on oxide has no carriers to pin. Two edges closer than h_min, or a
+rectangle with fewer than two node lines inside it, is a feature smaller than
+the mesh resolves. A mesh over NODE_BUDGET is refused before it is built.
 
 Surface mobility reads the field normal to a horizontal interface, which a
 drawing with a vertical Si/SiO2 wall also has. That refusal belongs to the
@@ -58,7 +60,7 @@ from scipy import ndimage
 
 from ddsim.core import constants as C
 from ddsim.device.builder import Device, Material, build_device
-from ddsim.device.doping import Along, DopingProfile, Sum, Window
+from ddsim.device.doping import Along, Coordinates, DopingProfile, Sum, Window
 from ddsim.device.mosfet import implant_lengths
 from ddsim.device.regions import OXIDE, SILICON, region_map
 from ddsim.device.stack import DOPING_RANGE, NODES_INSIDE
@@ -592,6 +594,36 @@ def drawing(
             )
 
     doping = Sum(tuple(_implant_profile(i, width, height) for i in implants))
+
+    # The same rule one level down, for each carrier on its own. A region of
+    # one doping type inside a contacted island still floats if no ohmic
+    # contact touches it: its majority carriers leave only through a junction,
+    # whose leakage is too small next to the other terms in the same rows for
+    # double precision to pin the region's potential. Measured on a p film on
+    # buried oxide, the Newton matrix goes singular to 2.5e17 along the body
+    # and the solve stalls; a body tie on the same film converges in 3.
+    net = doping(Coordinates(mesh.node_x, mesh.node_y)).reshape(mesh.ny, mesh.nx)
+    on_silicon = silicon.reshape(mesh.ny, mesh.nx)
+    for kind, carriers, of_type in (
+        ("p", "holes", net < 0.0),
+        ("n", "electrons", net > 0.0),
+    ):
+        regions_of_type, count = ndimage.label(on_silicon & of_type)
+        for region in range(1, count + 1):
+            members = set(np.flatnonzero(regions_of_type.ravel() == region).tolist())
+            if not members & ohmic:
+                node = min(members)
+                raise ValueError(
+                    f"the {kind} silicon around x={mesh.node_x[node]:g}, "
+                    f"y={mesh.node_y[node]:g} cm floats: no ohmic contact "
+                    f"touches it, so its {carriers} reach a contact only "
+                    "through a junction. That leakage is too small for the "
+                    "solver to pin the region's potential, and the solve "
+                    "stalls. A floating body needs a treatment this solver "
+                    "does not have. Tie it: put an ohmic electrode on the "
+                    f"{kind} region."
+                )
+
     return build_device(
         mesh=mesh,
         doping=doping,
