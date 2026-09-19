@@ -869,3 +869,54 @@ def test_the_last_explanation_asked_for_is_the_one_shown(server) -> None:
             assert errors == []
         finally:
             browser.close()
+
+
+def test_blocks_and_implants_can_be_added_by_dragging(server) -> None:
+    """Only a gate had ever been dragged in. An oxide block dragged edge to
+    edge snaps to the device's own width, and an n implant dragged inside it
+    arrives as an n row at the starting concentration."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.select_option("#device-kind", "drawing")
+            view = page.locator("#drawing-view").bounding_box()
+            assert view is not None
+
+            def drag(tool: str, x0: float, y0: float, x1: float, y1: float) -> None:
+                page.select_option("#drawing-tool", tool)
+                page.mouse.move(
+                    view["x"] + x0 * view["width"], view["y"] + y0 * view["height"]
+                )
+                page.mouse.down()
+                page.mouse.move(
+                    view["x"] + x1 * view["width"], view["y"] + y1 * view["height"]
+                )
+                page.mouse.up()
+
+            right = page.evaluate("extent(drawingSoFar()).width")
+            drag("oxide", 0.002, 0.1, 0.998, 0.3)
+            blocks = page.locator("#drawing-blocks > div")
+            assert blocks.count() == 3
+            oxide = blocks.nth(2)
+            assert oxide.locator("[data-part=material]").input_value() == "oxide"
+            assert float(oxide.locator("[data-part=x0]").input_value()) == 0
+            assert float(oxide.locator("[data-part=x1]").input_value()) == right
+
+            drag("n", 0.4, 0.6, 0.6, 0.8)
+            implants = page.locator("#drawing-implants > div")
+            assert implants.count() == 4
+            added = implants.nth(3)
+            assert added.locator("[data-part=dopant]").input_value() == "n"
+            concentration = added.locator("[data-part=concentration]").input_value()
+            assert float(concentration) == 1e18
+            x0 = float(added.locator("[data-part=x0]").input_value())
+            x1 = float(added.locator("[data-part=x1]").input_value())
+            assert 0 < x0 < x1 < right
+            assert errors == []
+        finally:
+            browser.close()
