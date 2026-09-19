@@ -118,6 +118,12 @@ class OhmicPlate:
             )
 
 
+GATE_WORK_FUNCTION_RANGE = (2.0, 7.0)
+"""Work functions a gate may have [eV]. Every elemental metal lies between
+caesium at about 2.1 and platinum at about 5.7, and n+ and p+ polysilicon at
+4.05 and 5.17 sit inside. The margin either side is room, not physics."""
+
+
 @dataclass(frozen=True)
 class GateContact:
     """A MOS gate: one Dirichlet value on psi, over a set of nodes.
@@ -150,6 +156,14 @@ class GateContact:
             raise ValueError(
                 f"gate {self.name!r} names the same node more than once: "
                 f"{self.nodes}. One unknown cannot hold two Dirichlet values."
+            )
+        low, high = GATE_WORK_FUNCTION_RANGE
+        if not low <= self.work_function <= high:
+            raise ValueError(
+                f"gate {self.name!r} has a work function of "
+                f"{self.work_function:g} eV. Gate metals and doped polysilicon "
+                f"lie between about 2 and 6 eV, so values outside {low:g} to "
+                f"{high:g} eV are refused as a slip rather than solved."
             )
 
 

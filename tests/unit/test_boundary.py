@@ -564,6 +564,16 @@ class TestGateContact:
                 name="gate", nodes=(), voltage=0.0, work_function=C.PHI_M_N_POLY
             )
 
+    @pytest.mark.parametrize("work_function", [0.0, 1.0, 8.0, 4.05e6])
+    def test_a_work_function_no_metal_has_is_refused(self, work_function) -> None:
+        """Typed as 4.05e6 instead of 4.05 it reached the solver, which could
+        not even start a sweep and reported a failed equilibrium solve rather
+        than the typo."""
+        with pytest.raises(ValueError, match="work function"):
+            GateContact(
+                name="gate", nodes=(4,), voltage=0.0, work_function=work_function
+            )
+
     def test_a_gate_that_names_a_node_twice_is_refused(self) -> None:
         """apply_dirichlet_nodes would refuse it later, with less context."""
         with pytest.raises(ValueError, match="more than once"):
