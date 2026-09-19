@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import socket
 import threading
 from collections.abc import Iterator
@@ -759,6 +760,70 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
                     round(255 * clamp(1.6 - 1.5 * t)),
                 ]
                 assert rgb == pytest.approx(own, abs=4), (i, rgb, own)
+            assert errors == []
+        finally:
+            browser.close()
+
+
+def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values(server) -> None:
+    """The cutline was only ever checked for its panel height. A drag down
+    the middle of a solved nmos has to draw the bands along it, and sampling
+    straight down a mesh column at its own nodes has to give back exactly the
+    node values the server sent, over the column's real length."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.select_option("#device-kind", "nmos")
+            for name, value in COARSE_FET.items():
+                page.fill(f'[data-name="{name}"]', value)
+            page.fill("#voltages", "1.0")
+            page.click("#solve")
+            wait_until(
+                page,
+                "el('state').textContent.startsWith('done') && state.fields !== null",
+                errors,
+            )
+
+            page.locator("#profile").scroll_into_view_if_needed()
+            profile = page.locator("#profile").bounding_box()
+            assert profile is not None
+            middle = profile["x"] + 0.5 * profile["width"]
+            page.mouse.move(middle, profile["y"] + 2)
+            page.mouse.down()
+            page.mouse.move(middle, profile["y"] + profile["height"] - 2)
+            page.mouse.up()
+
+            assert page.inner_text("#cutline-note") == "bands along the line you drew"
+            cut = page.evaluate("state.cutline")
+            nx = page.evaluate("state.fields.shape[1]")
+            assert cut["from"]["i"] == pytest.approx((nx - 1) / 2, abs=0.5)
+            assert cut["from"]["j"] > cut["to"]["j"]
+
+            column = page.evaluate(
+                """() => {
+                  const f = state.fields, ny = f.shape[0], nx = f.shape[1];
+                  const i = Math.floor(nx / 2);
+                  const along = sampleAlong(f, 'Ec', {i: i, j: 0},
+                    {i: i, j: ny - 1}, ny);
+                  const nodes = [];
+                  for (let j = 0; j < ny; j++) nodes.push(f.arrays.Ec[j * nx + i]);
+                  return { sampled: Array.from(along.values), nodes: nodes,
+                    length: along.s[ny - 1],
+                    span: f.arrays.y[ny - 1] - f.arrays.y[0] };
+                }"""
+            )
+            pairs = zip(column["sampled"], column["nodes"], strict=True)
+            for sampled, node in pairs:
+                if math.isnan(node):  # an oxide node, where the line breaks
+                    assert math.isnan(sampled)
+                else:
+                    assert sampled == pytest.approx(node, rel=1e-12, abs=1e-12)
+            assert column["length"] == pytest.approx(column["span"], rel=1e-12)
             assert errors == []
         finally:
             browser.close()

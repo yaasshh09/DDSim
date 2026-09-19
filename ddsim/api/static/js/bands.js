@@ -23,9 +23,11 @@ function interpolate(fields, name, i, j) {
   const i0 = Math.max(0, Math.min(nx - 2, Math.floor(i)));
   const j0 = Math.max(0, Math.min(ny - 2, Math.floor(j)));
   const u = i - i0, v = j - j0;
-  const at = (a, b) => values[b * nx + a];
-  return (1 - u) * (1 - v) * at(i0, j0) + u * (1 - v) * at(i0 + 1, j0) +
-    (1 - u) * v * at(i0, j0 + 1) + u * v * at(i0 + 1, j0 + 1);
+  // A corner with no weight is left out rather than multiplied by zero,
+  // because 0 * NaN is NaN and a silicon node next to oxide would vanish.
+  const at = (a, b, weight) => (weight === 0 ? 0 : weight * values[b * nx + a]);
+  return at(i0, j0, (1 - u) * (1 - v)) + at(i0 + 1, j0, u * (1 - v)) +
+    at(i0, j0 + 1, (1 - u) * v) + at(i0 + 1, j0 + 1, u * v);
 }
 
 // Distance along the cutline in cm, from the physical coordinates of each
