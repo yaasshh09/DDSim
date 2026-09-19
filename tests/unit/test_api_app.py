@@ -256,7 +256,7 @@ def test_a_failing_solve_says_why_rather_than_going_quiet(client) -> None:
     job = submit(
         client,
         diode_request(
-            voltages=(5.2,), settings={"start": 5.0, "max_iterations": 8}
+            voltages=(5.2,), settings={"start": 5.0, "max_iterations": 1}
         ),
     )
     frames = drain(client, job)
