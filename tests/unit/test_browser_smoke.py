@@ -827,3 +827,40 @@ def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values(server) -> None:
             assert errors == []
         finally:
             browser.close()
+
+
+def test_the_last_explanation_asked_for_is_the_one_shown(server) -> None:
+    """Two clicks in quick succession: if the first topic's answer comes
+    back after the second's, the drawer must still show the second."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            wanted = page.evaluate(
+                "fetch('/api/learn/band-diagram').then((r) => r.json())"
+                ".then((t) => t.title)"
+            )
+
+            held: list = []
+            page.route("**/api/learn/sweep-kinds", lambda route: held.append(route))
+            page.click('[data-topic-id="sweep-kind"] > .explain')
+            page.wait_for_timeout(300)
+            assert len(held) == 1
+            page.click('[data-topic-id="bands-view"] > .explain')
+            wait_until(
+                page,
+                f"el('drawer-title').textContent === {json.dumps(wanted)}",
+                errors,
+            )
+
+            held[0].continue_()
+            page.wait_for_timeout(500)
+
+            assert page.inner_text("#drawer-title") == wanted
+            assert errors == []
+        finally:
+            browser.close()

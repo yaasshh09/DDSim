@@ -40,7 +40,12 @@ function renderInto(element, markdown) {
   });
 }
 
+// Which click the drawer belongs to. A slow answer to an earlier click must
+// not land on top of a later one.
+let explaining = 0;
+
 async function explain(topicName, knob) {
+  const asked = ++explaining;
   el("drawer-knob").textContent = knob
     ? knob.name + (knob.unit ? " [" + knob.unit + "]" : "") + ": " +
       knob.explanation + " Default " + String(knob.default) + "."
@@ -53,6 +58,7 @@ async function explain(topicName, knob) {
     const response = await fetch("/api/learn/" + encodeURIComponent(topicName));
     if (response.ok) {
       const topic = await response.json();
+      if (asked !== explaining) return;
       el("drawer-title").textContent = topic.title;
       renderInto(el("drawer-plain"), topic.plain);
       renderInto(el("drawer-depth"), topic.depth);
