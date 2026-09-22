@@ -89,6 +89,17 @@ const CARDS = [
   },
 ];
 
+const LEDE =
+  "This solves the equations that describe how electrons and holes move " +
+  "through a piece of silicon, then draws what it found. Nothing here is " +
+  "fitted or faked: shapes and doping go in, current comes out. Pick a " +
+  "device to start with, or draw one yourself.";
+
+const MORE =
+  "Rather be walked through it? Pick a guided lesson from the top of the " +
+  "left column. Every number, plot and switch on this page has an " +
+  "<b>i</b> beside it that explains what it is.";
+
 const SEEN = "ddsim.welcome.seen";
 
 function showWelcome(show) {
@@ -96,6 +107,8 @@ function showWelcome(show) {
 }
 
 function buildWelcome() {
+  el("welcome-lede").textContent = LEDE;
+  el("welcome-more").innerHTML = MORE;
   const into = el("welcome-cards");
   into.textContent = "";
   for (const card of CARDS) {

@@ -699,7 +699,12 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
 
 def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server) -> None:
     """fit() used to read back the height it had just multiplied by the
-    device pixel ratio, so every redraw grew the canvas by that ratio."""
+    device pixel ratio, so every redraw grew the canvas by that ratio.
+
+    The height it should hold at is read off the element rather than written
+    out here. What this test is about is that redrawing changes nothing, and
+    a literal pinned the editor's canvas to one size as a side effect.
+    """
     with sync_playwright() as driver:
         browser = driver.chromium.launch()
         try:
@@ -709,11 +714,26 @@ def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server) -> None:
             page.goto(server)
             wait_until(page, "el('state').textContent === 'ready'", errors)
             page.select_option("#device-kind", "drawing")
-            heights = page.evaluate(
-                "[1, 2, 3].map(() => { drawPreview(); "
-                "return el('drawing-view').height; })"
+            measured = page.evaluate(
+                """() => {
+                  const view = el('drawing-view');
+                  // The css height, not the attribute: fit() writes the
+                  // attribute, so reading it back here would be asking the
+                  // code under test what it should have done. The stylesheet
+                  // is an independent declaration of the same number, and
+                  // the two being equal is itself part of the contract.
+                  const declared = parseFloat(getComputedStyle(view).height);
+                  const ratio = window.devicePixelRatio || 1;
+                  const drawn = [1, 2, 3].map(() => {
+                    drawPreview();
+                    return view.height;
+                  });
+                  return { drawn: drawn, want: declared * ratio };
+                }"""
             )
-            assert heights == [360, 360, 360]
+
+            assert measured["want"] > 0
+            assert measured["drawn"] == [measured["want"]] * 3
             assert errors == []
         finally:
             browser.close()

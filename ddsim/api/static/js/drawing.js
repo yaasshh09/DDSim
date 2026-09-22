@@ -77,6 +77,7 @@ function partRow(part, record) {
 // which is what a null says.
 function showDrawing(parts) {
   el("drawing").hidden = !parts;
+  setMode(parts ? "build" : "results");
   for (const part of Object.keys(PARTS)) {
     const list = el("drawing-" + part);
     list.textContent = "";
@@ -123,75 +124,6 @@ function drawingSoFar() {
   }
 }
 
-// ------------------------------------------------------------- the preview
-
-// The preview's palette, drawn from css/tokens.css. Silicon is the raised
-// surface the rest of the page uses for a control and oxide is a step darker,
-// so the stack reads without a legend. The two dopants take the warn and
-// signal hues, the same pairing the profile plot uses for n and p.
-const MATERIAL_FILL = { silicon: "#2d4a52", oxide: "#16252a" };
-const DOPANT_INK = { n: "#e3a74f", p: "#5fd4d6" };
-
-function extent(parts) {
-  let width = 0, height = 0;
-  for (const block of parts.blocks) {
-    width = Math.max(width, block.x1);
-    height = Math.max(height, block.y1);
-  }
-  return { width: width || 1, height: height || 1 };
-}
-
-// From drawing coordinates to the canvas and back. The two axes are scaled
-// apart, so a 10 nm oxide on a 2 um device is still a band you can see and
-// drag on. The numbers in the rows are the drawing, not the picture.
-function previewFrame(box, parts) {
-  const size = extent(parts);
-  return {
-    x: (v) => (v / size.width) * box.width,
-    y: (v) => box.height - (v / size.height) * box.height,
-    back: (px, py) => ({
-      x: (px / box.width) * size.width,
-      y: ((box.height - py) / box.height) * size.height,
-    }),
-    size: size,
-  };
-}
-
-function drawPreview() {
-  const parts = drawingSoFar();
-  const box = fit(el("drawing-view"));
-  if (!parts) return;
-  const at = previewFrame(box, parts);
-  const pen = box.pen;
-  for (const block of parts.blocks) {
-    pen.fillStyle = MATERIAL_FILL[block.material] || "#0b1417";
-    pen.fillRect(at.x(block.x0), at.y(block.y1),
-      at.x(block.x1) - at.x(block.x0), at.y(block.y0) - at.y(block.y1));
-  }
-  pen.setLineDash([4, 3]);
-  for (const implant of parts.implants) {
-    pen.strokeStyle = DOPANT_INK[implant.dopant] || "#0b1417";
-    pen.strokeRect(at.x(implant.x0), at.y(implant.y1),
-      at.x(implant.x1) - at.x(implant.x0), at.y(implant.y0) - at.y(implant.y1));
-  }
-  pen.setLineDash([]);
-  pen.lineWidth = 4;
-  pen.font = "11px 'Roboto Mono', ui-monospace, monospace";
-  for (const electrode of parts.electrodes) {
-    pen.strokeStyle = electrode.kind === "gate" ? "#a992ef" : "#e8f1f2";
-    pen.beginPath();
-    pen.moveTo(at.x(electrode.x0), at.y(electrode.y0));
-    pen.lineTo(at.x(electrode.x1), at.y(electrode.y1));
-    pen.stroke();
-    pen.fillStyle = pen.strokeStyle;
-    pen.fillText(electrode.name,
-      Math.min(at.x(electrode.x0) + 3, box.width - 40),
-      Math.max(at.y(electrode.y1) - 4, 10));
-  }
-  pen.lineWidth = 1;
-}
-
-// A drag becomes one new row. An end within a few pixels of an edge already
 // drawn takes that edge's exact value, because two edges a hair apart are a
 // feature finer than any mesh, which the server refuses.
 const SNAP = 6;
@@ -266,6 +198,7 @@ function blank(part) {
 }
 
 function wireDrawing() {
+  buildEditor();
   const view = el("drawing-view");
   let from = null;
   const point = (event) => {

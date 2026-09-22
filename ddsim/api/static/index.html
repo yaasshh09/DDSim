@@ -27,12 +27,17 @@
 <link rel="stylesheet" href="/static/css/panels.css">
 <link rel="stylesheet" href="/static/css/learn.css">
 <link rel="stylesheet" href="/static/css/welcome.css">
+<link rel="stylesheet" href="/static/css/build.css">
 </head>
 <body>
 <header>
   <h1>DDSim</h1>
   <span class="chip">phase 5</span>
   <span class="rule"></span>
+  <div id="modes" role="tablist">
+    <button id="mode-build" class="flat" type="button" role="tab">Build</button>
+    <button id="mode-results" class="flat" type="button" role="tab" aria-selected="true">Results</button>
+  </div>
   <button id="welcome-open" class="flat" type="button">what is this?</button>
   <span class="gap"></span>
   <span class="beacon"></span>
@@ -55,36 +60,7 @@
         <div class="row" data-topic-id="stack-regions"><span class="aside">regions, left contact first</span></div>
         <div id="regions"></div>
         <div class="row"><button id="region-add" class="flat" type="button">add region</button></div>
-        <div id="stack-note" class="aside">A device you built. The solver is
-          validated against DEVSIM; this structure is not validated by
-          anything, so its numbers are the validated solver's answer on an
-          unchecked structure.</div>
-      </div>
-      <div id="drawing" hidden>
-        <div class="row" data-topic-id="drawing-parts"><span class="aside">drawing, x across and y up [cm]</span></div>
-        <canvas id="drawing-view" height="180"></canvas>
-        <label><span>drag on it to add</span><select id="drawing-tool">
-          <option value="silicon">silicon block</option>
-          <option value="oxide">oxide block</option>
-          <option value="p">p implant</option>
-          <option value="n">n implant</option>
-          <option value="ohmic">ohmic contact</option>
-          <option value="gate">gate</option></select></label>
-        <div class="aside">blocks, a later one painted over an earlier one</div>
-        <div id="drawing-blocks"></div>
-        <div class="row"><button id="drawing-add-blocks" class="flat" type="button">add block</button></div>
-        <div class="aside">implants, added up</div>
-        <div id="drawing-implants"></div>
-        <div class="row"><button id="drawing-add-implants" class="flat" type="button">add implant</button></div>
-        <div class="aside">electrodes: ohmic on silicon, gates on oxide</div>
-        <div id="drawing-electrodes"></div>
-        <div class="row"><button id="drawing-add-electrodes" class="flat" type="button">add electrode</button></div>
-        <div id="drawing-note" class="aside">Rectangles only. The mesh is a
-          grid of lines running the whole width and height of the device, so a
-          slanted or curved edge would cut cells in two, and a cell that is part
-          oxide and part silicon has no single permittivity. A mesh over
-          <span id="node-budget"></span> nodes is refused. A device you drew:
-          the solver is validated against DEVSIM, this structure is not.</div>
+        <div id="stack-note" class="aside"></div>
       </div>
       <div class="row" id="mesh-choice" hidden>
         <span>mesh</span>
@@ -116,19 +92,15 @@
     <div id="message"></div>
   </section>
 
+  <div id="stage">
   <section id="plots">
     <section class="panel" id="welcome" hidden>
       <h2>Start here<span class="of">pick something to simulate</span>
         <span class="tools"><button id="welcome-skip" class="flat" type="button">skip for now</button></span>
       </h2>
-      <p id="welcome-lede">This solves the equations that describe how electrons
-        and holes move through a piece of silicon, then draws what it found.
-        Nothing here is fitted or faked: shapes and doping go in, current comes
-        out. Pick a device to start with, or draw one yourself.</p>
+      <p id="welcome-lede"></p>
       <div id="welcome-cards"></div>
-      <p id="welcome-more" class="aside">Rather be walked through it? Pick a
-        guided lesson from the top of the left column. Every number, plot and
-        switch on this page has an <b>i</b> beside it that explains what it is.</p>
+      <p id="welcome-more" class="aside"></p>
     </section>
 
     <div class="panel" id="lesson-panel" hidden>
@@ -206,6 +178,31 @@
     </div>
   </section>
 
+  <section id="build" hidden>
+    <div id="drawing" hidden>
+      <div id="build-top">
+        <div id="build-tools">
+          <div class="section">tools</div>
+          <select id="drawing-tool" size="6">
+            <option value="silicon" selected>silicon block</option>
+            <option value="oxide">oxide block</option>
+            <option value="p">p implant</option><option value="n">n implant</option>
+            <option value="ohmic">ohmic contact</option><option value="gate">gate</option>
+          </select>
+          <p id="build-hint" class="aside"></p>
+        </div>
+        <div id="build-canvas">
+          <canvas id="drawing-view" height="300"></canvas>
+          <div class="legend" id="build-scale"></div>
+        </div>
+      </div>
+      <div id="build-parts" data-topic-id="drawing-parts"></div>
+      <div id="drawing-note" class="aside"></div>
+    </div>
+    <p id="build-empty" class="aside"></p>
+  </section>
+  </div>
+
   <section id="rail">
     <div class="section">runs</div>
     <div class="legend" id="runs-note" data-topic-id="compare-runs"></div>
@@ -244,6 +241,8 @@
 <script src="/static/js/lessons.js"></script>
 <script src="/static/js/welcome.js"></script>
 <script src="/static/js/stack.js"></script>
+<script src="/static/js/builder.js"></script>
+<script src="/static/js/preview.js"></script>
 <script src="/static/js/drawing.js"></script>
 </body>
 </html>

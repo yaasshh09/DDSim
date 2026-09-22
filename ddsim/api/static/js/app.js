@@ -834,6 +834,11 @@ async function finish(body) {
   }
   if (body.status !== "done") return;
 
+  // A solve that worked has something to show, so the stage turns to it. A
+  // refusal does not: the message names the part that was wrong, and the
+  // editor has to stay open for that to be worth reading.
+  setMode("results");
+
   const response = await fetch("/api/jobs/" + state.job + "/result");
   if (!response.ok) return;
   state.curve = await response.json();

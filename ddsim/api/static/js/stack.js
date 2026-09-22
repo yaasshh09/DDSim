@@ -55,7 +55,15 @@ function regionRow(region) {
 
 // Rows for these regions, or no editor at all for a device not built from
 // regions, which is what a null says.
+// Why a device you assembled yourself is not the same claim as a benchmark.
+// It lives here rather than in the page so index.html stays a layout.
+const STACK_NOTE =
+  "A device you built. The solver is validated against DEVSIM; this " +
+  "structure is not validated by anything, so its numbers are the validated " +
+  "solver's answer on an unchecked structure.";
+
 function showRegions(regions) {
+  el("stack-note").textContent = STACK_NOTE;
   el("stack").hidden = !regions;
   el("regions").textContent = "";
   for (const region of regions || []) el("regions").appendChild(regionRow(region));

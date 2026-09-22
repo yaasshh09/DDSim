@@ -116,8 +116,10 @@ button:disabled {
   width: 88px;
 }
 
+/* A gaussian straggle reads 4.03559e-5. The old 70 px cut it mid number,
+   which on a row of bare boxes is indistinguishable from a different value. */
 .part input[type="text"] {
-  width: 70px;
+  width: 86px;
 }
 
 /* ------------------------------------------------------------- the explain */

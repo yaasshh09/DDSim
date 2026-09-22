@@ -1,0 +1,217 @@
+/* The device editor, given the whole stage.
+
+   It used to be a 280 px canvas squeezed into the knob rail under nine rows
+   of numbers. Drawing a device is its own job and it gets its own half of
+   the window: a tool palette, a canvas with room to aim in, and the three
+   part lists laid out as tables rather than as runs of bare boxes. */
+
+#stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+}
+
+#stage > section {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+#build {
+  padding: 16px 18px 28px;
+  overflow-y: auto;
+}
+
+/* ------------------------------------------------------- palette and canvas */
+
+#build-top {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+#build-tools,
+#build-canvas {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 12px 14px;
+}
+
+/* The tool list is a real select with its size opened out, so it is still one
+   control with one value. A palette of buttons would have needed a second
+   place to keep which one is pressed. */
+#drawing-tool[size] {
+  width: 100%;
+  height: auto;
+  padding: 0;
+  background: var(--ground);
+  border-radius: var(--r);
+  font: 500 11px var(--mono);
+}
+
+#drawing-tool[size] option {
+  padding: 7px 9px;
+  color: var(--ink-2);
+  background: var(--ground);
+}
+
+#drawing-tool[size] option:checked {
+  color: var(--ground);
+  background: var(--signal);
+}
+
+#build-hint {
+  margin-bottom: 0;
+}
+
+#build-canvas #drawing-view {
+  height: 300px;
+  margin: 0;
+}
+
+#build-scale {
+  padding-left: 0;
+  color: var(--dim);
+}
+
+/* --------------------------------------------------------------- the parts */
+
+#build-parts {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.part-group {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 12px 14px 10px;
+}
+
+.part-group .section {
+  margin-bottom: 6px;
+}
+
+.part-group .aside.lede {
+  max-width: 88ch;
+  margin-bottom: 11px;
+}
+
+/* The column names, sharing .part so every cell lines up with the box under
+   it. A heading is not a control, so it draws no border and takes no space
+   of its own beyond the width it is labelling. */
+.part.headings {
+  border-bottom: 0;
+  padding-bottom: 2px;
+  margin-bottom: 0;
+}
+
+.part.headings span {
+  font: 400 11px var(--mono);
+  color: var(--dim);
+  padding: 0 2px;
+}
+
+.part.headings [data-heading="material"],
+.part.headings [data-heading="dopant"],
+.part.headings [data-heading="kind"],
+.part.headings [data-heading="profile"] {
+  width: 88px;
+  flex: none;
+}
+
+.part.headings span:not([data-heading="material"]):not([data-heading="dopant"]):not([data-heading="kind"]):not([data-heading="profile"]) {
+  width: 86px;
+  flex: none;
+}
+
+#drawing-note {
+  margin-top: 14px;
+  max-width: 96ch;
+}
+
+#drawing-note b {
+  font-family: var(--mono);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+/* What the Build side says when the device is not one you drew. */
+#build-empty {
+  max-width: 64ch;
+}
+
+#drawing:not([hidden]) ~ #build-empty {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- the tabs */
+
+#modes {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+
+#modes button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 5px 13px;
+}
+
+#modes button[aria-selected="true"] {
+  color: var(--ground);
+  background: var(--signal);
+}
+
+#modes button[aria-selected="true"]:hover {
+  color: var(--ground);
+  background: var(--signal-lift);
+}
+
+/* ------------------------------------------------- the key under the canvas */
+
+/* Six swatches naming what the colours in the picture are, and the extents
+   of the device, which cannot be read off a picture whose two axes are
+   stretched by different amounts. The six values match drawing.js. */
+#build-scale .swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+#build-scale .block-si {
+  background: #2d4a52;
+}
+
+#build-scale .block-ox {
+  background: #16252a;
+  border: 1px solid var(--line-strong);
+}
+
+#build-scale .dope-n {
+  background: rgb(227 167 79 / 26%);
+  border: 1px dashed var(--warn);
+}
+
+#build-scale .dope-p {
+  background: rgb(95 212 214 / 16%);
+  border: 1px dashed var(--signal);
+}
+
+#build-scale .gate {
+  background: var(--violet);
+}
+
+#build-scale .ohmic {
+  background: var(--ink);
+}
+
+#build-scale .extent {
+  margin-left: auto;
+  color: var(--dim);
+}

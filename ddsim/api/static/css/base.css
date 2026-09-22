@@ -107,8 +107,6 @@ main {
 }
 
 #plots {
-  flex: 1 1 auto;
-  min-width: 0;
   padding: 16px 18px 28px;
   display: grid;
   gap: 14px;
