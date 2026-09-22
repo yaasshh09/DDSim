@@ -83,6 +83,36 @@ rather than an effect. Icons only where they carry a function: the explain
 affordance is the letter `i` and not a glyph, because a letter still says
 what it does at the size a control label sits at.
 
+## Reading for two audiences
+
+Every knob carries a plain name and its argument name. `KNOB_LABELS` in
+`ddsim/api/learn.py` holds the words, keyed by argument name beside
+`KNOB_TOPICS` for the same reason: a name shared by two devices means the
+same thing on both. The schema serves it as `label`, and the form leads with
+it and sets the symbol underneath in mono. A knob missing from the map falls
+back to its own argument name, so a knob added to a constructor still
+renders.
+
+Nothing under 11 px, no exceptions, including the symbol line and the phase
+badge. The design's own ramp annotated at 9 to 10.5 px and it did not
+survive review: a label, a legend key, a details summary and a panel button
+are functional text whatever the ramp says.
+
+## The two halves of the stage
+
+`#stage` holds `#plots` and `#build`, and exactly one is on screen. The rails
+never move, because setting a device's mesh and drawing its shape are the
+same job and the solve button belongs to both.
+
+Picking a drawn device turns the stage to Build; a solve that finishes turns
+it to Results, and a refused one does not, because the refusal names the part
+that was wrong and the editor has to stay open for that to be worth reading.
+
+The editor is split three ways. `builder.js` owns the frame: the groups, the
+words above them and the column headings that turn a row of bare boxes into a
+table. `preview.js` owns the canvas. `drawing.js` owns the rows and the drag.
+None of them is over 250 lines, which is why they are three files.
+
 ## The id contract
 
 Every id on the page is a contract with `static/js` and with
