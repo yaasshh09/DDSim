@@ -24,7 +24,7 @@
 
 /* What the panel is showing, next to what it is called. */
 .panel h2 .of {
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   letter-spacing: 0;
   color: var(--muted);
 }
@@ -46,7 +46,7 @@
 }
 
 .panel .tools label > span {
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   color: var(--ink-3);
 }
 
@@ -108,7 +108,7 @@ canvas {
   align-items: center;
   margin-top: 9px;
   padding-left: var(--axis-gutter);
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   color: var(--ink-3);
 }
 
@@ -171,7 +171,7 @@ canvas {
   gap: 7px;
   padding: 0;
   margin: 0;
-  font: 400 11px/1.5 var(--sans);
+  font: 500 11px/1.5 var(--sans);
 }
 
 #runs-note > span {
@@ -195,7 +195,7 @@ canvas {
 }
 
 #runs-empty {
-  font: 400 11.5px/1.55 var(--sans);
+  font: 500 11.5px/1.55 var(--sans);
   color: var(--muted);
 }
 

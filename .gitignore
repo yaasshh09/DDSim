@@ -28,6 +28,12 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# The typeface release, dropped here to be subset into
+# ddsim/api/static/vendor/fonts by tools/vendor_client_libs.py. Seventeen
+# faces and three megabytes, of which the page ships two weights and 33 KB.
+# A clone runs from the vendored subsets and never reads this.
+/fonts/
+
 # Local notes and assistant state, never part of the repo
 CLAUDE.md
 CLAUDE.local.md

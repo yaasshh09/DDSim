@@ -7,7 +7,7 @@
 #welcome-lede {
   margin: 0 0 16px;
   max-width: 72ch;
-  font: 400 13.5px/1.6 var(--sans);
+  font: 500 13.5px/1.6 var(--sans);
   color: var(--ink-2);
 }
 
@@ -51,14 +51,14 @@ button.start b {
 }
 
 button.start span {
-  font: 400 11.5px/1.55 var(--sans);
+  font: 500 11.5px/1.55 var(--sans);
   color: var(--muted);
 }
 
 /* What you get and roughly how long it takes, because every solve on this
    page costs real seconds and saying so up front is only fair. */
 button.start .shows {
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   font-style: normal;
   color: var(--dim);
   padding-top: 8px;

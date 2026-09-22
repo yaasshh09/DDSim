@@ -42,13 +42,13 @@
     },
     {
       "name": "fonts",
-      "version": "family=Schibsted+Grotesk:wght@400;500;600;700&display=swap",
-      "licence": "fonts/SCHIBSTED-GROTESK-OFL.txt",
+      "version": "Poppins Poppins-Medium, Poppins-SemiBold",
+      "licence": "fonts/POPPINS-OFL.txt",
       "files": {
-        "fonts/SCHIBSTED-GROTESK-OFL.txt": "3b4f3063b6ac7c1e403e2c4a5e8ef3a58190ff83ed7b15af66511858699139ce",
-        "fonts/fonts.css": "54bfc761fe371bbd55b4099ee9d0b66bd53ca42dc164ecd2d66e5c04c4f3f6cb",
-        "fonts/schibsted-grotesk-latin-ext.woff2": "ee9eeb232cc1fe7979dad813a570f4b19f1eb4496daf56c94ec9de63abdb2936",
-        "fonts/schibsted-grotesk-latin.woff2": "4c8b93f431d462c696e12b9d6a033feb3394d36e66e781357c496b95d8a75e05"
+        "fonts/POPPINS-OFL.txt": "118f07a2105ffe3d198879b716d6f91107415231777e2b35a6cca5ad1d4b22ca",
+        "fonts/fonts.css": "bb3d6da6761385c061a22dfb0f92c27f3fa269ebdb6eb6a3265c042e8f5cab48",
+        "fonts/poppins-medium-latin.ttf": "be1f53f0447309fab114ef4fbe7b6df5f5237e4f47629b0975dd14a6545fdc31",
+        "fonts/poppins-semibold-latin.ttf": "7278c11485b87bb7b778f41d4f3c9d84d1264e542a5d6c7f49a5aff9c12cd8b0"
       }
     }
   ]

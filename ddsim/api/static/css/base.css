@@ -19,27 +19,9 @@ body {
   margin: 0;
   background: var(--ground);
   color: var(--ink-2);
-  font: 400 12px/1.5 var(--sans);
+  font: 500 12px/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
-  /* Figures of one width, everywhere a number is a readout. This is what
-     the monospace used to buy and it is the whole of what it bought: a
-     value under a live slider changes many times a second, and in
-     proportional figures every change shifts the digits beside it. */
-  font-variant-numeric: tabular-nums;
 }
-
-/* Running prose is read, not compared, and proportional figures set better
-   in a sentence. Everything named here holds paragraphs rather than values. */
-#drawer-plain,
-#drawer-depth,
-#lesson-panel,
-#welcome-lede,
-#welcome-more,
-.aside,
-button.start span {
-  font-variant-numeric: normal;
-}
-
 /* ------------------------------------------------------------- the top bar */
 
 header {
@@ -54,7 +36,7 @@ header {
 
 header h1 {
   margin: 0;
-  font: 700 14px var(--sans);
+  font: 600 14px var(--sans);
   letter-spacing: 0.02em;
   color: var(--ink);
 }
@@ -81,9 +63,14 @@ header .gap {
   flex: 1;
 }
 
+/* Poppins sets its digits at different widths, and this line rewrites
+   several of them a second while a solve runs. Left to reflow it shuffles
+   the cancel button beside it on every frame, so it is given a width and
+   told to keep it. */
 #state {
-  font: 400 11.5px var(--sans);
+  font: 500 11.5px var(--sans);
   color: var(--ink-2);
+  min-width: 26ch;
 }
 
 /* A dot lit exactly while a job is running. #cancel is enabled for that span
@@ -117,8 +104,8 @@ main {
 }
 
 #controls {
-  width: 312px;
-  flex: 0 0 312px;
+  width: 340px;
+  flex: 0 0 340px;
   padding: 16px 16px 28px;
   border-right: 1px solid var(--line);
 }
@@ -187,7 +174,7 @@ legend,
 /* A count or a unit sitting opposite a section header. */
 .section-note {
   float: right;
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   letter-spacing: 0;
   text-transform: none;
   color: var(--dim);
@@ -197,7 +184,7 @@ legend,
    sits half a point above the 11 px floor the labels themselves sit on. */
 .aside {
   margin-top: 8px;
-  font: 400 11.5px/1.55 var(--sans);
+  font: 500 11.5px/1.55 var(--sans);
   color: var(--muted);
 }
 
@@ -227,7 +214,7 @@ legend,
   margin-top: 12px;
   padding: 9px 10px;
   white-space: pre-wrap;
-  font: 400 11px/1.55 var(--sans);
+  font: 500 11px/1.55 var(--sans);
   color: var(--hot);
   background: var(--panel);
   border: 1px solid var(--hot);

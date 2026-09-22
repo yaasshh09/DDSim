@@ -37,6 +37,9 @@ dev = [
   # the one browser smoke test. Needs `python -m playwright install chromium`
   # once after installing, which CI does.
   "playwright>=1.45",
+  # tools/vendor_client_libs.py subsets the typeface with this. Only that
+  # script imports it, and only when the fonts are being re-vendored.
+  "fonttools>=4.50",
 ]
 
 [project.scripts]

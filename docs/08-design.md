@@ -35,27 +35,31 @@ could disagree with the first.
 
 ## Type
 
-Schibsted Grotesk, one family, every weight from 400 to 700.
+Poppins, two weights. 500 carries everything that is read, 600 everything
+that is a heading or a value worth finding, so the page has one axis of
+emphasis rather than four.
 
-It was two: a sans for language and a monospace for anything a number landed
-in. The monospace had exactly one job, which was keeping a value from
-reshuffling the row it sits in when a slider changes it many times a second.
-`font-variant-numeric: tabular-nums` does that job inside a proportional
-face, so `body` sets it and the monospace is gone. The prose that is read
-rather than compared, the drawer, the lesson panel, the start screen and
-every `.aside`, sets it back to `normal`, because proportional figures set
-better in a sentence.
+**Poppins has no tabular figures and its digits are proportional.** A one is
+350 units wide against a zero's 647, and there is no `tnum` feature to turn
+on, so `font-variant-numeric` does nothing here. That matters because a value
+under a live slider is rewritten many times a second. It is handled by
+geometry rather than by the font: every number the page shows sits in a box
+of its own fixed width, and `#state`, which is loose text in the header and
+rewrites several numbers a second while a solve runs, is given a `min-width`
+so the cancel button beside it does not shuffle. If a number ever needs to
+sit in free-flowing text and stay still, it needs a box or a pinned width
+too.
 
-Schibsted Grotesk over the usual grotesques on two counts: it holds up at the
-11 px this page leans on, and it is not one of the handful of faces that turn
-up in every generated interface.
+The family is vendored under `static/vendor/fonts` with its OFL text, because
+`phases/PHASE-7.md` says the page works with no network. It is not
+downloaded: the release is dropped in `fonts/`, which is gitignored, and
+`tools/vendor_client_libs.py` subsets the two weights to the characters this
+page draws. That subsetting is most of the point. Poppins ships Devanagari,
+which is none of this page and nine tenths of the file, so each weight goes
+from 156 KB to under 17 KB and the vendored tree is 33 KB of font.
 
-It is vendored under `static/vendor/fonts` with its OFL text, because
-`phases/PHASE-7.md` says the page works with no network.
-`tools/vendor_client_libs.py` fetches it; `tests/unit/test_vendor.py` holds
-every file to its hash and refuses any vendored stylesheet that still names a
-remote host. Dropping the second family took the vendored fonts from twelve
-files and 215 KB to four and 68 KB.
+`tests/unit/test_vendor.py` holds every file to its hash and refuses any
+vendored stylesheet that still names a remote host.
 
 ## Colour
 

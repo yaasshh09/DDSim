@@ -1,11 +1,14 @@
-"""Fetch marked, KaTeX and the two design fonts into ddsim/api/static/vendor.
+"""Put marked, KaTeX and the page's typeface into ddsim/api/static/vendor.
 
 Run once, and again only to upgrade. For the npm packages it reads each one's
 latest version from the registry, downloads the tarball, checks it against the
 registry's sha512 integrity string and extracts only the files the page needs.
-For the fonts it asks Google for the css2 response and rewrites every url to a
-local file, because a stylesheet that reaches fonts.gstatic.com is a CDN by
-another name. Either way it writes VENDOR.json with a sha256 per file so
+
+The typeface is not downloaded at all. The release is dropped in fonts/ and
+this subsets the two weights the page uses down to the characters it draws,
+which is the whole reason the vendored tree is 33 KB rather than 3 MB.
+
+Either way it writes VENDOR.json with a sha256 per file so
 tests/unit/test_vendor.py can hold the tree to it.
 
     .venv/Scripts/python tools/vendor_client_libs.py
@@ -18,7 +21,6 @@ import hashlib
 import io
 import json
 import pathlib
-import re
 import tarfile
 import urllib.request
 
@@ -40,82 +42,85 @@ WANTED = {
 """Tarball path to vendored path, per package. KaTeX's woff2 fonts are added
 by pattern below, since their names carry version specific hashes."""
 
-FONTS_CSS = (
-    "https://fonts.googleapis.com/css2"
-    "?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap"
+FONT_SOURCE = ROOT / "fonts"
+"""Where the family is dropped before vendoring. That folder holds the whole
+Poppins release, nine weights and their italics, which is more than three
+megabytes and seventeen faces the page never asks for."""
+
+FONT_WEIGHTS = {"Poppins-Medium": 500, "Poppins-SemiBold": 600}
+"""The two weights the page is set in. Medium carries everything that is read,
+SemiBold everything that is a heading or a value worth finding."""
+
+FONT_SUBSET = (
+    "U+0020-007E,U+00A0-00FF,U+00B7,U+2018-201D,U+2022,U+2026,U+2013-2014,"
+    "U+00D7,U+2212,U+00B5,U+03BC,U+03B2,U+03A9,U+25B8,U+25BE,U+2713,U+2192"
 )
-"""The one family docs/08-design.md names, at the weights the page uses.
+"""Latin, the punctuation the labels use, and the few greek letters and arrows
+the page draws. Poppins also ships Devanagari, which is most of the file and
+none of this page: subsetting takes each weight from 156 KB to under 17 KB."""
 
-One rather than two. The second face was a monospace, and the only job it had
-was keeping a number from reshuffling when a slider changed it. Tabular
-figures do that inside a proportional face, so the terminal look was paying
-for nothing.
-"""
+FACE = """@font-face {{
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: {weight};
+  font-display: swap;
+  src: url(/static/vendor/fonts/{slug}) format('truetype');
+}}"""
 
-FONT_LICENCES = {
-    "SCHIBSTED-GROTESK-OFL.txt": (
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/"
-        "schibstedgrotesk/OFL.txt"
-    ),
-}
-"""SIL OFL 1.1, and the page ships the text with the font."""
+FONTS_HEADER = """/* Poppins, subset to the characters this page draws.
 
-BROWSER = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-)
-"""Google serves woff1 and one undivided face to a client it does not know.
-The per subset woff2 blocks this script rewrites only arrive with this."""
+   Vendored from the release in fonts/ rather than fetched, because
+   phases/PHASE-7.md says the page works with no network. Regenerate with
+   tools/vendor_client_libs.py, which needs that folder present.
 
-FONTS_HEADER = """/* Schibsted Grotesk, every subset Google serves for it.
-   Generated from the Google Fonts css2 response with the urls rewritten to
-   local files, because phases/PHASE-7.md says the page works with no
-   network. Regenerate with tools/vendor_client_libs.py. */
+   Poppins has no tabular figure feature and its digits are proportional: a
+   one is 350 units against a zero's 647. Every number the page shows sits in
+   a box of its own width and #state is pinned, so a value changing its digits
+   moves nothing around it. See docs/08-design.md. */
 
 """
 
 
 def fetch(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": BROWSER})
-    with urllib.request.urlopen(request, timeout=60) as response:
+    with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310
         return bytes(response.read())
 
 
 def fonts() -> dict[str, str]:
-    """Download every woff2 the css2 response names, write a local fonts.css
-    pointing at them, and return the vendored path to sha256 map."""
+    """Subset each wanted weight into the vendor tree, write a local fonts.css
+    naming them, and return the vendored path to sha256 map."""
+    from fontTools import subset
+
     into = VENDOR / "fonts"
     into.mkdir(parents=True, exist_ok=True)
-    source = fetch(FONTS_CSS).decode("utf-8")
+    for stale in into.iterdir():
+        stale.unlink()
 
-    faces = re.findall(r"/\*\s*([a-z-]+)\s*\*/\s*(@font-face\s*\{.*?\})", source, re.S)
-    assert faces, "Google returned no per subset faces, check the user agent"
-
-    local: dict[str, str] = {}
     written: dict[str, str] = {}
-    rewritten: list[str] = []
-    for subset, face in faces:
-        family = re.search(r"font-family:\s*'([^']+)'", face)
-        url = re.search(r"url\((https://[^)]+)\)", face)
-        assert family is not None and url is not None, face
-        if url.group(1) not in local:
-            slug = f"{family.group(1).lower().replace(' ', '-')}-{subset}.woff2"
-            data = fetch(url.group(1))
-            (into / slug).write_bytes(data)
-            local[url.group(1)] = slug
-            written[f"fonts/{slug}"] = hashlib.sha256(data).hexdigest()
-        rewritten.append(
-            face.replace(url.group(1), f"/static/vendor/fonts/{local[url.group(1)]}")
+    faces: list[str] = []
+    for name, weight in FONT_WEIGHTS.items():
+        source = FONT_SOURCE / f"{name}.ttf"
+        assert source.exists(), f"{source} is missing, drop the release in fonts/"
+        slug = f"{name.lower()}-latin.ttf"
+        subset.main(
+            [
+                str(source),
+                "--unicodes=" + FONT_SUBSET,
+                "--layout-features=*",
+                "--output-file=" + str(into / slug),
+            ]
         )
+        data = (into / slug).read_bytes()
+        written[f"fonts/{slug}"] = hashlib.sha256(data).hexdigest()
+        faces.append(FACE.format(weight=weight, slug=slug))
 
-    stylesheet = (FONTS_HEADER + "\n\n".join(rewritten) + "\n").encode("utf-8")
+    stylesheet = (FONTS_HEADER + "\n\n".join(faces) + "\n").encode("utf-8")
     (into / "fonts.css").write_bytes(stylesheet)
     written["fonts/fonts.css"] = hashlib.sha256(stylesheet).hexdigest()
 
-    for name, url in FONT_LICENCES.items():
-        data = fetch(url)
-        (into / name).write_bytes(data)
-        written[f"fonts/{name}"] = hashlib.sha256(data).hexdigest()
+    licence = (FONT_SOURCE / "OFL.txt").read_bytes()
+    (into / "POPPINS-OFL.txt").write_bytes(licence)
+    written["fonts/POPPINS-OFL.txt"] = hashlib.sha256(licence).hexdigest()
 
     return dict(sorted(written.items()))
 
@@ -160,8 +165,8 @@ def main() -> None:
     packages.append(
         {
             "name": "fonts",
-            "version": FONTS_CSS.split("?", 1)[1],
-            "licence": "fonts/SCHIBSTED-GROTESK-OFL.txt",
+            "version": "Poppins " + ", ".join(sorted(FONT_WEIGHTS)),
+            "licence": "fonts/POPPINS-OFL.txt",
             "files": fonts(),
         }
     )

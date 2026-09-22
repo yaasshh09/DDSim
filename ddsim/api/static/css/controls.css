@@ -56,7 +56,7 @@ label > span {
    without taking the symbols away from somebody who reads the docs. */
 label > span:first-child .symbol {
   display: block;
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   font-style: normal;
   color: var(--dim);
   letter-spacing: 0.02em;
@@ -90,8 +90,11 @@ input[type="number"] {
   text-align: right;
 }
 
+/* Wider than a value box because a select carries words rather than a
+   number, and Poppins sets "none, free sandbox" past 118 px. Both still end
+   on the same right edge: the label is a flex row and the control is last. */
 select {
-  width: 118px;
+  width: 142px;
   background: var(--raised);
   border-color: var(--line-strong);
   padding: 5px 8px;
@@ -100,7 +103,7 @@ select {
 textarea {
   width: 100%;
   resize: vertical;
-  font: 400 11px/1.6 var(--sans);
+  font: 500 11px/1.6 var(--sans);
   color: var(--ink-2);
   padding: 7px 8px;
 }

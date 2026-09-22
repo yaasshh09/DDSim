@@ -114,7 +114,7 @@ function axes(pen, box, xs, ys, options) {
   pen.stroke();
 
   pen.fillStyle = (options && options.ink) || ink("--muted");
-  pen.font = "10px 'Schibsted Grotesk', system-ui, sans-serif";
+  pen.font = "500 10px Poppins, system-ui, sans-serif";
   pen.textAlign = right ? "left" : "right";
   const labelX = right ? inner.x + inner.width + 6 : inner.x - 6;
   for (let i = 0; i <= 4; i++) {

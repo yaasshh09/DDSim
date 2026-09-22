@@ -37,12 +37,12 @@
 /* The knob's own signature: type, default, and what it does. */
 #drawer-knob {
   margin: 0 0 14px;
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   color: var(--dim);
 }
 
 #drawer-plain {
-  font: 400 13.5px/1.65 var(--sans);
+  font: 500 13.5px/1.65 var(--sans);
   color: var(--ink-2);
 }
 
@@ -77,7 +77,7 @@
 
 #drawer-depth {
   margin-top: 9px;
-  font: 400 12.5px/1.6 var(--sans);
+  font: 500 12.5px/1.6 var(--sans);
   color: var(--ink-3);
 }
 
@@ -96,14 +96,14 @@
 
 #drawer-docs {
   margin: 14px 0 0;
-  font: 400 11px var(--sans);
+  font: 500 11px var(--sans);
   color: var(--dim);
 }
 
 /* ------------------------------------------------------------ lesson mode */
 
 #lesson-panel {
-  font: 400 13.5px/1.6 var(--sans);
+  font: 500 13.5px/1.6 var(--sans);
   color: var(--ink-2);
 }
 
@@ -228,6 +228,6 @@
   margin: 12px 0 0;
   padding-left: 9px;
   border-left: 2px solid var(--line-strong);
-  font: 400 11.5px/1.55 var(--sans);
+  font: 500 11.5px/1.55 var(--sans);
   color: var(--muted);
 }
