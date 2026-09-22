@@ -80,8 +80,8 @@ Tight radii, 3 to 6 px, and no pill except a run chip. Dense padding, 12 to
 16 px in a panel. No gradient except the one that is a colour ramp carrying
 data. No motion except the drawer's 0.12 s slide, which is the panel arriving
 rather than an effect. Icons only where they carry a function: the explain
-affordance is the letter `i` and not a glyph, because a letter still says what
-it does at 10 px.
+affordance is the letter `i` and not a glyph, because a letter still says
+what it does at the size a control label sits at.
 
 ## The id contract
 
