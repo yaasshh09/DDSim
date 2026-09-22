@@ -274,8 +274,10 @@ button:disabled {
   padding-bottom: 6px;
 }
 
+/* Wide enough for "silicon" and "uniform", the two longest choices a drawn
+   part offers, which the old 76 px clipped mid word. */
 .part select {
-  width: 76px;
+  width: 88px;
 }
 
 .part input[type="text"] {

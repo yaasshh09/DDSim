@@ -159,6 +159,13 @@ legend,
   color: var(--dim);
 }
 
+/* The voltage list is a header over a textarea rather than a row with a box
+   on the right, so it needs the space a label's own padding would have given
+   it and less of the gap a section between two fieldsets takes. */
+.section.voltages {
+  margin: 10px 0 5px;
+}
+
 /* A count or a unit sitting opposite a section header. */
 .section-note {
   float: right;
@@ -168,10 +175,19 @@ legend,
   color: var(--dim);
 }
 
+/* The one place in the rails that holds sentences rather than labels, so it
+   sits a point above the 10.5 px the design gives its annotations. */
 .aside {
   margin-top: 8px;
-  font: 400 10.5px/1.5 var(--sans);
+  font: 400 11.5px/1.55 var(--sans);
   color: var(--muted);
+}
+
+/* A note that introduces the section under it, with the section header
+   already providing the space above. */
+.aside.lede {
+  margin-top: 0;
+  margin-bottom: 10px;
 }
 
 /* A note that is a caveat rather than a description wears the warning rule.
