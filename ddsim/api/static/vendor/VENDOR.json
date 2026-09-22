@@ -39,6 +39,25 @@
         "marked/LICENSE": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c",
         "marked/marked.umd.js": "b147274a9ce27d17276587167e49483d719f6893eeca3a3667a59797661d3556"
       }
+    },
+    {
+      "name": "fonts",
+      "version": "family=Archivo:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap",
+      "licence": "fonts/ARCHIVO-OFL.txt",
+      "files": {
+        "fonts/archivo-latin-ext.woff2": "ff4f17d21930e36d6d93baba663e624cb767afc3feebf7adaebd82242638de05",
+        "fonts/archivo-latin.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+        "fonts/ARCHIVO-OFL.txt": "108b4e57c9c796d3d38d0428ca7ee39de47ad93187302718d9b2d8864b9b716b",
+        "fonts/archivo-vietnamese.woff2": "5a621c5598a31392555104ccdc41a46c3104f1cc22666024a8afb881ca9adaab",
+        "fonts/fonts.css": "21a192320769e5150c85f8701409794fb4ba3b8013ec7e59dde4c90f7abca3c0",
+        "fonts/roboto-mono-cyrillic-ext.woff2": "6d72c2150c28b5305e7bfd0290edcf6038e556a9dd11a6ef15a1652548a35693",
+        "fonts/roboto-mono-cyrillic.woff2": "4052cc0b0f8b1b39da6cfaf90460f8b3c84dfc4b7562e9308ffa0998c3b9a005",
+        "fonts/roboto-mono-greek.woff2": "308f763acd5f648b0556c1f79b848102f494d0450072cfd2fd8064ddf287f4f8",
+        "fonts/roboto-mono-latin-ext.woff2": "4cc0d52e0fa37c28084e0cbce3589a8ab32dd21e6ea619489c5f7c6e8c43b922",
+        "fonts/roboto-mono-latin.woff2": "b81cd55177300649be8f95b3b747d721ce607e8ed2856e25bd0c630cfd631faf",
+        "fonts/ROBOTO-MONO-OFL.txt": "50ab8dd54680d3473f649c9db86fece88434d097c7834475c1c72d2f8c429215",
+        "fonts/roboto-mono-vietnamese.woff2": "a4f562a288609dcb8f13e2b52296f1f3360957f09060735d4f00b5886e5bc7e0"
+      }
     }
   ]
 }

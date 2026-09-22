@@ -1,9 +1,10 @@
-"""The libraries the page renders explanations with, vendored.
+"""What the page loads besides its own scripts, vendored.
 
 phases/PHASE-7.md part two: nothing loads from a CDN, the page works with no
-network. So marked and KaTeX live in the repo, and this file holds them to the
-manifest tools/vendor_client_libs.py wrote: every file present, every hash
-matching, every licence shipped. A hand edit to a vendored file fails here.
+network. So marked, KaTeX and the two fonts the design is set in live in the
+repo, and this file holds them to the manifest tools/vendor_client_libs.py
+wrote: every file present, every hash matching, every licence shipped. A hand
+edit to a vendored file fails here.
 """
 
 from __future__ import annotations
@@ -20,7 +21,19 @@ MANIFEST = json.loads((VENDOR / "VENDOR.json").read_text(encoding="utf-8"))
 def test_both_libraries_are_vendored() -> None:
     names = {package["name"] for package in MANIFEST["packages"]}
 
-    assert names == {"katex", "marked"}
+    assert names == {"katex", "marked", "fonts"}
+
+
+def test_no_vendored_stylesheet_reaches_out_to_a_remote_host() -> None:
+    """The page itself is checked below, but a stylesheet it links can fetch
+    just as easily, and the font css arrives from Google full of urls at
+    fonts.gstatic.com. Rewriting every one of them to a local file is the
+    whole point of vendoring the fonts rather than linking them."""
+    for sheet in VENDOR.rglob("*.css"):
+        text = sheet.read_text(encoding="utf-8")
+
+        assert "http://" not in text, sheet
+        assert "https://" not in text, sheet
 
 
 def test_every_vendored_file_matches_its_recorded_hash() -> None:
