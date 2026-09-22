@@ -42,16 +42,23 @@ by pattern below, since their names carry version specific hashes."""
 
 FONTS_CSS = (
     "https://fonts.googleapis.com/css2"
-    "?family=Archivo:wght@400;500;600;700"
-    "&family=Roboto+Mono:wght@400;500&display=swap"
+    "?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap"
 )
-"""The two families docs/08-design.md names, at the weights the page uses."""
+"""The one family docs/08-design.md names, at the weights the page uses.
+
+One rather than two. The second face was a monospace, and the only job it had
+was keeping a number from reshuffling when a slider changed it. Tabular
+figures do that inside a proportional face, so the terminal look was paying
+for nothing.
+"""
 
 FONT_LICENCES = {
-    "ARCHIVO-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/archivo/OFL.txt",
-    "ROBOTO-MONO-OFL.txt": "https://raw.githubusercontent.com/google/fonts/main/ofl/robotomono/OFL.txt",
+    "SCHIBSTED-GROTESK-OFL.txt": (
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/"
+        "schibstedgrotesk/OFL.txt"
+    ),
 }
-"""Both families are SIL OFL 1.1 and the page ships the text with them."""
+"""SIL OFL 1.1, and the page ships the text with the font."""
 
 BROWSER = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -60,7 +67,7 @@ BROWSER = (
 """Google serves woff1 and one undivided face to a client it does not know.
 The per subset woff2 blocks this script rewrites only arrive with this."""
 
-FONTS_HEADER = """/* Archivo and Roboto Mono, every subset Google serves for them.
+FONTS_HEADER = """/* Schibsted Grotesk, every subset Google serves for it.
    Generated from the Google Fonts css2 response with the urls rewritten to
    local files, because phases/PHASE-7.md says the page works with no
    network. Regenerate with tools/vendor_client_libs.py. */
@@ -154,7 +161,7 @@ def main() -> None:
         {
             "name": "fonts",
             "version": FONTS_CSS.split("?", 1)[1],
-            "licence": "fonts/ARCHIVO-OFL.txt",
+            "licence": "fonts/SCHIBSTED-GROTESK-OFL.txt",
             "files": fonts(),
         }
     )

@@ -21,6 +21,23 @@ body {
   color: var(--ink-2);
   font: 400 12px/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
+  /* Figures of one width, everywhere a number is a readout. This is what
+     the monospace used to buy and it is the whole of what it bought: a
+     value under a live slider changes many times a second, and in
+     proportional figures every change shifts the digits beside it. */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Running prose is read, not compared, and proportional figures set better
+   in a sentence. Everything named here holds paragraphs rather than values. */
+#drawer-plain,
+#drawer-depth,
+#lesson-panel,
+#welcome-lede,
+#welcome-more,
+.aside,
+button.start span {
+  font-variant-numeric: normal;
 }
 
 /* ------------------------------------------------------------- the top bar */
@@ -46,7 +63,7 @@ header h1 {
    it carries a fact, so it sits on the same 11 px floor as everything else
    here rather than claiming the softer one that only smallprint gets. */
 .chip {
-  font: 500 11px var(--mono);
+  font: 500 11px var(--sans);
   letter-spacing: 0.04em;
   color: var(--signal);
   border: 1px solid var(--line-strong);
@@ -65,7 +82,7 @@ header .gap {
 }
 
 #state {
-  font: 400 11.5px var(--mono);
+  font: 400 11.5px var(--sans);
   color: var(--ink-2);
 }
 
@@ -154,7 +171,7 @@ legend,
 .section {
   padding: 0;
   margin-bottom: 9px;
-  font: 600 11px var(--mono);
+  font: 600 11px var(--sans);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--dim);
@@ -170,7 +187,7 @@ legend,
 /* A count or a unit sitting opposite a section header. */
 .section-note {
   float: right;
-  font: 400 11px var(--mono);
+  font: 400 11px var(--sans);
   letter-spacing: 0;
   text-transform: none;
   color: var(--dim);

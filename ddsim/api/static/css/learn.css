@@ -37,7 +37,7 @@
 /* The knob's own signature: type, default, and what it does. */
 #drawer-knob {
   margin: 0 0 14px;
-  font: 400 11px var(--mono);
+  font: 400 11px var(--sans);
   color: var(--dim);
 }
 
@@ -54,7 +54,7 @@
 
 #drawer summary,
 #lesson-panel summary {
-  font: 500 11px var(--mono);
+  font: 500 11px var(--sans);
   color: var(--signal);
   cursor: pointer;
   list-style: none;
@@ -96,7 +96,7 @@
 
 #drawer-docs {
   margin: 14px 0 0;
-  font: 400 11px var(--mono);
+  font: 400 11px var(--sans);
   color: var(--dim);
 }
 
@@ -157,7 +157,7 @@
   justify-content: center;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
-  font: 500 11px var(--mono);
+  font: 500 11px var(--sans);
   color: var(--dim);
 }
 

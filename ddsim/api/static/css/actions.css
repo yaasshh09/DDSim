@@ -64,7 +64,7 @@ button:disabled {
 
 #mesh-choice button {
   border-radius: 0;
-  font: 500 11px var(--mono);
+  font: 500 11px var(--sans);
   padding: 4px 10px;
 }
 
@@ -101,7 +101,7 @@ button:disabled {
 
 .region button {
   padding: 4px 7px;
-  font: 500 11px var(--mono);
+  font: 500 11px var(--sans);
 }
 
 .part {
@@ -133,7 +133,7 @@ button:disabled {
   margin-left: 5px;
   padding: 0;
   border-radius: 50%;
-  font: 500 11px/15px var(--mono);
+  font: 500 11px/15px var(--sans);
   color: var(--dim);
   background: transparent;
   border: 1px solid var(--line-strong);

@@ -47,7 +47,7 @@
   padding: 0;
   background: var(--ground);
   border-radius: var(--r);
-  font: 500 11px var(--mono);
+  font: 500 11px var(--sans);
 }
 
 #drawing-tool[size] option {
@@ -109,7 +109,7 @@
 }
 
 .part.headings span {
-  font: 400 11px var(--mono);
+  font: 400 11px var(--sans);
   color: var(--dim);
   padding: 0 2px;
 }
@@ -133,7 +133,7 @@
 }
 
 #drawing-note b {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-weight: 500;
   color: var(--ink-2);
 }

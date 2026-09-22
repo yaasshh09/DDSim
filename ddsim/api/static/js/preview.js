@@ -132,7 +132,7 @@ function drawPreview() {
   }
   pen.setLineDash([]);
   pen.lineWidth = 4;
-  pen.font = "11px 'Roboto Mono', ui-monospace, monospace";
+  pen.font = "11px 'Schibsted Grotesk', system-ui, sans-serif";
   for (const electrode of parts.electrodes) {
     pen.strokeStyle = electrode.kind === "gate" ? "#a992ef" : "#e8f1f2";
     pen.beginPath();

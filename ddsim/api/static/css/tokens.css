@@ -55,11 +55,13 @@
   --r-lg: 6px;
   --r-chip: 12px;
 
-  /* Archivo for language, Roboto Mono for anything a number lands in, so a
-     value never reflows when it changes under a live slider. Both are
-     vendored under /static/vendor/fonts. */
-  --sans: Archivo, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* One family, vendored under /static/vendor/fonts. It was two: a sans for
+     language and a monospace for anything a number landed in, so a value
+     would not reflow when a slider changed it. Tabular figures do that job
+     inside a proportional face, which is why body sets them below and why
+     the monospace is gone. A terminal face on a page that is not a terminal
+     was paying rent on a property it did not need to own. */
+  --sans: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* The one repeated measure in the layout: how far a legend or a footer
      sits in from the panel edge to clear the y axis labels. */

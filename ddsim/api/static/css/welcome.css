@@ -58,7 +58,7 @@ button.start span {
 /* What you get and roughly how long it takes, because every solve on this
    page costs real seconds and saying so up front is only fair. */
 button.start .shows {
-  font: 400 11px var(--mono);
+  font: 400 11px var(--sans);
   font-style: normal;
   color: var(--dim);
   padding-top: 8px;
@@ -75,7 +75,7 @@ button.start:hover .shows {
 }
 
 #welcome-more b {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-weight: 500;
   color: var(--signal);
 }
