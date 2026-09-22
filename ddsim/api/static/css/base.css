@@ -42,8 +42,11 @@ header h1 {
   color: var(--ink);
 }
 
+/* The phase badge. A badge rather than a control, but it is letterspaced and
+   it carries a fact, so it sits on the same 11 px floor as everything else
+   here rather than claiming the softer one that only smallprint gets. */
 .chip {
-  font: 500 10px var(--mono);
+  font: 500 11px var(--mono);
   letter-spacing: 0.04em;
   color: var(--signal);
   border: 1px solid var(--line-strong);
