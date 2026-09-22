@@ -55,6 +55,7 @@ from ddsim.api.frames import (
 )
 from ddsim.api.jobs import JobRegistry, JobStatus, Send
 from ddsim.api.learn import (
+    KNOB_LABELS,
     KNOB_TOPICS,
     PLOT_TOPICS,
     STATUS_TOPICS,
@@ -418,6 +419,10 @@ def _knob(parameter: Any) -> dict[str, Any]:
     """One settable knob as the form needs it."""
     return {
         "name": parameter.name,
+        # What to call it in words. The page leads with this and keeps the
+        # argument name beside it, so the form reads for somebody who has
+        # never met a MOSFET without taking the symbols off an engineer.
+        "label": KNOB_LABELS.get(parameter.name, parameter.name),
         "default": parameter.default,
         "type": parameter.type,
         "choices": list(parameter.choices),

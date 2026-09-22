@@ -51,6 +51,18 @@ label > span {
   min-width: 0;
 }
 
+/* The argument name, under the words. A knob reads "Gate length" first and
+   "L_gate cm" second, so the form works for somebody meeting a MOSFET today
+   without taking the symbols away from somebody who reads the docs. */
+label > span:first-child .symbol {
+  display: block;
+  font: 400 11px var(--mono);
+  font-style: normal;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+  margin-top: 1px;
+}
+
 .control {
   display: flex;
   flex-direction: column;

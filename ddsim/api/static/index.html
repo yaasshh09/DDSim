@@ -26,12 +26,14 @@
 <link rel="stylesheet" href="/static/css/actions.css">
 <link rel="stylesheet" href="/static/css/panels.css">
 <link rel="stylesheet" href="/static/css/learn.css">
+<link rel="stylesheet" href="/static/css/welcome.css">
 </head>
 <body>
 <header>
   <h1>DDSim</h1>
   <span class="chip">phase 5</span>
   <span class="rule"></span>
+  <button id="welcome-open" class="flat" type="button">what is this?</button>
   <span class="gap"></span>
   <span class="beacon"></span>
   <span id="state">loading the schema</span>
@@ -115,6 +117,20 @@
   </section>
 
   <section id="plots">
+    <section class="panel" id="welcome" hidden>
+      <h2>Start here<span class="of">pick something to simulate</span>
+        <span class="tools"><button id="welcome-skip" class="flat" type="button">skip for now</button></span>
+      </h2>
+      <p id="welcome-lede">This solves the equations that describe how electrons
+        and holes move through a piece of silicon, then draws what it found.
+        Nothing here is fitted or faked: shapes and doping go in, current comes
+        out. Pick a device to start with, or draw one yourself.</p>
+      <div id="welcome-cards"></div>
+      <p id="welcome-more" class="aside">Rather be walked through it? Pick a
+        guided lesson from the top of the left column. Every number, plot and
+        switch on this page has an <b>i</b> beside it that explains what it is.</p>
+    </section>
+
     <div class="panel" id="lesson-panel" hidden>
       <h2><span id="lesson-title"></span>
         <span class="tools"><button id="lesson-leave" class="flat" type="button">leave lesson, keep the device</button></span>
@@ -226,6 +242,7 @@
 <script src="/static/js/bands.js"></script>
 <script src="/static/js/streamlines.js"></script>
 <script src="/static/js/lessons.js"></script>
+<script src="/static/js/welcome.js"></script>
 <script src="/static/js/stack.js"></script>
 <script src="/static/js/drawing.js"></script>
 </body>

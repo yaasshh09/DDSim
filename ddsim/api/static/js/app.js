@@ -457,9 +457,18 @@ function putDevice(device) {
 function knob(parameter) {
   const label = document.createElement("label");
   const name = document.createElement("span");
-  name.textContent = parameter.name;
-  label.appendChild(name);
+  // Words first, the argument name after it. The schema carries both, so the
+  // page never invents either one. The symbol stays because it is what the
+  // docs, the saved files and the run labels all say.
+  name.textContent = parameter.label;
   name.appendChild(explainButton(() => explain(parameter.topic, parameter)));
+  // The symbol goes on after the button, because it is a block and anything
+  // appended after it would be pushed onto a third line of its own.
+  const symbol = document.createElement("i");
+  symbol.className = "symbol";
+  symbol.textContent = parameter.name + (parameter.unit ? " " + parameter.unit : "");
+  name.appendChild(symbol);
+  label.appendChild(name);
 
   let input;
   if (parameter.type === "bool") {
@@ -478,7 +487,13 @@ function knob(parameter) {
   } else {
     input = document.createElement("input");
     input.type = "text";
-    input.value = String(start(parameter));
+    // format() is what the slider writes, so a box that starts at 1e18 does
+    // not reshape itself into 1.0e+18 the first time it is nudged.
+    const first = start(parameter);
+    input.value =
+      parameter.type === "float" && typeof first === "number"
+        ? format(first)
+        : String(first);
   }
   input.dataset.name = parameter.name;
   input.dataset.kind = parameter.type;
@@ -627,6 +642,9 @@ async function schema() {
   el("node-budget").textContent = String(state.schema.node_budget);
   onDeviceKind();
   onSweepKind();
+  // Before "ready", so nothing can act on the page while the start screen is
+  // still being built. It hides itself once it has been dismissed once.
+  welcome();
   el("state").textContent = "ready";
   el("drawer-close").addEventListener("click", () => el("drawer").classList.remove("open"));
   markExplainable(document, state.schema.plots);

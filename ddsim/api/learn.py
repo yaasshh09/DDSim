@@ -321,6 +321,70 @@ KNOB_TOPICS: dict[str, str] = {
 """Which topic explains each knob, by argument name. A name shared by two
 devices means the same thing on both, which is why this is keyed by name."""
 
+KNOB_LABELS: dict[str, str] = {
+    # pn diode
+    "Na": "P-side doping",
+    "Nd": "N-side doping",
+    "length": "Device length",
+    "junction": "Junction position",
+    "n_nodes": "Mesh points",
+    "h_min": "Finest mesh spacing",
+    "anode_voltage": "Anode voltage",
+    "cathode_voltage": "Cathode voltage",
+    # 1D stack
+    "left_voltage": "Left contact voltage",
+    "right_voltage": "Right contact voltage",
+    # MOS capacitor
+    "substrate_doping": "Body doping",
+    "t_ox": "Oxide thickness",
+    "t_si": "Silicon thickness",
+    "width": "Device width",
+    "nx": "Mesh lines across",
+    "ny": "Mesh lines up",
+    "n_silicon": "Mesh lines in the silicon",
+    "n_oxide": "Mesh lines in the oxide",
+    "gate_voltage": "Gate voltage",
+    "body_voltage": "Body voltage",
+    "work_function": "Gate work function",
+    # nMOSFET
+    "L_gate": "Gate length",
+    "sd_length": "Source and drain length",
+    "contact_length": "Contact length",
+    "sd_peak": "Source and drain doping",
+    "x_j": "Junction depth",
+    "lateral_diffusion": "Sideways diffusion",
+    "n_contact": "Mesh lines at the contacts",
+    "n_sd": "Mesh lines in source and drain",
+    "n_channel": "Mesh lines along the channel",
+    "h_min_x": "Finest spacing across",
+    "h_min_y": "Finest spacing up",
+    "drain_voltage": "Drain voltage",
+    "source_voltage": "Source voltage",
+    "degenerate": "Heavy doping statistics",
+    # sweeps
+    "step": "First ramp step",
+    "start": "Start from",
+    "max_iterations": "Iteration budget",
+    "update_tol": "Convergence tolerance",
+    "response": "Which carriers follow",
+    # models
+    "mobility": "Mobility model",
+    "auger": "Auger recombination",
+    "field_dependent": "Velocity saturation",
+    "surface": "Surface scattering",
+}
+"""What to call each knob in words, by argument name.
+
+The argument names are the ones docs/01-physics.md uses and they are what a
+device engineer expects to see, but `t_ox` and `Na` say nothing to somebody
+meeting a MOSFET for the first time. The page shows the words first and keeps
+the symbol beside them, so neither reader has to translate.
+
+Keyed by name for the same reason KNOB_TOPICS is: a name shared by two
+devices means the same thing on both. A knob missing from here falls back to
+its own argument name, so a knob added to a constructor still renders.
+"""
+
 PLOT_TOPICS: dict[str, str] = {
     "residual-plot": "residual-plot",
     "legend-psi-residual": "newton",
