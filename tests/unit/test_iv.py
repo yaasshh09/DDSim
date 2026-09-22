@@ -310,6 +310,22 @@ def test_a_sweep_whose_first_point_stalls_raises() -> None:
         )
 
 
+def test_a_sweep_whose_cold_start_and_ramp_both_stall_raises() -> None:
+    """The third way in: the cold start fails without raising, so there is no
+    refusal to re-raise, and the ramp it falls back on fails as well.
+
+    The two tests above both leave the ramp a way through: at 0 V it has
+    nothing to ramp, and at 5 V the equilibrium solve raises before the ramp
+    is reached. Held at 0.2 V the equilibrium solve lands, the carrier loop
+    cannot meet the tolerance, and one Newton iteration is not enough for the
+    ramp either, so the sweep has nothing at all to continue from.
+    """
+    with pytest.raises(RuntimeError, match="did not converge"):
+        iv_sweep(
+            diode(), "anode", [0.2], start=0.2, max_iterations=1, update_tol=1e-30
+        )
+
+
 def test_a_floor_on_the_continuation_step_bounds_the_cost_of_a_stall() -> None:
     """min_step decides how hard a failing sweep tries before giving up.
 
