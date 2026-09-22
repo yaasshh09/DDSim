@@ -1,0 +1,144 @@
+/* Buttons, the region rows, and the affordance that opens the drawer.
+
+   Everything here is something pressed rather than something set. The split
+   from controls.css is by that, and by the 250 line ceiling the two files
+   would otherwise share.
+
+   The region rows in stack.js and drawing.js are built at runtime, so these
+   rules are written against generated markup: a .region is one region of a
+   1D stack, a .region.part is one rectangle of a 2D drawing, and a part has
+   up to nine fields so its row wraps. */
+
+/* --------------------------------------------------------------- the press */
+
+button {
+  font: 500 11px var(--sans);
+  color: var(--ink-2);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 6px 11px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The one primary action. It is the widest thing in the rail because it is
+   the only control that costs twenty seconds to undo. */
+#solve {
+  width: 100%;
+  margin-top: 18px;
+  font: 600 12.5px var(--sans);
+  letter-spacing: 0.02em;
+  color: var(--ground);
+  background: var(--signal);
+  border-color: var(--signal);
+  padding: 10px 0;
+}
+
+#solve:hover:not(:disabled) {
+  background: var(--signal-lift);
+  border-color: var(--signal-lift);
+  color: var(--ground);
+}
+
+/* A pair of buttons standing in for one choice: coarse against converged,
+   which is one setting and not two actions. */
+#mesh-choice {
+  gap: 0;
+}
+
+#mesh-choice > span {
+  font: 500 11px var(--sans);
+  color: var(--dim);
+  margin-right: 8px;
+}
+
+#mesh-choice button {
+  border-radius: 0;
+  font: 500 10.5px var(--mono);
+  padding: 4px 10px;
+}
+
+#mesh-choice button:first-of-type {
+  border-radius: var(--r) 0 0 var(--r);
+}
+
+#mesh-choice button:last-of-type {
+  border-radius: 0 var(--r) var(--r) 0;
+  border-left-width: 0;
+}
+
+/* ------------------------------------------------- regions and drawn parts */
+
+/* One region per line: dopant, length, doping, remove. Narrower boxes than a
+   knob's, so the four fit the rail. A drawn record has up to nine fields, so
+   .part wraps and rules itself off from the next one. */
+.region {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 5px 0;
+}
+
+.region select {
+  width: 52px;
+  padding: 4px 5px;
+}
+
+.region input[type="text"] {
+  width: 92px;
+  text-align: left;
+}
+
+.region button {
+  padding: 4px 7px;
+  font: 500 10.5px var(--mono);
+}
+
+.part {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+/* Wide enough for "silicon" and "uniform", the two longest choices a drawn
+   part offers, which the old 76 px clipped mid word. */
+.part select {
+  width: 88px;
+}
+
+.part input[type="text"] {
+  width: 70px;
+}
+
+/* ------------------------------------------------------------- the explain */
+
+/* The affordance that opens the drawer, on every knob that has a topic. It
+   is a letter and not an icon, so it says what it does at 10 px. */
+.explain {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-left: 5px;
+  padding: 0;
+  border-radius: 50%;
+  font: 500 9.5px/13px var(--mono);
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  vertical-align: 1px;
+}
+
+.explain:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+}
