@@ -726,7 +726,12 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
     width. The image used to stretch nx pixels across it, which put node i at
     (i + 0.5) / nx, so a cutline landed up to half a cell from what the
     picture showed under the cursor. A ramp in i, read back at each node's
-    pixel, has to be that node's own colour."""
+    pixel, has to be that node's own colour.
+
+    The colour expected at each node is asked of the page's own ramp rather
+    than written out again here. What this test is about is which node lands
+    under which pixel, and a second copy of the colour formula only made a
+    change of palette look like a change of placement."""
     with sync_playwright() as driver:
         browser = driver.chromium.launch()
         try:
@@ -748,23 +753,20 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
                   return [1, 2, 3].map((i) => {
                     const x = Math.round((i / (nx - 1)) * box.width * ratio);
                     const y = Math.round(0.5 * box.height * ratio);
-                    return Array.from(
-                      box.pen.getImageData(x, y, 1, 1).data.slice(0, 3));
+                    return {
+                      drawn: Array.from(
+                        box.pen.getImageData(x, y, 1, 1).data.slice(0, 3)),
+                      wanted: ramp(i / (nx - 1)),
+                    };
                   });
                 }"""
             )
 
-            def clamp(t: float) -> float:
-                return min(1.0, max(0.0, t))
-
-            for i, rgb in zip([1, 2, 3], read, strict=True):
-                t = i / 4
-                own = [
-                    round(255 * clamp(1.5 * t)),
-                    round(255 * clamp(1.5 * t - 0.25)),
-                    round(255 * clamp(1.6 - 1.5 * t)),
-                ]
-                assert rgb == pytest.approx(own, abs=4), (i, rgb, own)
+            for i, node in zip([1, 2, 3], read, strict=True):
+                assert node["drawn"] == pytest.approx(node["wanted"], abs=4), (
+                    i,
+                    node,
+                )
             assert errors == []
         finally:
             browser.close()

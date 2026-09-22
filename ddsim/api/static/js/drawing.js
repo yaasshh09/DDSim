@@ -125,8 +125,12 @@ function drawingSoFar() {
 
 // ------------------------------------------------------------- the preview
 
-const MATERIAL_FILL = { silicon: "#9aa4ae", oxide: "#bfe3f2" };
-const DOPANT_INK = { n: "#d1495b", p: "#1f6feb" };
+// The preview's palette, drawn from css/tokens.css. Silicon is the raised
+// surface the rest of the page uses for a control and oxide is a step darker,
+// so the stack reads without a legend. The two dopants take the warn and
+// signal hues, the same pairing the profile plot uses for n and p.
+const MATERIAL_FILL = { silicon: "#2d4a52", oxide: "#16252a" };
+const DOPANT_INK = { n: "#e3a74f", p: "#5fd4d6" };
 
 function extent(parts) {
   let width = 0, height = 0;
@@ -160,21 +164,21 @@ function drawPreview() {
   const at = previewFrame(box, parts);
   const pen = box.pen;
   for (const block of parts.blocks) {
-    pen.fillStyle = MATERIAL_FILL[block.material] || "#000";
+    pen.fillStyle = MATERIAL_FILL[block.material] || "#0b1417";
     pen.fillRect(at.x(block.x0), at.y(block.y1),
       at.x(block.x1) - at.x(block.x0), at.y(block.y0) - at.y(block.y1));
   }
   pen.setLineDash([4, 3]);
   for (const implant of parts.implants) {
-    pen.strokeStyle = DOPANT_INK[implant.dopant] || "#000";
+    pen.strokeStyle = DOPANT_INK[implant.dopant] || "#0b1417";
     pen.strokeRect(at.x(implant.x0), at.y(implant.y1),
       at.x(implant.x1) - at.x(implant.x0), at.y(implant.y0) - at.y(implant.y1));
   }
   pen.setLineDash([]);
   pen.lineWidth = 4;
-  pen.font = "11px ui-monospace, monospace";
+  pen.font = "11px 'Roboto Mono', ui-monospace, monospace";
   for (const electrode of parts.electrodes) {
-    pen.strokeStyle = electrode.kind === "gate" ? "#c9a227" : "#222";
+    pen.strokeStyle = electrode.kind === "gate" ? "#a992ef" : "#e8f1f2";
     pen.beginPath();
     pen.moveTo(at.x(electrode.x0), at.y(electrode.y0));
     pen.lineTo(at.x(electrode.x1), at.y(electrode.y1));

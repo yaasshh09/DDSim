@@ -1,6 +1,9 @@
 "use strict";
 
-const BLUE = "#1f6feb", PURPLE = "#8250df", GREEN = "#1a7f37", RED = "#b23c17";
+// The four trace colours, matching the .swatch rules in css/panels.css. The
+// names say which line they draw and not which hue they are, because the hue
+// belongs to the design system and the meaning does not.
+const BLUE = "#5fd4d6", PURPLE = "#a992ef", GREEN = "#e3a74f", RED = "#ea7a68";
 
 const el = (id) => document.getElementById(id);
 
@@ -111,7 +114,7 @@ function axes(pen, box, xs, ys, options) {
   pen.stroke();
 
   pen.fillStyle = (options && options.ink) || ink("--muted");
-  pen.font = "11px ui-monospace, monospace";
+  pen.font = "10px 'Roboto Mono', ui-monospace, monospace";
   pen.textAlign = right ? "left" : "right";
   const labelX = right ? inner.x + inner.width + 6 : inner.x - 6;
   for (let i = 0; i <= 4; i++) {
@@ -236,7 +239,7 @@ function showRuns() {
   note.textContent = "";
   for (const run of state.runs) {
     const entry = document.createElement("span");
-    entry.innerHTML = '<i class="swatch" style="background:#1f6feb;opacity:0.4"></i>';
+    entry.innerHTML = '<i class="swatch" style="background:#4d6b72"></i>';
     entry.appendChild(document.createTextNode(run.label));
     note.appendChild(entry);
   }
@@ -348,6 +351,28 @@ function drawProfile() {
   line(box.pen, carriers, xs, fields.arrays.p, RED);
 }
 
+// The field image's colour ramp: the page ground, the mid teal, then the
+// signal cyan. Three stops interpolated straight in sRGB, low to high, which
+// is a sequential ramp because the value it paints has already been shifted
+// to run from 0 to 1 and no point on it means more than "further along".
+// A rainbow would invent a boundary wherever its hue turns.
+const RAMP = [
+  [19, 34, 39],
+  [43, 111, 116],
+  [95, 212, 214],
+];
+
+function ramp(t) {
+  const span = t < 0.5 ? 0 : 1;
+  const within = t * 2 - span;
+  const low = RAMP[span], high = RAMP[span + 1];
+  return [
+    Math.round(low[0] + (high[0] - low[0]) * within),
+    Math.round(low[1] + (high[1] - low[1]) * within),
+    Math.round(low[2] + (high[2] - low[2]) * within),
+  ];
+}
+
 function drawImage(box, fields) {
   const ny = fields.shape[0], nx = fields.shape[1];
   const values = fields.arrays.psi;
@@ -364,13 +389,14 @@ function drawImage(box, fields) {
   const image = box.pen.createImageData(nx, ny);
   for (let j = 0; j < ny; j++) {
     for (let i = 0; i < nx; i++) {
-      const t = (values[j * nx + i] - lo) / (hi - lo);
+      const t = clamp((values[j * nx + i] - lo) / (hi - lo));
+      const colour = ramp(t);
       // y[0] is the bottom of the substrate and a canvas counts rows from
       // the top, so row j is painted at ny - 1 - j and the gate is up.
       const at = 4 * ((ny - 1 - j) * nx + i);
-      image.data[at] = Math.round(255 * clamp(1.5 * t));
-      image.data[at + 1] = Math.round(255 * clamp(1.5 * t - 0.25));
-      image.data[at + 2] = Math.round(255 * clamp(1.6 - 1.5 * t));
+      image.data[at] = colour[0];
+      image.data[at + 1] = colour[1];
+      image.data[at + 2] = colour[2];
       image.data[at + 3] = 255;
     }
   }

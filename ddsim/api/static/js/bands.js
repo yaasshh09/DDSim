@@ -8,8 +8,10 @@ function drawBands(box, xs, pick) {
   const Ec = pick("Ec"), Ev = pick("Ev"), Efn = pick("Efn"), Efp = pick("Efp");
   const all = Array.from(Ec).concat(Array.from(Ev), Array.from(Efn), Array.from(Efp));
   const frame = axes(box.pen, box, xs, all, { logY: false });
+  // Four bands, four colours. Ec and Ev shared one until the design gave the
+  // valence band its own, and two curves in the same ink read as one curve.
   line(box.pen, frame, xs, Ec, BLUE);
-  line(box.pen, frame, xs, Ev, BLUE);
+  line(box.pen, frame, xs, Ev, PURPLE);
   line(box.pen, frame, xs, Efn, GREEN);
   line(box.pen, frame, xs, Efp, RED);
 }
