@@ -234,17 +234,6 @@ function drawCurve() {
   showRuns();
 }
 
-function showRuns() {
-  const note = el("runs-note");
-  note.textContent = "";
-  for (const run of state.runs) {
-    const entry = document.createElement("span");
-    entry.innerHTML = '<i class="swatch" style="background:#4d6b72"></i>';
-    entry.appendChild(document.createTextNode(run.label));
-    note.appendChild(entry);
-  }
-}
-
 // What one request asks for, flattened to names and values. Used only to say
 // how two runs differ, which is a comparison of the requests and not of any
 // physics: the page is reading back what it sent.

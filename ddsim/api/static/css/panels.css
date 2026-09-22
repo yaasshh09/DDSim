@@ -180,7 +180,34 @@ canvas {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  padding: 8px 10px;
+  padding: 8px 10px 6px;
+}
+
+/* The run on screen, drawn in the colour the big plot draws it in. */
+#runs-note > span.current {
+  border-color: var(--signal);
+  background: var(--raised);
+}
+
+#runs-note > span > b {
+  display: block;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+#runs-note > span.current > b {
+  color: var(--ink);
+}
+
+/* Every card shares one frame, so a curve carrying ten times the current of
+   another sits higher rather than being rescaled to look identical. The
+   height is fixed because the picture is a comparison and not a reading: the
+   numbers are on the plot it was cut from. */
+#runs-note svg {
+  display: block;
+  width: 100%;
+  height: 26px;
+  margin-top: 7px;
 }
 
 /* In the rail a run is one of a list rather than a trace on an axis, so its

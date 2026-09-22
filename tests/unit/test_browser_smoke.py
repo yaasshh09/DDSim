@@ -571,7 +571,15 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(
             solved(page, errors)
             label = page.inner_text("#runs-note")
             assert "regions" in label and "object" not in label
-
+            # Each run in the rail carries a picture of its own curve: the
+            # one on screen and the one kept from the first solve. This sweep
+            # stops after 0 V, and a one-point run still gets its dot.
+            # "done" lands before the final curve is fetched, so this waits.
+            wait_until(
+                page,
+                "document.querySelectorAll('#runs-note svg polyline').length === 2",
+                errors,
+            )
             set_region(page, 2, "n", "1e-4", "1e21")
             page.click("#solve")
             wait_until(page, "el('state').textContent === 'refused'", errors)
