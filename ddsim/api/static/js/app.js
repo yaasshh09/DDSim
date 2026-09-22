@@ -696,9 +696,12 @@ function clear() {
   state.cutline = null;
   el("cutline-panel").hidden = true;
   el("message").textContent = "";
-  el("curve-note").textContent = "no points yet";
-  el("residual-note").textContent = "";
-  el("profile-note").textContent = "";
+  // An empty plot says what will appear in it rather than that it is empty.
+  // "no points yet" is true and tells somebody who has just arrived nothing
+  // about what they are waiting for.
+  el("curve-note").textContent = "a point lands here as each voltage is solved";
+  el("residual-note").textContent = "fills in while a solve is running";
+  el("profile-note").textContent = "the inside of the device, once it is solved";
   el("point").disabled = true;
   el("point").max = "0";
   drawResidual();
