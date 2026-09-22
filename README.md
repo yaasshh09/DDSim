@@ -498,4 +498,4 @@ failed regardless of how good the plots look.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+CC BY-NC 4.0. You can use, share and adapt it for non-commercial work as long as you credit me. See [LICENSE](LICENSE).

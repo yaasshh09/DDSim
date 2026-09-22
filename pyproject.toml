@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ddsim"
 version = "0.1.0"
 description = "Drift-diffusion semiconductor device simulator"
-license = "MIT"
+license = "CC-BY-NC-4.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "scipy>=1.11"]
