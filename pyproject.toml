@@ -50,6 +50,7 @@ include = ["ddsim*"]
 # and there is no build step, so an installed ddsim can serve it.
 ddsim = [
   "api/static/*.html",
+  "api/static/css/*.css",
   "api/static/js/*.js",
   "api/static/learn/*.md",
   "api/lessons/*.md",

@@ -1,0 +1,67 @@
+/* Every colour, type face and radius the page uses, named once.
+
+   The ground is a deep slate-teal rather than black, one cyan carries signal,
+   and the three trace hues sit at matched chroma so psi, n and p read as
+   equals on a plot. Nothing here is decorative: a colour in this file either
+   separates two surfaces, ranks two pieces of text, or names a quantity.
+
+   app.js reads --ink, --muted and --grid back out through getComputedStyle to
+   paint the canvases, so those three names are load bearing. Renaming one
+   silently blanks a plot. */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, darkest first. Four steps, each separated by an explicit
+     border rather than by a shadow, so depth survives a dimmed screen. */
+  --ground: #0b1417;
+  --rail: #0e1a1e;
+  --panel: #111d21;
+  --raised: #16252a;
+
+  --line: #233a41;
+  --line-strong: #2d4a52;
+  --line-bright: #3d616a;
+  --grid: #1b2e34;
+
+  /* Text, brightest first. --ink is also the canvas axis colour. */
+  --ink: #e8f1f2;
+  --ink-2: #b6ccd0;
+  --ink-3: #8fa9ae;
+  --muted: #7d989e;
+
+  /* The design doc sets these two at #5f8189 and #4d6b72. Both are lifted
+     here. --dim carries the section headers and the legend notes and it
+     measured 3.74:1 on --raised, under the 4.5:1 AA floor for text; it now
+     measures 4.80:1 at worst. --faint is never text, only a disabled slider
+     thumb and the idle beacon, so it is held to the 3:1 bar for a user
+     interface component and measures 3.17:1 at worst. */
+  --dim: #6f949c;
+  --faint: #55757d;
+
+  /* Signal. One accent, three traces, one warning that doubles as the n
+     trace because no plot shows both meanings at once. */
+  --signal: #5fd4d6;
+  --signal-lift: #7ae0e2;
+  --warn: #e3a74f;
+  --hot: #ea7a68;
+  --violet: #a992ef;
+
+  /* Tight and intentional. Nothing here is a pill except a run chip, which
+     is a chip because it is one of a row of labels. */
+  --r-sm: 3px;
+  --r: 4px;
+  --r-md: 5px;
+  --r-lg: 6px;
+  --r-chip: 12px;
+
+  /* Archivo for language, Roboto Mono for anything a number lands in, so a
+     value never reflows when it changes under a live slider. Both are
+     vendored under /static/vendor/fonts. */
+  --sans: Archivo, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* The one repeated measure in the layout: how far a legend or a footer
+     sits in from the panel edge to clear the y axis labels. */
+  --axis-gutter: 52px;
+}

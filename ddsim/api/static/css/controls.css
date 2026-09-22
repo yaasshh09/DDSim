@@ -1,0 +1,306 @@
+/* Every knob on the page.
+
+   The form is built at runtime: app.js knob() makes a label holding a name
+   span and a .control span, and slider() may add a range under the box. The
+   region rows in stack.js and drawing.js follow the same shape. So the rules
+   here are written against that generated markup, not against a hand written
+   tree, and a knob the schema grows tomorrow is styled the moment it exists.
+
+   The checkboxes are restyled rather than replaced. A label wrapping a hidden
+   input and a painted div is the usual trick and it costs the element its
+   box: test_browser_smoke asserts is_visible on #bands. These keep their own
+   30 by 16 box and paint themselves, so they stay real controls. */
+
+/* Flex and not grid, because a label can end up with three children: learn.js
+   appends an explain button to anything carrying a data-topic-id, and under a
+   two column grid that third child dropped onto a row of its own. */
+label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 4px 0;
+}
+
+/* The explain button lands in two different places depending on the knob:
+   inside the name span for a knob app.js built, and appended to the label for
+   one the page wrote with a data-topic-id. Ordering the row by role rather
+   than by document position puts it after the name either way, so every
+   control in the rail still ends on the same right edge. */
+label > span:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  order: 0;
+}
+
+label > .explain {
+  order: 1;
+}
+
+label > .control,
+label > input,
+label > select,
+label > textarea {
+  order: 2;
+}
+
+label > span {
+  font: 500 11.5px var(--sans);
+  color: var(--ink-3);
+  min-width: 0;
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* ------------------------------------------------------------ boxes, lists */
+
+input,
+select,
+button,
+textarea {
+  font: 500 12px var(--mono);
+  color: var(--ink);
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  padding: 4px 8px;
+}
+
+input[type="text"],
+input[type="number"] {
+  width: 118px;
+  text-align: right;
+}
+
+select {
+  width: 118px;
+  background: var(--raised);
+  border-color: var(--line-strong);
+  padding: 5px 8px;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  font: 400 11px/1.6 var(--mono);
+  color: var(--ink-2);
+  padding: 7px 8px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 1px solid var(--signal);
+  outline-offset: 1px;
+}
+
+/* --------------------------------------------------------------- the range */
+
+input[type="range"] {
+  appearance: none;
+  width: 118px;
+  height: 9px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--raised);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 9px;
+  height: 9px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb {
+  background: var(--faint);
+}
+
+/* ------------------------------------------------------------ the switches */
+
+input[type="checkbox"] {
+  appearance: none;
+  width: 30px;
+  height: 16px;
+  flex: none;
+  padding: 0;
+  border-radius: 9px;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  position: relative;
+  cursor: pointer;
+}
+
+input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--signal);
+  border-color: var(--signal);
+}
+
+input[type="checkbox"]:checked::after {
+  left: auto;
+  right: 2px;
+  background: var(--ground);
+}
+
+/* A switch that is on is worth reading, so its name brightens with it. */
+label:has(input[type="checkbox"]:checked) > span {
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------- the press */
+
+button {
+  font: 500 11px var(--sans);
+  color: var(--ink-2);
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 6px 11px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--line-bright);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* The one primary action. It is the widest thing in the rail because it is
+   the only control that costs twenty seconds to undo. */
+#solve {
+  width: 100%;
+  margin-top: 18px;
+  font: 600 12.5px var(--sans);
+  letter-spacing: 0.02em;
+  color: var(--ground);
+  background: var(--signal);
+  border-color: var(--signal);
+  padding: 10px 0;
+}
+
+#solve:hover:not(:disabled) {
+  background: var(--signal-lift);
+  border-color: var(--signal-lift);
+  color: var(--ground);
+}
+
+/* A pair of buttons standing in for one choice: coarse against converged,
+   which is one setting and not two actions. */
+#mesh-choice {
+  gap: 0;
+}
+
+#mesh-choice > span {
+  font: 500 11px var(--sans);
+  color: var(--dim);
+  margin-right: 8px;
+}
+
+#mesh-choice button {
+  border-radius: 0;
+  font: 500 10.5px var(--mono);
+  padding: 4px 10px;
+}
+
+#mesh-choice button:first-of-type {
+  border-radius: var(--r) 0 0 var(--r);
+}
+
+#mesh-choice button:last-of-type {
+  border-radius: 0 var(--r) var(--r) 0;
+  border-left-width: 0;
+}
+
+/* ------------------------------------------------- regions and drawn parts */
+
+/* One region per line: dopant, length, doping, remove. Narrower boxes than a
+   knob's, so the four fit the rail. A drawn record has up to nine fields, so
+   .part wraps and rules itself off from the next one. */
+.region {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 5px 0;
+}
+
+.region select {
+  width: 52px;
+  padding: 4px 5px;
+}
+
+.region input[type="text"] {
+  width: 92px;
+  text-align: left;
+}
+
+.region button {
+  padding: 4px 7px;
+  font: 500 10.5px var(--mono);
+}
+
+.part {
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+.part select {
+  width: 76px;
+}
+
+.part input[type="text"] {
+  width: 70px;
+}
+
+/* ------------------------------------------------------------- the explain */
+
+/* The affordance that opens the drawer, on every knob that has a topic. It
+   is a letter and not an icon, so it says what it does at 10 px. */
+.explain {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin-left: 5px;
+  padding: 0;
+  border-radius: 50%;
+  font: 500 9.5px/13px var(--mono);
+  color: var(--dim);
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  vertical-align: 1px;
+}
+
+.explain:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+}
