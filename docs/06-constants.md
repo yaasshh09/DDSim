@@ -1,10 +1,10 @@
 # Constants
 
-Single source of truth. `core/constants.py` mirrors this file exactly. If a
-number appears anywhere else in the codebase, that is a bug.
+The single source of truth. `core/constants.py` mirrors this file exactly, and
+a number showing up anywhere else in the codebase is a bug.
 
-Convention: lengths in cm, concentrations in cm^-3, matching the semiconductor
-literature. Do not switch to SI lengths.
+Convention: lengths in cm and concentrations in cm^-3, like the semiconductor
+literature. Don't switch to SI lengths.
 
 ## Fundamental
 
@@ -24,8 +24,8 @@ literature. Do not switch to SI lengths.
 | kT | 0.0258520 | eV | |
 | SS_min | 0.059526 | V/decade | V_T * ln(10), thermodynamic floor |
 
-Make T a parameter, not a constant. Every temperature-dependent value should be
-a function of T. Room temperature results are the default, not the only case.
+Make T a parameter, not a constant. Every temperature dependent value should
+be a function of T. Room temperature is the default, not the only case.
 
 ## Silicon
 
@@ -41,49 +41,53 @@ a function of T. Room temperature results are the default, not the only case.
 
 ### The n_i problem, read this
 
-Silicon n_i at 300 K is quoted as 9.65e9 (Sproul and Green, the modern accepted
-measurement), 1.0e10 (rounded, most common in teaching), and 1.45e10 (older
-literature, still embedded in many tools and textbooks).
+Silicon n_i at 300 K gets quoted as 9.65e9 (Sproul and Green, the modern
+accepted measurement), 1.0e10 (rounded, and the most common in teaching) and
+1.45e10 (older literature, still baked into plenty of tools and textbooks).
 
-A factor of 1.5 in n_i is a factor of 2.25 in n_i^2, which propagates directly
-into saturation current and shifts built-in potential by about 10 mV.
+A factor of 1.5 in n_i is a factor of 2.25 in n_i^2. That goes straight into
+the saturation current and shifts the built-in potential by about 10 mV.
 
-**Decision: use 1.0e10.** Rationale: it matches most textbook worked examples,
-which are the analytic targets in Tier 2 validation.
+**Decision: use 1.0e10.** It matches most textbook worked examples, and those
+are the analytic targets in Tier 2 validation.
 
-**Non-negotiable:** set n_i explicitly in DEVSIM when generating golden data. Do
-not accept its default. A silent n_i mismatch will show up as a clean-looking 2x
-discrepancy in diode current that costs a day to track down.
+**Non-negotiable:** set n_i explicitly in DEVSIM when generating golden data,
+and never take its default. A silent n_i mismatch shows up as a clean looking
+2x gap in diode current that takes a day to track down.
 
 Record any change to this value in `docs/07-decisions.md`, and regenerate all
-golden data.
+the golden data.
 
 ### n_i is not consistent with Nc, Nv and Eg, and that is deliberate
 
-Nothing above says so, so say it here. The three values in the table do not
-satisfy the relation that connects them:
+Nothing above says so, so I'll say it here. The three values in the table
+don't satisfy the relation that connects them:
 
     sqrt(Nc * Nv) * exp(-Eg / (2 * V_T)) = 1.0757e10 cm^-3
 
-against the 1.0e10 we use. That is 7.6 percent in n_i and 16 percent in n_i^2.
-Nc and Nv are measured 300 K values and n_i is anchored by the decision above,
-so they cannot both be primary and no amount of rearranging makes them agree.
+against the 1.0e10 we use. That's 7.6 percent in n_i and 16 percent in
+n_i^2. Nc and Nv are measured 300 K values and n_i is pinned by the decision
+above, so they can't both be primary, and no amount of rearranging makes them
+agree.
 
-How the code resolves it: n_i(300) is pinned to 1.0e10 and the physics supplies
-only the temperature dependence,
+How the code handles it: n_i(300) is pinned to 1.0e10 and the physics only
+supplies the temperature dependence,
 
     n_i(T) = n_i(300) * (T/300)^(3/2)
                       * exp(Eg(300)/(2 V_T(300)) - Eg(T)/(2 V_T(T)))
 
 where the power law carries the Nc*Nv scaling and the exponential carries the
-gap. The ratio n_i^2 / (Nc Nv exp(-Eg/V_T)) is then exactly temperature
-independent, which is tested. Eg comes from the Varshni formula rather than the rounded 1.1242 in the
-table; the two differ by 8.1e-5 eV and the formula is the definition.
+gap. The ratio n_i^2 / (Nc Nv exp(-Eg/V_T)) is then exactly independent of
+temperature, and that's tested. Eg comes from the Varshni formula, not the
+rounded 1.1242 in the table; the two differ by 8.1e-5 eV and the formula is
+the definition.
 
-This is fine as long as nothing computes an absolute band edge position or a
-Fermi level from Nc, because that is where a 7.6 percent inconsistency stops
-being bookkeeping and starts being a wrong answer. Phase 5 degenerate statistics
-is where it has to be settled.
+That's fine as long as nothing computes an absolute band edge or a Fermi
+level from Nc, because that's where a 7.6 percent inconsistency stops being
+bookkeeping and becomes a wrong answer. The Phase 5 degenerate statistics
+keep n_i and multiply by a degeneracy factor rather than writing the density
+from Nc, and the band diagram places its edges from the pinned n_i, so the
+drawn gap absorbs the inconsistency instead.
 
 ## Silicon dioxide
 
@@ -98,7 +102,7 @@ is where it has to be settled.
 The gate is a Dirichlet condition on psi with the work function difference
 folded in, `psi_gate = V_gate - Phi_MS`. A wrong Phi_MS slides the whole C-V
 curve along the voltage axis without changing its shape, so all three regimes
-still look right. That is why Phase 4 gates flatband at 20 mV rather than
+still look right. That's why Phase 4 gates flatband at 20 mV instead of
 trusting the curve.
 
 | Name | Value | Units | Note |
@@ -114,12 +118,12 @@ The semiconductor side is
 
 **asinh, not `V_T * ln(N/n_i)`.** Same reason as the contact potential in
 docs/05-pitfalls.md: the log form is -inf at zero doping and nan for the other
-sign, and both occur in a real substrate. asinh is smooth through zero and
+sign, and both happen in a real substrate. asinh is smooth through zero and
 antisymmetric, so intrinsic silicon lands exactly at midgap and equal n and p
 doping give exactly opposite offsets. The two agree to twelve digits wherever
 the log form is valid.
 
-Computed values, for checking against a textbook worked example:
+Computed values, to check against a textbook worked example:
 
 | Gate | Substrate | Phi_MS |
 |---|---|---|
@@ -128,13 +132,13 @@ Computed values, for checking against a textbook worked example:
 | n+ poly | p-type 1e17 | -0.9787 V |
 | p+ poly | n-type 1e16 | +0.9192 V |
 
-The -0.92 V at 1e16 is the standard NMOS number. The sign is the easy thing to
-get wrong and it moves flatband by nearly two volts.
+The -0.92 V at 1e16 is the standard NMOS number. The sign is the easy thing
+to get wrong, and it moves flatband by nearly two volts.
 
-The two polysilicon values are idealisations: real degenerate poly sits a few
-tens of meV inside the gap rather than exactly on the band edge, and heavy
-doping narrows the gap as well. Both are far below the 20 mV gate, so this is
-recorded rather than modelled.
+The two polysilicon values are idealised. Real degenerate poly sits a few tens
+of meV inside the gap rather than right on the band edge, and heavy doping
+narrows the gap too. Both effects are far below the 20 mV gate, so I've
+recorded them instead of modelling them.
 
 ## Mobility, undoped silicon at 300 K
 
@@ -156,14 +160,14 @@ recorded rather than modelled.
 | N_ref | 1.432e17 * (T/300)^2.546 | 2.67e17 * (T/300)^2.546 |
 | A | 0.88 * (T/300)^-0.146 | 0.88 * (T/300)^-0.146 |
 
-Masetti is the TCAD standard and is preferable if matching DEVSIM tightly.
-Its parameters are in the DEVSIM documentation.
+Masetti is the TCAD standard and the better choice for matching DEVSIM
+tightly. Its parameters are in the DEVSIM documentation.
 
 ### Caughey-Thomas
 
     mu(E) = mu_0 / (1 + (mu_0 * E_par / v_sat)^beta)^(1/beta)
 
-beta = 2 for electrons, beta = 1 for holes.
+beta = 2 for electrons and 1 for holes.
 
 ### Lombardi surface mobility, enhanced form
 
@@ -175,8 +179,8 @@ Matthiessen's rule:
     mu_sr  = delta * E_perp^(-gamma)
     gamma  = A + alpha * (n + p) * N^(-eta)
 
-E_perp is the magnitude of the field normal to the interface [V/cm], floored
-at 1e2 as DEVSIM floors it, since both terms divide by it. N is the total
+E_perp is the size of the field normal to the interface [V/cm], floored at
+1e2 the way DEVSIM floors it, since both terms divide by it. N is the total
 doping and n + p the local carrier density.
 
 | Param | Electrons | Holes |
@@ -190,20 +194,20 @@ doping and n + p the local carrier density.
 | eta | 0.0767 | 0.123 |
 | kappa | 1.7 | 0.9 |
 
-Unlike every other table in this file these are not silicon constants, they
-are one published fit, and they are here because the model has to have
-numbers and no other doc in this repo carries them. They are the values
-DEVSIM ships in its `python_packages/Klaassen.py`, taken from there rather
-than from a textbook so that the tier 4 MOSFET regressions compare two runs of
-the same model. The 1988 Lombardi model is this with gamma fixed at 2.
+Unlike every other table in this file, these aren't silicon constants. They're
+one published fit, and they live here because the model needs numbers and no
+other doc in the repo carries them. They're the values DEVSIM ships in its
+`python_packages/Klaassen.py`, taken from there rather than a textbook so the
+tier 4 MOSFET regressions compare two runs of the same model. The 1988
+Lombardi model is this with gamma fixed at 2.
 
-Composition order matters and is the reference's: the bulk mobility is
-corrected for the surface first, at nodes, and velocity saturation is applied
-afterwards on the edges with the parallel field.
+The order they're combined in matters, and it's the reference's order: the
+bulk mobility gets its surface correction first, at nodes, and velocity
+saturation is applied afterwards on the edges with the parallel field.
 
 ## SRH lifetimes
 
-Defaults, Scharfetter doping dependence:
+Defaults, with Scharfetter doping dependence:
 
 | Param | Electrons | Holes |
 |---|---|---|
@@ -233,24 +237,24 @@ Extrinsic Debye length, `sqrt(eps_Si * V_T / (q * N))`:
 | 1e18 | 4.09 nm | mesh must resolve this |
 | 1e20 | 0.409 nm | continuum model straining |
 
-Intrinsic Debye length at n_i = 1e10 is **40.9 um**, from the same formula with
-N = n_i. An earlier revision of this file said 24 um. That number is
+The intrinsic Debye length at n_i = 1e10 is **40.9 um**, from the same formula
+with N = n_i. An earlier version of this file said 24 um. That number is
 `sqrt(eps_Si * V_T / (2 * q * 1.45e10))`, so it carried both a stray factor of
-2 and the superseded n_i = 1.45e10.
+2 and the old n_i = 1.45e10.
 
-Built-in potential, 1e16 / 1e16 abrupt junction: **0.7143 V**, from
-`V_T * ln(Na*Nd/n_i^2)`. An earlier revision said 0.695 V, which is the same
-formula evaluated at n_i = 1.45e10. This one matters: it is an acceptance target
-in phases/PHASE-1.md, and a 19 mV offset in V_bi reads exactly like a boundary
+Built-in potential of a 1e16 / 1e16 abrupt junction: **0.7143 V**, from
+`V_T * ln(Na*Nd/n_i^2)`. An earlier version said 0.695 V, which is the same
+formula at n_i = 1.45e10. This one matters. It's an acceptance target in
+phases/PHASE-1.md, and a 19 mV offset in V_bi looks exactly like a boundary
 condition sign error.
 
 ## Provenance
 
-Nc and Nv are currently hardcoded. They derive from effective masses:
+Nc and Nv are hardcoded for now. They come from the effective masses:
 
     Nc = 2 * (2*pi * m_e* * k * T / h^2)^(3/2) * M_c
     Nv = 2 * (2*pi * m_h* * k * T / h^2)^(3/2)
 
-If the band structure layer is ever built, these become computed values.
-Structure `constants.py` so that swap requires touching one function, not
-grepping the codebase.
+If the band structure layer ever gets built, these become computed values.
+Keep `constants.py` structured so that swap means touching one function, not
+grepping the whole codebase.
