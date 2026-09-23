@@ -1,17 +1,13 @@
-# Python bytecode
 __pycache__/
 *.py[cod]
 
-# Editable install and build output
 *.egg-info/
 build/
 dist/
 
-# Virtual environments
 .venv/
 .venv-devsim/
 
-# Test, coverage and type check caches
 .pytest_cache/
 .coverage
 coverage.xml
@@ -19,22 +15,15 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Editors
 .vscode/
 .idea/
 
-# Folder cruft
 Thumbs.db
 Desktop.ini
 .DS_Store
 
-# The typeface release, dropped here to be subset into
-# ddsim/api/static/vendor/fonts by tools/vendor_client_libs.py. Seventeen
-# faces and three megabytes, of which the page ships two weights and 33 KB.
-# A clone runs from the vendored subsets and never reads this.
 /fonts/
 
-# Local notes and assistant state, never part of the repo
 CLAUDE.md
 CLAUDE.local.md
 fable-brain.md
