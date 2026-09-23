@@ -544,6 +544,51 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) ->
             browser.close()
 
 
+def test_a_negative_log_slider_runs_in_decades_and_a_2d_one_does_not_solve(
+    server,
+) -> None:
+    """A p-type body is a negative doping, and log10 of it is NaN, which
+    parked the slider at its middle. It runs in decades of the size instead.
+    A 2D device takes seconds to minutes a solve, so its slider only sets the
+    knob and the solve button stays the way to run it."""
+    drag = """(at) => {
+      const slider = document.querySelector('[data-slider="substrate_doping"]');
+      slider.value = String(Number(slider.min) + at * (slider.max - slider.min));
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    }"""
+    box = """() => Number(document.querySelector(
+      '#device-knobs [data-name="substrate_doping"]').value)"""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.select_option("#device-kind", "mos_cap")
+
+            slider = '[data-slider="substrate_doping"]'
+            assert page.get_attribute(slider, "min") == "-19"
+            assert page.get_attribute(slider, "max") == "-14"
+            assert page.input_value(slider) == "-16"
+
+            before = page.evaluate("state.job")
+            page.evaluate(drag, 0.0)
+            assert page.evaluate(box) == -1e19
+            page.evaluate(drag, 1.0)
+            assert page.evaluate(box) == -1e14
+            page.evaluate(drag, 0.5)
+            assert math.isclose(page.evaluate(box), -(10**16.5), rel_tol=2e-2)
+
+            page.wait_for_timeout(1000)
+            assert page.evaluate("state.job") == before
+            assert page.inner_text("#state") == "ready"
+            assert errors == []
+        finally:
+            browser.close()
+
+
 def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server) -> None:
     """phases/PHASE-7.md Stage 3: a lesson sets up its device, tells the
     student what to change, and can be left at any point with the device kept

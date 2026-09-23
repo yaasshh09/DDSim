@@ -514,11 +514,15 @@ function knob(parameter) {
 }
 
 // Where a value sits on its slider, and back. A log knob's slider runs in
-// decades. Positions on a screen, like the plot axes.
+// decades. Positions on a screen, like the plot axes. A p-type body is a
+// negative doping, so a log range below zero runs in decades of its size,
+// mirrored to keep more negative on the left.
 const position = (parameter, value) =>
-  parameter.axis === "log" ? decades(value) : value;
+  parameter.axis !== "log" ? value
+    : parameter.low < 0 ? -decades(-value) : decades(value);
 const unposition = (parameter, at) =>
-  parameter.axis === "log" ? undecades(at) : at;
+  parameter.axis !== "log" ? at
+    : parameter.low < 0 ? -undecades(-at) : undecades(at);
 const within = (parameter, value) =>
   parameter.low === null || parameter.high === null
     ? value

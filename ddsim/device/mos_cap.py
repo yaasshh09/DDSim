@@ -80,21 +80,31 @@ def mos_cap(
         substrate_doping: net doping of the substrate [cm^-3], negative for
             p-type. The sign convention is net doping everywhere in this
             codebase, so -1e16 is the ordinary NMOS body.
-        t_ox: oxide thickness [cm]. 1e-6 is 10 nm.
+            Range -1e19 to -1e14, log. p-type only on the page, because one
+            log slider cannot cross zero.
+        t_ox: oxide thickness [cm]. 1e-6 is 10 nm. Range 1e-7 to 1e-5, log.
         t_si: silicon thickness [cm]. Several times the maximum depletion
             width, or the body contact holds the depletion region open.
+            Range 5e-5 to 1e-3, log.
         width: device width [cm]. Nothing depends on it; the capacitance is
-            per unit area.
-        nx: node count across the device, at least 2 [1].
+            per unit area. Range 1e-6 to 1e-4, log.
+        nx: node count across the device, at least 2 [1]. Range 2 to 21.
         n_silicon: node count through the silicon, including the interface [1].
+            Range 21 to 401.
         n_oxide: node count through the oxide, including the interface [1].
+            Range 2 to 41.
         h_min: mesh spacing at the silicon surface [cm]. 5e-8 is 0.5 nm, which
-            resolves an inversion layer.
-        gate_voltage: bias on the gate [V].
-        body_voltage: bias on the substrate contact [V].
+            resolves an inversion layer. Range 1e-8 to 1e-6, log.
+        gate_voltage: bias on the gate [V]. Range -2 to 2, the C-V the
+            lesson sweeps.
+        body_voltage: bias on the substrate contact [V]. Range -2 to 2.
         work_function: work function of the gate metal [eV]. Defaults to n+
-            poly, the ordinary NMOS gate.
+            poly, the ordinary NMOS gate. Range 4 to 5.3, n+ to past p+ poly.
         material: defaults to silicon at 300 K.
+
+    Every range end above was solved on its own, the other knobs at their
+    defaults, over the -2 V to 2 V low frequency C-V on both the converged
+    and the coarse mesh, 2026-09-23. All 40 sweeps completed.
 
     The body contact is a plate over the whole bottom edge rather than a point.
     A point would leave the rest of that boundary reflecting, which is a
