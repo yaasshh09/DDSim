@@ -13,7 +13,7 @@ import threading
 
 import pytest
 
-from ddsim.api.jobs import CancelledError, JobRegistry, JobStatus
+from ddsim.api.jobs import BusyError, CancelledError, JobRegistry, JobStatus
 
 
 def test_a_job_runs_and_finishes() -> None:
@@ -317,3 +317,67 @@ def test_closing_gives_up_on_work_that_never_reports() -> None:
     with pytest.raises(TimeoutError):
         jobs.close(timeout=0.1)
     release.set()
+
+
+def test_a_full_registry_refuses_a_new_job_rather_than_queueing_it() -> None:
+    """On a public server every submit is a thread spending CPU, so the number
+    running at once is capped. The one over the cap is told the server is busy
+    rather than slowing everyone else down."""
+    release = threading.Event()
+    jobs = JobRegistry(max_running=2)
+    held = [jobs.submit(lambda send: release.wait(timeout=5.0)) for _ in range(2)]
+
+    with pytest.raises(BusyError):
+        jobs.submit(lambda send: None)
+
+    release.set()
+    for job in held:
+        jobs.wait(job.id, timeout=5.0)
+    jobs.wait(jobs.submit(lambda send: None).id, timeout=5.0)
+
+
+def test_a_finished_job_is_forgotten_once_it_is_old_enough() -> None:
+    """Nothing else ever removes a job, so without this a public server
+    keeps every curve anyone has solved until it restarts."""
+    now = [0.0]
+    jobs = JobRegistry(keep_for=60.0, clock=lambda: now[0])
+    old = jobs.submit(lambda send: None)
+    jobs.wait(old.id, timeout=5.0)
+
+    now[0] = 30.0
+    jobs.wait(jobs.submit(lambda send: None).id, timeout=5.0)
+    assert jobs.status(old.id) is JobStatus.DONE
+
+    now[0] = 61.0
+    jobs.wait(jobs.submit(lambda send: None).id, timeout=5.0)
+    with pytest.raises(KeyError):
+        jobs.status(old.id)
+
+
+def test_a_running_job_is_never_forgotten_however_old() -> None:
+    now = [0.0]
+    release = threading.Event()
+    jobs = JobRegistry(keep_for=60.0, clock=lambda: now[0])
+    slow = jobs.submit(lambda send: release.wait(timeout=5.0))
+
+    now[0] = 1000.0
+    jobs.wait(jobs.submit(lambda send: None).id, timeout=5.0)
+
+    assert jobs.status(slow.id) in (JobStatus.PENDING, JobStatus.RUNNING)
+    release.set()
+    jobs.wait(slow.id, timeout=5.0)
+
+
+def test_a_job_past_its_time_limit_stops_and_says_why() -> None:
+    now = [0.0]
+    jobs = JobRegistry(time_limit=60.0, clock=lambda: now[0])
+
+    def forever(send) -> None:
+        while True:
+            send("iteration")
+            now[0] += 1.0
+
+    job = jobs.submit(forever)
+
+    assert jobs.wait(job.id, timeout=5.0) is JobStatus.CANCELLED
+    assert "60 s" in jobs.message(job.id)

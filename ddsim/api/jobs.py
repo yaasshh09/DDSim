@@ -50,6 +50,10 @@ class CancelledError(Exception):
     """
 
 
+class BusyError(Exception):
+    """Raised by submit when as many jobs are running as the registry allows."""
+
+
 class JobStatus(Enum):
     """Where a job is. The last three are terminal."""
 
@@ -97,6 +101,12 @@ class Job:
     the frames the reader already has.
     """
 
+    started_at: float = 0.0
+    """When it was submitted, on the registry's clock [s]."""
+
+    ended_at: float | None = None
+    """When it reached a terminal status, on the registry's clock [s]."""
+
     frames: queue.Queue[Any] = field(default_factory=queue.Queue)
     cancelling: threading.Event = field(default_factory=threading.Event)
     finished: threading.Event = field(default_factory=threading.Event)
@@ -106,16 +116,33 @@ class JobRegistry:
     """Every job this process is running, by id.
 
     One process, one registry, no database and no accounts. phases/PHASE-7.md
-    is explicit that this is an instrument and not a service.
+    is explicit that this is an instrument and not a service. The three limits
+    exist for when it is served publicly anyway, and each is off when None.
     """
 
-    def __init__(self, queue_size: int = DEFAULT_QUEUE_SIZE) -> None:
+    def __init__(
+        self,
+        queue_size: int = DEFAULT_QUEUE_SIZE,
+        max_running: int | None = None,
+        keep_for: float | None = None,
+        time_limit: float | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         """Args:
         queue_size: frames held per job before the oldest is dropped.
+        max_running: jobs allowed to run at once. submit raises BusyError past it.
+        keep_for: how long a finished job stays readable [s]. Older ones are
+            dropped at the next submit.
+        time_limit: wall clock a job may run before it is cancelled [s].
+        clock: the time source [s], replaceable so tests need not sleep.
         """
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
         self._queue_size = queue_size
+        self._max_running = max_running
+        self._keep_for = keep_for
+        self._time_limit = time_limit
+        self._clock = clock
 
     def submit(self, work: Work) -> Job:
         """Start the work on a worker thread and return its job at once.
@@ -124,9 +151,18 @@ class JobRegistry:
         the sweep is still running, not after it.
         """
         job = Job(
-            id=uuid.uuid4().hex, frames=queue.Queue(maxsize=self._queue_size + 1)
+            id=uuid.uuid4().hex,
+            started_at=self._clock(),
+            frames=queue.Queue(maxsize=self._queue_size + 1),
         )
         with self._lock:
+            self._forget_old(job.started_at)
+            running = sum(j.status not in _TERMINAL for j in self._jobs.values())
+            if self._max_running is not None and running >= self._max_running:
+                raise BusyError(
+                    f"the server is already running {running} solves, which is "
+                    "as many as it takes at once. Try again in a minute."
+                )
             self._jobs[job.id] = job
 
         thread = threading.Thread(
@@ -151,8 +187,17 @@ class JobRegistry:
             job.result = produced
             job.status = JobStatus.DONE
         finally:
+            job.ended_at = self._clock()
             job.frames.put_nowait(_END)
             job.finished.set()
+
+    def _forget_old(self, now: float) -> None:
+        """Drop finished jobs older than keep_for. Called with the lock held."""
+        if self._keep_for is None:
+            return
+        for job_id, job in list(self._jobs.items()):
+            if job.ended_at is not None and now - job.ended_at > self._keep_for:
+                del self._jobs[job_id]
 
     def _send(self, job: Job, frame: Any) -> None:
         """Queue one frame, dropping the oldest rather than waiting.
@@ -163,6 +208,16 @@ class JobRegistry:
         with another writer, and a reader draining in between can only make
         room that this drop did not need.
         """
+        if (
+            self._time_limit is not None
+            and self._clock() - job.started_at > self._time_limit
+        ):
+            job.message = (
+                f"stopped after {self._time_limit:.0f} s, the longest one solve "
+                "may run on this server. A coarser mesh or fewer bias points "
+                "will finish sooner."
+            )
+            job.cancelling.set()
         if job.cancelling.is_set():
             raise CancelledError(f"job {job.id} was cancelled")
         if job.frames.qsize() >= self._queue_size:
