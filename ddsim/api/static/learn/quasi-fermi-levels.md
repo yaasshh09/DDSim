@@ -6,18 +6,18 @@ docs: 01-physics.md#Carrier statistics; 01-physics.md#The Van Roosbroeck system;
 
 ## In plain words
 
-In a device left alone, electrons and holes share a single Fermi level, a flat
-line that says how full the available states are. Nothing flows, because there
-is no slope for anything to roll down. Apply a bias and that single level is no
-longer enough to describe what is happening, so each carrier gets its own:
-phi_n for electrons and phi_p for holes.
+Leave a device alone and its electrons and holes share one Fermi level. It's
+a flat line that tells you how full the available states are. Nothing flows,
+because there's no slope for anything to roll down. Apply a bias and one
+level isn't enough to describe what's going on anymore, so each carrier gets
+its own: phi_n for electrons and phi_p for holes.
 
 Two rules make them easy to read. Where a quasi-Fermi level is flat, that
-carrier carries no current, however many of them there are. Where the two
-levels split apart, the device is out of equilibrium: a forward biased junction
-has more electrons and holes than equilibrium allows and they recombine, a
-reverse biased one has fewer and it generates them. At an ohmic contact both
-levels are pinned to the voltage applied to that contact.
+carrier carries no current, no matter how many of them there are. Where the
+two levels split apart, the device is out of equilibrium. A forward biased
+junction has more electrons and holes than equilibrium allows, so they
+recombine. A reverse biased one has fewer, so it generates them. At an ohmic
+contact both levels get pinned to the voltage on that contact.
 
 ## In more depth
 
@@ -33,20 +33,20 @@ $\phi_n = \phi_p = V_{applied}$. Multiplying the two densities gives
 $$n\,p = n_i^2\,e^{(\phi_p - \phi_n)/V_T}$$
 
 so the split between the levels measures how far the product is from
-equilibrium, and it is exactly what the SRH rate responds to.
+equilibrium. It's exactly what the SRH rate responds to.
 
-Putting the Boltzmann relations and $D_n = \mu_n V_T$ into the drift diffusion
-currents, the drift and diffusion terms combine into one:
+Put the Boltzmann relations and $D_n = \mu_n V_T$ into the drift diffusion
+currents and the drift and diffusion terms merge into one:
 
 $$J_n = -q\,\mu_n\, n\,\nabla\phi_n, \qquad J_p = -q\,\mu_p\, p\,\nabla\phi_p$$
 
 Current is a density times the gradient of that carrier's quasi-Fermi
-potential. A flat $\phi_n$ means zero $J_n$, and a large current through a
-region with few carriers needs a steep slope, which is why the levels drop
-sharply where the density is low.
+potential. A flat $\phi_n$ means zero $J_n$. A large current through a region
+with few carriers needs a steep slope, which is why the levels drop sharply
+where the density is low.
 
-With Fermi-Dirac statistics switched on, the solver keeps the same form by
-writing each density as the Boltzmann expression times a degeneracy factor.
-The quasi-Fermi potential then has to be read under the same statistics the
-state was solved with: reading a degenerate state with the Boltzmann formula
-misplaces it by 30.5 mV at $10^{20}$ cm$^{-3}$.
+With Fermi-Dirac statistics on, the solver keeps the same form by writing
+each density as the Boltzmann expression times a degeneracy factor. The
+quasi-Fermi potential then has to be read under the same statistics the state
+was solved with. Read a degenerate state with the Boltzmann formula and you
+misplace it by 30.5 mV at $10^{20}$ cm$^{-3}$.
