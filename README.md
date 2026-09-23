@@ -2,29 +2,29 @@
 
 [![CI](https://github.com/yaasshh09/DDSim/actions/workflows/ci.yml/badge.svg)](https://github.com/yaasshh09/DDSim/actions/workflows/ci.yml)
 
-A drift-diffusion semiconductor device simulator written from scratch. It solves
-the Van Roosbroeck system, Poisson plus the electron and hole continuity
-equations, self consistently, and produces device I-V and C-V characteristics
-from geometry and doping alone.
+I wrote this drift-diffusion semiconductor device simulator from scratch. It
+solves the Van Roosbroeck system (Poisson's equation plus the electron and hole
+continuity equations) self consistently, and gets a device's I-V and C-V
+curves from nothing but its geometry and doping.
 
-Layer 2 of a four layer solver stack: AtomSIM solves the isolated atom, a band
-module supplies effective masses, DDSim solves carrier transport, and a SPICE
-layer solves the circuit. Every material parameter DDSim consumes should
-eventually be computed by a layer below it.
+It's layer 2 of a four layer solver stack. AtomSIM solves the isolated atom, a
+band module supplies effective masses, DDSim handles carrier transport, and a
+SPICE layer solves the circuit. The goal is for every material parameter DDSim
+uses to eventually come from a layer below it.
 
 ## Where it is
 
-Phases 0 to 4 of 7 are done. A PN diode solved two ways, Gummel block
-iteration and full Newton on the coupled 3N system, and a two material MOS
+Six of the seven phases are done. There's a PN diode solved two ways (Gummel
+block iteration and full Newton on the coupled 3N system), a two material MOS
 capacitor in 2D whose C-V curve comes out of the same solver with nothing
-fitted anywhere in it. Transport runs in either dimension, so a 2D diode
-conserves current through every cut and keeps doing it with a dielectric
-layer stacked on top.
+fitted, and an NMOS whose gate length sweep produces threshold roll-off, DIBL
+and velocity saturation from five devices that differ in one argument.
 
-Phase 5 is the MOSFET, and its gate length sweep runs: threshold roll-off,
-DIBL and velocity saturation all come out of five devices that differ in one
-argument. Benchmarks 6 to 9, the DEVSIM comparison, now have golden data and
-pass, so tier 4 covers all nine.
+All ten DEVSIM benchmarks have golden data and pass. The tenth runs both codes
+at the full Phase 5 model stack, so the mobility models and Fermi-Dirac
+statistics get checked against someone else's implementation too, not just
+mine. The browser frontend is done as well. The one phase left is the SPICE
+bridge, and that has to wait until the SPICE project exists.
 
 | Phase | Scope | Status |
 |---|---|---|
@@ -33,9 +33,9 @@ pass, so tier 4 covers all nine.
 | 2 | Scharfetter-Gummel continuity, Gummel iteration, I-V | done |
 | 3 | Full Newton, coupled 3N system, Arora mobility, Auger | done |
 | 4 | 2D, MOS capacitor, C-V | done |
-| 5 | MOSFET, gate length sweep | |
-| 6 | Compact model extraction for SPICE | |
-| 7 | Browser frontend, live solver telemetry | |
+| 5 | MOSFET, gate length sweep | done |
+| 6 | Compact model extraction for SPICE | waiting on SPICE |
+| 7 | Browser frontend, live solver telemetry | done |
 
 ## PN diode at equilibrium
 
@@ -313,22 +313,26 @@ The sweep, the process and the extraction all live in `ddsim/extract/rolloff.py`
 and the figure is produced by `tests/analytic/test_mosfet_rolloff_plot.py`,
 which asserts every one of these claims before it draws anything.
 
-### What is not on this figure yet
+### DEVSIM on the same figure
 
-DEVSIM. Benchmarks 6 to 9 of `docs/04-validation.md` are the MOSFETs and all
-four now have golden data that passes, so this is not a missing comparison.
-It is a different one. Every one of those generators runs Boltzmann statistics
-and constant mobility on purpose, matched model for model against ddsim run the
-same way, because that is what makes a disagreement mean something. This figure
-runs the full Phase 5 stack, so its drain current is not the current those files
-hold and its thresholds are not theirs either: at 50 nm the golden data gives
-+0.0065 and -0.1181 V where this figure reports +0.0947 and -0.0258, because a
-constant current criterion rides on the current scale and mobility sets that.
-Overlaying the two would draw a gap that is the model set rather than an error.
-The overlay needs DEVSIM run at the full stack, which nothing in tier 4 does
-yet. Benchmark 9 compares the two codes at the matched reduced set instead, in
-`tests/regression/test_devsim_mosfet.py`, where the roll-off magnitude agrees to
-0.06 percent and DIBL to 1.1 percent or better.
+The open markers on the left panel are DEVSIM 2.11 solving the same five
+devices. That took its own benchmark. Benchmarks 6 to 9 of
+`docs/04-validation.md` run both codes at Boltzmann statistics and constant
+mobility on purpose, matched model for model, because that's what makes a
+disagreement about the geometry mean something. At that reduced set the
+roll-off agrees to 0.06 percent and DIBL to 1.1 percent or better. But this
+figure runs the full Phase 5 stack, and its thresholds aren't theirs: at 50 nm
+benchmark 9 gives +0.0065 and -0.1181 V where this figure reports +0.0947 and
+-0.0258, because a constant current criterion rides on the current scale and
+mobility sets that. Overlaying those would have drawn a gap that was the model
+set, not an error.
+
+So benchmark 10 runs DEVSIM again at the full stack, Fermi-Dirac by
+Joyce-Dixon with Arora inside Lombardi inside Caughey-Thomas, on its own mesh
+and out of its own expressions. The two codes share parameter values and
+nothing else, and they agree to 2.67 percent on every fully resolved point.
+The tolerance lives in `tests/regression/test_devsim_mosfet.py`, not on the
+figure.
 
 ### Where these numbers stop meaning anything
 
@@ -481,6 +485,7 @@ and regression against DEVSIM. See `docs/04-validation.md`.
     ddsim/solve/       Newton, Gummel, continuation, no semiconductor knowledge
     ddsim/device/      composition: geometry and doping in, a Device out
     ddsim/extract/     post processing: terminal current and charge, I-V, C-V
+    ddsim/api/         the web server, the browser page, lessons and explainers
     docs/              physics, numerics, architecture, validation, constants,
                        and the decisions and deviations log
     phases/            scope and acceptance criteria per phase
@@ -498,4 +503,5 @@ failed regardless of how good the plots look.
 
 ## License
 
-CC BY-NC 4.0. You can use, share and adapt it for non-commercial work as long as you credit me. See [LICENSE](LICENSE).
+CC BY-NC 4.0. You're free to use, share and adapt it for non-commercial work
+as long as you credit me. See [LICENSE](LICENSE).
