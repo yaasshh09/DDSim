@@ -377,3 +377,12 @@ def test_a_2d_mesh_over_the_budget_is_refused_though_no_knob_is() -> None:
     still multiply past it. 1000 silicon rows times the nmos columns does."""
     with pytest.raises(ValueError, match=f"budget of {NODE_BUDGET}"):
         build_from_spec("nmos", {"n_silicon": 1000})
+
+
+@pytest.mark.parametrize("junction", [0.0, 5e-5])
+def test_a_diode_junction_on_a_contact_is_refused(junction: float) -> None:
+    """The mesh takes a refinement point on its boundary, so a junction at 0
+    or at the full length used to build: a diode that is one doping from end
+    to end, with nothing to call a junction. The docstring says inside."""
+    with pytest.raises(ValueError, match="inside"):
+        build_from_spec("pn_diode", {"length": 5e-5, "junction": junction})

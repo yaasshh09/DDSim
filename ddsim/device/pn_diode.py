@@ -58,6 +58,13 @@ def pn_diode(
             same ends as the anode.
         material: defaults to silicon at 300 K.
     """
+    # The mesh takes a refinement point on its boundary, so without this a
+    # junction on a contact builds a device of one doping from end to end.
+    if not 0.0 < junction < length:
+        raise ValueError(
+            f"the junction must sit inside the device, got junction={junction:g} "
+            f"cm in a device {length:g} cm long"
+        )
     mesh = graded_mesh_1d(
         length=length, n_nodes=n_nodes, refine_at=junction, h_min=h_min
     )

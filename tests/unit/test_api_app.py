@@ -543,5 +543,5 @@ def test_a_device_can_be_checked_without_solving_it(client) -> None:
     )
 
     assert fine.status_code == 200
-    assert short.status_code == 400 and "refine_at" in short.json()["detail"]
+    assert short.status_code == 400 and "inside" in short.json()["detail"]
     assert crowded.status_code == 400 and "h_min" in crowded.json()["detail"]
