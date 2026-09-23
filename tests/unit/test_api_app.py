@@ -525,3 +525,23 @@ def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(client) -> N
     assert response.status_code == 400
     assert "region 2" in response.json()["detail"]
     assert "docs/01-physics.md" in response.json()["detail"]
+
+
+def test_a_device_can_be_checked_without_solving_it(client) -> None:
+    """The page asks this before it lets a knob settle, so a slider stops at
+    the last device that builds instead of landing on a refusal. Both of
+    these combine two knobs that are each inside their own range, which is
+    why a slider's own ends cannot catch them."""
+    fine = client.post("/api/devices/check", json={"kind": "pn_diode"})
+    short = client.post(
+        "/api/devices/check",
+        json={"kind": "pn_diode", "parameters": {"length": 3e-5}},
+    )
+    crowded = client.post(
+        "/api/devices/check",
+        json={"kind": "pn_diode", "parameters": {"n_nodes": 1001, "h_min": 1e-6}},
+    )
+
+    assert fine.status_code == 200
+    assert short.status_code == 400 and "refine_at" in short.json()["detail"]
+    assert crowded.status_code == 400 and "h_min" in crowded.json()["detail"]

@@ -266,6 +266,17 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             "explanation": found.explanation,
         }
 
+    @app.post("/api/devices/check")
+    def check(device: DeviceSpec) -> dict[str, bool]:
+        """Whether a device builds, without solving it.
+
+        The page asks before it lets a knob settle, so a slider stops at the
+        last device that builds rather than landing on a refusal. The refusal
+        is the same 400 a job would get, word for word.
+        """
+        _checked(lambda: build_from_spec(device.kind, device.parameters))
+        return {"builds": True}
+
     @app.post("/api/jobs")
     def submit(request: JobRequest) -> dict[str, str]:
         """Start a sweep and hand back its id at once.
