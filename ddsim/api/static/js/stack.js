@@ -53,8 +53,6 @@ function regionRow(region) {
   return row;
 }
 
-// Rows for these regions, or no editor at all for a device not built from
-// regions, which is what a null says.
 // Why a device you assembled yourself is not the same claim as a benchmark.
 // It lives here rather than in the page so index.html stays a layout.
 const STACK_NOTE =
@@ -62,6 +60,8 @@ const STACK_NOTE =
   "structure is not validated by anything, so its numbers are the validated " +
   "solver's answer on an unchecked structure.";
 
+// Rows for these regions, or no editor at all for a device not built from
+// regions, which is what a null says.
 function showRegions(regions) {
   el("stack-note").textContent = STACK_NOTE;
   el("stack").hidden = !regions;

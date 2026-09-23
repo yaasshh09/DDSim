@@ -124,6 +124,7 @@ function drawingSoFar() {
   }
 }
 
+// A drag becomes one new row. An end within a few pixels of an edge already
 // drawn takes that edge's exact value, because two edges a hair apart are a
 // feature finer than any mesh, which the server refuses.
 const SNAP = 6;

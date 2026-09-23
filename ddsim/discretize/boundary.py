@@ -320,7 +320,6 @@ def apply_dirichlet_nodes(
     in_row = is_pinned[assembly.rows]
     in_column = is_pinned[assembly.cols]
 
-    # The update each pinned node will take. Known exactly, before any solve.
     correction = np.zeros(n_nodes, dtype=np.float64)
     correction[pinned] = wanted - value[pinned]
 

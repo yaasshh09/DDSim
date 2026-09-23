@@ -177,5 +177,3 @@ function showScale(size, stretched) {
     format(size.height) + " cm" + (stretched ? "  ·  y stretched" : "");
   bar.appendChild(extent);
 }
-
-// A drag becomes one new row. An end within a few pixels of an edge already

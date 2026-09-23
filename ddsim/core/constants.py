@@ -20,7 +20,6 @@ import numpy as np
 import numpy.typing as npt
 
 # ---------------------------------------------------------------- fundamental
-# These are genuinely constant, so they are module level values.
 
 q: float = 1.602176634e-19
 """Elementary charge [C]."""
