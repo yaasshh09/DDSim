@@ -35,8 +35,8 @@ def _parser() -> argparse.ArgumentParser:
         "serve",
         help="serve the browser client and the solver API",
         description=(
-            "Run the local instrument: a page that submits solves and "
-            "watches them converge."
+            "Start the simulator in your browser. You build a device, press "
+            "solve, and watch it converge live."
         ),
     )
     serve.add_argument(
@@ -77,13 +77,13 @@ def main(
 
     if arguments.host not in LOOPBACK:
         print(
-            f"serving on {arguments.host}, which is not this machine only. "
-            "There is no authentication in front of this and a single "
-            "request can spend minutes of CPU.",
+            f"heads up: serving on {arguments.host}, so other machines can "
+            "reach this. There's no authentication in front of it, and a "
+            "single request can burn minutes of CPU.",
             file=sys.stderr,
         )
 
-    print(f"DDSim on http://{arguments.host}:{arguments.port}")
+    print(f"DDSim is running. Open http://{arguments.host}:{arguments.port}")
     run(create_app(), host=arguments.host, port=arguments.port)
     return 0
 
