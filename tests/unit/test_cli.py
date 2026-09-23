@@ -92,3 +92,37 @@ def test_the_real_server_can_upgrade_to_a_websocket() -> None:
     config.load()
 
     assert config.ws_protocol_class is not None
+
+
+def test_serving_off_loopback_limits_the_jobs() -> None:
+    """Off loopback, anyone can submit, so the registry caps how many solves
+    run at once. On loopback it is one person's instrument and stays open."""
+    import threading
+
+    from ddsim.api.jobs import BusyError
+
+    release = threading.Event()
+    calls, run = captured()
+    main(["serve", "--host", "0.0.0.0"], run=run)
+    jobs = calls[0]["app"].state.jobs
+
+    held = [jobs.submit(lambda send: release.wait(timeout=5.0)) for _ in range(2)]
+    with pytest.raises(BusyError):
+        jobs.submit(lambda send: None)
+    release.set()
+    for job in held:
+        jobs.wait(job.id, timeout=5.0)
+
+
+def test_serving_on_loopback_leaves_the_jobs_unlimited() -> None:
+    import threading
+
+    release = threading.Event()
+    calls, run = captured()
+    main(["serve"], run=run)
+    jobs = calls[0]["app"].state.jobs
+
+    held = [jobs.submit(lambda send: release.wait(timeout=5.0)) for _ in range(5)]
+    release.set()
+    for job in held:
+        jobs.wait(job.id, timeout=5.0)

@@ -530,3 +530,13 @@ def test_the_schema_names_each_devices_contacts(client) -> None:
     assert contacts["pn_diode"] == ["anode", "cathode"]
     assert contacts["nmos"] == ["source", "drain", "gate", "body"]
     assert set(contacts) == set(client.get("/api/schema").json()["devices"])
+
+
+def test_a_busy_server_answers_503_and_says_to_try_again() -> None:
+    """A full registry is the server's state, not a fault in the request, so
+    it is a 503 rather than a 400, and the browser shows the detail as is."""
+    with TestClient(create_app(JobRegistry(max_running=0))) as client:
+        response = client.post("/api/jobs", json=diode_request())
+
+    assert response.status_code == 503
+    assert "try again" in response.json()["detail"].lower()

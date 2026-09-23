@@ -54,7 +54,7 @@ from ddsim.api.frames import (
     field_frame,
     point_voltage,
 )
-from ddsim.api.jobs import JobRegistry, JobStatus, Send
+from ddsim.api.jobs import BusyError, JobRegistry, JobStatus, Send
 from ddsim.api.learn import (
     KNOB_LABELS,
     KNOB_TOPICS,
@@ -169,6 +169,7 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
         jobs.close(timeout=SHUTDOWN_TIMEOUT)
 
     app = FastAPI(title="DDSim", lifespan=lifespan)
+    app.state.jobs = jobs
     app.mount("/static", _Revalidated(directory=PAGE.parent), name="static")
 
     @app.get("/api/schema")
@@ -304,7 +305,10 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             )
             return Finished(device=device, curve=curve, models=models)
 
-        return {"id": jobs.submit(work).id}
+        try:
+            return {"id": jobs.submit(work).id}
+        except BusyError as busy:
+            raise HTTPException(status_code=503, detail=str(busy)) from busy
 
     @app.get("/api/jobs/{job_id}")
     def status(job_id: str) -> dict[str, Any]:

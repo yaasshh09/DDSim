@@ -23,6 +23,16 @@ LOOPBACK = ("127.0.0.1", "::1", "localhost")
 DEFAULT_PORT = 8000
 """The port `ddsim serve` binds unless told otherwise."""
 
+PUBLIC_MAX_RUNNING = 2
+"""Solves a registry reachable from other machines runs at once."""
+
+PUBLIC_KEEP_FOR = 1800.0
+"""How long a finished solve stays readable on a public registry [s]."""
+
+PUBLIC_TIME_LIMIT = 300.0
+"""Wall clock one solve may take on a public registry [s]. The default MOSFET
+transfer sweep takes about 13 s on a laptop."""
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -69,22 +79,30 @@ def main(
     arguments = _parser().parse_args(argv)
 
     from ddsim.api.app import create_app
+    from ddsim.api.jobs import JobRegistry
 
     if run is None:  # pragma: no cover - the real server, never run in a test
         import uvicorn
 
         run = uvicorn.run
 
+    registry = JobRegistry()
     if arguments.host not in LOOPBACK:
+        registry = JobRegistry(
+            max_running=PUBLIC_MAX_RUNNING,
+            keep_for=PUBLIC_KEEP_FOR,
+            time_limit=PUBLIC_TIME_LIMIT,
+        )
         print(
             f"heads up: serving on {arguments.host}, so other machines can "
-            "reach this. There's no authentication in front of it, and a "
-            "single request can burn minutes of CPU.",
+            "reach this. There's no authentication in front of it, so it runs "
+            f"at most {PUBLIC_MAX_RUNNING} solves at once and stops any that "
+            f"pass {PUBLIC_TIME_LIMIT:.0f} s.",
             file=sys.stderr,
         )
 
     print(f"DDSim is running. Open http://{arguments.host}:{arguments.port}")
-    run(create_app(), host=arguments.host, port=arguments.port)
+    run(create_app(registry), host=arguments.host, port=arguments.port)
     return 0
 
 
