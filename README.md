@@ -429,9 +429,9 @@ them.
 
 ### Honest limits
 
-- Single user, local, no authentication, bound to loopback unless you pass
-  `--host` on purpose, which prints a warning. There is nothing in front of
-  this port and one request can spend minutes of CPU.
+- No authentication, bound to loopback unless you pass `--host` on purpose,
+  which prints a warning. Off loopback it runs at most 2 solves at once,
+  stops any solve after 5 minutes, and forgets finished ones after 30.
 - A 50 nm MOSFET sweep takes minutes. The page says what it is doing rather
   than pretending to be interactive, and a solve can be cancelled.
 - Cancelling takes effect at the solver's next reported iteration. A solve that
@@ -440,6 +440,32 @@ them.
   regressions in CI are what check it.
 - Nothing in the client computes a physical quantity. A test greps it for the
   transcendental functions and for every constant name in `core/constants.py`.
+
+### Deploying it
+
+The `Dockerfile` and `fly.toml` put it on Fly.io as one machine that stops
+when nobody is using it.
+
+```bash
+fly launch --no-deploy --copy-config
+fly deploy --ha=false
+```
+
+`--ha=false` matters. Jobs live in the memory of one process, so a second
+machine would get asked about jobs it never started.
+
+### Deploying it
+
+The `Dockerfile` and `fly.toml` put it on Fly.io as one machine that stops
+when nobody is using it.
+
+```bash
+fly launch --no-deploy --copy-config
+fly deploy --ha=false
+```
+
+`--ha=false` matters. Jobs live in the memory of one process, so a second
+machine would get asked about jobs it never started.
 
 ## How it is kept honest
 
