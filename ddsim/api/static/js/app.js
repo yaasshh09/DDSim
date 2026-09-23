@@ -658,11 +658,36 @@ function defaultContact() {
   return contacts[el("device-kind").value] || "gate";
 }
 
+// The terminals on offer to sweep and to measure at, as lists rather than
+// boxes, so nobody has to guess a name. A drawing names its own electrodes,
+// so its list is read from the rows on the form; every other device's comes
+// from the schema. A choice already made stays chosen while it is listed.
+function offerContacts() {
+  let names = state.schema.contacts[el("device-kind").value] || [];
+  try {
+    const drawn = collectDrawing();
+    if (drawn) names = drawn.electrodes.map((electrode) => electrode.name);
+  } catch (problem) {
+    return;  // a half typed row keeps the list it had
+  }
+  for (const [id, blank] of [["contact", null], ["measure-at", "default"]]) {
+    const select = el(id);
+    const kept = select.value;
+    select.textContent = "";
+    if (blank !== null) select.appendChild(new Option(blank, ""));
+    for (const name of names) select.appendChild(new Option(name, name));
+    if (Array.from(select.options).some((option) => option.value === kept)) {
+      select.value = kept;
+    }
+  }
+}
+
 function onDeviceKind() {
   const kind = el("device-kind").value;
   fill(el("device-knobs"), state.schema.devices[kind]);
   showRegions(state.schema.regions[kind] || null);
   showDrawing(state.schema.drawings[kind] || null);
+  offerContacts();
   el("contact").value = defaultContact();
 
   // A 1D device solves while you drag it. A 2D one is seconds to minutes, so
@@ -1036,6 +1061,9 @@ function chooseDevice() {
 
 el("device-kind").addEventListener("change", chooseDevice);
 el("sweep-kind").addEventListener("change", onSweepKind);
+// A drawing's electrodes can be renamed, so its lists are read again on use.
+el("contact").addEventListener("focus", offerContacts);
+el("measure-at").addEventListener("focus", offerContacts);
 // The note says the list was held; it stands until the list is edited again.
 el("voltages").addEventListener("input", () => { el("voltage-note").textContent = ""; });
 el("solve").addEventListener("click", solve);

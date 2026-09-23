@@ -229,7 +229,7 @@ def test_streamlines_trace_through_a_mosfet(server) -> None:
             page.select_option("#sweep-kind", "transfer")
             for name, value in COARSE_FET.items():
                 page.fill(f'[data-name="{name}"]', value)
-            page.fill("#measure-at", "drain")
+            page.select_option("#measure-at", "drain")
             page.fill("#voltages", "1.0")
             page.click("#solve")
             wait_until(
@@ -484,6 +484,10 @@ def test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server) -> No
                 lambda: page.dispatch_event('#device-knobs [data-name="Na"]', "change")
             )
             assert page.evaluate(box, "Na") == 1e19
+
+            # The terminal is picked from the device's own, never typed.
+            options = "Array.from(el('contact').options, (o) => o.value)"
+            assert page.evaluate(options) == ["anode", "cathode"]
 
             # And a voltage past the anode's declared range is held to it.
             page.fill("#voltages", "0, 0.5, 3")
