@@ -151,58 +151,63 @@ def nmos(
     """An n-channel MOSFET on a p-type substrate.
 
     Args:
-        L_gate: gate length [cm], the electrode span. 1e-4 is 1 um.
-            Range 5e-6 to 3e-4, log. Below twice lateral_diffusion no channel
-            is left and the device is refused, so on the default process the
-            knob stops at 2e-5; the short channel lesson reaches 5e-6.
-        sd_length: length of each source and drain region [cm], from the outer
-            boundary to the gate mask edge. Range 3e-5 to 5.7e-5.
-        contact_length: length of each source and drain contact plate [cm],
-            measured in from the outer boundary. Less than sd_length.
-            Range 5e-6 to 3e-5.
-        substrate_doping: net doping of the body [cm^-3], negative for p-type.
-            Range -1e19 to -1e14, log.
-        sd_peak: source and drain surface concentration [cm^-3].
+        L_gate: gate length [cm]. 1e-4 is 1 um. Range 5e-6 to 3e-4, log.
+            It has to be more than twice lateral_diffusion or there's no
+            channel left, so on the default device it stops at 2e-5. The
+            short channel lesson goes down to 5e-6.
+        sd_length: length of the source and of the drain [cm], from the
+            outside edge to the edge of the gate. Range 3e-5 to 5.7e-5.
+        contact_length: how much of the source and of the drain the metal
+            contact covers [cm], measured in from the outside edge. Has to be
+            less than sd_length. Range 5e-6 to 3e-5.
+        substrate_doping: net doping of the body [cm^-3]. Negative means
+            p-type. Range -1e19 to -1e14, log.
+        sd_peak: doping at the surface of the source and drain [cm^-3].
             Range 1e18 to 1e20, log.
-        x_j: junction depth [cm], where the implant meets the substrate doping
-            directly below the outer part of the source.
-            Range 2.5e-6 to 5e-5, log.
-        lateral_diffusion: how far the junction reaches under the gate mask
-            edge at the surface [cm]. The metallurgical channel is L_gate less
-            twice this. Range 1e-6 to 3e-5, log.
+        x_j: how deep the source and drain go [cm], measured where their
+            doping falls to the body's. Range 2.5e-6 to 5e-5, log.
+        lateral_diffusion: how far the source and drain creep sideways under
+            the gate [cm]. The real channel is L_gate minus twice this.
+            Range 1e-6 to 3e-5, log.
         t_ox: oxide thickness [cm]. 2e-6 is 20 nm. Range 1e-7 to 1e-5, log.
-        t_si: silicon thickness [cm], several times the depletion width.
-            Range 5e-5 to 5e-4, log.
-        n_contact: columns under each contact plate [1]. Range 2 to 30.
-        n_sd: columns from a contact edge to the gate mask edge [1].
+        t_si: how deep the silicon goes [cm], several times the depletion
+            width. Range 5e-5 to 5e-4, log.
+        n_contact: mesh columns under each contact [1]. Range 2 to 30.
+        n_sd: mesh columns from a contact's edge to the gate's edge [1].
             Range 9 to 55.
-        n_channel: columns in each half of the channel [1]. Range 11 to 59.
-        n_silicon: rows through the silicon, including the interface [1].
-            Range 17 to 285.
-        n_oxide: rows through the oxide, including the interface [1].
+        n_channel: mesh columns in each half of the channel [1].
+            Range 11 to 59.
+        n_silicon: mesh rows down through the silicon, counting the surface
+            [1]. Range 17 to 285.
+        n_oxide: mesh rows through the oxide, counting the surface [1].
             Range 2 to 129.
-        h_min_x: column spacing at each junction [cm]. Range 1.2e-7 to 5e-6,
-            log.
-        h_min_y: row spacing at the silicon surface [cm]. This is the one
-            spacing the drain current is really sensitive to, because the
-            inversion layer is the only structure on the device a mesh can
-            miss. Halve it and n_oxide together or the Si/SiO2 seam opens up,
-            see docs/05-pitfalls.md. The default is the rung of
-            tests/convergence/test_mosfet_mesh_convergence.py where the drain
-            current stops moving by more than a tenth of what benchmark 6
-            asserts. Range 1e-9 to 1e-6, log.
-        gate_voltage: bias on the gate [V]. Range -1 to 2.5.
-        drain_voltage: bias on the drain [V]. Range -0.5 to 2.
-        source_voltage: bias on the source [V]. Range -0.5 to 0.5.
-        body_voltage: bias on the substrate contact [V]. Range -2 to 0.5,
-            short of forward biasing the body junctions by much.
-        work_function: work function of the gate electrode [eV]. n+ poly by
-            default, the ordinary NMOS gate. Range 4 to 5.3.
+        h_min_x: the smallest column spacing, at each junction [cm].
+            Range 1.2e-7 to 5e-6, log.
+        h_min_y: the smallest row spacing, at the silicon surface [cm]. This
+            is the mesh setting the drain current cares about most, because
+            the thin inversion layer is the one thing on the device a mesh
+            can miss. If you halve it, raise n_oxide too.
+            Range 1e-9 to 1e-6, log.
+        gate_voltage: voltage on the gate [V]. Range -1 to 2.5.
+        drain_voltage: voltage on the drain [V]. Range -0.5 to 2.
+        source_voltage: voltage on the source [V]. Range -0.5 to 0.5.
+        body_voltage: voltage on the bottom contact [V]. Range -2 to 0.5,
+            which stops short of forward biasing the body junctions.
+        work_function: the gate's work function [eV]. Defaults to n+
+            polysilicon, the usual NMOS gate. Range 4 to 5.3.
         material: defaults to silicon at 300 K.
-        degenerate: solve with Fermi-Dirac statistics rather than Boltzmann.
-            On by default because the source and drain peak at 1e20 cm^-3,
-            where n/Nc is 3.5 and Boltzmann misplaces the Fermi level by
-            30.5 mV. See docs/07-decisions.md, 2026-09-09.
+        degenerate: use Fermi-Dirac statistics instead of the simpler
+            Boltzmann ones. On by default, because the source and drain are
+            doped to 1e20 cm^-3, and there Boltzmann puts the Fermi level
+            30.5 mV off.
+
+    L_gate stops at twice lateral_diffusion because below that no channel is
+    left and the device is refused. h_min_y and n_oxide have to be refined
+    together or the Si/SiO2 seam opens up, see docs/05-pitfalls.md. The
+    h_min_y default is the rung of tests/convergence/test_mosfet_mesh_convergence.py
+    where the drain current stops moving by more than a tenth of what
+    benchmark 6 asserts. At 1e20 cm^-3 n/Nc is 3.5, which is where the 30.5 mV
+    Fermi level error comes from, see docs/07-decisions.md, 2026-09-09.
 
     Every range end above was solved, one knob at a time with the rest at
     their defaults, over the lesson's 0 V to 1.5 V transfer at 50 mV drain

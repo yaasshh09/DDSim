@@ -387,9 +387,12 @@ def cv_sweep(
         device: the device. Its own bias at the swept contact is overridden.
         contact: name of the terminal to sweep and to measure.
         voltages: the biases wanted [V].
-        response: which carriers follow the signal. See Response.
+        response: which carriers keep up with the small signal. With
+            low_frequency both do. With high_frequency the minority carrier
+            is held still, the way it is in a fast real measurement.
         width: extent of the terminal transverse to the field [cm].
-        max_iterations: Newton budget at each point [1].
+        max_iterations: how many Newton steps each point gets before it
+            counts as failed [1].
         on_frame: telemetry, or None to report nothing. Carries a
             NewtonIteration per Poisson iteration and a CVFrame per point.
             There is no ContinuationEvent on this path: the points are

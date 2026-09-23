@@ -417,21 +417,20 @@ def drawing(
         implants: rectangles of doping, added up.
         electrodes: ohmic contacts on silicon and gates on oxide, each along
             a straight segment.
-        nx: mesh node count across the device [1]. The drawing's edges are
-            among them, so a drawing with many edges needs more.
-            Range 38 to 200.
-        ny: mesh node count up the device [1]. Range 22 to 400.
-        h_min_x: column spacing at every doping edge and vertical interface
-            [cm]. Two edges closer than this are refused.
-            Range 4.1e-8 to 4.7e-6, log.
-        h_min_y: row spacing at every doping edge and Si/SiO2 interface [cm].
-            The inversion layer sits within a few nanometres of the surface,
-            which is what this has to resolve on a MOSFET.
-            Range 1e-9 to 7.7e-7, log.
-        degenerate: solve with Fermi-Dirac statistics rather than Boltzmann.
-            On by default, because the default drawing is the benchmark nmos,
-            whose source and drain peak at 1e20 cm^-3. Off, a doping above
-            1e19 is refused.
+        nx: mesh points across the device [1]. Every edge you draw needs one,
+            so a busy drawing needs more. Range 38 to 200.
+        ny: mesh points up the device [1]. Range 22 to 400.
+        h_min_x: the smallest column spacing, at every doping edge and every
+            vertical silicon to oxide wall [cm]. Two edges closer than this
+            get turned down. Range 4.1e-8 to 4.7e-6, log.
+        h_min_y: the smallest row spacing, at every doping edge and every
+            flat silicon to oxide interface [cm]. On a MOSFET the inversion
+            layer is only a few nanometres thick, and this is what has to
+            catch it. Range 1e-9 to 7.7e-7, log.
+        degenerate: use Fermi-Dirac statistics instead of the simpler
+            Boltzmann ones. On by default, because the starting drawing is
+            the benchmark nmos, doped to 1e20 cm^-3 in its source and drain.
+            With it off, any doping above 1e19 gets turned down.
         material: defaults to silicon at 300 K.
 
     The mesh ranges are the default drawing's, the benchmark nmos. Each end

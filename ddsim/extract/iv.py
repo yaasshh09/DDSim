@@ -514,7 +514,8 @@ def iv_sweep(
         contact: name of the contact to sweep.
         voltages: the biases wanted [V], in the order they should be walked.
         models: transport models, built from the device if None.
-        step: first continuation step between requested points [V].
+        step: the biggest voltage step the solver takes on its way from one
+            point on your list to the next [V].
         min_step: give up once the continuation step falls below this [V].
             None leaves it at the continuation default of a thousandth of
             step, which is about ten halvings. That is the right default for a
@@ -523,9 +524,12 @@ def iv_sweep(
             failed solve at the Gummel budget. A caller who already knows the
             sweep may stall, or who only wants to know roughly where, should
             raise this.
-        start: bias to begin from [V], solved directly rather than ramped to.
-        max_iterations: Gummel budget at each point [1].
-        update_tol: Gummel convergence threshold [1].
+        start: the voltage the sweep starts from [V]. It's solved directly,
+            not ramped up to.
+        max_iterations: how many Gummel cycles each point gets before it
+            counts as failed [1].
+        update_tol: how small a whole Gummel cycle's change has to be before
+            a point counts as solved [1].
         on_frame: telemetry, or None to report nothing. Carries a
             GummelIteration per cycle, a ContinuationEvent per attempt and an
             IVFrame per point that lands. See phases/PHASE-7.md.
@@ -625,11 +629,14 @@ def gate_sweep(
         contact: name of the terminal to sweep. The gate.
         measure_at: name of the terminal to read the current at. The drain.
         models: transport models, built from the device if None.
-        step: first continuation step between requested points [V].
+        step: the biggest voltage step the solver takes on its way from one
+            point on your list to the next [V].
         min_step: give up once the step falls below this [V].
-        start: gate bias to begin from [V], solved directly rather than ramped
-            to. Zero, which for an NMOS is off.
-        max_iterations: Newton budget at each point [1].
+        start: the gate voltage the sweep starts from [V]. It's solved
+            directly, not ramped up to. The default is zero, which leaves an
+            NMOS switched off.
+        max_iterations: how many Newton steps each point gets before it
+            counts as failed [1].
         on_frame: telemetry, or None to report nothing. Carries a
             NewtonIteration per iteration, a ContinuationEvent per attempt and
             an IVFrame per point that lands. No GummelIteration ever reaches

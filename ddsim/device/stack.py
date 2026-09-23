@@ -119,20 +119,24 @@ def stack(
     Args:
         regions: the regions in order from the left contact, at least two,
             with the doping changing at one boundary at least.
-        n_nodes: mesh node count over the whole stack [1]. Range 51 to 1001.
-            Shared between the junctions by how far each one's grading has to
-            grow, so a stack of many junctions wants more.
-        h_min: mesh spacing at every junction [cm]. Range 1e-8 to 1e-6, log.
-            docs/02-numerics.md wants it below half the Debye length: 20 nm
-            at 1e16 and 0.65 nm at 1e19, the top of the doping range, so the
-            1 nm default under-resolves the heaviest regions.
-        left_voltage: bias on the left contact [V]. Range -5 to 1. The same
-            ends as the diode's contacts. Where a cold solve stops converging
-            was measured on the Phase 2 diode, near 1.3 V forward, and not on
-            other stacks.
-        right_voltage: bias on the right contact [V]. Range -5 to 1. The same
-            ends as the left contact.
+        n_nodes: how many mesh points the whole stack is cut into [1].
+            Range 51 to 1001. They get shared out between the junctions, so a
+            stack with lots of junctions wants more.
+        h_min: the smallest mesh spacing, at every junction [cm].
+            Range 1e-8 to 1e-6, log. It should be under half the Debye
+            length: 20 nm at 1e16 but only 0.65 nm at 1e19, so the 1 nm
+            default is too coarse for the most heavily doped regions.
+        left_voltage: voltage on the left contact [V]. Range -5 to 1, the
+            same as the diode's contacts.
+        right_voltage: voltage on the right contact [V]. Range -5 to 1, the
+            same as the left contact.
         material: defaults to silicon at 300 K.
+
+    n_nodes is shared between the junctions by how far each one's grading has
+    to grow. The h_min rule is the half Debye length one in
+    docs/02-numerics.md. The contact ranges copy the diode's, and where a
+    cold solve stops converging was measured on the Phase 2 diode, near 1.3 V
+    forward, and not on other stacks.
     """
     _check_regions(regions)
     ends = np.cumsum([region.length for region in regions])

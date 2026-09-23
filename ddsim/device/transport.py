@@ -331,19 +331,23 @@ class TransportModels:
             device: the device, for its doping, temperature and scaling.
             recombination: an explicit model, which overrides both the SRH
                 default and the auger flag.
-            mobility: "constant" for the Phase 1 and 2 value, or "arora" for
-                the doping dependent model docs/01-physics.md puts in Phase 3.
-            auger: add band to band Auger alongside SRH. Off by default
-                because it changes nothing measurable below high injection
-                and every Phase 2 number was taken without it.
-            field_dependent: wrap the chosen low field model in
-                Caughey-Thomas, which is what produces velocity saturation.
-                Off by default for the same reason auger is: every result
-                recorded before Phase 5 was taken without it.
-            surface: add Lombardi scattering off the Si/SiO2 interface. Needs
-                a Mesh2D, since it reads the field normal to that interface
-                and a line has no normal. Off by default, and a device with
-                no interface has no use for it.
+            mobility: "constant" uses one mobility everywhere, the value for
+                undoped silicon. "arora" slows carriers down wherever the
+                doping is heavy, which is what real silicon does.
+            auger: add Auger recombination on top of the usual defect
+                recombination. It only matters at very high carrier
+                densities, so it's off by default.
+            field_dependent: cap how fast carriers can go in a strong field.
+                This is what gives you velocity saturation. Off by default.
+            surface: slow down carriers pressed against the oxide, the way a
+                real MOSFET channel does. Only works on a 2D device with an
+                oxide on it. Off by default.
+
+        Why they're all off by default: every Phase 1 and 2 result was
+        taken with constant mobility and no Auger, and every result
+        before Phase 5 without Caughey-Thomas, and the defaults keep
+        those reproducible. surface needs a Mesh2D because it reads the
+        field normal to the Si/SiO2 interface, and a line has no normal.
 
         Doping dependent mobility slots in by making Dn and Dp arrays over
         edges instead of scalars, which every assembly already accepts, and it
