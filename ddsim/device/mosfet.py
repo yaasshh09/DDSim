@@ -152,25 +152,37 @@ def nmos(
 
     Args:
         L_gate: gate length [cm], the electrode span. 1e-4 is 1 um.
+            Range 5e-6 to 3e-4, log. Below twice lateral_diffusion no channel
+            is left and the device is refused, so on the default process the
+            knob stops at 2e-5; the short channel lesson reaches 5e-6.
         sd_length: length of each source and drain region [cm], from the outer
-            boundary to the gate mask edge.
+            boundary to the gate mask edge. Range 3e-5 to 5.7e-5.
         contact_length: length of each source and drain contact plate [cm],
             measured in from the outer boundary. Less than sd_length.
+            Range 5e-6 to 3e-5.
         substrate_doping: net doping of the body [cm^-3], negative for p-type.
+            Range -1e19 to -1e14, log.
         sd_peak: source and drain surface concentration [cm^-3].
+            Range 1e18 to 1e20, log.
         x_j: junction depth [cm], where the implant meets the substrate doping
             directly below the outer part of the source.
+            Range 2.5e-6 to 5e-5, log.
         lateral_diffusion: how far the junction reaches under the gate mask
             edge at the surface [cm]. The metallurgical channel is L_gate less
-            twice this.
-        t_ox: oxide thickness [cm]. 2e-6 is 20 nm.
+            twice this. Range 1e-6 to 3e-5, log.
+        t_ox: oxide thickness [cm]. 2e-6 is 20 nm. Range 1e-7 to 1e-5, log.
         t_si: silicon thickness [cm], several times the depletion width.
-        n_contact: columns under each contact plate [1].
+            Range 5e-5 to 5e-4, log.
+        n_contact: columns under each contact plate [1]. Range 2 to 30.
         n_sd: columns from a contact edge to the gate mask edge [1].
-        n_channel: columns in each half of the channel [1].
+            Range 9 to 55.
+        n_channel: columns in each half of the channel [1]. Range 11 to 59.
         n_silicon: rows through the silicon, including the interface [1].
+            Range 17 to 285.
         n_oxide: rows through the oxide, including the interface [1].
-        h_min_x: column spacing at each junction [cm].
+            Range 2 to 129.
+        h_min_x: column spacing at each junction [cm]. Range 1.2e-7 to 5e-6,
+            log.
         h_min_y: row spacing at the silicon surface [cm]. This is the one
             spacing the drain current is really sensitive to, because the
             inversion layer is the only structure on the device a mesh can
@@ -178,18 +190,28 @@ def nmos(
             see docs/05-pitfalls.md. The default is the rung of
             tests/convergence/test_mosfet_mesh_convergence.py where the drain
             current stops moving by more than a tenth of what benchmark 6
-            asserts.
-        gate_voltage: bias on the gate [V].
-        drain_voltage: bias on the drain [V].
-        source_voltage: bias on the source [V].
-        body_voltage: bias on the substrate contact [V].
+            asserts. Range 1e-9 to 1e-6, log.
+        gate_voltage: bias on the gate [V]. Range -1 to 2.5.
+        drain_voltage: bias on the drain [V]. Range -0.5 to 2.
+        source_voltage: bias on the source [V]. Range -0.5 to 0.5.
+        body_voltage: bias on the substrate contact [V]. Range -2 to 0.5,
+            short of forward biasing the body junctions by much.
         work_function: work function of the gate electrode [eV]. n+ poly by
-            default, the ordinary NMOS gate.
+            default, the ordinary NMOS gate. Range 4 to 5.3.
         material: defaults to silicon at 300 K.
         degenerate: solve with Fermi-Dirac statistics rather than Boltzmann.
             On by default because the source and drain peak at 1e20 cm^-3,
             where n/Nc is 3.5 and Boltzmann misplaces the Fermi level by
             30.5 mV. See docs/07-decisions.md, 2026-09-09.
+
+    Every range end above was solved, one knob at a time with the rest at
+    their defaults, over the lesson's 0 V to 1.5 V transfer at 50 mV drain
+    with the full mobility stack, on both the converged and the coarse mesh,
+    2026-09-23. A mesh knob was solved at the last value that builds on each
+    mesh, since the two meshes refuse at different places. The bias ends were
+    also swept as the swept contact: gate -1 to 2.5 V, drain -0.5 to 2 V at
+    0 and 2.5 V of gate, source and body with the gate at 1.5 V. Every sweep
+    completed. See docs/07-decisions.md, 2026-09-23.
 
     The implant is separable and both halves of it are closed form, which is
     what lets a test measure the junction depth and the lateral encroachment

@@ -22,7 +22,6 @@ from ddsim.api.app import create_app
 from ddsim.api.devices import (
     DEVICE_KINDS,
     argument_docs,
-    device_dimension,
     device_parameters,
     parameters_of,
 )
@@ -46,12 +45,12 @@ IDS = [f"{owner} {parameter.name}" for owner, parameter in KNOBS]
 SLIDER_KNOBS = [
     (kind, parameter)
     for kind in DEVICE_KINDS
-    if device_dimension(kind) == 1
     for parameter in device_parameters(kind)
     if parameter.type in ("float", "int")
 ]
-"""Every numeric knob a slider can reach: the knobs of the devices the page
-solves live, which phases/PHASE-7.md limits to the 1D ones."""
+"""Every numeric device knob. The 1D ones solve live as they move; the 2D ones
+only set the knob, but a range is what keeps either from a device that fails
+to solve, so every one declares its checked ends."""
 
 SLIDER_IDS = [f"{kind} {parameter.name}" for kind, parameter in SLIDER_KNOBS]
 

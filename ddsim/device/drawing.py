@@ -419,17 +419,26 @@ def drawing(
             a straight segment.
         nx: mesh node count across the device [1]. The drawing's edges are
             among them, so a drawing with many edges needs more.
-        ny: mesh node count up the device [1].
+            Range 38 to 200.
+        ny: mesh node count up the device [1]. Range 22 to 400.
         h_min_x: column spacing at every doping edge and vertical interface
             [cm]. Two edges closer than this are refused.
+            Range 4.1e-8 to 4.7e-6, log.
         h_min_y: row spacing at every doping edge and Si/SiO2 interface [cm].
             The inversion layer sits within a few nanometres of the surface,
             which is what this has to resolve on a MOSFET.
+            Range 1e-9 to 7.7e-7, log.
         degenerate: solve with Fermi-Dirac statistics rather than Boltzmann.
             On by default, because the default drawing is the benchmark nmos,
             whose source and drain peak at 1e20 cm^-3. Off, a doping above
             1e19 is refused.
         material: defaults to silicon at 300 K.
+
+    The mesh ranges are the default drawing's, the benchmark nmos. Each end
+    is the last value that builds on the converged or the coarse mesh, and
+    each was solved over the 0 V to 1.5 V transfer with the full mobility
+    stack, 2026-09-23. Every sweep completed. A drawing of your own can
+    refuse sooner, and the page stops the knob where it does.
     """
     _check_records(blocks, implants, electrodes, degenerate)
     if not blocks:

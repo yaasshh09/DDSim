@@ -499,10 +499,11 @@ def test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server) -> No
             browser.close()
 
 
-def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) -> None:
+def test_a_two_dimensional_device_offers_a_coarse_mesh(server) -> None:
     """phases/PHASE-7.md: live sliders on the 1D devices only, and the page
     says why. The 2D ones get the coarse mesh instead, with the note on what
-    choosing it costs."""
+    choosing it costs. Their sliders set a knob and solve nothing, see the
+    negative log slider test."""
     with sync_playwright() as driver:
         browser = driver.chromium.launch()
         try:
@@ -519,7 +520,7 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) ->
 
             assert page.is_visible("#bands")
             page.select_option("#device-kind", "nmos")
-            assert page.evaluate(sliders) == 0
+            assert page.evaluate(sliders) > 0
             assert page.is_visible("#mesh-coarse")
             # The band view draws a 1D profile. A 2D device gets bands from
             # the cutline, so the checkbox would do nothing there.
