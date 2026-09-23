@@ -430,6 +430,71 @@ def test_five_slider_moves_in_a_second_leave_one_solve_running(served) -> None:
             browser.close()
 
 
+def test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server) -> None:
+    """Every slider stays inside its own range, but two knobs together can
+    still ask for a device that does not exist: a diode shorter than where its
+    junction sits, or more mesh cells than fit at the spacing asked for. The
+    user hit both as red refusals. The knob now stops at the last value that
+    builds, says why in a quiet note, and the solve goes ahead."""
+    drag = """([name, at]) => {
+      const slider = document.querySelector('[data-slider="' + name + '"]');
+      slider.value = String(Number(slider.min) + at * (slider.max - slider.min));
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    }"""
+    box = """(name) => Number(document.querySelector(
+      '#device-knobs [data-name="' + name + '"]').value)"""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+
+            def solved_again(move) -> None:
+                """Make a move, then wait for the solve it starts, and not
+                for the done a previous solve left on the page."""
+                before = page.evaluate("state.job")
+                move()
+                wait_until(
+                    page,
+                    f"state.job !== {json.dumps(before)} && "
+                    "el('state').textContent.startsWith('done')",
+                    errors,
+                )
+
+            # The length slider's bottom end is 0.1 um, under the 0.5 um
+            # junction. It stops just past the junction instead.
+            solved_again(lambda: page.evaluate(drag, ["length", 0.0]))
+            assert page.evaluate(box, "length") > page.evaluate(box, "junction")
+            assert "stops at" in page.inner_text("#knob-note")
+
+            # Every node the slider has, at the coarsest spacing it has: 1000
+            # cells of 10 nm is 10 um in a 1 um device. h_min stops short.
+            solved_again(lambda: page.evaluate(drag, ["length", 0.5]))
+            solved_again(lambda: page.evaluate(drag, ["n_nodes", 1.0]))
+            solved_again(lambda: page.evaluate(drag, ["h_min", 1.0]))
+            assert page.evaluate(box, "h_min") < 1e-6
+            assert "h_min" in page.inner_text("#knob-note")
+
+            # A number typed past a slider's end is held to that end.
+            page.fill('#device-knobs [data-name="Na"]', "1e25")
+            solved_again(
+                lambda: page.dispatch_event('#device-knobs [data-name="Na"]', "change")
+            )
+            assert page.evaluate(box, "Na") == 1e19
+
+            # And a voltage past the anode's declared range is held to it.
+            page.fill("#voltages", "0, 0.5, 3")
+            solved_again(lambda: page.click("#solve"))
+            assert page.input_value("#voltages") == "0, 0.5, 1"
+            assert "held to" in page.inner_text("#voltage-note")
+            assert errors == []
+        finally:
+            browser.close()
+
+
 def test_a_two_dimensional_device_offers_a_coarse_mesh_and_no_sliders(server) -> None:
     """phases/PHASE-7.md: live sliders on the 1D devices only, and the page
     says why. The 2D ones get the coarse mesh instead, with the note on what

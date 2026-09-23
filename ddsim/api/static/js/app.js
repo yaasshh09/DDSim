@@ -27,7 +27,8 @@ const state = {
   valueName: "current",
   runs: [],       // finished runs kept as overlays: {points, request, label}
   request: null,  // what the run on screen was asked for
-  pending: null,  // the timer a moving slider keeps resetting
+  pending: null,  // the timer a moving knob keeps resetting
+  turn: 0,        // which knob move is the newest, so an older one stands down
 };
 
 // ---------------------------------------------------------------- plotting
@@ -493,8 +494,37 @@ function knob(parameter) {
   const drag = slider(parameter, input);
   if (drag) control.appendChild(drag);
   label.appendChild(control);
+
+  // A number typed into the box is held to the same ends as the slider, and
+  // anything that is not a number goes back to the last value that was.
+  if (parameter.type === "int" || parameter.type === "float") {
+    input.dataset.good = input.value;
+    input.addEventListener("change", () => {
+      const value = Number(input.value);
+      if (input.value.trim() === "" || !isFinite(value)) {
+        input.value = input.dataset.good;
+        return;
+      }
+      input.value = written(parameter, within(parameter, value));
+      if (drag) drag.value = String(position(parameter, Number(input.value)));
+      settle(parameter, input, drag);
+    });
+  }
   return label;
 }
+
+// Where a value sits on its slider, and back. A log knob's slider runs in
+// decades. Positions on a screen, like the plot axes.
+const position = (parameter, value) =>
+  parameter.axis === "log" ? decades(value) : value;
+const unposition = (parameter, at) =>
+  parameter.axis === "log" ? undecades(at) : at;
+const within = (parameter, value) =>
+  parameter.low === null || parameter.high === null
+    ? value
+    : Math.min(parameter.high, Math.max(parameter.low, value));
+const written = (parameter, value) =>
+  parameter.type === "int" ? String(Math.round(value)) : format(value);
 
 // A knob with a range declared in its own docstring gets a slider over that
 // range. A knob without one gets the box alone: the page has no business
@@ -502,30 +532,101 @@ function knob(parameter) {
 function slider(parameter, box) {
   if (parameter.low === null || parameter.high === null) return null;
   const log = parameter.axis === "log";
-  const at = (value) => (log ? decades(value) : value);
 
   const drag = document.createElement("input");
   drag.type = "range";
   drag.dataset.slider = parameter.name;
-  drag.min = String(at(parameter.low));
-  drag.max = String(at(parameter.high));
+  drag.min = String(position(parameter, parameter.low));
+  drag.max = String(position(parameter, parameter.high));
   // A whole number knob steps by one, everything else by a two hundredth of
   // its travel, which is finer than the slider has pixels.
   drag.step = String(
     !log && parameter.type === "int"
       ? 1
-      : (at(parameter.high) - at(parameter.low)) / 200
+      : (Number(drag.max) - Number(drag.min)) / 200
   );
-  drag.value = String(at(start(parameter)));
+  drag.value = String(position(parameter, start(parameter)));
 
   drag.addEventListener("input", () => {
-    const raw = Number(drag.value);
-    const value = log ? undecades(raw) : raw;
-    box.value =
-      parameter.type === "int" ? String(Math.round(value)) : format(value);
-    nudge();
+    box.value = written(parameter, unposition(parameter, Number(drag.value)));
+    settle(parameter, box, drag);
   });
   return drag;
+}
+
+// Whether the device on the form builds, asked of the server without solving
+// it. Empty when it does, the server's own reason when it does not, and
+// empty when the form cannot even be read, which the solve will then say.
+async function refusal() {
+  let body;
+  try {
+    body = JSON.stringify(deviceRequest());
+  } catch (problem) {
+    return "";
+  }
+  const response = await fetch("/api/devices/check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: body,
+  });
+  if (response.ok) return "";
+  const failure = await response.json().catch(() => ({ detail: response.statusText }));
+  return String(failure.detail || "this device does not build");
+}
+
+// A device knob that moved into a device that cannot be built is walked back
+// towards its last good value until it builds, so it stops at the edge of what
+// the other knobs allow rather than landing on a refusal. The walk halves the
+// gap in slider positions, which is a search over a screen and not over any
+// physics: the server alone says what builds. Every value tried is the text
+// the box will show, so the one it stops on is exactly one that built.
+async function holdBuildable(parameter, box, drag) {
+  const why = await refusal();
+  if (!why) return "";
+  const asked = box.value;
+  let inside = box.dataset.good;
+  let near = position(parameter, Number(inside));
+  let far = position(parameter, Number(asked));
+  for (let step = 0; step < 12; step++) {
+    const middle = (near + far) / 2;
+    const tried = written(parameter, unposition(parameter, middle));
+    if (tried === inside || tried === box.value) break;
+    box.value = tried;
+    if (await refusal()) {
+      far = middle;
+    } else {
+      near = middle;
+      inside = tried;
+    }
+  }
+  box.value = inside;
+  if (drag) drag.value = String(position(parameter, Number(inside)));
+  return (
+    parameter.label + " stops at " + inside +
+    (parameter.unit && parameter.unit !== "1" ? " " + parameter.unit : "") +
+    ", as far as it goes with the other settings where they are. " +
+    "Why: " + why
+  );
+}
+
+// A knob moved, by its slider or its box. The page waits for the hand to
+// stop, holds a device knob to a device that builds, then replaces the solve
+// in flight rather than adding to it, so a drag across a knob leaves one job
+// running however many positions it passed through.
+function settle(parameter, box, drag) {
+  clearTimeout(state.pending);
+  state.pending = setTimeout(async () => {
+    state.pending = null;
+    const turn = ++state.turn;
+    if (box.closest("#device-knobs")) {
+      const note = await holdBuildable(parameter, box, drag);
+      // A newer move owns the form now, and it will settle itself.
+      if (turn !== state.turn) return;
+      el("knob-note").textContent = note;
+    }
+    box.dataset.good = box.value;
+    if (live()) stop().then(solve);
+  }, LIVE_DELAY);
 }
 
 function fill(container, parameters) {
@@ -569,6 +670,8 @@ function onDeviceKind() {
   // page says which it is rather than leaving a student to find out.
   el("mesh-choice").hidden = !state.schema.presets[kind];
   el("mesh-note").textContent = "";
+  el("knob-note").textContent = "";
+  el("voltage-note").textContent = "";
   // The band view is a 1D profile. On a 2D device the cutline draws bands.
   el("bands").parentElement.style.display = live() ? "inline-flex" : "none";
   el("live-note").textContent = live()
@@ -647,7 +750,20 @@ function voltages() {
   if (values.some((v) => !isFinite(v))) {
     throw new Error("the voltage list has something in it that is not a number");
   }
-  return values;
+  // A sweep over a contact whose bias knob declares a range is held to it,
+  // the same ends the knob's own slider has, and the list says so.
+  const contact = el("contact").value.trim();
+  const bias = state.schema.devices[el("device-kind").value]
+    .find((p) => p.name === contact + "_voltage" && p.low !== null);
+  if (!bias) return values;
+  const held = values.map((v) => within(bias, v));
+  if (held.some((v, i) => v !== values[i])) {
+    el("voltages").value = held.join(", ");
+    el("voltage-note").textContent =
+      "held to " + format(bias.low) + " V to " + format(bias.high) +
+      " V, the range the " + contact + " bias is declared for";
+  }
+  return held;
 }
 
 function request() {
@@ -888,18 +1004,6 @@ async function cancel() {
   el("state").textContent = body.cancelled ? "cancelling" : "already finished";
 }
 
-// A slider moved. The page waits for the hand to stop, then replaces the
-// solve in flight rather than adding to it, so a drag across a knob leaves
-// one job running however many positions it passed through.
-function nudge() {
-  if (!live()) return;
-  clearTimeout(state.pending);
-  state.pending = setTimeout(() => {
-    state.pending = null;
-    stop().then(solve);
-  }, LIVE_DELAY);
-}
-
 // Put down the job on screen without saying anything about it. The socket
 // goes first, so the frames of a solve nobody is waiting for any more stop
 // reaching the plots, and the cancel lands at that solve's next iteration.
@@ -932,6 +1036,8 @@ function chooseDevice() {
 
 el("device-kind").addEventListener("change", chooseDevice);
 el("sweep-kind").addEventListener("change", onSweepKind);
+// The note says the list was held; it stands until the list is edited again.
+el("voltages").addEventListener("input", () => { el("voltage-note").textContent = ""; });
 el("solve").addEventListener("click", solve);
 el("cancel").addEventListener("click", cancel);
 el("clear-runs").addEventListener("click", clearRuns);
