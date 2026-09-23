@@ -21,7 +21,7 @@
         poisson.py          # assembly + Jacobian
         continuity.py       # SG flux assembly + Jacobian
         coupled.py          # the 3N system for full Newton
-        assembly.py         # pattern cached COO to CSC assembly
+        assembly.py         # the residual + Jacobian type every assembly returns
         boundary.py         # ohmic, MOS gate, reflecting
       solve/
         newton.py           # damped Newton, residual tracking
