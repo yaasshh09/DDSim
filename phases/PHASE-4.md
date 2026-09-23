@@ -2,39 +2,40 @@
 
 **Target: 3 weeks. Docs: 02-numerics (mesh), 03-architecture, 01-physics (MOS BC).**
 
-Dimensionality increases. The physics does not change; the discretization and the
+One more dimension. The physics doesn't change; the discretization and the
 mesh quality requirements do.
 
 ## Scope
 
-1. `mesh/mesh2d.py`, box-integration finite volume.
-   **Start with a structured tensor-product mesh.** A rectangular MOS capacitor
-   does not need unstructured meshing and structured meshes cannot produce obtuse
-   triangles. Move to Delaunay only when geometry demands it.
-2. `mesh/quality.py`, obtuse triangle detection, dual area positivity check.
-   Refuse to build a mesh that fails.
-3. Insulator regions: Poisson only, no continuity equations in oxide
-4. Si/SiO2 interface: continuity of normal displacement D, not of E. Optional
-   fixed interface charge Q_f.
-5. MOS gate boundary condition with work function difference
-6. `extract/cv.py`, small-signal AC. Linearize around the DC solution and solve
-   the complex system at frequency omega. Reuses the Phase 3 Jacobian directly.
-   Roughly 60 lines. Do not time-step.
+1. `mesh/mesh2d.py`, box integration finite volume.
+   **Start with a structured tensor product mesh.** A rectangular MOS
+   capacitor doesn't need unstructured meshing, and a structured mesh can't
+   produce obtuse triangles. Only move to Delaunay when the geometry demands
+   it.
+2. `mesh/quality.py`, obtuse triangle detection and a dual area positivity
+   check. Refuse to build a mesh that fails.
+3. Insulator regions: Poisson only, no continuity equations in the oxide
+4. The Si/SiO2 interface: continuity of the normal displacement D, not of E,
+   with an optional fixed interface charge Q_f
+5. The MOS gate boundary condition with the work function difference
+6. `extract/cv.py`, small signal AC. Linearize around the DC solution and
+   solve the complex system at frequency omega. It reuses the Phase 3
+   Jacobian directly and comes to about 60 lines. Don't time step.
 7. `device/mos_cap.py`
 
 ## Acceptance criteria
 
-- All 1D tests still green. The 2D code path must reproduce 1D results on a
-  single-column mesh to 1e-10.
-- Mesh quality checker rejects a deliberately obtuse mesh
+- Every 1D test still green. The 2D code path has to reproduce 1D results on
+  a single column mesh to 1e-10.
+- The mesh quality checker rejects a deliberately obtuse mesh
 - No negative carrier densities anywhere in 2D
-- **Ideal MOS C-V**, all three regimes:
+- **Ideal MOS C-V**, in all three regimes:
   - Accumulation capacitance equals `eps_ox/t_ox` to under 1 percent
-  - Depletion minimum matches max depletion width calculation
-  - Flatband voltage matches work function difference to under 20 mV
+  - The depletion minimum matches the maximum depletion width calculation
+  - Flatband voltage matches the work function difference to under 20 mV
   - Threshold voltage matches the textbook expression to under 20 mV
-- DEVSIM regression #4 and #5 (both oxide thicknesses) pass at 2 percent
-- Current continuity invariant holds in 2D
+- DEVSIM regressions #4 and #5 (both oxide thicknesses) pass at 2 percent
+- The current continuity invariant holds in 2D
 
 ## Do not
 
@@ -43,5 +44,5 @@ mesh quality requirements do.
 
 ## Definition of done
 
-A C-V curve from your own solver overlaid on DEVSIM's, committed to the README,
-with the three regimes annotated.
+A C-V curve from your own solver overlaid on DEVSIM's, committed to the
+README, with the three regimes labelled.
