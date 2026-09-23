@@ -41,18 +41,6 @@ header h1 {
   color: var(--ink);
 }
 
-/* The phase badge. A badge rather than a control, but it is letterspaced and
-   it carries a fact, so it sits on the same 11 px floor as everything else
-   here rather than claiming the softer one that only smallprint gets. */
-.chip {
-  font: 500 11px var(--sans);
-  letter-spacing: 0.04em;
-  color: var(--signal);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
-  padding: 2px 5px;
-}
-
 .rule {
   width: 1px;
   height: 20px;
@@ -63,14 +51,12 @@ header .gap {
   flex: 1;
 }
 
-/* Poppins sets its digits at different widths, and this line rewrites
-   several of them a second while a solve runs. Left to reflow it shuffles
-   the cancel button beside it on every frame, so it is given a width and
-   told to keep it. */
+/* Everything after the gap is pinned to the right edge, so cancel stays put
+   however wide this line gets while a solve rewrites it, and a short word
+   like ready sits right beside it. */
 #state {
   font: 500 11.5px var(--sans);
   color: var(--ink-2);
-  min-width: 26ch;
 }
 
 /* A dot lit exactly while a job is running. #cancel is enabled for that span

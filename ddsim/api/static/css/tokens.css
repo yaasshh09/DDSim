@@ -61,8 +61,8 @@
 
      Poppins has no tabular figure feature and its digits are proportional:
      a one is 350 units wide against a zero's 647. Every number here sits in
-     a box of its own width and #state is pinned, so a value changing its
-     digits moves nothing around it. font-variant-numeric would do nothing,
+     a box of its own width, and #state sits right of the header's gap so
+     its changing width only moves the gap. font-variant-numeric would do nothing,
      which is why it is not set. */
   --sans: Poppins, system-ui, -apple-system, "Segoe UI", sans-serif;
 

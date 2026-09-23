@@ -45,8 +45,10 @@ on, so `font-variant-numeric` does nothing here. That matters because a value
 under a live slider is rewritten many times a second. It is handled by
 geometry rather than by the font: every number the page shows sits in a box
 of its own fixed width, and `#state`, which is loose text in the header and
-rewrites several numbers a second while a solve runs, is given a `min-width`
-so the cancel button beside it does not shuffle. If a number ever needs to
+rewrites several numbers a second while a solve runs, sits after the
+header's flex gap, so the cancel button is pinned to the right edge and the
+changing width only moves the gap. A `min-width` there once left `ready`
+floating a long way from cancel. If a number ever needs to
 sit in free-flowing text and stay still, it needs a box or a pinned width
 too.
 
