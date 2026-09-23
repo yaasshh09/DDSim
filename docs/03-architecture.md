@@ -8,8 +8,8 @@
         scaling.py          # de Mari scale factors, to_scaled / to_physical
         field.py            # Field type, provenance and unit tracking
       mesh/
-        mesh1d.py           # uniform and graded 1D
-        mesh2d.py           # box-integration finite volume, Delaunay
+        mesh1d.py           # uniform, graded and stacked 1D meshes
+        mesh2d.py           # tensor product 2D meshes for box integration
         quality.py          # obtuse triangle detection, dual area checks
       physics/
         statistics.py       # Boltzmann, Fermi-Dirac, Joyce-Dixon
@@ -17,31 +17,38 @@
         recombination.py    # SRH, Auger
         bernoulli.py        # B(x) and dB/dx, branch handled
       discretize/
+        geometry.py         # edges, dual faces and volumes
         poisson.py          # assembly + Jacobian
         continuity.py       # SG flux assembly + Jacobian
+        coupled.py          # the 3N system for full Newton
+        assembly.py         # pattern cached COO to CSC assembly
         boundary.py         # ohmic, MOS gate, reflecting
       solve/
         newton.py           # damped Newton, residual tracking
         gummel.py           # decoupled iteration
         continuation.py     # generic bias ramp driver, REUSED BY SPICE
-        linear.py           # splu wrapper, symbolic factorization cache
+        linear.py           # splu wrapper
       device/
         builder.py          # geometry + doping profile -> Device
-        pn_diode.py
-        mos_cap.py
-        mosfet.py
+        pn_diode.py, mos_cap.py, mosfet.py
+        stack.py            # 1D devices built from regions on the page
+        drawing.py          # 2D devices drawn from rectangles on the page
+        transport.py        # the models and the solves on a Device
       extract/
-        iv.py               # I-V sweeps
-        cv.py               # small-signal C-V
+        iv.py               # I-V and transfer sweeps
+        cv.py               # small signal C-V
         params.py           # Vth, SS, DIBL, ideality extraction
-        compact.py          # Phase 6: fit EKV/BSIM params for SPICE
+        rolloff.py          # the Phase 5 gate length sweep
+        bands.py            # band edges and quasi-Fermi levels for plotting
       api/                  # Phase 7, FastAPI. Nothing in the solver imports it
         devices.py          # the device registry, read from the constructors
         sweeps.py           # the three sweeps and the model flags
         jobs.py             # submit, stream, cancel, on a worker thread
         frames.py           # a frame to a message: JSON text or float32
+        learn.py            # the explainers and lessons the page serves
         app.py              # the routes and the socket
-        static/index.html   # the client. One file, no build step
+        lessons/            # the five guided lessons
+        static/             # the client: html, css, js, explainers. No build step
       cli.py                # `ddsim serve`
     tests/
       unit/                 # bernoulli, statistics, scaling, mobility
@@ -54,9 +61,12 @@
     docs/
     phases/
 
+Compact model extraction for SPICE, Phase 6, will add `extract/compact.py`
+once there's a SPICE project to hand it to.
+
 ## The Field type
 
-The single most important abstraction. Ported in spirit from AtomSIM.
+The single most important abstraction, carried over in spirit from AtomSIM.
 
 Every array of physical numbers carries three pieces of metadata:
 
@@ -64,50 +74,51 @@ Every array of physical numbers carries three pieces of metadata:
 2. **Scaling state**, an enum: `PHYSICAL` or `SCALED`
 3. **Mesh location**, an enum: `NODE`, `EDGE`, or `CELL`
 
-Rules enforced at runtime, cheaply:
+Rules, enforced cheaply at runtime:
 
-- Arithmetic between two Fields of different scaling state raises. No exceptions,
-  no coercion.
-- Arithmetic between fields at different mesh locations raises. Node quantities
-  and edge quantities are not interchangeable.
-- `to_scaled()` and `to_physical()` are the only ways to change state, and they
-  consult `scaling.py`, never a hardcoded factor.
-- Unit strings are checked on add and subtract, and combined on multiply and
-  divide. Full dimensional analysis is unnecessary; string matching on add and
-  subtract catches almost everything.
+- Arithmetic between two Fields in different scaling states raises. No
+  exceptions, no coercion.
+- Arithmetic between fields at different mesh locations raises. Node
+  quantities and edge quantities aren't interchangeable.
+- `to_scaled()` and `to_physical()` are the only ways to change state, and
+  they consult `scaling.py`, never a hardcoded factor.
+- Unit strings are checked on add and subtract and combined on multiply and
+  divide. Full dimensional analysis isn't needed; string matching on add and
+  subtract catches nearly everything.
 
-Why this matters more here than in AtomSIM: de Mari scaling means every single
-quantity in the codebase exists in two versions that look numerically plausible
-in either form. A scaled potential of 40 and a physical potential of 1.03 V are
-the same thing, and mixing them produces no error, no NaN, and no crash. It
-produces a wrong answer that converges. The type system is the only defense.
+Why this matters more here than in AtomSIM: de Mari scaling means every
+quantity in the codebase exists in two versions, and both look numerically
+plausible. A scaled potential of 40 and a physical potential of 1.03 V are the
+same thing, and mixing them gives no error, no NaN and no crash. It gives a
+wrong answer that converges. The type system is the only defence.
 
-Performance note: keep the underlying storage a plain NumPy array accessible as
-`.data` so hot loops can bypass the wrapper. Check scaling state once at function
-entry, then work on raw arrays inside.
+Performance note: keep the underlying storage a plain NumPy array, reachable
+as `.data`, so hot loops can skip the wrapper. Check the scaling state once on
+the way into a function, then work on raw arrays inside.
 
 ## Module boundaries
 
-**`core/` knows nothing about devices.** Constants, scaling, Field only.
+**`core/` knows nothing about devices.** Constants, scaling and Field, and
+that's it.
 
-**`physics/` is pure functions.** Takes arrays, returns arrays. No mesh, no
-solver state, no device knowledge. Every function here is directly unit
-testable against a textbook formula. Keep it that way.
+**`physics/` is pure functions.** Arrays in, arrays out. No mesh, no solver
+state, no device knowledge. Every function here can be unit tested directly
+against a textbook formula. Keep it that way.
 
 **`discretize/` owns the mesh coupling.** Assembly functions take a mesh and a
-state vector and return a residual and a Jacobian. Nothing else. They do not
-solve, they do not iterate.
+state vector and return a residual and a Jacobian. Nothing else. They don't
+solve and they don't iterate.
 
-**`solve/` knows nothing about semiconductors.** It takes a callable returning
-`(residual, jacobian)` and drives it to convergence. This is what makes
-`continuation.py` reusable in SPICE without modification. Do not let a carrier
-density leak into this package.
+**`solve/` knows nothing about semiconductors.** It takes a callable that
+returns `(residual, jacobian)` and drives it to convergence. That's what makes
+`continuation.py` reusable in SPICE as is. Don't let a carrier density leak
+into this package.
 
-**`device/` composes.** Geometry and doping in, a `Device` object out that knows
-its mesh, its regions, its contacts, and its material parameters.
+**`device/` composes.** Geometry and doping go in, and a `Device` comes out
+that knows its mesh, its regions, its contacts and its material parameters.
 
-**`extract/` is post-processing.** Takes converged solutions, produces numbers
-and curves. No solving.
+**`extract/` is post processing.** It takes converged solutions and produces
+numbers and curves. No solving.
 
 ## The Device object
 
@@ -118,87 +129,93 @@ and curves. No solving.
       .materials     dict name -> MaterialParams
       .state         State (psi, n, p as Fields) or None if unsolved
 
-Doping profiles are callables of position, not arrays. `Gaussian(peak, centre,
-sigma)`, `Uniform(N)`, `Erfc(...)`, composed by addition and by multiplication.
-This keeps the profile independent of the mesh, which matters because Phase 5
-refines the mesh adaptively and the profile must be re-evaluable.
+Doping profiles are callables of position, not arrays: `Gaussian(peak, centre,
+sigma)`, `Uniform(N)`, `Erfc(...)`, composed by addition and multiplication.
+That keeps the profile independent of the mesh, which matters because Phase 5
+refines the mesh and the profile has to be re-evaluable.
 
-A profile is called with a `Coordinates`, which carries `x` and, on a mesh that
-has one, `y`. A bare number or array is still a position along x, so every
-profile written before there were two axes reads the same argument it always
-did and returns the same array bit for bit. `Along(shape, "y")` re-labels which
-coordinate a one dimensional shape is a function of, and `*` multiplies two
-profiles, which between them make a source implant expressible without a class
-of its own: a lateral window times a vertical Gaussian.
+A profile gets called with a `Coordinates`, which carries `x` and, on a mesh
+that has one, `y`. A bare number or array still means a position along x, so
+every profile written before there were two axes reads the same argument it
+always did and returns the same array bit for bit. `Along(shape, "y")`
+relabels which coordinate a one dimensional shape depends on, and `*`
+multiplies two profiles. Between them, a source implant needs no class of its
+own: it's a lateral window times a vertical Gaussian.
 
-On a 1D mesh `Coordinates.y` is None rather than an array of zeros. A profile
-that reads depth on a line is a modelling mistake, and zeros would hide it by
+On a 1D mesh `Coordinates.y` is None, not an array of zeros. A profile that
+reads depth on a line is a modelling mistake, and zeros would hide it by
 reading the implant peak along the whole device instead of raising.
 
 ## Configuration
 
-Device specs live in TOML or YAML, not in Python. One file per device.
-Simulation settings (bias sweep, models enabled, tolerances) in a separate
-section. Rationale: Phase 5 sweeps gate length across many runs, and that is a
-config sweep, not a code change.
+The plan was for device specs to live in TOML or YAML rather than Python, one
+file per device, with the simulation settings (bias sweep, models, tolerances)
+in a separate section. Phase 5 sweeps gate length across many runs, and that
+ought to be a config sweep, not a code change, and every run would write its
+resolved config next to its results.
 
-Every run writes its resolved config next to its results. Reproducibility.
+That isn't built. What exists instead is JSON: a request to the API is a
+device plus a sweep, and the page's `save device` writes the device half to a
+file that `load device` reads back. The gate length sweep lives in
+`extract/rolloff.py` as code.
 
 ## Frontend, Phase 7
 
 A real deliverable with its own phase and its own acceptance criteria, in
-`phases/PHASE-7.md`. Deferred until Phase 5 passes, not because it is optional
+`phases/PHASE-7.md`. It waited for Phase 5 to pass. Not because it's optional,
 but because a solver with a beautiful UI and a sign error is worse than a CLI
-that is correct.
+that's correct.
 
 The shape of it:
 
-- FastAPI backend, same binary point transmission architecture as AtomSIM. A 2D
-  field of psi, n, p plus a vector field of current density is the same shape of
-  payload as isosurface data. Reuse that code.
-- A solve is a job, not a request. It is submitted over HTTP, streams telemetry
-  over a WebSocket while it runs, and can be cancelled. A MOSFET sweep is minutes
-  of Newton solves and request-response cannot express that.
-- Live telemetry is the point. Residual per Newton iteration, each continuation
-  step as it lands, each sweep point as it finishes, so the curve draws itself
-  and the convergence is visible rather than hidden behind a spinner. All three
-  loops in `solve/` take an optional per-event callback, defaulting to None and
-  bit for bit inert when unused, and the public sweeps thread one `on_frame`
-  argument down to them. Every frame carries scalars only, which is what makes
-  the inertness structural rather than a promise.
+- A FastAPI backend with the same binary point transmission architecture as
+  AtomSIM. A 2D field of psi, n and p plus a vector field of current density
+  is the same shape of payload as isosurface data, so that code gets reused.
+- A solve is a job, not a request. It's submitted over HTTP, streams telemetry
+  over a WebSocket while it runs, and can be cancelled. A MOSFET sweep is
+  minutes of Newton solves, and request and response can't express that.
+- Live telemetry is the point: the residual per Newton iteration, each
+  continuation step as it lands, and each sweep point as it finishes, so the
+  curve draws itself and the convergence is out in the open instead of hidden
+  behind a spinner. All three loops in `solve/` take an optional per event
+  callback that defaults to None and is bit for bit inert when unused, and the
+  public sweeps thread one `on_frame` argument down to them. Every frame
+  carries scalars only, which makes the inertness structural rather than a
+  promise.
 
-  Residual per equation family is the one part of that list still outstanding.
-  `NewtonIteration` carries the scalar the solve was judged on, because the
-  split into families lives in the `residual_norm` the caller supplies; sending
-  the split means reporting from inside `transport.py`'s own measure.
+  The residual per equation family is measured where the split exists.
+  `NewtonIteration` carries the scalar the solve was judged on, since the
+  split into families lives in the `residual_norm` the caller supplies, so
+  `transport.py` measures the families itself and sends them alongside.
 
-- Two channels, and the split is deliberate. The socket carries telemetry as
-  text, so a slow reader cannot make a solver wait and a client may connect
-  late, disconnect and come back. Field arrays are a separate GET, answered
-  from the finished curve, so asking for a profile cannot stall a solve at all.
-  The binary layout is in `api/frames.py`: a uint32 header length, a JSON
+- Two channels, split on purpose. The socket carries telemetry as text, so a
+  slow reader can't make a solver wait, and a client can connect late,
+  disconnect and come back. Field arrays are a separate GET, answered from the
+  finished curve, so asking for a profile can't stall a solve at all. The
+  binary layout is in `api/frames.py`: a uint32 header length, then a JSON
   header naming every array with its unit and length, space padded so the
-  float32 that follows starts on a multiple of 4 (a browser Float32Array
+  float32 data that follows starts on a multiple of 4 (a browser Float32Array
   view refuses any other offset).
-- Frontend idiom: lab instrument, matching AtomSIM. Real TCAD viewers look like
-  this. Filled contour plots, current density streamlines, a draggable cutline
-  producing a band diagram along it, log-scale toggles everywhere.
-- No physics in the client. It draws what the solver sends and computes nothing.
-  Checked by tests/unit/test_client.py, which refuses `Math.exp` and friends and
-  every public name in `core/constants.py`, and allows `Math.log10` in the two
-  named axis helpers and nowhere else. See docs/07-decisions.md for that one.
-- The API adds no default of its own. The device knobs, the sweep knobs and the
-  model flags are read from the signatures of the functions that have them, so
-  a knob added to `nmos()` is on the form the moment it exists and a default
-  changed in `extract/iv.py` is the default the browser shows.
-- Reuse the AtomSIM CSS constraint: `text-transform: uppercase` only on section
-  headings. It will corrupt scientific notation and unit strings everywhere else.
+- The look is a lab instrument, like AtomSIM. Real TCAD viewers look like
+  this: filled contour plots, current streamlines, a draggable cutline that
+  gives a band diagram along it, and log scale toggles everywhere.
+- No physics in the client. It draws what the solver sends and computes
+  nothing. tests/unit/test_client.py checks that: it refuses `Math.exp` and
+  friends and every public name in `core/constants.py`, and it only allows
+  `Math.log10` in the two named axis helpers. See docs/07-decisions.md for
+  that one.
+- The API adds no defaults of its own. The device knobs, sweep knobs and model
+  flags are read from the signatures of the functions that own them, so a knob
+  added to `nmos()` is on the form the moment it exists, and a default changed
+  in `extract/iv.py` is the default the browser shows.
+- Keep AtomSIM's CSS rule: `text-transform: uppercase` only on section
+  headings. Anywhere else it mangles scientific notation and unit strings.
 
 ## Performance
 
-Do not optimize before Phase 5. Correctness first.
+Don't optimize before Phase 5. Correctness first.
 
-When you do: profile, do not guess. Expected hot spots in order are Jacobian
-assembly, then LU factorization, then mobility evaluation. Assembly vectorizes
-well over edges. If assembly is still dominant after vectorizing, Numba on the
-edge loop is the next step. Do not rewrite in C++.
+When you do: profile, don't guess. The expected hot spots, in order, are
+Jacobian assembly, then LU factorization, then mobility evaluation. Assembly
+vectorizes well over edges. If it's still dominant after vectorizing, Numba
+on the edge loop is the next step. Don't rewrite it in C++.
