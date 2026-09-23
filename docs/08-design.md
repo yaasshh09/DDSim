@@ -1,26 +1,26 @@
 # The client's design system
 
-What the page looks like and why. The single source of truth for every value
-here is `ddsim/api/static/css/tokens.css`. This file is the reasoning; that
-file is the definition. If the two disagree, the stylesheet is right and this
-document is stale.
+What the page looks like, and why. The single source of truth for every value
+here is `ddsim/api/static/css/tokens.css`. This file is the reasoning and that
+one is the definition. If they disagree, the stylesheet is right and this
+document is out of date.
 
 Nothing in here affects a number. The client computes no physical quantity,
 and `tests/unit/test_client.py` holds it to that. What a design decision can
-affect is whether a reader misreads a plot, which is why the three that could
-are recorded as a dated row in `docs/07-decisions.md`.
+affect is whether someone misreads a plot, which is why the three decisions
+that could are recorded as a dated row in `docs/07-decisions.md`.
 
 ## The idea
 
-An instrument panel, not a web app. The solver is slow and honest and the
-interface should be too: no motion that is not a state change, no surface that
-is not holding something, and a number that never moves on the screen when
+An instrument panel, not a web app. The solver is slow and honest, and the
+interface should be too: no motion that isn't a change of state, no surface
+that isn't holding something, and no number that jumps around on screen when
 only its value changed.
 
 ## Layout
 
-Three columns under a 46 px bar, each scrolling on its own so the knobs stay
-reachable while a long plot column runs past the bottom of the screen.
+Three columns under a 46 px bar, each scrolling on its own, so the knobs stay
+in reach while a long column of plots runs off the bottom of the screen.
 
 | Region | Width | Holds |
 |---|---|---|
@@ -28,57 +28,57 @@ reachable while a long plot column runs past the bottom of the screen.
 | `#plots` | the rest | residual, curve, profile, and the lesson panel above them |
 | `#rail` | 268 px | the runs kept on the plot, and the device file buttons |
 
-The bar carries the wordmark, the phase, the status line and cancel. The dot
-beside the status is lit exactly while a job runs, driven from
-`#cancel:not(:disabled)` through `:has()` rather than from a second flag that
-could disagree with the first.
+The bar carries the wordmark, the Build and Results tabs, the "what is this?"
+button, the status line and cancel. The dot beside the status is lit exactly
+while a job runs. It's driven from `#cancel:not(:disabled)` through `:has()`
+rather than from a second flag that could disagree with the first.
 
 ## Type
 
-Poppins, two weights. 500 carries everything that is read, 600 everything
-that is a heading or a value worth finding, so the page has one axis of
-emphasis rather than four.
+Poppins, in two weights. 500 carries everything that gets read, and 600
+everything that's a heading or a value worth finding, so the page has one axis
+of emphasis instead of four.
 
-**Poppins has no tabular figures and its digits are proportional.** A one is
-350 units wide against a zero's 647, and there is no `tnum` feature to turn
+**Poppins has no tabular figures, and its digits are proportional.** A one is
+350 units wide against a zero's 647, and there's no `tnum` feature to switch
 on, so `font-variant-numeric` does nothing here. That matters because a value
-under a live slider is rewritten many times a second. It is handled by
-geometry rather than by the font: every number the page shows sits in a box
-of its own fixed width, and `#state`, which is loose text in the header and
-rewrites several numbers a second while a solve runs, sits after the
-header's flex gap, so the cancel button is pinned to the right edge and the
-changing width only moves the gap. A `min-width` there once left `ready`
-floating a long way from cancel. If a number ever needs to
-sit in free-flowing text and stay still, it needs a box or a pinned width
-too.
+under a live slider gets rewritten many times a second. It's handled with
+geometry instead of the font: every number the page shows sits in its own
+fixed width box. `#state`, which is loose text in the header and rewrites
+several numbers a second during a solve, sits after the header's flex gap, so
+the cancel button stays pinned to the right edge and the changing width only
+moves the gap. A `min-width` there once left `ready` floating a long way from
+cancel. If a number ever has to sit in free flowing text and stay still, it
+needs a box or a pinned width too.
 
 The family is vendored under `static/vendor/fonts` with its OFL text, because
-`phases/PHASE-7.md` says the page works with no network. It is not
-downloaded: the release is dropped in `fonts/`, which is gitignored, and
-`tools/vendor_client_libs.py` subsets the two weights to the characters this
-page draws. That subsetting is most of the point. Poppins ships Devanagari,
-which is none of this page and nine tenths of the file, so each weight goes
-from 156 KB to under 17 KB and the vendored tree is 33 KB of font.
+`phases/PHASE-7.md` says the page has to work with no network. It isn't
+downloaded at build time: the release goes in `fonts/`, which is gitignored,
+and `tools/vendor_client_libs.py` subsets the two weights down to the
+characters this page draws. That subsetting is most of the point. Poppins
+ships Devanagari, which this page never uses and which is nine tenths of the
+file, so each weight drops from 156 KB to under 17 KB and the vendored tree is
+33 KB of font.
 
 `tests/unit/test_vendor.py` holds every file to its hash and refuses any
 vendored stylesheet that still names a remote host.
 
 ## Colour
 
-Four surfaces, each separated by an explicit 1 px border rather than by a
-shadow, so depth survives a dimmed screen. The ground is `#0b1417`, a deep
-slate-teal and not black.
+Four surfaces, each separated by an explicit 1 px border instead of a shadow,
+so the depth survives a dimmed screen. The ground is `#0b1417`, a deep slate
+teal, not black.
 
-Six text tiers from `--ink` down to `--faint`. The design's two dimmest greys
-measured 3.74:1 and 2.75:1 against their own backgrounds and were lifted to
-4.80:1 and 3.17:1. `--faint` is held to the 3:1 bar for a user interface
-component rather than the 4.5:1 bar for text, because it never draws text: it
-is a disabled slider thumb and an idle status dot.
+Six text tiers run from `--ink` down to `--faint`. The design's two dimmest
+greys measured 3.74:1 and 2.75:1 against their own backgrounds, and I lifted
+them to 4.80:1 and 3.17:1. `--faint` is held to the 3:1 bar for a user
+interface component rather than the 4.5:1 bar for text, because it never draws
+text: it's a disabled slider thumb and an idle status dot.
 
-One accent and four trace colours. The traces are named by what they draw, and
-the same four values appear twice: as `.swatch` rules in `css/panels.css` and
-as the constants at the top of `js/app.js`, which is what the canvas is
-actually painted with. Change one and change both.
+One accent and four trace colours. The traces are named for what they draw,
+and the same four values appear in two places: as `.swatch` rules in
+`css/panels.css`, and as the constants at the top of `js/app.js`, which is what
+the canvas actually gets painted with. Change one, change both.
 
 | Quantity | Token | Value |
 |---|---|---|
@@ -88,56 +88,55 @@ actually painted with. Change one and change both.
 | gummel update, Ev | `--violet` | `#a992ef` |
 
 The 2D field image uses a sequential ramp through the page ground, a mid teal
-and the signal cyan. A rainbow was there before, and a rainbow invents a
-visible boundary wherever its hue turns, which on a potential map reads as a
-junction that is not there.
+and the signal cyan. It used to be a rainbow, and a rainbow invents a visible
+boundary wherever its hue turns, which on a potential map reads as a junction
+that isn't there.
 
 ## What the constraints rule out
 
-Tight radii, 3 to 6 px, and no pill except a run chip. Dense padding, 12 to
-16 px in a panel. No gradient except the one that is a colour ramp carrying
-data. No motion except the drawer's 0.12 s slide, which is the panel arriving
-rather than an effect. Icons only where they carry a function: the explain
-affordance is the letter `i` and not a glyph, because a letter still says
-what it does at the size a control label sits at.
+Tight radii, 3 to 6 px, and no pills except a run chip. Dense padding, 12 to
+16 px in a panel. No gradients except the one that's a colour ramp carrying
+data. No motion except the drawer's 0.12 s slide, which is the panel arriving,
+not an effect. Icons only where they do something: the explain button is the
+letter `i` rather than a glyph, because a letter still says what it does at
+the size a control label sits at.
 
 ## Reading for two audiences
 
-Every knob carries a plain name and its argument name. `KNOB_LABELS` in
-`ddsim/api/learn.py` holds the words, keyed by argument name beside
-`KNOB_TOPICS` for the same reason: a name shared by two devices means the
-same thing on both. The schema serves it as `label`, and the form leads with
-it and sets the symbol underneath in mono. A knob missing from the map falls
-back to its own argument name, so a knob added to a constructor still
-renders.
+Every knob has a plain name and its argument name. `KNOB_LABELS` in
+`ddsim/api/learn.py` holds the words, keyed by argument name next to
+`KNOB_TOPICS`, for the same reason: a name two devices share means the same
+thing on both. The schema serves it as `label`, and the form leads with it and
+sets the symbol underneath in mono. A knob missing from the map falls back to
+its own argument name, so a knob added to a constructor still shows up.
 
-Nothing under 11 px, no exceptions, including the symbol line and the phase
-badge. The design's own ramp annotated at 9 to 10.5 px and it did not
-survive review: a label, a legend key, a details summary and a panel button
-are functional text whatever the ramp says.
+Nothing under 11 px, no exceptions, the symbol line included. The design's
+own ramp annotated at 9 to 10.5 px, and that didn't survive review: a label, a
+legend key, a details summary and a panel button are functional text whatever
+the ramp says.
 
 ## The two halves of the stage
 
-`#stage` holds `#plots` and `#build`, and exactly one is on screen. The rails
-never move, because setting a device's mesh and drawing its shape are the
-same job and the solve button belongs to both.
+`#stage` holds `#plots` and `#build`, and exactly one of them is on screen.
+The rails never move, because setting a device's mesh and drawing its shape
+are the same job, and the solve button belongs to both.
 
-Picking a drawn device turns the stage to Build; a solve that finishes turns
-it to Results, and a refused one does not, because the refusal names the part
-that was wrong and the editor has to stay open for that to be worth reading.
+Picking a drawn device turns the stage to Build. A solve that finishes turns
+it to Results, and a refused one doesn't, because the refusal names the part
+that was wrong, and the editor has to stay open for that to be worth reading.
 
 The editor is split three ways. `builder.js` owns the frame: the groups, the
-words above them and the column headings that turn a row of bare boxes into a
-table. `preview.js` owns the canvas. `drawing.js` owns the rows and the drag.
-None of them is over 250 lines, which is why they are three files.
+words above them, and the column headings that turn a row of bare boxes into
+a table. `preview.js` owns the canvas. `drawing.js` owns the rows and the
+drag. None of them is over 250 lines, which is why they're three files.
 
 ## The id contract
 
 Every id on the page is a contract with `static/js` and with
 `tests/unit/test_browser_smoke.py`, which drives 38 of them. Restyle them
-freely. Rename none of them without changing both.
+freely. Don't rename one without changing both.
 
-Two shapes are worth knowing before touching `css/controls.css`:
+Two shapes are worth knowing before you touch `css/controls.css`:
 
 - A knob is built at runtime by `app.js` `knob()`: a label holding a name span
   and a `.control` span, with an optional range under the box. The explain
@@ -145,6 +144,6 @@ Two shapes are worth knowing before touching `css/controls.css`:
   label itself for anything carrying a `data-topic-id`. The label is a flex
   row ordered by role, so the control ends on the same right edge either way.
 - The checkboxes are restyled, not replaced. Wrapping a hidden input in a
-  painted label is the usual trick and it costs the element its box, which
-  `test_browser_smoke.py` asserts on `#bands`. They keep their own 30 by 16
-  box and paint themselves.
+  painted label is the usual trick, and it costs the element its box, which
+  `test_browser_smoke.py` asserts on for `#bands`. They keep their own 30 by
+  16 box and paint themselves.
