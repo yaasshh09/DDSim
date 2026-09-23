@@ -15,7 +15,7 @@ The binary layout, which the client reads and nothing else does:
 
 The header names each array, its unit and its length, so the client slices the
 payload from the header rather than from a layout of its own. Anything it
-needs in order to draw is in there.
+needs to draw is in there.
 
 Two decisions worth stating.
 
