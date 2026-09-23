@@ -50,9 +50,6 @@ def exact_solution(a1: float, a2: float, c: float) -> State:
     return ((a2 - c) / determinant, (a1 - c) / determinant)
 
 
-# ------------------------------------------------------------- convergence
-
-
 def test_converges_on_a_weakly_coupled_system() -> None:
     result = gummel_solve((0.0, 0.0), gauss_seidel_steps(4.0, 5.0, 1.0))
 
@@ -136,9 +133,6 @@ def test_an_exact_step_converges_in_one_cycle() -> None:
     assert result.state == (1.0, 0.0)
 
 
-# ---------------------------------------------------------------- mechanics
-
-
 def test_steps_run_in_the_order_given() -> None:
     """Poisson, then n, then p. Reordering changes the answer path."""
     order: list[str] = []
@@ -218,9 +212,6 @@ def test_result_is_generic_over_the_state_type() -> None:
     result: GummelResult[list[int]] = gummel_solve([], [append])
 
     assert result.state == [0]
-
-
-# --------------------------------------------------- per iteration telemetry
 
 
 def test_a_frame_arrives_for_every_cycle() -> None:

@@ -249,9 +249,6 @@ def normal_field(
             f"psi has {psi.size} values but the mesh has {mesh.n_nodes} nodes"
         )
 
-    # The vertical family, which follows the horizontal one in the edge list.
-    # Slicing rather than searching: tensor_mesh_2d builds them in that order
-    # and n_horizontal is how it says so.
     vertical = slice(mesh.n_horizontal, None)
     below, above = mesh.edge_nodes[vertical, 0], mesh.edge_nodes[vertical, 1]
     edge_field = (psi[above] - psi[below]) / mesh.h[vertical]
@@ -262,8 +259,6 @@ def normal_field(
         np.add.at(total, node, edge_field)
         np.add.at(count, node, 1.0)
 
-    # Every node has at least one vertical edge, because a Mesh2D needs two
-    # nodes on each axis, so nothing here divides by a zero count.
     return np.abs(total / count)
 
 
@@ -278,35 +273,24 @@ def tensor_mesh_2d(x_axis: Mesh1D, y_axis: Mesh1D) -> Mesh2D:
     """
     nx, ny = x_axis.n_nodes, y_axis.n_nodes
 
-    # Node positions. Row major, x fastest, so a row of the 2D mesh is the
-    # 1D mesh node for node.
     node_x = np.tile(x_axis.x, ny)
     node_y = np.repeat(y_axis.x, nx)
 
     columns = np.arange(nx, dtype=np.int64)
     rows = np.arange(ny, dtype=np.int64)
 
-    # --- horizontal edges: (i, j) to (i+1, j), one per interior x interval
-    # per row. The flux crosses a vertical face, whose extent is the y dual
-    # width of the row. See the module docstring before swapping these.
     h_i, h_j = np.meshgrid(columns[:-1], rows, indexing="xy")
     h_from = (h_j * nx + h_i).ravel()
     horizontal = np.column_stack([h_from, h_from + 1])
     h_length = np.tile(x_axis.h, ny)
     h_face = np.repeat(y_axis.volume, nx - 1)
 
-    # --- vertical edges: (i, j) to (i, j+1). The flux crosses a horizontal
-    # face, whose extent is the x dual width of the column.
     v_i, v_j = np.meshgrid(columns, rows[:-1], indexing="xy")
     v_from = (v_j * nx + v_i).ravel()
     vertical = np.column_stack([v_from, v_from + nx])
     v_length = np.repeat(y_axis.h, nx)
     v_face = np.tile(x_axis.volume, ny - 1)
 
-    # --- dual cell area of each node, the product of the two 1D dual widths.
-    # The areas sum to the domain to about 1e-16 relative. See the module
-    # docstring: summing the outer product is not the same association as
-    # multiplying the two 1D sums, and neither is unconditionally exact.
     volume = np.outer(y_axis.volume, x_axis.volume).ravel()
 
     return Mesh2D(

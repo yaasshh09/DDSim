@@ -39,7 +39,6 @@ RIGHT = (
 )
 
 OBTUSE = (
-    # Apex pushed far to the right, so the angle at node 0 opens past 90.
     np.array([[0.0, 0.0], [1.0, 0.0], [3.0, 0.5]]),
     np.array([[0, 1, 2]]),
 )
@@ -108,7 +107,6 @@ def test_the_hypotenuse_of_a_right_triangle_gets_zero_weight():
     """cot(90) = 0. This is the boundary the M-matrix property sits on."""
     edges, weights = cotangent_edge_weights(*RIGHT)
 
-    # The hypotenuse faces the right angle at node 0, so it is edge (1, 2).
     hypotenuse = np.flatnonzero(
         (edges[:, 0] == 1) & (edges[:, 1] == 2)
     )

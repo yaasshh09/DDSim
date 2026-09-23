@@ -82,9 +82,6 @@ def solved_on():
     return device, state
 
 
-# ------------------------------------------------------------ the terminals
-
-
 def test_the_terminal_currents_sum_to_zero(solved_on):
     """Charge does not accumulate anywhere in a steady state, so what flows in
     at one terminal leaves at the others."""
@@ -115,9 +112,6 @@ def test_the_drain_current_comes_out_of_the_source(solved_on):
     assert abs(currents[BODY]) < 1e-9 * abs(currents[DRAIN])
 
 
-# ------------------------------------------------------------- it switches
-
-
 def test_the_sweep_reaches_every_gate_bias(transfer):
     assert transfer.complete, transfer.message
     assert transfer.contact == GATE
@@ -142,9 +136,6 @@ def test_the_transistor_switches(transfer):
     ratio = transfer.current[-1] / transfer.current[0]
 
     assert ratio > 1e5
-
-
-# -------------------------------------------------- the subthreshold slope
 
 
 def test_the_subthreshold_slope_beats_no_thermal_limit(transfer):
@@ -200,9 +191,6 @@ def test_the_subthreshold_slope_matches_the_body_factor(transfer):
     assert measured > ideal
 
 
-# ----------------------------------------------------------- linear region
-
-
 def test_the_channel_is_ohmic_at_a_small_drain_bias():
     """Id proportional to Vd, which is what "linear region" means.
 
@@ -247,9 +235,6 @@ def test_the_conductance_rises_with_gate_bias():
         )
 
     assert conductance[1.5] > 1e4 * conductance[0.0]
-
-
-# --------------------------------------------------------------- a stall
 
 
 def test_a_gate_sweep_stops_and_says_where_when_it_stalls():

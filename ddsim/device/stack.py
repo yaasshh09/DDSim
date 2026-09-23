@@ -150,9 +150,6 @@ def stack(
             "see. Change the doping of one region."
         )
 
-    # A region can hold at most one node per h_min of its length, so this one
-    # is refused before a mesh is asked for. graded_mesh_1d would refuse it
-    # too, without saying which region it was.
     for number, region in enumerate(regions, start=1):
         if region.length < (NODES_INSIDE + 1) * h_min:
             raise _too_short(number, region, int(region.length / h_min))

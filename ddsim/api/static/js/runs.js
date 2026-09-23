@@ -1,24 +1,7 @@
 "use strict";
 
-// The runs rail: one card per curve, each carrying a picture of itself.
-//
-// It used to be a line of text per run saying how that run's request differed
-// from the next one's. The words are still there, because "Na 1e17" is what
-// actually changed, but a shape beside them is what makes two runs comparable
-// at a glance, which is the whole reason the plot keeps them.
-//
-// Nothing here computes a physical quantity. Every point was drawn by the
-// solver and held as it arrived; all this does is map a value to a pixel, the
-// same arithmetic drawCurve() does on the big canvas. The one logarithm is
-// decades(), app.js's helper, which is a position on a screen.
-
 const SPARK = { width: 100, height: 26 };
-/** The viewBox a card's picture is drawn in. It is stretched to the card's
- * width, so these are proportions rather than pixels. */
 
-// One frame over every run in the rail, so a curve carrying ten times the
-// current of another sits visibly higher instead of being rescaled to look
-// the same. Comparing them is the point.
 function runSpan(runs, logY) {
   let lo = Infinity, hi = -Infinity, xlo = Infinity, xhi = -Infinity;
   for (const run of runs) {
@@ -38,9 +21,6 @@ function runSpan(runs, logY) {
   return { lo: lo, hi: hi, xlo: xlo, xhi: xhi, logY: logY };
 }
 
-// The points of one run as an svg polyline, in the shared frame. A point the
-// log axis cannot show breaks the line rather than being pinned to the floor,
-// which is what the big plot does with it too.
 function sparkline(points, span, colour) {
   const at = (point) => {
     const x = ((point.voltage - span.xlo) / (span.xhi - span.xlo)) * SPARK.width;
@@ -56,8 +36,6 @@ function sparkline(points, span, colour) {
       (!span.logY || point.value > 0)
   );
   if (!drawable.length) return "";
-  // A sweep that stopped after its first point is still a result, so it gets
-  // a dot where a line would have started.
   const mark = drawable.length === 1
     ? '<polyline points="' + at(drawable[0]) + " " + at(drawable[0]) +
       '" stroke-linecap="round" stroke-width="5"'
@@ -82,8 +60,6 @@ function runCard(label, points, span, colour, current) {
   return card;
 }
 
-// The run on screen first, then every run kept under it, newest first, which
-// is the order they were solved in reversed.
 function showRuns() {
   const note = el("runs-note");
   note.textContent = "";

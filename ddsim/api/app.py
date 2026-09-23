@@ -166,7 +166,6 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
-        # Nothing solves after the app is gone. See JobRegistry.close.
         jobs.close(timeout=SHUTDOWN_TIMEOUT)
 
     app = FastAPI(title="DDSim", lifespan=lifespan)
@@ -184,31 +183,19 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 kind: [_knob(p) for p in device_parameters(kind)]
                 for kind in DEVICE_KINDS
             },
-            # Which devices the page will solve live. Read from the mesh each
-            # constructor builds, so a device that grew a second axis stops
-            # being dragged rather than solving for minutes on every drag.
             "dimensions": {kind: device_dimension(kind) for kind in DEVICE_KINDS},
-            # The terminals each device has, which the page offers as a list
-            # to sweep and to measure at rather than as a box to type into.
             "contacts": {kind: list(contact_names(kind)) for kind in DEVICE_KINDS},
-            # The regions each stack device starts from, drawn by the page as
-            # rows rather than boxes. Only the devices built from regions.
             "regions": {
                 kind: regions
                 for kind in DEVICE_KINDS
                 if (regions := region_defaults(kind)) is not None
             },
-            # The blocks, implants and electrodes each drawn device starts
-            # from, drawn by the page as rows. Only the devices drawn in 2D.
             "drawings": {
                 kind: parts
                 for kind in DEVICE_KINDS
                 if (parts := drawing_defaults(kind)) is not None
             },
-            # The most nodes a drawn mesh may have, which the page states.
             "node_budget": NODE_BUDGET,
-            # The coarse mesh on offer per device, with what it costs. Only
-            # the devices that have one appear.
             "presets": {
                 kind: {"parameters": dict(preset.parameters), "note": preset.note}
                 for kind, preset in COARSE.items()
@@ -390,17 +377,12 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             await socket.close(code=1008, reason=str(missing))
             return
 
-        # A page that moves on mid solve, a slider dragged again or a tab
-        # closed, stops reading. That ends this stream and nothing else: the
-        # job is cancelled, or not, by its own request.
         try:
             while True:
                 frame = await anyio.to_thread.run_sync(_poll, jobs, job_id)
                 if frame is _ENDED:
                     break
                 if frame is _NOTHING_YET:
-                    # Nothing waiting and the job is over: someone else read
-                    # this stream to its end. There is nothing more coming.
                     if jobs.status(job_id) in _TERMINAL:
                         break
                     continue
@@ -422,7 +404,6 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
     @app.get("/")
     def page() -> FileResponse:
         """The client."""
-        # The page and the wire format change together, so never a stale page.
         return FileResponse(
             PAGE, media_type="text/html", headers={"Cache-Control": "no-cache"}
         )
@@ -434,9 +415,6 @@ def _knob(parameter: Any) -> dict[str, Any]:
     """One settable knob as the form needs it."""
     return {
         "name": parameter.name,
-        # What to call it in words. The page leads with this and keeps the
-        # argument name beside it, so the form reads for somebody who has
-        # never met a MOSFET without taking the symbols off an engineer.
         "label": KNOB_LABELS.get(parameter.name, parameter.name),
         "default": parameter.default,
         "type": parameter.type,
@@ -444,8 +422,6 @@ def _knob(parameter: Any) -> dict[str, Any]:
         "explanation": parameter.explanation,
         "unit": parameter.unit,
         "topic": KNOB_TOPICS.get(parameter.name, ""),
-        # Null where the knob declares no range. The page reads that as no
-        # slider rather than filling in ends of its own.
         "low": parameter.low,
         "high": parameter.high,
         "axis": parameter.axis,
@@ -462,7 +438,6 @@ def _checked(call: Any) -> Any:
     try:
         return call()
     except (ValueError, TypeError, KeyError) as refusal:
-        # str() of a KeyError is the repr of its message, quotes and all.
         said = refusal.args[0] if refusal.args else str(refusal)
         raise HTTPException(status_code=400, detail=str(said)) from refusal
 

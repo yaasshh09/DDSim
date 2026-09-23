@@ -123,10 +123,6 @@ class JobRegistry:
         The return is immediate by design. The browser needs its job id while
         the sweep is still running, not after it.
         """
-        # One slot past the frame capacity, reserved for the end marker, so
-        # that a stream nobody is draining still closes. Dropping a frame to
-        # make room for the marker would lose the last frame before the end,
-        # which is the one a reader most wants.
         job = Job(
             id=uuid.uuid4().hex, frames=queue.Queue(maxsize=self._queue_size + 1)
         )
@@ -149,20 +145,12 @@ class JobRegistry:
         except CancelledError:
             job.status = JobStatus.CANCELLED
         except Exception as error:  # noqa: BLE001
-            # A failed solve is a result to report, not a crash to lose. The
-            # browser shows the reason rather than a socket that went quiet.
             job.status = JobStatus.FAILED
             job.message = f"{type(error).__name__}: {error}"
         else:
-            # The result before the status, so that a reader who sees DONE
-            # can read the result without racing this thread.
             job.result = produced
             job.status = JobStatus.DONE
         finally:
-            # Never a blocking put. The queue is full exactly when nobody is
-            # draining it, which is the case where a blocking put here would
-            # hang the worker forever and the job would never reach a terminal
-            # state. The reserved slot is what makes this fit.
             job.frames.put_nowait(_END)
             job.finished.set()
 

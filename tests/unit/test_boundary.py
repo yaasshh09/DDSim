@@ -89,9 +89,6 @@ def dense(assembly: SparseAssembly) -> np.ndarray:
     ).toarray()
 
 
-# ------------------------------------------------------------ contact potential
-
-
 def test_contact_potential_at_zero_bias_is_the_equilibrium_potential() -> None:
     assert ohmic_psi_scaled(1e6, 0.0) == pytest.approx(
         float(psi_equilibrium_scaled(1e6)), rel=1e-15
@@ -120,9 +117,6 @@ def test_contact_potential_is_finite_in_compensated_material() -> None:
 
 def test_contact_potential_is_negative_for_p_type() -> None:
     assert ohmic_psi_scaled(-1e6, 0.0) < 0.0
-
-
-# ---------------------------------------------------------------- Dirichlet rows
 
 
 def test_dirichlet_residual_is_the_potential_error() -> None:
@@ -251,9 +245,6 @@ def test_solving_a_dirichlet_row_reproduces_the_target_exactly() -> None:
     assert psi[0] + delta[0] == pytest.approx(target, rel=1e-12)
 
 
-# ------------------------------------------------------------------- contacts
-
-
 def test_two_contacts_pin_both_ends() -> None:
     scale = ScaleFactors.for_silicon()
     assembly, psi = sample_assembly(n_nodes=11)
@@ -332,9 +323,6 @@ def test_built_in_potential_is_the_difference_between_the_two_contacts() -> None
     assert V_bi == pytest.approx(expected, rel=1e-6)
 
 
-# ------------------------------------------------- ohmic contacts on n and p
-
-
 def continuity_assembly(n_nodes: int = 5) -> SparseAssembly:
     """A stand in continuity system: identity Jacobian, arbitrary residual."""
     index = np.arange(n_nodes, dtype=np.int64)
@@ -361,7 +349,6 @@ def test_ohmic_densities_pin_the_majority_carrier_to_the_doping() -> None:
         continuity_assembly(), density, doping, contacts, Carrier.ELECTRON
     )
 
-    # residual = density - target, and density is zero here.
     np.testing.assert_allclose(-pinned.residual[0], 1e6, rtol=1e-6)
 
 
@@ -432,9 +419,6 @@ def test_ohmic_densities_apply_at_every_contact() -> None:
     assert pinned.residual[1] == 3.0
 
 
-# --------------------------------------------------------- pinning many nodes
-
-
 def test_pinning_many_nodes_at_once_matches_pinning_them_one_at_a_time() -> None:
     """The batch form is an optimisation, so it has to be the same system.
 
@@ -474,9 +458,6 @@ def test_pinning_many_nodes_rejects_one_outside_the_mesh() -> None:
 
     with pytest.raises(IndexError, match="outside the mesh"):
         apply_dirichlet_nodes(assembly, psi, [0, 9], [0.0, 1.0])
-
-
-# --------------------------------------------------------------- MOS gate
 
 
 class TestGateContact:

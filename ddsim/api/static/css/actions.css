@@ -1,16 +1,3 @@
-/* Buttons, the region rows, and the affordance that opens the drawer.
-
-   Everything here is something pressed rather than something set. The split
-   from controls.css is by that, and by the 250 line ceiling the two files
-   would otherwise share.
-
-   The region rows in stack.js and drawing.js are built at runtime, so these
-   rules are written against generated markup: a .region is one region of a
-   1D stack, a .region.part is one rectangle of a 2D drawing, and a part has
-   up to nine fields so its row wraps. */
-
-/* --------------------------------------------------------------- the press */
-
 button {
   font: 500 11px var(--sans);
   color: var(--ink-2);
@@ -31,8 +18,6 @@ button:disabled {
   cursor: default;
 }
 
-/* The one primary action. It is the widest thing in the rail because it is
-   the only control that costs twenty seconds to undo. */
 #solve {
   width: 100%;
   margin-top: 18px;
@@ -50,8 +35,6 @@ button:disabled {
   color: var(--ground);
 }
 
-/* A pair of buttons standing in for one choice: coarse against converged,
-   which is one setting and not two actions. */
 #mesh-choice {
   gap: 0;
 }
@@ -77,11 +60,6 @@ button:disabled {
   border-left-width: 0;
 }
 
-/* ------------------------------------------------- regions and drawn parts */
-
-/* One region per line: dopant, length, doping, remove. Narrower boxes than a
-   knob's, so the four fit the rail. A drawn record has up to nine fields, so
-   .part wraps and rules itself off from the next one. */
 .region {
   display: flex;
   gap: 4px;
@@ -110,22 +88,14 @@ button:disabled {
   padding-bottom: 6px;
 }
 
-/* Wide enough for "silicon" and "uniform", the two longest choices a drawn
-   part offers, which the old 76 px clipped mid word. */
 .part select {
   width: 88px;
 }
 
-/* A gaussian straggle reads 4.03559e-5. The old 70 px cut it mid number,
-   which on a row of bare boxes is indistinguishable from a different value. */
 .part input[type="text"] {
   width: 86px;
 }
 
-/* ------------------------------------------------------------- the explain */
-
-/* The affordance that opens the drawer, on every knob that has a topic. It
-   is a letter and not an icon, so it says what it does at 10 px. */
 .explain {
   flex: none;
   width: 17px;

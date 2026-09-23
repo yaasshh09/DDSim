@@ -71,9 +71,6 @@ PROBES = probe_points()
 FINITE_REFERENCE_PROBES = [x for x in PROBES if 1e-30 < abs(x) <= 300.0]
 
 
-# ------------------------------------------------------------ exact behaviour
-
-
 def test_B_at_zero_is_exactly_one() -> None:
     assert B(0.0) == 1.0
 
@@ -84,9 +81,6 @@ def test_dB_at_zero_is_exactly_minus_one_half() -> None:
 
 def test_B_at_negative_zero_is_exactly_one() -> None:
     assert B(-0.0) == 1.0
-
-
-# ------------------------------------------------- against 80 digit reference
 
 
 def test_B_matches_high_precision_reference() -> None:
@@ -107,9 +101,6 @@ def test_dB_matches_high_precision_reference() -> None:
         if error > worst:
             worst, worst_at = error, x
     assert worst < 1e-13, f"worst relative error {worst:.3e} at x={worst_at}"
-
-
-# ---------------------------------------------------------------- identities
 
 
 def test_B_reflection_identity() -> None:
@@ -146,9 +137,6 @@ def test_dB_reflection_identity() -> None:
         if error > worst:
             worst, worst_at = error, x
     assert worst < 1e-13, f"worst relative error {worst:.3e} at x={worst_at}"
-
-
-# --------------------------------------------------------- branch continuity
 
 
 @pytest.mark.parametrize("threshold", [SERIES_CUTOFF_B, -SERIES_CUTOFF_B])
@@ -188,9 +176,6 @@ def test_dB_branches_agree_at_the_negative_asymptote_boundary() -> None:
     assert float(expm1_form) == -1.0
 
 
-# ------------------------------------------------------------------ asymptotes
-
-
 def test_B_tends_to_minus_x_for_large_negative_x() -> None:
     x = np.array([-50.0, -100.0, -500.0, -1e30])
     np.testing.assert_allclose(B(x), -x, rtol=1e-15)
@@ -209,9 +194,6 @@ def test_dB_tends_to_minus_one_for_large_negative_x() -> None:
 def test_dB_tends_to_one_minus_x_times_exp_minus_x_for_large_positive_x() -> None:
     x = np.array([100.0, 300.0, 500.0, 700.0])
     np.testing.assert_allclose(dB_dx(x), (1.0 - x) * np.exp(-x), rtol=1e-14)
-
-
-# --------------------------------------------------------------- overflow safety
 
 
 def test_B_underflows_to_zero_rather_than_overflowing() -> None:
@@ -247,9 +229,6 @@ def test_no_divide_overflow_or_invalid_warnings() -> None:
         dB_dx(x)
 
 
-# ------------------------------------------------------------------- shape
-
-
 def test_B_is_monotonically_decreasing() -> None:
     x = np.linspace(-100.0, 100.0, 2001)
     assert np.all(np.diff(B(x)) < 0.0)
@@ -268,9 +247,6 @@ def test_dB_is_negative_everywhere() -> None:
 def test_dB_never_becomes_positive_even_in_the_tails() -> None:
     x = np.array([-1e300, -500.0, 0.0, 500.0, 1e300])
     assert np.all(dB_dx(x) <= 0.0)
-
-
-# ----------------------------------------------------------------- interface
 
 
 def test_B_accepts_a_python_float_and_returns_a_float() -> None:
@@ -306,9 +282,6 @@ def test_vectorized_derivative_matches_scalar_evaluation() -> None:
     np.testing.assert_array_equal(vector, scalar)
 
 
-# ---------------------------------------------------- complex step, as briefed
-
-
 def test_dB_matches_complex_step_differentiation() -> None:
     """The acceptance criterion, over the range where complex step is exact."""
     worst = 0.0
@@ -342,9 +315,6 @@ def test_complex_step_is_untrustworthy_below_the_documented_cutoff() -> None:
     """
     error = relative_error(dB_complex_step(1e-6), dB_reference(1e-6))
     assert error > 1e-13
-
-
-# ------------------------------------------------------ complex arguments
 
 
 def test_B_preserves_a_complex_dtype() -> None:

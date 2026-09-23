@@ -33,9 +33,6 @@ def cap():
     return device, solve_equilibrium(device)
 
 
-# ------------------------------------------------------------ naming a contact
-
-
 @pytest.mark.parametrize(
     "call",
     [
@@ -107,9 +104,6 @@ def test_the_capacitance_takes_the_same_width(cap):
         device, state, GATE, width=2 * device.mesh.x_axis.length
     )
     assert doubled == pytest.approx(0.5 * natural, rel=1e-14)
-
-
-# ------------------------------------------------------------------ the curve
 
 
 def test_a_curve_reports_what_it_is():

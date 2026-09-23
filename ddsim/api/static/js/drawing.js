@@ -1,12 +1,3 @@
-// The 2D device builder, phases/PHASE-7.md Stage 5. A drawing is three lists
-// of records, blocks, implants and electrodes, each a row on the form, and a
-// preview that draws them and takes a drag to add one. The preview is
-// geometry only: it places rectangles where their numbers say, and whether
-// they make a device is the server's judgement, which comes back naming the
-// rectangle and the reason.
-
-// What each list holds, field by field, in the order a row shows them.
-// `choices` makes a select, `text` a name; every other field is a number.
 const PARTS = {
   blocks: [
     { field: "material", choices: ["silicon", "oxide"] },
@@ -73,8 +64,6 @@ function partRow(part, record) {
   return row;
 }
 
-// Rows for a drawing's parts, or no editor at all for a device not drawn,
-// which is what a null says.
 function showDrawing(parts) {
   el("drawing").hidden = !parts;
   setMode(parts ? "build" : "results");
@@ -88,7 +77,6 @@ function showDrawing(parts) {
   if (parts) drawPreview();
 }
 
-// The rows as the request carries them, or null when the device is not drawn.
 function collectDrawing() {
   if (el("drawing").hidden) return null;
   const parts = {};
@@ -114,8 +102,6 @@ function collectDrawing() {
   return parts;
 }
 
-// Whatever parses, for the preview, which draws nothing while a box is half
-// typed rather than showing a message for every keystroke.
 function drawingSoFar() {
   try {
     return collectDrawing();
@@ -124,9 +110,6 @@ function drawingSoFar() {
   }
 }
 
-// A drag becomes one new row. An end within a few pixels of an edge already
-// drawn takes that edge's exact value, because two edges a hair apart are a
-// feature finer than any mesh, which the server refuses.
 const SNAP = 6;
 
 function snapped(value, edges, scale) {
@@ -138,8 +121,6 @@ function snapped(value, edges, scale) {
   return best === null ? Number(value.toPrecision(4)) : best;
 }
 
-// The work function a new gate starts from: the one the device's own default
-// electrodes carry, which is the constructor's default, read from the schema.
 function defaultWorkFunction() {
   const parts = state.schema.drawings[el("device-kind").value];
   return parts.electrodes.length ? parts.electrodes[0].work_function : null;
@@ -167,8 +148,6 @@ function addFromDrag(from, to) {
     record = { dopant: what, concentration: 1e18, x0: x[0], x1: x[1],
       y0: y[0], y1: y[1], profile: "uniform", straggle: 0, lateral: 0 };
   } else {
-    // A contact is a straight line: the longer way the drag went, at the
-    // height or position it started from.
     part = "electrodes";
     const across = Math.abs(to.x - from.x) >= Math.abs(to.y - from.y);
     const start = { x: snapped(a.x, xs, at.x), y: snapped(a.y, ys, at.y) };
@@ -184,8 +163,6 @@ function addFromDrag(from, to) {
   drawPreview();
 }
 
-// A record to start a list from when it is empty: the whole device, for the
-// student to cut down, not a guess at a structure.
 function blank(part) {
   const size = extent(drawingSoFar() || { blocks: [] });
   const whole = { x0: 0, x1: size.width, y0: 0, y1: size.height };

@@ -90,9 +90,6 @@ def of_type(frames: list[Any], kind: type) -> list[Any]:
     return [frame for frame in frames if isinstance(frame, kind)]
 
 
-# --------------------------------------------------------------- one solver
-
-
 def test_a_gummel_solve_reports_its_cycles() -> None:
     """solve_bias is the Gummel path, so the frames from it are cycles."""
     frames, send = collect()
@@ -138,7 +135,6 @@ def test_a_coupled_newton_iteration_names_each_equation_family() -> None:
             assert list(frame.update_by_family) == ["psi", "n", "p"]
             assert max(frame.update_by_family.values()) == frame.update
 
-    # Three copies of one number would pass every check above.
     assert any(
         len(set(frame.residual_by_family.values())) == 3 for frame in iterations
     )
@@ -231,9 +227,6 @@ def test_the_guess_solve_inside_a_bias_solve_stays_quiet() -> None:
     )
 
 
-# ---------------------------------------------------------------- the sweeps
-
-
 def test_a_diode_sweep_reports_solver_frames_and_finished_points() -> None:
     """All three streams phases/PHASE-7.md asks for, on the path the browser
     takes for a diode."""
@@ -322,9 +315,6 @@ def test_a_capacitance_sweep_reports_its_points() -> None:
     assert of_type(frames, NewtonIteration)
 
 
-# ---------------------------------------------------------- stopping a solve
-
-
 @pytest.mark.parametrize(
     "sweep",
     [
@@ -363,9 +353,6 @@ def test_cancelling_a_submitted_sweep_stops_it() -> None:
 
     assert registry.wait(job.id, timeout=120.0) is JobStatus.CANCELLED
     assert not registry.cancel(job.id)
-
-
-# ------------------------------------------------------------- staying quiet
 
 
 @pytest.mark.parametrize(

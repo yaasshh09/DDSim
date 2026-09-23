@@ -64,9 +64,6 @@ def exponential_problem(target: float):
     return assemble
 
 
-# ------------------------------------------------------------------- solving
-
-
 def test_one_newton_step_solves_a_linear_system_exactly() -> None:
     """Newton is exact on a linear problem, so the residual is zero after one
     step. Convergence is declared on the second, because docs/02-numerics.md
@@ -122,9 +119,6 @@ def test_starting_at_the_solution_takes_no_iterations() -> None:
     result = newton_solve(square_root_problem(np.array([4.0])), np.array([2.0]))
     assert result.converged
     assert result.iterations == 0
-
-
-# ------------------------------------------------------------- step limiting
 
 
 def test_step_limiting_caps_the_update() -> None:
@@ -184,9 +178,6 @@ def test_unlimited_newton_on_the_same_problem_diverges() -> None:
     assert limited.converged
 
 
-# ---------------------------------------------------------------- termination
-
-
 def test_gives_up_after_max_iterations() -> None:
     """A step limited walk that cannot reach the root in the budget."""
 
@@ -225,8 +216,6 @@ def test_both_convergence_criteria_must_pass() -> None:
     """
 
     def assemble(x: np.ndarray) -> System:
-        # Jacobian is enormous, so every update is negligible while the
-        # residual stays stubbornly large.
         return diagonal_system(np.full(1, 5.0), np.full(1, 1e14))
 
     result = newton_solve(assemble, np.zeros(1), max_iterations=5)
@@ -265,9 +254,6 @@ def test_does_not_mutate_the_initial_guess() -> None:
 def test_returns_a_newton_result() -> None:
     result = newton_solve(square_root_problem(np.array([4.0])), np.array([1.0]))
     assert isinstance(result, NewtonResult)
-
-
-# ------------------------------------------------- residual tolerance scaling
 
 
 def scaled_by(assemble, factor: float):
@@ -389,9 +375,6 @@ def test_a_non_finite_newton_update_is_reported() -> None:
     assert "non-finite" in result.message
 
 
-# ------------------------------------------------------------ residual scale
-
-
 def floored_problem(floor: float):
     """A residual stuck at `floor`, with a Jacobian too large to move it.
 
@@ -447,9 +430,6 @@ def test_a_residual_scale_still_rejects_a_genuinely_stalled_solve() -> None:
     assert not result.converged
 
 
-# --------------------------------------------------------------- solver reuse
-
-
 def test_a_reused_solver_gives_the_identical_answer() -> None:
     """Handing the same factorization back in is an optimisation only.
 
@@ -485,9 +465,6 @@ def test_a_reused_solver_follows_a_changed_pattern() -> None:
 
     assert bigger.converged
     np.testing.assert_allclose(bigger.x, [2.0, 3.0, 5.0], rtol=1e-12)
-
-
-# ------------------------------------------------------------------ stagnation
 
 
 def test_a_frozen_residual_with_a_settled_update_stops_early() -> None:
@@ -573,9 +550,6 @@ def test_a_converged_solve_is_never_turned_into_a_stall() -> None:
     )
 
     assert result.converged
-
-
-# ------------------------------------------------- a caller supplied limiter
 
 
 def test_a_limit_callable_replaces_the_uniform_scaling() -> None:
@@ -675,9 +649,6 @@ def test_a_limit_that_returns_the_wrong_shape_is_rejected() -> None:
         )
 
 
-# ------------------------------------------- a caller supplied update measure
-
-
 def test_an_update_norm_callable_replaces_max_abs_delta() -> None:
     """max |dx| is the wrong measure when the unknowns differ by decades.
 
@@ -689,14 +660,6 @@ def test_an_update_norm_callable_replaces_max_abs_delta() -> None:
     n + n_i for exactly this reason.
     """
 
-    # Roots 1 and sqrt(2e16) = 1.414e8. The second cannot settle to better
-    # than its own ulp, 3e-8, so max |dx| has a floor two decades above
-    # update_tol while the same update is 2e-16 relative.
-    #
-    # 2e16 rather than a round 1e16, because sqrt(1e16) is exactly 1e8 and
-    # the residual there reaches exactly 0.0, which makes the next update
-    # exactly zero and lets any measure pass. A test of a floor needs a
-    # problem that actually has one.
     assemble = square_root_problem(np.array([1.0, 2e16]))
     start = np.array([1.0, 1e7])
 
@@ -762,9 +725,6 @@ def test_the_update_norm_is_measured_after_the_limiter() -> None:
     )
 
     assert result.update_history[0] == pytest.approx(5.0)
-
-
-# --------------------------------------------------- per iteration telemetry
 
 
 def linear_problem(target: float):

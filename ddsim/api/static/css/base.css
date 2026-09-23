@@ -1,16 +1,7 @@
-/* The shell: reset, the top bar, the three columns, and the section headers
-   the rails are divided by.
-
-   The layout is a bench, not a page. Three columns that each scroll on their
-   own, so the knobs stay reachable while a long plot column runs past the
-   bottom of the screen, and nothing moves when a solve starts. */
-
 * {
   box-sizing: border-box;
 }
 
-/* A class that sets display, like .row, beats the hidden attribute's own
-   display: none, which left the mesh buttons showing on the diode. */
 [hidden] {
   display: none !important;
 }
@@ -22,7 +13,6 @@ body {
   font: 500 12px/1.5 var(--sans);
   -webkit-font-smoothing: antialiased;
 }
-/* ------------------------------------------------------------- the top bar */
 
 header {
   display: flex;
@@ -51,17 +41,11 @@ header .gap {
   flex: 1;
 }
 
-/* Everything after the gap is pinned to the right edge, so cancel stays put
-   however wide this line gets while a solve rewrites it, and a short word
-   like ready sits right beside it. */
 #state {
   font: 500 11.5px var(--sans);
   color: var(--ink-2);
 }
 
-/* A dot lit exactly while a job is running. #cancel is enabled for that span
-   and for no other, so the state is already in the DOM and does not need a
-   second flag that could disagree with it. */
 .beacon {
   width: 7px;
   height: 7px;
@@ -74,8 +58,6 @@ header:has(#cancel:not(:disabled)) .beacon {
   background: var(--signal);
   box-shadow: 0 0 0 3px rgb(95 212 214 / 16%);
 }
-
-/* --------------------------------------------------------- the three rails */
 
 main {
   display: flex;
@@ -111,7 +93,6 @@ main {
   border-left: 1px solid var(--line);
 }
 
-/* A rail scrollbar that does not repaint the rail a different colour. */
 #controls::-webkit-scrollbar,
 #plots::-webkit-scrollbar,
 #rail::-webkit-scrollbar {
@@ -125,10 +106,6 @@ main {
   border-radius: 5px;
 }
 
-/* ------------------------------------------------------ sections and notes */
-
-/* fieldset is the grouping the form already had. It keeps the semantics and
-   loses the browser's border, which cannot be made to sit on a 1 px line. */
 fieldset {
   border: 0;
   margin: 0 0 18px;
@@ -150,9 +127,6 @@ legend,
   color: var(--dim);
 }
 
-/* The voltage list is a header over a textarea rather than a row with a box
-   on the right, so it needs the space a label's own padding would have given
-   it and less of the gap a section between two fieldsets takes. */
 .section.voltages {
   margin: 10px 0 5px;
 }
@@ -166,24 +140,17 @@ legend,
   color: var(--dim);
 }
 
-/* The one place in the rails that holds sentences rather than labels, so it
-   sits half a point above the 11 px floor the labels themselves sit on. */
 .aside {
   margin-top: 8px;
   font: 500 11.5px/1.55 var(--sans);
   color: var(--muted);
 }
 
-/* A note that introduces the section under it, with the section header
-   already providing the space above. */
 .aside.lede {
   margin-top: 0;
   margin-bottom: 10px;
 }
 
-/* A note that is a caveat rather than a description wears the warning rule.
-   The mesh, stack and drawing notes all say the same kind of thing: this
-   number was taken on something the tests do not stand behind. */
 #mesh-note:not(:empty),
 #stack-note,
 #drawing-note,
@@ -214,7 +181,6 @@ legend,
   margin-top: 10px;
 }
 
-/* The one divider used inside a rail section rather than between two. */
 .divider {
   height: 1px;
   background: var(--line);

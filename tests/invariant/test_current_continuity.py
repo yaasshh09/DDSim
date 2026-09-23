@@ -92,9 +92,6 @@ def largest_flux_term(device, state, models) -> float:
     return float(max(np.max(np.abs(term)) for term in terms))
 
 
-# ------------------------------------------------------------- the gate
-
-
 @pytest.mark.parametrize("voltage", [0.3, 0.4, 0.5])
 def test_total_current_is_constant_across_the_device(voltage: float) -> None:
     """The primary Phase 2 gate, with recombination disabled.
@@ -168,9 +165,6 @@ def test_the_low_bias_deviation_is_cancellation_and_not_a_broken_scheme(
     assert spread(total) < 3.0 * EPS * ratio
 
 
-# ----------------------------------------------------------- terminal currents
-
-
 @pytest.mark.parametrize("voltage", [0.3, 0.4, 0.5])
 def test_terminal_currents_sum_to_zero(voltage: float) -> None:
     """Kirchhoff at the device terminals, to 1e-8 of the largest of them.
@@ -231,9 +225,6 @@ def test_current_reverses_under_reverse_bias() -> None:
     assert terminal_currents(device, state, models)["anode"] < 0.0
 
 
-# ------------------------------------------------------------ other invariants
-
-
 @pytest.mark.parametrize("voltage", [-1.0, 0.0, 0.3, 0.5])
 def test_densities_are_positive_at_every_node(voltage: float) -> None:
     """No clamping anywhere, so this is a property of the M-matrix.
@@ -280,9 +271,6 @@ def test_the_recombination_rate_vanishes_at_zero_bias() -> None:
     spurious = abs(float(np.sum(rate * volume))) * device.scale.J_0
     assert spurious < 1e-23
 
-
-
-# --------------------------------------------- the same invariants on Newton
 
 
 def solved_by_newton(voltage: float, recombination=None):

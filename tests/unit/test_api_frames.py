@@ -63,9 +63,6 @@ def header_of(message: bytes) -> dict:
     return json.loads(message[4 : 4 + length])
 
 
-# ------------------------------------------------------------ telemetry text
-
-
 def test_a_newton_iteration_crosses_as_the_numbers_it_carries() -> None:
     body = as_json(
         NewtonIteration(
@@ -178,9 +175,6 @@ def test_something_that_is_not_a_frame_is_refused() -> None:
     with nothing to say it was."""
     with pytest.raises(TypeError, match="cannot be sent"):
         encode({"iteration": 1})
-
-
-# --------------------------------------------------------------- field bytes
 
 
 def test_a_field_frame_is_a_json_header_followed_by_float32() -> None:

@@ -44,9 +44,6 @@ def diode():
     return pn_diode(n_nodes=81, anode_voltage=0.2)
 
 
-# ------------------------------------------------------------- the limiter
-
-
 def test_the_limiter_caps_the_potential_update():
     """5*V_T per step, which is 5.0 scaled. docs/02-numerics.md."""
     delta = pack(
@@ -93,9 +90,6 @@ def test_the_limiter_returns_its_argument_when_nothing_needs_capping():
     delta = pack(np.array([1.0, -2.0]), np.array([9.0, 9.0]), np.array([9.0, 9.0]))
 
     assert limit_psi_step(delta, 5.0) is delta
-
-
-# --------------------------------------------------------------- the driver
 
 
 def test_returns_a_converged_device_state(diode):
@@ -178,9 +172,6 @@ def test_models_can_be_supplied(diode):
     assert state.newton.converged, state.newton.message
 
 
-# ---------------------------------------------------------------- the hybrid
-
-
 @pytest.fixture
 def hard_case():
     """A device and guess where cold Newton diverges, so the hybrid has a job.
@@ -254,8 +245,6 @@ def test_the_hybrid_reports_the_prelude_it_ran(hard_case):
     events, and only one of them is a sign the guess is getting thin.
     """
     device, guess = hard_case
-    # Models supplied rather than rebuilt, which is what continuation does:
-    # the lifetimes come from the doping and do not move with the bias.
     state = solve_bias_hybrid(
         device, models=TransportModels.for_device(device), guess=guess
     )
@@ -333,9 +322,6 @@ def test_a_prelude_that_fails_still_hands_its_state_to_newton():
 
     assert state.newton is not None
     assert not state.newton.converged
-
-
-# ------------------------------------------------ the Phase 3 physics models
 
 
 def test_doping_dependent_mobility_lowers_the_diffusivity(diode):
@@ -435,7 +421,6 @@ def test_auger_overtakes_srh_as_the_square_of_the_density(diode):
     for lower, upper in zip(decades[:-1], decades[1:], strict=True):
         assert upper / lower == pytest.approx(100.0, rel=0.02)
 
-    # Negligible at low injection, dominant well above the crossover.
     assert ratio(1e2) < 1e-9
     assert ratio(1e10) > 1e3
 
@@ -465,9 +450,6 @@ def test_an_unknown_mobility_model_is_rejected(diode):
     """A typo must not silently fall back to the constant model."""
     with pytest.raises(ValueError, match="mobility"):
         TransportModels.for_device(diode, mobility="arorra")
-
-
-# ------------------------------------------------------- a gate on the coupled path
 
 
 def capacitor(gate_voltage: float = 1.0):

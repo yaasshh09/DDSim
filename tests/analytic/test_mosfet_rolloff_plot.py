@@ -183,9 +183,6 @@ def label_lengths(axis, lengths) -> None:
     axis.set_xticks([], minor=True)
 
 
-# ------------------------------------------------- the acceptance criteria
-
-
 def test_every_device_in_the_sweep_solved(sweep):
     """A stalled sweep still returns a curve, and a threshold extracted off a
     short one is a threshold for a device that was never solved."""
@@ -250,12 +247,6 @@ def test_velocity_saturation_pulls_the_exponent_off_the_square_law(sweep):
     assert exponents[0] <= SQUARE_LAW
     assert exponents[-1] < 1.2
     assert exponents[-1] > 1.0
-    # What the fall is made of is measured separately, in
-    # tests/analytic/test_mosfet_rolloff.py, because the exponent alone cannot
-    # tell velocity saturation from the geometry it travels with.
-    # End to end, and monotone within a hundredth, for the same reason the
-    # subthreshold slope is asserted that way: the long devices differ from
-    # each other by less than the extraction resolves.
     assert np.all(np.diff(exponents) < 0.01)
 
 
@@ -286,9 +277,6 @@ def test_the_process_did_not_change_across_the_sweep(sweep):
     assert "L_gate" not in SHORT_CHANNEL_PROCESS
     assert "drain_voltage" not in SHORT_CHANNEL_PROCESS
     assert "gate_voltage" not in SHORT_CHANNEL_PROCESS
-
-
-# ---------------------------------------------------------------- the figure
 
 
 def test_mosfet_rolloff_plot_is_generated(sweep):

@@ -248,12 +248,6 @@ def effective_potentials(
     if degeneracy is None:
         return psi, psi
 
-    # Degeneracy is typed for the physical case, which is float64. Its
-    # arithmetic is a polynomial and a comparison on the real part, so it is
-    # dtype preserving and the complex step verification depends on that.
-    # Declaring it would put complex into every signature in
-    # physics/statistics.py to serve these two lines, which is the same trade
-    # coupled_residual already makes for the recombination protocol.
     potential = cast("npt.NDArray[np.float64]", psi)
     electrons = cast("npt.NDArray[np.float64]", n)
     holes = cast("npt.NDArray[np.float64]", p)
@@ -318,9 +312,6 @@ def _bernoulli_derivative_pair(
     )
 
 
-# ----------------------------------------------------------------- residual
-
-
 def coupled_residual(
     h: npt.NDArray[np.float64],
     volume: npt.NDArray[np.float64],
@@ -359,12 +350,6 @@ def coupled_residual(
     on this function. That is how every Jacobian block below is verified.
     """
     psi, n, p = unpack(x)
-    # The protocol is typed for the physical case, which is float64. Every
-    # implementation is dtype preserving and the complex step verification
-    # depends on that, but declaring it in the protocol would put complex in
-    # every signature in physics/recombination.py to serve this one line.
-    # The cast back is the same statement in the other direction: the rate has
-    # whatever dtype the densities had, and only the annotation says float64.
     R = cast(
         "npt.NDArray[Number]",
         recombination.rate(cast(Density, n), cast(Density, p)),
@@ -428,10 +413,6 @@ def _residual_from(
     np.add.at(F_psi, node_right, -face_flux)
     F_psi -= (p - n + net_doping) * volume
 
-    # Electron continuity. B(X) multiplies the right hand node. See the
-    # docstring of discretize/continuity.py before changing that. The carrier
-    # face enters here, never the permittivity and never the whole dual face:
-    # see geometry.py.
     Jn = (Dn * geometry.carrier_face / h) * (
         bn_plus * n[node_right] - bn_minus * n[node_left]
     )
@@ -449,9 +430,6 @@ def _residual_from(
     np.add.at(F_p, node_right, -Jp)
 
     return out
-
-
-# ----------------------------------------------------------------- Jacobian
 
 
 class NodeRange(Enum):
@@ -632,8 +610,6 @@ def _jacobian_from(
     J = _Triplets(n_nodes, geometry)
     node_left, node_right = geometry.ends(h.size)
 
-    # --- dF_psi/dpsi. The bare Laplacian. No charge term: see the module
-    # docstring, this is the block the Phase 1 Jacobian would corrupt.
     conductance = geometry.weight / h
     diagonal = np.zeros(n_nodes)
     np.add.at(diagonal, node_left, conductance)
@@ -642,20 +618,14 @@ def _jacobian_from(
     J.add(Unknown.PSI, left, Unknown.PSI, right, -conductance)
     J.add(Unknown.PSI, right, Unknown.PSI, left, -conductance)
 
-    # --- dF_psi/dn and dF_psi/dp. From -(p - n + N)*volume, diagonal only.
     J.add(Unknown.PSI, nodes, Unknown.N, nodes, volume)
     J.add(Unknown.PSI, nodes, Unknown.P, nodes, -volume)
 
-    # --- dF_n/dpsi. Laplacian shaped, with conductance G on each edge.
     G_sg = (Dn * geometry.carrier_face / h) * (
         db_plus * n[node_right] + db_minus * n[node_left]
     )
     G = G_sg
     if dDn_dX is not None:
-        # The flux carries a factor of D, so a D that moves with the drop
-        # across the edge differentiates into a second term of the same shape.
-        # Written as the flux over D rather than as a logarithm, so nothing
-        # divides by a diffusivity that is allowed to become small.
         G = G + (dDn_dX * geometry.carrier_face / h) * (
             b_plus * n[node_right] - b_minus * n[node_left]
         )
@@ -666,17 +636,9 @@ def _jacobian_from(
     J.add(Unknown.N, left, Unknown.PSI, right, -G)
     J.add(Unknown.N, right, Unknown.PSI, left, -G)
 
-    # --- dF_n/dn. The Scharfetter-Gummel stencil plus the exact SRH tangent.
     to_right = (Dn * geometry.carrier_face / h) * b_plus
     to_left = (Dn * geometry.carrier_face / h) * b_minus
     if dpsi_n_dn is not None:
-        # The Bernoulli argument is the drop in the effective potential, and
-        # that depends on the density at each end as well as on psi. So the
-        # same edge conductance the dF_n/dpsi block carries reappears here,
-        # once per end, weighted by how far the effective potential moves per
-        # electron. Only the Scharfetter-Gummel part of it: a field dependent
-        # diffusivity reads the real potential drop and does not move when a
-        # density does.
         to_right = to_right + G_sg * dpsi_n_dn[node_right]
         to_left = to_left + G_sg * dpsi_n_dn[node_left]
     diagonal = dR_dn * volume
@@ -686,7 +648,6 @@ def _jacobian_from(
     J.add(Unknown.N, left, Unknown.N, right, -to_right)
     J.add(Unknown.N, right, Unknown.N, left, -to_left)
 
-    # --- dF_n/dp. R is a point function, so this touches one node only.
     J.add(Unknown.N, nodes, Unknown.P, nodes, dR_dp * volume)
 
     # --- dF_p/dpsi. The same stencil as the electron block with the opposite
@@ -706,11 +667,8 @@ def _jacobian_from(
     J.add(Unknown.P, left, Unknown.PSI, right, H)
     J.add(Unknown.P, right, Unknown.PSI, left, H)
 
-    # --- dF_p/dn.
     J.add(Unknown.P, nodes, Unknown.N, nodes, dR_dn * volume)
 
-    # --- dF_p/dp. The mirror of the electron block: the two flux coefficients
-    # have swapped nodes, for the same reason the fluxes do.
     to_left = (Dp * geometry.carrier_face / h) * bp_plus
     to_right = (Dp * geometry.carrier_face / h) * bp_minus
     if dpsi_p_dp is not None:
@@ -726,9 +684,6 @@ def _jacobian_from(
     J.add(Unknown.P, right, Unknown.P, left, -to_left)
 
     return J.build()
-
-
-# --------------------------------------------------------------- Field layer
 
 
 def assemble_coupled(
@@ -870,10 +825,6 @@ def assemble_coupled_terms(
     dR_dn = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
     dR_dp = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
 
-    # A field dependent diffusivity is a function of this state, so it is
-    # evaluated here with everything else that is, and once rather than three
-    # times: the residual, the Jacobian and the term scales all want the same
-    # one, for the same reason they all want the same Bernoulli pair.
     Dn_edge = _diffusivity_at(Dn, psi, h, geometry)
     Dp_edge = _diffusivity_at(Dp, psi, h, geometry)
     dDn_dX = _diffusivity_tangent(Dn, psi, h, geometry)
@@ -963,9 +914,6 @@ def limit_psi_step(
     limited = delta.copy()
     limited[Unknown.PSI :: UNKNOWNS_PER_NODE] = dpsi * (max_psi_step / peak)
     return limited
-
-
-# ------------------------------------------------------------------ contacts
 
 
 def apply_contacts_coupled(
@@ -1075,9 +1023,6 @@ def apply_contacts_coupled(
     return apply_dirichlet_nodes(assembly, x, indices, targets)
 
 
-# ------------------------------------------------------------- row scaling
-
-
 def residual_term_scales(
     h: npt.NDArray[np.float64],
     volume: npt.NDArray[np.float64],
@@ -1171,13 +1116,6 @@ def _term_scales_from(
     node_left, node_right = geometry.ends(h.size)
     n_nodes = volume.size
 
-    # Poisson: the face fluxes psi/h, and the three charges that make up
-    # -(p - n + N)*volume. All three, not only the doping. On intrinsic
-    # material the sum p - n + N is exactly zero while n*volume and p*volume
-    # are a whole dual cell each, and a scale built from the doping alone
-    # reports zero there and makes every row nan on division. Measured before
-    # this counted the carriers: an undoped 41 node bar returned a residual of
-    # nan and the message blamed the LU factorization for being singular.
     psi_edge = (geometry.weight / h) * np.maximum(
         np.abs(psi[node_left]), np.abs(psi[node_right])
     )
@@ -1186,8 +1124,6 @@ def _term_scales_from(
         (np.abs(p) + np.abs(n) + np.abs(net_doping)) * volume,
     )
 
-    # Continuity: the two halves of each Scharfetter-Gummel flux, and the
-    # recombination that sits alongside them in the same row.
     recombined = (
         np.zeros(n_nodes) if R is None else np.abs(R) * volume
     )
@@ -1213,10 +1149,6 @@ def _term_scales_from(
     )
 
     scales = (psi_scale, electron_scale, hole_scale)
-    # Two different failures. A term that overflowed belongs to an iterate
-    # Newton overshot, which is divergence: newton_solve catches this one and
-    # reports it, so a continuation can take a smaller step. A state with no
-    # terms at all is not something Newton makes, and stays a ValueError.
     if not all(bool(np.all(np.isfinite(scale))) for scale in scales):
         raise FloatingPointError(
             "a residual term overflowed, the iterate has diverged: term scales "
@@ -1359,8 +1291,6 @@ def residual_measure(
     decades on that row while leaving every row the measure was introduced to
     catch. See the 2026-09-12 row in docs/07-decisions.md.
     """
-    # The largest family, picked rather than computed, so the number is the
-    # one each family reports and not a rounding of it.
     return max(0.0, *residual_measure_by_family(residual, scales, n_nodes).values())
 
 
@@ -1377,8 +1307,6 @@ def residual_measure_by_family(
     by_family: dict[str, float] = {}
     for component, scale, name in zip(Unknown, scales, FAMILIES, strict=True):
         rows = raw[component::UNKNOWNS_PER_NODE]
-        # Not scale > 0.0. A scale that has merely collapsed is as unusable
-        # as one that is exactly zero, and the exact test walks past it.
         floor = EPS * float(np.max(scale))
         measured = np.divide(
             rows, scale, out=np.zeros_like(rows), where=scale > floor

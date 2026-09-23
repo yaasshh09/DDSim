@@ -84,9 +84,6 @@ def drain(client, job_id: str) -> list[Any]:
                 return frames
 
 
-# --------------------------------------------------------------- the schema
-
-
 def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     body = client.get("/api/schema").json()
 
@@ -124,9 +121,6 @@ def test_the_schema_carries_the_coarse_presets_and_their_notes(client) -> None:
     assert "1.5 mV" in presets["drawing"]["note"]
     assert presets["nmos"]["parameters"]["n_silicon"] == 29
     assert "0.621 percent" in presets["nmos"]["note"]
-
-
-# -------------------------------------------------------- refusing a request
 
 
 def test_an_unknown_device_is_refused_with_the_known_ones_named(client) -> None:
@@ -168,8 +162,6 @@ def test_a_contact_the_device_does_not_have_is_refused(client) -> None:
 
     assert response.status_code == 400
     assert "gate" in response.json()["detail"]
-    # str() of a KeyError is its repr, so the page used to show the whole
-    # message wrapped in quotes, and "a iv sweep" read badly.
     assert response.json()["detail"].startswith("no contact named 'gate' that the iv")
 
 
@@ -182,9 +174,6 @@ def test_a_request_missing_its_sweep_is_refused_by_the_schema(client) -> None:
 
 def test_an_unknown_job_is_not_found(client) -> None:
     assert client.get("/api/jobs/nosuchjob").status_code == 404
-
-
-# ------------------------------------------------------------- the telemetry
 
 
 def test_a_stream_carries_solver_frames_and_then_a_status(client) -> None:
@@ -265,9 +254,6 @@ def test_a_failing_solve_says_why_rather_than_going_quiet(client) -> None:
     assert "could not be started" in frames[-1]["message"]
 
 
-# -------------------------------------------------------------- cancellation
-
-
 def test_cancelling_stops_the_solve(client) -> None:
     """An acceptance criterion. The job reaches cancelled rather than running
     to the end of the sweep with nobody watching."""
@@ -295,9 +281,6 @@ def test_cancelling_a_finished_job_says_it_changed_nothing(client) -> None:
     drain(client, job)
 
     assert client.post(f"/api/jobs/{job}/cancel").json()["cancelled"] is False
-
-
-# ---------------------------------------------------------------- the curve
 
 
 def test_the_result_is_available_after_the_stream_has_closed(client) -> None:
@@ -384,9 +367,6 @@ def test_the_browser_gets_bit_for_bit_what_pytest_gets(
     )
 
 
-# --------------------------------------------------------------- the fields
-
-
 def test_the_fields_of_a_point_come_back_as_float32_behind_a_header(
     client,
 ) -> None:
@@ -445,9 +425,6 @@ def test_the_fields_of_a_running_job_are_refused(client) -> None:
     assert client.get(f"/api/jobs/{job}/fields/0").status_code == 409
 
 
-# ----------------------------------------------------------------- the page
-
-
 def test_the_page_is_served_from_the_root(client) -> None:
     """One command and a working page, which phases/PHASE-7.md asks for. No
     build step, so the page is a file this repo already contains."""
@@ -490,9 +467,6 @@ def test_the_page_loads_its_script_rather_than_inlining_it(client) -> None:
     page = client.get("/").text
 
     assert '<script src="/static/js/app.js"></script>' in page
-
-
-# ------------------------------------------------------------- the 1D stack
 
 
 def test_the_schema_offers_the_stack_regions(client) -> None:

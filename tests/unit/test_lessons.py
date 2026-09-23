@@ -90,13 +90,10 @@ def test_a_step_is_the_start_with_its_own_changes_on_top() -> None:
     pushed = lesson.steps[1].request
 
     assert pushed is not None
-    # The knob it names moves and the one it does not keep the lesson's value.
     assert pushed["device"]["parameters"] == {"Na": 1e18, "length": 2e-4}
-    # A whole field is replaced, a dict of settings is merged into.
     assert pushed["sweep"]["voltages"] == [0.0, -1.0]
     assert pushed["sweep"]["settings"] == {"step": 0.05, "start": 0.1}
     assert pushed["sweep"]["contact"] == "anode"
-    # And the start itself is untouched by it.
     assert lesson.request["device"]["parameters"] == {"Na": 1e17, "length": 2e-4}
 
 
@@ -125,7 +122,6 @@ def test_a_coarse_lesson_starts_on_the_coarse_mesh_it_names() -> None:
     for name, value in COARSE["nmos"].parameters.items():
         if name != "n_sd":
             assert parameters[name] == value
-    # What the lesson writes itself wins over the preset.
     assert parameters["n_sd"] == 11
     assert lesson.mesh_note == COARSE["nmos"].note
 
@@ -171,9 +167,6 @@ def test_a_malformed_lesson_says_what_is_wrong(broken, complaint) -> None:
 def test_an_unknown_lesson_is_a_key_error() -> None:
     with pytest.raises(KeyError):
         load_lesson("../app")
-
-
-# ------------------------------------------------------ the shipped lessons
 
 
 def test_there_are_the_five_lessons_the_phase_asks_for() -> None:
@@ -227,9 +220,6 @@ def test_every_request_a_lesson_makes_is_one_the_api_takes(name) -> None:
 @pytest.mark.parametrize("path", sorted(LESSONS.glob("*.md")), ids=lambda p: p.name)
 def test_no_lesson_uses_an_em_dash(path) -> None:
     assert "\u2014" not in path.read_text(encoding="utf-8")
-
-
-# ------------------------------------------------------------------ routes
 
 
 def test_the_lessons_are_listed(client) -> None:

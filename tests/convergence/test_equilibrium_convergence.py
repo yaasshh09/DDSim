@@ -43,9 +43,6 @@ def peak_field(device, state) -> float:
     return float(np.max(np.abs(-np.diff(psi) / device.mesh.h)))
 
 
-# --------------------------------------------------------- mesh refinement
-
-
 def test_peak_field_converges_under_mesh_refinement() -> None:
     """The field is where discretization error shows up first.
 
@@ -111,9 +108,6 @@ def test_refinement_does_not_change_the_invariants() -> None:
         assert np.all(state.n.data > 0.0)
 
 
-# ------------------------------------------------------- Newton convergence
-
-
 def test_newton_converges_in_under_ten_iterations_across_doping() -> None:
     """The acceptance criterion, over the full doping range Phase 5 will need."""
     for doping in (1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20):
@@ -149,7 +143,6 @@ def test_newton_residual_tail_is_quadratic() -> None:
     history = np.array(state.newton.residual_history)
     relative = history / history[0]
 
-    # Above the roundoff floor, which the final residual sits on.
     usable = relative[relative > 100.0 * relative[-1]]
     tail = usable[-3:]
     assert len(tail) == 3, f"no usable tail in {history}"
@@ -210,9 +203,6 @@ def test_the_charge_neutral_guess_is_a_good_starting_point() -> None:
     assert L_D > 0.0
 
 
-# ------------------------------------------- the residual threshold has a floor
-
-
 def test_newton_converges_on_lightly_doped_material() -> None:
     """The doping range above stops at 1e14, and below it the solve used to fail.
 
@@ -262,8 +252,6 @@ def test_the_threshold_floor_does_not_loosen_a_normally_doped_solve() -> None:
         state = solve_equilibrium(device)
 
         assert state.newton is not None
-        # The charge threshold is rtol times the doping charge in the largest
-        # cell, and the solve has to beat it rather than some raised version.
         charge = float(
             np.max(
                 np.abs(device.net_doping_scaled.data)
@@ -284,8 +272,6 @@ def test_a_stalled_solve_says_what_it_was_aiming_for() -> None:
     """
     device = pn_diode(Na=1e16, Nd=1e16)
 
-    # A flat start is many volts from the answer and the step limiter allows
-    # 5 * V_T, so one iteration cannot possibly land.
     stalled = solve_poisson(
         device, np.zeros(device.mesh.n_nodes), max_iterations=1
     )

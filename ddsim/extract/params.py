@@ -183,9 +183,6 @@ def saturation_current(
     return float(np.exp(intercept)), float(1.0 / (slope * C.V_T(T)))
 
 
-# ------------------------------------------------------------ MOSFET parameters
-
-
 def subthreshold_slope(
     voltage: npt.NDArray[np.float64],
     current: npt.NDArray[np.float64],
@@ -316,10 +313,6 @@ def threshold_linear_extrapolation(
             "tangent to extrapolate. Check the sign of the sweep."
         )
 
-    # Midpoint values, so the point and the slope belong to the same interval.
-    # On a straight segment the average of the two currents is exactly the
-    # value at the midpoint, which is what makes this exact in the linear
-    # region rather than merely close.
     at_peak = 0.5 * (J[peak] + J[peak + 1])
     intercept = midpoint[peak] - at_peak / gm[peak]
 

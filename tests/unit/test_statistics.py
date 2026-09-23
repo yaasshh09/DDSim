@@ -39,8 +39,6 @@ from ddsim.physics.statistics import (
 )
 from tests.reference import fermi as fermi_ref
 
-# ----------------------------------------------------------- Boltzmann, scaled
-
 
 def test_n_is_one_at_zero_potential() -> None:
     """Intrinsic material: n = n_i, which is 1 in scaled units."""
@@ -89,9 +87,6 @@ def test_derivatives_match_complex_step() -> None:
         )
 
 
-# --------------------------------------------------------- Boltzmann, physical
-
-
 def test_physical_form_reduces_to_n_i_at_zero_potential() -> None:
     assert n_boltzmann(0.0, 0.0, C.n_i(), C.V_T()) == C.n_i()  # [cm^-3]
     assert p_boltzmann(0.0, 0.0, C.n_i(), C.V_T()) == C.n_i()  # [cm^-3]
@@ -114,9 +109,6 @@ def test_one_volt_is_a_factor_of_exp_38_7() -> None:
     ratio = n_boltzmann(1.0, 0.0, C.n_i(), C.V_T()) / C.n_i()
     assert ratio == pytest.approx(math.exp(1.0 / C.V_T()), rel=1e-12)
     assert ratio > 6e16
-
-
-# ------------------------------------------------------ equilibrium from doping
 
 
 def test_equilibrium_potential_is_zero_in_intrinsic_material() -> None:
@@ -156,9 +148,6 @@ def test_asinh_form_survives_compensated_material_where_log_would_not() -> None:
     """
     for net in (-1e-6, 0.0, 1e-30, -1e-30):
         assert math.isfinite(psi_equilibrium_scaled(net))
-
-
-# ---------------------------------------------------- equilibrium densities
 
 
 def test_equilibrium_densities_satisfy_neutrality() -> None:
@@ -222,19 +211,6 @@ def test_equilibrium_densities_preserve_shape() -> None:
     n, p = equilibrium_densities_scaled(net)
     assert n.shape == (3, 4)
     assert p.shape == (3, 4)
-
-
-# ------------------------------------------------------------- Fermi-Dirac
-#
-# docs/04-validation.md tier 1 asks for two things by name: Joyce-Dixon against
-# tabulated F_{1/2} values, under 1 percent to n/Nc = 4, and Boltzmann against
-# Fermi-Dirac agreeing to 1 percent when n/Nc < 0.01. Both are below, with the
-# references in tests/reference/fermi.py, which shares no arithmetic with the
-# implementation.
-#
-# The one tabulated value worth hardcoding is F_{1/2}(0) = 0.678094, because it
-# also has a closed form, Gamma(3/2) * eta_dirichlet(3/2), so the table entry
-# and the analytic identity check each other before either checks the code.
 
 
 ETA_NEGATIVE = np.array([-40.0, -20.0, -10.0, -5.0, -2.0, -1.0, -0.5, -0.1])
@@ -312,9 +288,6 @@ def test_fermi_dirac_half_is_vectorised_and_keeps_its_shape() -> None:
 def test_fermi_dirac_half_rises_with_eta() -> None:
     values = fermi_dirac_half(np.linspace(-20.0, 20.0, 81))
     assert np.all(np.diff(values) > 0.0)
-
-
-# -------------------------------------------------------------- Joyce-Dixon
 
 
 def test_joyce_dixon_coefficients_are_the_published_values() -> None:
@@ -395,9 +368,6 @@ def test_joyce_dixon_refuses_an_array_with_one_bad_entry() -> None:
         joyce_dixon_eta(np.array([0.1, 1.0, 1e3]))
 
 
-# --------------------------------------------------------- degeneracy factor
-
-
 def test_degeneracy_factor_is_exactly_one_at_zero_density() -> None:
     """Not approximately. Boltzmann has to come back bit for bit, or every
     result this project already has moves in its last digits.
@@ -438,9 +408,6 @@ def test_degeneracy_factor_falls_monotonically_with_density() -> None:
     values = degeneracy_factor(np.linspace(0.0, JOYCE_DIXON_MAX_U, 40))
     assert np.all(np.diff(values) < 0.0)
     assert np.all(values > 0.0)
-
-
-# ------------------------------------------------------------ Einstein ratio
 
 
 def test_einstein_ratio_is_exactly_one_at_zero_density() -> None:
@@ -534,9 +501,6 @@ def test_for_silicon_scales_both_band_densities_by_the_density_scale() -> None:
     assert scaled.Nv == pytest.approx(C.Nv(C.T_ROOM) / C.n_i(), rel=1e-15)
 
 
-# ------------------------------------------------------ the effective potential
-
-
 def test_the_effective_potential_is_psi_itself_at_zero_density() -> None:
     """Not approximately. A Boltzmann device that switches statistics on has
     to keep every number it already had, and this is where that starts.
@@ -594,9 +558,6 @@ def test_the_potential_derivative_is_zero_above_the_cap() -> None:
     p = DEGENERACY.Nv * JOYCE_DIXON_MAX_U * 2.0
     assert DEGENERACY.d_electron_potential_dn(n) == 0.0
     assert DEGENERACY.d_hole_potential_dp(p) == 0.0
-
-
-# ---------------------------------------------------------------- the inverse
 
 
 def test_the_inversion_returns_the_density_the_potential_describes() -> None:
@@ -681,9 +642,6 @@ def test_dn_dpsi_is_the_density_itself_in_the_boltzmann_limit() -> None:
     """Where the ratio is 1, this has to give back dn/dpsi = n exactly."""
     assert DEGENERACY.dn_dpsi(0.0) == 0.0
     assert DEGENERACY.dp_dpsi(0.0) == 0.0
-
-
-# --------------------------------------------------------------- the contacts
 
 
 def test_equilibrium_neutrality_is_exact() -> None:

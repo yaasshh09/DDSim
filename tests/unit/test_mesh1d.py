@@ -30,9 +30,6 @@ NANOMETRE = 1e-7
 """One nanometre [cm]."""
 
 
-# --------------------------------------------------------------- uniform mesh
-
-
 def test_uniform_mesh_has_the_requested_node_count() -> None:
     mesh = uniform_mesh_1d(MICRON, 101)
     assert mesh.n_nodes == 101
@@ -65,9 +62,6 @@ def test_uniform_mesh_rejects_fewer_than_two_nodes() -> None:
 def test_uniform_mesh_rejects_non_positive_length() -> None:
     with pytest.raises(ValueError, match="positive"):
         uniform_mesh_1d(0.0, 10)
-
-
-# ------------------------------------------------------- structural invariants
 
 
 @pytest.mark.parametrize(
@@ -130,9 +124,6 @@ class TestMeshInvariants:
         assert len(mesh.node_edges[-1]) == 1
         for node in range(1, mesh.n_nodes - 1):
             assert len(mesh.node_edges[node]) == 2
-
-
-# ---------------------------------------------------------------- graded mesh
 
 
 def test_graded_mesh_has_the_requested_node_count() -> None:
@@ -236,9 +227,6 @@ def test_graded_mesh_reduces_to_uniform_when_h_min_is_the_uniform_spacing() -> N
     np.testing.assert_allclose(mesh.h, uniform_h, rtol=1e-9)
 
 
-# --------------------------------------------------- the Phase 0 definition of done
-
-
 def test_phase0_acceptance_200_nodes_1nm_at_half_a_micron() -> None:
     """The case named in phases/PHASE-0.md, asserted end to end."""
     mesh = graded_mesh_1d(MICRON, 200, refine_at=0.5 * MICRON, h_min=NANOMETRE)
@@ -251,9 +239,6 @@ def test_phase0_acceptance_200_nodes_1nm_at_half_a_micron() -> None:
     pivot = int(np.argmin(np.abs(mesh.x - 0.5 * MICRON)))
     assert np.all(np.diff(mesh.h[:pivot]) < 0.0)
     assert np.all(np.diff(mesh.h[pivot:]) > 0.0)
-
-
-# --------------------------------------------------------- validation and repr
 
 
 def test_graded_mesh_rejects_non_positive_length() -> None:
@@ -388,9 +373,6 @@ class TestRatioSolveMatchesTheScalarReference:
         assert np.isnan(_solve_ratios(MICRON, NANOMETRE, np.array([0]))[0])
 
 
-# --------------------------------------------------------------- stacked mesh
-
-
 class TestStackedMesh:
     """Layers laid end to end, which is what a material stack is.
 
@@ -486,9 +468,6 @@ class TestStackedMesh:
             stacked_mesh_1d(uniform_mesh_1d(MICRON, 3), shifted)
 
 
-# ------------------------------------------------- graded towards several points
-
-
 THIN_BASE = (10 * MICRON, 10.05 * MICRON, 10.1 * MICRON)
 """Three junctions, two of them 50 nm apart either side of a thin base, in a
 20.1 um device. Grading each junction on its own and joining halfway broke
@@ -582,11 +561,6 @@ def test_points_must_be_inside_and_increasing() -> None:
         graded_mesh_1d_at(MICRON, 201, (0.5 * MICRON, MICRON), NANOMETRE)
 
 
-# ------------------------------------------- a node on every line, 2D drawings
-
-# A drawn 2D device, one axis of it: the edges of what was drawn are lines the
-# mesh has to put a node on, and the doping edges and interfaces are points it
-# grades towards. The nmos x axis drawn from rectangles has both kinds.
 DRAWN_LINES = (0.2 * MICRON, 0.4 * MICRON, 1.4 * MICRON, 1.6 * MICRON)
 DRAWN_POINTS = (0.4 * MICRON, 1.4 * MICRON)
 

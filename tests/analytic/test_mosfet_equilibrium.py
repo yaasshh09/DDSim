@@ -93,9 +93,6 @@ def node_nearest(fet, x: float, y: float) -> int:
     return int(np.argmin(distance))
 
 
-# ----------------------------------------------------------- it solves at all
-
-
 def test_the_equilibrium_solve_converges(state):
     """Four terminals, two materials and four orders of magnitude of doping.
     Nothing in this project has asked Newton for all of that at once before.
@@ -112,9 +109,6 @@ def test_no_carrier_density_is_reported_inside_the_oxide(fet, state):
 
     np.testing.assert_array_equal(state.n.data[oxide], 0.0)
     np.testing.assert_array_equal(state.p.data[oxide], 0.0)
-
-
-# --------------------------------------------------------- the neutral bulk
 
 
 def test_the_body_is_neutral_far_from_everything(fet, state):
@@ -141,9 +135,6 @@ def test_the_neutral_body_sits_at_the_potential_its_doping_asks_for(fet, state):
     assert psi_volts(fet, state)[node] == pytest.approx(
         float(expected), abs=MILLIVOLT
     )
-
-
-# ------------------------------------------------------ the source junction
 
 
 def test_the_built_in_potential_across_the_source_junction(fet, state):
@@ -197,9 +188,6 @@ def test_the_source_is_n_type_and_the_channel_is_p_type(fet, state):
     assert state.p.data[channel] > state.n.data[channel]
 
 
-# ------------------------------------------------------------------ flatband
-
-
 def test_at_flatband_the_surface_potential_is_the_bulk_potential(fet):
     """The sharpest single check available on a MOS gate.
 
@@ -248,9 +236,6 @@ def test_the_gate_bias_only_reaches_the_channel_it_covers(fet):
 
     assert abs(lifted[under_source] - flat[under_source]) < MILLIVOLT
     assert lifted[under_gate] - flat[under_gate] > 0.1
-
-
-# ------------------------------------------------------------------ symmetry
 
 
 def test_the_solution_is_symmetric_about_the_centre(fet, state):

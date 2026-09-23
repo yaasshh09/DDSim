@@ -50,9 +50,6 @@ def as_float(value: object) -> float:
     return float(np.asarray(value))
 
 
-# ------------------------------------------------------------- the zero of R
-
-
 @pytest.mark.parametrize("n", [1e-6, 1e-3, 1.0, 1e3, 1e6, 1e10])
 def test_rate_is_exactly_zero_at_equilibrium(n: float) -> None:
     """n*p = n_i^2 must give exactly 0.0, not merely a small number.
@@ -95,7 +92,7 @@ def test_low_injection_limit_in_n_type() -> None:
     minority carrier lifetime and it is worth asserting directly.
     """
     n = 1e8
-    p = 1e-8 + 1e-4  # equilibrium value plus an excess
+    p = 1e-8 + 1e-4
     np.testing.assert_allclose(
         srh_rate(n, p, TAU_N, TAU_P), 1e-4 / TAU_P, rtol=1e-6
     )
@@ -128,9 +125,6 @@ def test_lifetimes_may_vary_per_node() -> None:
     np.testing.assert_allclose(
         srh_rate(n, p, TAU_N, tau_p), 1e-4 / tau_p, rtol=1e-6
     )
-
-
-# ------------------------------------------------------------------- scaling
 
 
 def test_scaled_and_physical_routes_agree() -> None:
@@ -183,9 +177,6 @@ def test_rate_against_a_hand_computed_value() -> None:
     np.testing.assert_allclose(rate, 3.3322e17, rtol=1e-4)
 
 
-# ---------------------------------------------------------------- derivatives
-
-
 def complex_step(function: Callable[[complex], complex], x: float) -> float:
     """df/dx by complex step, exact to machine precision for analytic f."""
     step = 1e-30
@@ -217,9 +208,6 @@ def test_both_derivatives_are_positive(n: float, p: float) -> None:
     model = SRHRecombination(tau_n=TAU_N, tau_p=TAU_P)
     assert as_float(model.d_rate_dn(n, p)) > 0.0
     assert as_float(model.d_rate_dp(n, p)) > 0.0
-
-
-# -------------------------------------------------------------- linearization
 
 
 @pytest.mark.parametrize(("n", "p"), DENSITY_PAIRS)
@@ -269,9 +257,6 @@ def test_linearization_slope_is_not_the_exact_derivative() -> None:
     model = SRHRecombination(tau_n=TAU_N, tau_p=TAU_P)
     c, _ = srh_electron_linearization(n, p, TAU_N, TAU_P)
     assert as_float(c) != as_float(model.d_rate_dn(n, p))
-
-
-# ------------------------------------------------------- Scharfetter lifetime
 
 
 def test_lifetime_is_tau_max_in_undoped_material() -> None:
@@ -325,9 +310,6 @@ def test_negative_doping_raises() -> None:
     """
     with pytest.raises(ValueError, match="total"):
         scharfetter_lifetime(-1e16, tau_max=1e-5)
-
-
-# -------------------------------------------------------------------- models
 
 
 def test_srh_model_matches_the_free_function() -> None:
@@ -400,9 +382,6 @@ def test_a_lifetime_floor_above_the_ceiling_raises() -> None:
 def test_a_non_positive_reference_doping_raises() -> None:
     with pytest.raises(ValueError, match="N_ref"):
         scharfetter_lifetime(1e16, tau_max=1e-5, N_ref=0.0)
-
-
-# ---------------------------------------------------------------- Auger
 
 
 AUGER_NI2 = 1.0
@@ -529,9 +508,6 @@ def test_the_auger_linearization_is_exact_at_the_current_state(
 
     assert c_n * n - g_n == pytest.approx(model.rate(n, p), rel=1e-12, abs=1e-30)
     assert c_p * p - g_p == pytest.approx(model.rate(n, p), rel=1e-12, abs=1e-30)
-
-
-# ------------------------------------------------------------ summed models
 
 
 def test_a_sum_of_models_adds_their_rates() -> None:

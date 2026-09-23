@@ -61,9 +61,6 @@ def long_diode(Na: float, Nd: float, bias: float = 0.0, length: float = 12.0 * M
     )
 
 
-# --------------------------------------------------------- built in potential
-
-
 @pytest.mark.parametrize(
     ("Na", "Nd"),
     [(1e15, 1e15), (1e16, 1e16), (1e17, 1e17), (1e16, 1e18), (1e15, 1e17)],
@@ -125,9 +122,6 @@ def test_built_in_potential_rises_by_two_v_t_per_decade_of_doping() -> None:
 
     step = (psi_high[-1] - psi_high[0]) - (psi_low[-1] - psi_low[0])
     assert step == pytest.approx(C.V_T() * math.log(100.0), rel=0.02)
-
-
-# ------------------------------------------------------------ depletion width
 
 
 def depletion_edges(device, state) -> tuple[float, float]:
@@ -239,9 +233,6 @@ def test_depletion_region_sits_mostly_on_the_lightly_doped_side() -> None:
     assert p_side / n_side == pytest.approx(Nd / Na, rel=0.30)
 
 
-# ---------------------------------------------------------------- Debye decay
-
-
 def test_potential_decays_into_the_bulk_with_the_local_debye_length() -> None:
     """docs/04-validation.md, under 1 percent on the fitted decay length.
 
@@ -266,8 +257,6 @@ def test_potential_decays_into_the_bulk_with_the_local_debye_length() -> None:
     state = solve_equilibrium(device)
     psi = state.psi.to_physical(device.scale).data  # [V]
 
-    # Fit the decay on the lightly doped side, away from both the step and the
-    # contact, where the deviation from bulk is a clean exponential.
     psi_bulk = psi[0]
     L_D = math.sqrt(C.eps_Si() * C.V_T() / (C.q * low))  # [cm]
 

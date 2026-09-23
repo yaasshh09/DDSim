@@ -1,15 +1,5 @@
 "use strict";
 
-// The device editor's chrome and the Build / Results switch.
-//
-// drawing.js owns the rows and the drag. This owns the frame around them: the
-// three groups, the words above each one, the column headings that turn a
-// line of unlabelled boxes into a table, and which half of the stage is on
-// screen. Kept apart from drawing.js because that file is already long, and
-// because none of this knows anything about geometry.
-
-// What each part is, in words. The three lists are the whole vocabulary of a
-// drawing, so this is where a newcomer finds out what one is.
 const PART_ABOUT = {
   blocks: {
     title: "Shapes",
@@ -37,7 +27,6 @@ const PART_ABOUT = {
   },
 };
 
-// One heading per field, in the order drawing.js lays the row out.
 const PART_LABELS = {
   material: "material",
   dopant: "type",
@@ -74,8 +63,6 @@ const DRAWING_NOTE =
   "is refused. A device you drew is the validated solver's answer on a " +
   "structure nothing has checked, and the page says so under the curve.";
 
-// The three groups, each a heading, a line of explanation, a row of column
-// names, the rows themselves and a button that adds one.
 function buildEditor() {
   const into = el("build-parts");
   if (!into || into.children.length) return;
@@ -116,8 +103,6 @@ function buildEditor() {
   el("drawing-note").innerHTML = DRAWING_NOTE;
 }
 
-// A row of column names above the boxes, sharing .part so the widths line up
-// with the rows underneath it.
 function partHeadings(part) {
   const head = document.createElement("div");
   head.className = "region part headings";
@@ -131,9 +116,6 @@ function partHeadings(part) {
   return head;
 }
 
-// Which half of the stage is showing. The rails do not move: the knobs and
-// the solve button stay reachable while a device is being drawn, because
-// drawing one and setting its mesh are the same job.
 function setMode(mode) {
   const building = mode === "build";
   el("build").hidden = !building;

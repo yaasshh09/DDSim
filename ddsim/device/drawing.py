@@ -512,9 +512,6 @@ def drawing(
     for what, thing in drawn[: len(blocks) + len(implants)]:
         inside_x = int(np.count_nonzero((columns > thing.x0) & (columns < thing.x1)))
         inside_y = int(np.count_nonzero((rows > thing.y0) & (rows < thing.y1)))
-        # A rectangle spanning the whole device along an axis is the device
-        # along it, not a feature on it, which is how mos_cap gets away with
-        # three columns.
         if thing.x0 == 0.0 and thing.x1 == width:
             inside_x = NODES_INSIDE
         if thing.y0 == 0.0 and thing.y1 == height:
@@ -604,13 +601,6 @@ def drawing(
 
     doping = Sum(tuple(_implant_profile(i, width, height) for i in implants))
 
-    # The same rule one level down, for each carrier on its own. A region of
-    # one doping type inside a contacted island still floats if no ohmic
-    # contact touches it: its majority carriers leave only through a junction,
-    # whose leakage is too small next to the other terms in the same rows for
-    # double precision to pin the region's potential. Measured on a p film on
-    # buried oxide, the Newton matrix goes singular to 2.5e17 along the body
-    # and the solve stalls; a body tie on the same film converges in 3.
     net = doping(Coordinates(mesh.node_x, mesh.node_y)).reshape(mesh.ny, mesh.nx)
     on_silicon = silicon.reshape(mesh.ny, mesh.nx)
     for kind, carriers, of_type in (

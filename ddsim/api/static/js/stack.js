@@ -1,15 +1,3 @@
-// The 1D device builder, phases/PHASE-7.md Stage 4. A stack's regions are
-// rows on the form and a list in the request. Whether a stack is a device the
-// solver can take is the server's judgement: a doping outside the models'
-// range or a region the mesh cannot resolve comes back as a refusal naming
-// the region and the reason, so nothing here checks either.
-//
-// A device goes to a file and back as the device half of a request, the same
-// object the page sends, so a file a student hands over is exactly what their
-// page solved.
-
-// A number as it goes in a box: every digit it has, short either way. Unlike
-// format(), which rounds for an axis label, this is a value somebody edits.
 function exact(v) {
   const size = Math.abs(v);
   return size !== 0 && (size >= 1e4 || size < 1e-3) ? v.toExponential() : String(v);
@@ -53,15 +41,11 @@ function regionRow(region) {
   return row;
 }
 
-// Why a device you assembled yourself is not the same claim as a benchmark.
-// It lives here rather than in the page so index.html stays a layout.
 const STACK_NOTE =
   "A device you built. The solver is validated against DEVSIM; this " +
   "structure is not validated by anything, so its numbers are the validated " +
   "solver's answer on an unchecked structure.";
 
-// Rows for these regions, or no editor at all for a device not built from
-// regions, which is what a null says.
 function showRegions(regions) {
   el("stack-note").textContent = STACK_NOTE;
   el("stack").hidden = !regions;
@@ -72,7 +56,6 @@ function showRegions(regions) {
 function addRegion() {
   const rows = el("regions").children;
   const last = rows.length ? collectRegions().pop() : null;
-  // A copy of the last region with the other dopant, which is a junction.
   el("regions").appendChild(regionRow({
     dopant: last && last.dopant === "p" ? "n" : "p",
     length: last ? last.length : 5e-5,
@@ -80,7 +63,6 @@ function addRegion() {
   }));
 }
 
-// The rows as the request carries them, or null when the device has none.
 function collectRegions() {
   if (el("stack").hidden) return null;
   return Array.from(el("regions").children, (row, index) => {
@@ -129,8 +111,6 @@ async function loadDevice(file) {
     return;
   }
   putDevice(device);
-  // A knob the file sets that this device does not have would be dropped by
-  // the form without a word, so the page says which.
   const known = new Set(state.schema.devices[device.kind].map((p) => p.name));
   const unknown = Object.keys(device.parameters || {}).filter(
     (name) =>

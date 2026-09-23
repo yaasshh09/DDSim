@@ -23,9 +23,6 @@ MICRON = 1e-4
 """One micron [cm]."""
 
 
-# ------------------------------------------------------------------- material
-
-
 def test_silicon_material_matches_the_constants_doc() -> None:
     silicon = Material.silicon()
     assert silicon.T == 300.0  # [K]
@@ -35,9 +32,6 @@ def test_silicon_material_matches_the_constants_doc() -> None:
 
 def test_material_at_another_temperature_moves_n_i() -> None:
     assert Material.silicon(T=400.0).n_i > Material.silicon(T=300.0).n_i
-
-
-# --------------------------------------------------------------------- device
 
 
 def test_build_device_evaluates_doping_on_the_mesh() -> None:
@@ -101,9 +95,6 @@ def test_doping_stays_re_evaluable_after_construction() -> None:
     assert values[-1] == pytest.approx(1e17)
 
 
-# ------------------------------------------------------------------ pn diode
-
-
 def test_pn_diode_is_p_type_on_the_left_and_n_type_on_the_right() -> None:
     device = pn_diode(Na=1e16, Nd=1e16)
     assert device.net_doping.data[0] < 0.0
@@ -127,9 +118,6 @@ def test_pn_diode_refines_the_mesh_at_the_junction() -> None:
 def test_pn_diode_contacts_default_to_zero_bias() -> None:
     device = pn_diode()
     assert all(contact.voltage == 0.0 for contact in device.contacts)
-
-
-# ------------------------------------------------------------- equilibrium
 
 
 def test_equilibrium_solve_converges() -> None:

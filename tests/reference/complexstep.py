@@ -112,11 +112,6 @@ def B_complex(z: ComplexArray) -> ComplexArray:
     values = np.asarray(z, dtype=np.complex128)
     out = np.empty_like(values)
 
-    # B has a removable singularity at the origin and the closed form is 0/0
-    # there. The limit is exactly 1, so it is filled in rather than computed.
-    # This is the exact value and not a series, so the reference still shares
-    # no approximation with the implementation. Only an exactly zero argument
-    # qualifies, which a differentiation step never produces.
     origin = values == 0.0
     out[origin] = 1.0
 

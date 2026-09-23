@@ -211,8 +211,6 @@ def test_a_coarse_preset_says_what_changes(kind) -> None:
     )
 
 
-# ------------------------------------------------------------- the 1D stack
-
 PIN = [
     {"dopant": "p", "length": 2e-5, "concentration": 1e18},
     {"dopant": "n", "length": 1e-4, "concentration": 1e14},
@@ -297,9 +295,6 @@ def test_the_phase_2_diode_drawn_as_a_stack_has_the_same_i_v() -> None:
     )
     assert diode.complete and drawn.complete
     assert [p.current for p in drawn.points] == [p.current for p in diode.points]
-
-
-# ---------------------------------------------------------- the 2D drawing
 
 
 def test_a_drawing_sent_as_its_defaults_is_the_default_drawing() -> None:

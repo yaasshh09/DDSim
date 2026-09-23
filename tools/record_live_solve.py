@@ -90,7 +90,6 @@ def record(url: str, video_dir: Path) -> Path:
         page.wait_for_function(
             "el('state').textContent.startsWith('done')", timeout=SOLVE_TIMEOUT_MS
         )
-        # Hold the finished page long enough to read it.
         page.wait_for_timeout(2500)
         video = page.video
         context.close()

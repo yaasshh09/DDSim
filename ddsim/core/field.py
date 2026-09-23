@@ -95,13 +95,10 @@ class Field:
     name: str | None = dataclass_field(default=None)
     """Optional label, for error messages and plots."""
 
-    # Make numpy defer instead of silently broadcasting a Field into an array.
     __array_ufunc__ = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "data", np.asarray(self.data, dtype=np.float64))
-
-    # ------------------------------------------------------------- properties
 
     @property
     def shape(self) -> tuple[int, ...]:
@@ -122,8 +119,6 @@ class Field:
             f"Field{label} [{self.unit}] {self.scaling.name} "
             f"{self.location.name} n={self.size}"
         )
-
-    # --------------------------------------------------------------- guards
 
     def _require_field(self, other: object, operation: str) -> Field:
         if not isinstance(other, Field):
@@ -174,8 +169,6 @@ class Field:
             self.name,
         )
 
-    # ------------------------------------------------------------ arithmetic
-
     def __add__(self, other: Field) -> Field:
         other = self._require_field(other, "add")
         self._check_additive(other, "add")
@@ -209,8 +202,6 @@ class Field:
         return self._like(
             self.data / other.data, _combine_divide(self.unit, other.unit)
         )
-
-    # ------------------------------------------------------ state conversion
 
     def to_scaled(self, scale: ScaleFactors) -> Field:
         """Convert to de Mari scaled units.

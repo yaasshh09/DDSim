@@ -30,8 +30,6 @@ from ddsim.physics.mobility import (
     edge_diffusivity,
 )
 
-# --------------------------------------------------------- the four limits
-
 
 @pytest.mark.parametrize("model", [AroraMobility.electrons(), AroraMobility.holes()])
 def test_the_undoped_limit_is_mu_min_plus_mu_d(model: AroraMobility) -> None:
@@ -66,9 +64,6 @@ def test_mobility_falls_monotonically_with_doping(model: AroraMobility) -> None:
     assert np.all(np.diff(model(doping)) < 0.0)
 
 
-# ------------------------------------------------------------- the magnitude
-
-
 @pytest.mark.parametrize(
     "doping,expected,tolerance",
     [
@@ -96,9 +91,6 @@ def test_holes_are_slower_than_electrons_at_every_doping() -> None:
     assert np.all(AroraMobility.holes()(doping) < AroraMobility.electrons()(doping))
 
 
-# --------------------------------------------------------------- temperature
-
-
 def test_the_parameters_reduce_to_their_tabulated_values_at_300_K() -> None:
     """Every parameter carries a (T/300)^k factor which must vanish at 300."""
     electrons = AroraMobility.electrons(T=C.T_ROOM)
@@ -120,9 +112,6 @@ def test_mobility_falls_as_temperature_rises_in_lightly_doped_silicon() -> None:
     hot = float(AroraMobility.electrons(T=400.0)(lightly_doped))
 
     assert hot < cold
-
-
-# ------------------------------------------------------------ constant model
 
 
 def test_the_constant_model_ignores_the_doping() -> None:
@@ -201,9 +190,6 @@ def test_the_edge_list_form_reproduces_the_1d_chain_exactly() -> None:
         edge_diffusivity(mobility, V_T=0.02585, edge_nodes=chain),
         edge_diffusivity(mobility, V_T=0.02585),
     )
-
-
-# --------------------------------------- the gap between the two constant sets
 
 
 def test_the_arora_undoped_limit_does_not_match_the_tabulated_mobility() -> None:
@@ -294,7 +280,7 @@ def test_the_knee_is_where_the_low_field_drift_would_reach_v_sat() -> None:
     for beta in (1.0, 2.0):
         model = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=beta)
         h = np.full(5, 0.1)
-        X = np.full(5, 0.5 * 0.1)  # low_field * |X| / h == v_sat
+        X = np.full(5, 0.5 * 0.1)
 
         np.testing.assert_allclose(
             model(X, h), 1.0 / 2.0 ** (1.0 / beta), rtol=1e-14
@@ -325,7 +311,7 @@ def test_electrons_hold_their_mobility_longer_than_holes_do() -> None:
     exponent keeps the bracket nearer to 1, so the electron curve stays flat
     and then turns while the hole curve starts falling straight away."""
     h = np.full(5, 0.1)
-    X = np.full(5, 0.1 * 0.5 * 0.1)  # a tenth of the way to the knee
+    X = np.full(5, 0.1 * 0.5 * 0.1)
     electrons = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=2.0)
     holes = CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=1.0)
 
@@ -340,9 +326,6 @@ def test_a_longer_edge_across_the_same_drop_is_a_weaker_field() -> None:
     X = np.full(5, 1.0)
 
     assert np.all(model(X, np.full(5, 1.0)) > model(X, np.full(5, 0.1)))
-
-
-# ------------------------------------------ the tangent the Jacobian needs
 
 
 def complex_step_dD_dX(model, X, h, step: float = 1e-30):
@@ -450,9 +433,6 @@ def test_a_complex_argument_survives_the_model() -> None:
     )
 
 
-# ------------------------------------------------------------------ refusals
-
-
 def test_a_zero_saturation_velocity_is_refused() -> None:
     """It divides the field, and a carrier that cannot move at all is not a
     slow carrier, it is a different model."""
@@ -463,20 +443,6 @@ def test_a_zero_saturation_velocity_is_refused() -> None:
 def test_a_non_positive_beta_is_refused() -> None:
     with pytest.raises(ValueError, match="beta"):
         CaugheyThomas(low_field=edges(1.0), v_sat=0.5, beta=0.0)
-
-
-# ================================================== Lombardi surface, Phase 5
-#
-# docs/01-physics.md names this model and states what it is worth: "Without
-# this your inversion-layer mobility is too high by a factor of 2 to 3 and
-# your Id is correspondingly wrong." That factor is the acceptance test, and
-# it is asserted below at a channel condition rather than assumed.
-#
-# The parameters are not in docs/06-constants.md. They are the enhanced
-# Lombardi, or Darwish, set that DEVSIM ships in its Klaassen.py, which is the
-# reference this project regresses against in tier 4. A test pins every one of
-# them, so that a silent edit to a fit parameter is not something a reader has
-# to notice by eye.
 
 
 DEVSIM_ELECTRONS = {
@@ -517,9 +483,6 @@ def test_the_parameters_are_the_devsim_ones(build, table) -> None:
     model = build(T=C.T_ROOM)
     for name, value in table.items():
         assert getattr(model, name) == value
-
-
-# ------------------------------------------------------- the low field limit
 
 
 @pytest.mark.parametrize(
@@ -565,9 +528,6 @@ def test_the_normal_field_is_floored_rather_than_dividing_by_zero() -> None:
     np.testing.assert_allclose(below, at_floor, rtol=1e-14)
 
 
-# --------------------------------------------------------------- Matthiessen
-
-
 @pytest.mark.parametrize(
     "build", [LombardiSurface.electrons, LombardiSurface.holes], ids=["n", "p"]
 )
@@ -601,9 +561,6 @@ def test_mobility_falls_as_the_normal_field_rises(build) -> None:
     mu = model(np.full(60, 800.0), E, np.full(60, 1e17), np.full(60, 1e18))
 
     assert np.all(np.diff(mu) < 0.0)
-
-
-# --------------------------------------------------- what the model is worth
 
 
 def test_the_inversion_layer_is_two_to_three_times_slower_than_bulk() -> None:
@@ -644,9 +601,6 @@ def test_holes_stay_slower_than_electrons_at_the_surface() -> None:
     assert np.all(mu_p < mu_n)
 
 
-# ---------------------------------------------- the density dependent exponent
-
-
 def test_a_heavier_inversion_layer_roughens_the_surface_it_sees() -> None:
     """The exponent gamma is what makes this the enhanced model rather than
     the 1988 one, and it is the only place a carrier density enters. More
@@ -673,9 +627,6 @@ def test_the_exponent_reduces_to_A_with_no_carriers_present() -> None:
     np.testing.assert_allclose(gamma, model.A, rtol=1e-15)
 
 
-# --------------------------------------------------------------- temperature
-
-
 def test_the_acoustic_term_carries_the_temperature_exponent() -> None:
     """mu_ac divides its second term by (T/300)^kappa, so a hotter lattice
     scatters more. kappa differs between the carriers, 1.7 against 0.9, which
@@ -685,9 +636,6 @@ def test_the_acoustic_term_carries_the_temperature_exponent() -> None:
     E, doping = np.full(3, 3e5), np.full(3, 1e17)
 
     assert np.all(hot.acoustic(E, doping) < cold.acoustic(E, doping))
-
-
-# ------------------------------------------------------------------ refusals
 
 
 def test_a_negative_normal_field_is_refused() -> None:
@@ -702,9 +650,6 @@ def test_a_negative_normal_field_is_refused() -> None:
             np.full(3, 1e17),
             np.full(3, 1e18),
         )
-
-
-# ------------------------------------- a carrier density no device ever holds
 
 
 def test_a_vanished_roughness_mobility_leaves_no_mobility_and_no_warning() -> None:

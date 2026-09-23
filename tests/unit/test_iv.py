@@ -48,9 +48,6 @@ def diode(**overrides: float):
     return pn_diode(**settings)
 
 
-# ------------------------------------------------------------ current density
-
-
 def test_current_densities_come_back_physical_and_on_edges() -> None:
     """A current density lives on edges, not nodes, and the type says so."""
     device = diode()
@@ -78,9 +75,6 @@ def test_equilibrium_carries_no_current() -> None:
 
     assert np.max(np.abs(Jn.data + Jp.data)) < 1e-10
     assert abs(total_current(device, state)) < 1e-10
-
-
-# ---------------------------------------------------------- terminal currents
 
 
 def test_forward_bias_drives_current_into_the_anode() -> None:
@@ -180,9 +174,6 @@ def test_recombination_drops_out_of_the_terminal_current() -> None:
     default = TransportModels.for_device(device)
     rate = np.asarray(default.recombination.rate(state.n.data, state.p.data))
     assert rate[node] == 0.0
-
-
-# ------------------------------------------------------------------- sweeps
 
 
 def test_a_sweep_lands_on_every_requested_voltage() -> None:

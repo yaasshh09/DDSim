@@ -377,9 +377,6 @@ class TransportModels:
                 p1=device.material.n_i / scale.C_0,
             )
             if auger:
-                # Scaled by C_0^2 * t_0 rather than by C_0: the coefficient
-                # multiplies a triple product, so it carries two powers of the
-                # density scale and one of time.
                 recombination = SumOfRecombination(
                     (
                         recombination,
@@ -437,8 +434,6 @@ def _scaled_diffusivity(
             if electrons
             else AroraMobility.holes(temperature)
         )
-        # Total doping, of which only the net is available. Same caveat and
-        # same reason as the Scharfetter lifetime above.
         nodal = model(np.abs(device.net_doping.data))
         edge_nodes = device.scaled_mesh.geometry.edge_nodes
         low_field = (
@@ -473,9 +468,6 @@ def _surface_scattering(
             "a Mesh2D, which is what a MOSFET is on."
         )
 
-    # normal_field reads dpsi/dy, the normal to a flat interface. A drawn
-    # device can have an oxide wall standing up in the silicon, where the
-    # normal is x, and the model would read the field along the wall instead.
     if device.regions is not None:
         cells = device.regions.cell_material
         if (cells[:, 1:] != cells[:, :-1]).any():
@@ -610,19 +602,11 @@ def poisson_block(device: Device) -> BlockStep[DeviceState]:
 
         shift = result.x - state.psi.data
 
-        # exp is allowed to underflow here. A hole density of 1e-320 in a
-        # reverse biased n region is physically zero and numerically harmless.
-        # Overflow is not harmless, and means the potential moved so far in one
-        # cycle that the Boltzmann densities left the representable range.
         with np.errstate(over="ignore", under="ignore"):
             n = state.n.data * np.exp(shift)
             p = state.p.data * np.exp(-shift)
 
         if not (np.all(np.isfinite(n)) and np.all(np.isfinite(p))):  # pragma: no cover
-            # Unreachable as configured, and deliberately kept. The step
-            # limiter allows 5 per Newton iteration and solve_poisson allows
-            # 50 of them, so one cycle can move psi by at most 250 and
-            # exp(250) is 3.7e108. Raising either number would make this live.
             raise TransportError(
                 f"the potential moved by {np.max(np.abs(shift)):.3g} V_T in one "
                 "cycle and overflowed the Boltzmann densities. Ramp the bias in "
@@ -863,15 +847,6 @@ def _surface_moved(before: TransportModels, after: TransportModels) -> float:
         a, b = _low_field_edges(old), _low_field_edges(new)
         moved, scale = np.abs(b - a), np.abs(a)
 
-        # A baseline of exactly zero has no relative change to report, and it
-        # is reachable: the cold guess puts n = n_i exp((psi - phi_n)/V_T) at
-        # the drain, which past about 0.3 V underflows the Lombardi roughness
-        # term and leaves an edge with no mobility on it at all. An edge that
-        # went from nothing to something moved by everything, so the fixed
-        # point has not arrived and inf says so; an edge both sweeps agree has
-        # no mobility did not move, so it reads zero rather than nan. Where
-        # the baseline is positive this is the division it always was, down to
-        # the bit.
         relative = np.divide(
             moved, scale, out=np.where(moved > 0.0, np.inf, 0.0), where=scale > 0.0
         )
@@ -1142,9 +1117,6 @@ def solve_bias_newton(
                 geometry,
                 device.degeneracy,
             )
-            # Contacts before the scaling, so a pinned row becomes the identity
-            # and then gets divided like any other. Scaling first would leave
-            # the pinned rows at one while everything around them moved.
             assembly = apply_contacts_coupled(
                 assembly,
                 x,
@@ -1299,7 +1271,6 @@ def solve_bias_ramped(
             max_iterations=max_iterations,
             on_frame=on_frame,
         )
-        # solve_bias_newton always attaches a NewtonResult, converged or not.
         assert solved.newton is not None
         return solved if solved.newton.converged else None
 
@@ -1318,11 +1289,6 @@ def solve_bias_ramped(
         on_event=on_frame,
     )
 
-    # Unconditionally, rather than returning ramp.solution when it converged.
-    # A stalled ramp holds a converged solve at a fraction nobody asked for,
-    # and handing that back would be a wrong answer wearing a converged flag.
-    # On a ramp that did reach one this costs a solve that takes no steps,
-    # because the residual is already under the threshold.
     return solve_bias_newton(
         device,
         models=models,
@@ -1438,12 +1404,10 @@ def solve_bias_hybrid(
     warmed = _gummel_prelude(device, models, start, gummel_cycles, on_frame)
     result = newton_from(warmed)
 
-    # solve_bias_newton always attaches a NewtonResult, converged or not.
     assert result.newton is not None
     if result.newton.converged or retry_cycles <= 0:
         return replace(result, gummel=warmed.gummel)
 
-    # From the pre-Newton state, not the diverged one.
     warmed = _gummel_prelude(device, models, warmed, retry_cycles, on_frame)
     return replace(newton_from(warmed), gummel=warmed.gummel)
 

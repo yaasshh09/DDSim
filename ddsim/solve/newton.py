@@ -317,7 +317,6 @@ def newton_solve(
     residual_history.append(residual_size)
     report(0, residual_size, None, None, False)
 
-    # Fixed once, so that the threshold cannot drift as the iteration proceeds.
     reference = residual_size if residual_scale is None else abs(residual_scale)
     residual_threshold = residual_atol + residual_rtol * reference
 
@@ -347,8 +346,6 @@ def newton_solve(
         step_norm = raw_norm
         was_limited = False
         if max_step is not None and step_norm > max_step:
-            # Scale the whole vector by one factor. Clamping entry by entry
-            # would rotate the direction and break quadratic convergence.
             delta = delta * (max_step / step_norm)
             step_norm = max_step
             limited_steps += 1
@@ -381,9 +378,6 @@ def newton_solve(
             else 1.0
         )
 
-        # Measured on the damped update, which is the one actually taken, and
-        # against the iterate it is being added to rather than the one it
-        # produces. A relative measure divides by where the solve is now.
         step_norm = (
             float(np.max(np.abs(delta)))
             if update_norm is None
@@ -397,12 +391,8 @@ def newton_solve(
             system = assemble(x)
             finite = bool(np.all(np.isfinite(system.residual)))
         except FloatingPointError:
-            # An assembly that scales its rows by their own terms meets the
-            # overflow before the residual does, and says so this way.
             finite = False
         if not finite:
-            # A diverged iterate, not a crash. Undamped Newton on a stiff
-            # exponential overshoots far enough to overflow exp in one step.
             message = (
                 f"residual became non-finite at iteration {iteration}, "
                 "the iterate has diverged. Try a smaller max_step, but check "
@@ -446,10 +436,6 @@ def newton_solve(
             break
 
     if not message:
-        # The threshold belongs in the message. A residual that stops moving
-        # while the update is already tiny means the threshold is below the
-        # arithmetic floor of the residual, and without the number to compare
-        # against that reads exactly like a solve that is merely slow.
         message = (
             f"did not converge in {max_iterations} iterations, "
             f"final residual {residual_history[-1]:.3e} "

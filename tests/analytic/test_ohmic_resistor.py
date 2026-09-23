@@ -85,9 +85,6 @@ def measured_current(device: Device, voltage: float) -> float:
     return terminal_currents(biased, state)["left"]
 
 
-# ------------------------------------------------------------------ the law
-
-
 @pytest.mark.parametrize("net_doping", [1e18, 1e16, 1e15, -1e16])
 @pytest.mark.parametrize("voltage", [1e-4, 1e-2, 0.1])
 def test_current_matches_ohms_law(net_doping: float, voltage: float) -> None:
@@ -113,9 +110,6 @@ def test_ohms_law_holds_where_both_carriers_conduct(net_doping: float) -> None:
 
     expected = conductivity(device, net_doping) * 1e-3 / MICRON
     assert measured_current(device, 1e-3) == pytest.approx(expected, rel=1e-7)
-
-
-# --------------------------------------------------------- shape of the curve
 
 
 def test_the_bar_is_linear_over_four_decades_of_bias() -> None:
@@ -160,9 +154,6 @@ def test_the_answer_does_not_depend_on_the_mesh() -> None:
     fine = measured_current(bar(1e16, n_nodes=201), 0.01)
 
     assert coarse == pytest.approx(fine, rel=1e-9)
-
-
-# ------------------------------------------------- the same bar, in two dimensions
 
 
 def slab(

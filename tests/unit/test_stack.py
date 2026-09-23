@@ -23,9 +23,6 @@ def net_doping(device) -> np.ndarray:
     return device.doping(device.mesh.x)
 
 
-# ----------------------------------------------------------- the Phase 2 diode
-
-
 def test_the_default_stack_is_the_phase_2_diode_bit_for_bit() -> None:
     """Same mesh, same doping, to the last bit. The I-V agreement the phase
     asks for follows from this, and tests/unit/test_api_devices.py checks
@@ -55,9 +52,6 @@ def test_each_region_holds_its_own_doping() -> None:
     assert np.all(doping[x < 0.2 * MICRON] == -1e18)
     assert np.all(doping[(x >= 0.2 * MICRON) & (x < 1.2 * MICRON)] == 1e14)
     assert np.all(doping[x >= 1.2 * MICRON] == 1e18)
-
-
-# ------------------------------------------------------------------- the mesh
 
 
 @pytest.mark.parametrize(
@@ -152,9 +146,6 @@ def test_a_boundary_between_two_equal_regions_is_not_graded_towards() -> None:
         Region("n", 0.5 * MICRON, 1e16),
     )
     np.testing.assert_array_equal(stack(split).mesh.x, pn_diode().mesh.x)
-
-
-# ------------------------------------------------------------------- refusals
 
 
 def test_a_stack_with_no_junction_is_refused() -> None:

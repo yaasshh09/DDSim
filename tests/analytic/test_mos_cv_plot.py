@@ -286,8 +286,6 @@ def test_mos_cv_plot_is_generated(curves, golden):
     ceiling = C_OX * NANO
     left = float(low.gate_voltage[0])
 
-    # The label sits under its line, except for the lowest one, which would
-    # fall off the bottom of the axes.
     for value, text, drop in (
         (C_OX, r"$C_{ox} = \varepsilon_{ox}/t_{ox}$", 0.055),
         (C_FB, r"$C_{FB} = C_{ox} \parallel \varepsilon_{Si}/L_D$", 0.055),
@@ -348,10 +346,6 @@ def test_mos_cv_plot_is_generated(curves, golden):
         f"MOS capacitor C-V, {NA:.0e} cm$^{{-3}}$ p-type, "
         f"{T_OX * 1e7:.0f} nm oxide, n+ poly gate"
     )
-    # Underneath, outside the axes. There is no empty corner left inside: the
-    # curve runs from C_ox to C_min and back, the three closed forms have
-    # their own lines across the full width, and a legend that overlaps any of
-    # them hides the thing the figure exists to show.
     axis.legend(
         loc="upper center",
         bbox_to_anchor=(0.5, -0.13),

@@ -67,9 +67,6 @@ def cell_centres(mesh):
     return 0.5 * (x[1:] + x[:-1]), 0.5 * (y[1:] + y[:-1])
 
 
-# ------------------------------------------------------------ what is drawn
-
-
 def test_the_default_drawing_is_the_benchmark_nmos() -> None:
     blocks, implants, electrodes = NMOS_DRAWING
     device = drawing()
@@ -177,9 +174,6 @@ def test_an_electrode_carries_its_own_bias_and_work_function() -> None:
 def test_a_drawn_device_takes_a_bias_by_electrode_name() -> None:
     biased = drawn_nmos().with_bias(drain=0.05)
     assert next(c for c in biased.contacts if c.name == "drain").voltage == 0.05
-
-
-# -------------------------------------------------------------- guard rails
 
 
 def test_a_silicon_island_no_ohmic_contact_touches_is_refused() -> None:

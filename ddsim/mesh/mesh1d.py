@@ -189,8 +189,6 @@ def _solve_ratios(
         & (uniform_total <= side_length * (1.0 + _DEGENERATE_TOLERANCE))
     )
 
-    # A single cell spans the side on its own, and a side that the minimum
-    # spacing already fills exactly has no room to grow.
     degenerate = feasible & (
         (counts == 1.0)
         | (np.abs(uniform_total - side_length) <= _DEGENERATE_TOLERANCE * side_length)
@@ -205,15 +203,10 @@ def _solve_ratios(
     low = np.ones(counts.shape)
     high = np.full(counts.shape, 2.0)
 
-    # Bracket first. The sum grows monotonically with r, so doubling the upper
-    # bound until it overshoots is enough.
     below = _geometric_sums(h_min, high, counts) < side_length
     while below.any():
         high[below] *= 2.0
         if np.any(high > 1e6):  # pragma: no cover
-            # Unreachable while the feasibility check above holds, since
-            # h_min * m <= side_length guarantees some r >= 1 exists. Kept so
-            # a future caller that skips that check cannot spin forever.
             return ratio
         below = _geometric_sums(h_min, high, counts) < side_length
 
@@ -298,7 +291,6 @@ def graded_mesh_1d(
             "Reduce h_min or reduce n_nodes."
         )
 
-    # A refinement point on a boundary means one side only.
     if left_length == 0.0:
         splits = np.array([0], dtype=np.int64)
     elif right_length == 0.0:
@@ -321,14 +313,6 @@ def graded_mesh_1d(
             f"of {length:g} cm."
         )
 
-    # Every cell on one side grows by the same ratio, so every neighbouring
-    # jump inside a side of two cells or more is exactly that ratio. The one
-    # jump that is not is the pair straddling the pivot, and since each side
-    # is rescaled to land on its own length, those two cells are h_min times
-    # their side's rescale factor. So the whole score is known from the two
-    # ratios and the two rescale factors, without building a single spacing
-    # array. Rounding puts it a last bit or so away from what the arrays give,
-    # which is what the slack below allows for.
     growth = np.ones(splits.size)
     inside_left = on_left >= 2
     growth[inside_left] = ratio_left[inside_left]
@@ -364,8 +348,6 @@ def graded_mesh_1d(
         for index in indices:
             pieces = []
             if on_left[index] > 0:
-                # Ordered outward from the pivot, so reverse it to run left
-                # to right.
                 pieces.append(
                     _side_spacings(
                         left_length,
@@ -400,10 +382,6 @@ def graded_mesh_1d(
     )
 
     if best_score > best_bound * (1.0 + _SCORE_SLACK):  # pragma: no cover
-        # The bound only holds up to the rounding in building the spacings,
-        # which is at the last bit. If that ever grew past the slack the
-        # pruning would no longer be justified, so score every split instead
-        # of trusting it.
         best_spacings, best_score = score_splits(np.flatnonzero(feasible))
 
     assert best_spacings is not None
@@ -420,8 +398,6 @@ def graded_mesh_1d(
     x[0] = 0.0
     x[1:] = np.cumsum(best_spacings)
 
-    # Pin the two positions that callers depend on exactly, then let _assemble
-    # recompute the spacings so that h == diff(x) holds to the last bit.
     n_left_final = int(np.argmin(np.abs(x - refine_at)))
     x[n_left_final] = refine_at
     x[-1] = length
@@ -481,8 +457,6 @@ def graded_mesh_1d_at(
             f"every point must lie inside (0, {length:g}), got {points}"
         )
 
-    # Each side runs outward from one point, towards a boundary or halfway to
-    # the next point. Reversed means it runs right to left in the mesh.
     sides: list[tuple[float, bool]] = [(points[0], True)]
     for left, right in zip(points[:-1], points[1:], strict=True):
         half = 0.5 * (right - left)
@@ -503,8 +477,6 @@ def graded_mesh_1d_at(
         """Cells each side wants at growth rate g [1]."""
         return np.asarray(np.log1p(g * spans / h_min) / g)
 
-    # Fewer cells the faster the spacing grows. At g -> 0 every side is at
-    # h_min, which is the room just checked, so the bracket holds.
     low, high = 1e-12, 1e6
     for _ in range(200):
         middle = np.sqrt(low * high)
@@ -514,16 +486,12 @@ def graded_mesh_1d_at(
             high = middle
     counts = np.clip(np.rint(wanted(high)), 1, room).astype(np.int64)
 
-    # Rounding leaves the total a few cells out. The two end sides take the
-    # difference, the longer first, so the mirrored halves stay mirrored.
     short = cells_wanted - int(counts.sum())
     for end in sorted((0, len(sides) - 1), key=lambda side: -spans[side]):
         moved = int(np.clip(counts[end] + short, 1, room[end])) - int(counts[end])
         counts[end] += moved
         short -= moved
     if short:  # pragma: no cover
-        # Both ends full or down to one cell, which needs end sides a few
-        # h_min long. Refused rather than taken out of a mirrored pair.
         raise ValueError(
             f"could not share {n_nodes} nodes between the sides of this mesh. "
             "Change n_nodes by one or two."
@@ -548,7 +516,6 @@ def graded_mesh_1d_at(
     x = np.empty(n_nodes, dtype=np.float64)
     x[0] = 0.0
     x[1:] = np.cumsum(spacings)
-    # Pin every point and the far end, as graded_mesh_1d pins its one point.
     at_point = np.cumsum(counts)[0::2][: len(points)]
     x[at_point] = points
     x[-1] = length
@@ -609,7 +576,6 @@ def graded_mesh_1d_through(
             f"the axis into {spans} spans, so it needs at least {spans + 1} nodes"
         )
     centres = np.unique(np.asarray(points, dtype=np.float64))
-    # With nothing to grade towards h_min plays no part, so it limits nothing.
     room = int(np.floor(length / h_min * (1.0 + _DEGENERATE_TOLERANCE)))
     if centres.size and n_nodes - 1 > room:
         raise ValueError(
@@ -617,9 +583,6 @@ def graded_mesh_1d_through(
             f"cm everywhere it has room for {room + 1} nodes. Use fewer nodes "
             "or a smaller h_min."
         )
-    # Between two points d rises from each towards the midpoint, so the axis
-    # splits at the points and the midpoints, and on each piece d is a
-    # straight line of slope +1 or -1.
     knots = np.unique(
         np.concatenate([[0.0, length], centres, 0.5 * (centres[1:] + centres[:-1])])
     )
@@ -650,8 +613,6 @@ def graded_mesh_1d_through(
     cells_wanted = n_nodes - 1
     g = 1.0
     if centres.size:
-        # Fewer cells the faster the spacing grows, and at g -> 0 every cell
-        # is h_min, which is the room just checked, so the bracket holds.
         low, high = 1e-12, 1e6
         for _ in range(200):
             middle = float(np.sqrt(low * high))
@@ -664,8 +625,6 @@ def graded_mesh_1d_through(
     at_breaks = integral(breaks, g)
     share = np.diff(at_breaks) * cells_wanted / at_breaks[-1]
 
-    # Whole cells per span, at least one each, the remainder going to the
-    # spans rounded down furthest, so the total is exactly the node count.
     counts = np.maximum(np.floor(share), 1.0).astype(np.int64)
     while counts.sum() > cells_wanted:
         spare = np.flatnonzero(counts > 1)
@@ -677,8 +636,6 @@ def graded_mesh_1d_through(
     for a, b, start, end, count in zip(
         breaks[:-1], breaks[1:], at_breaks[:-1], at_breaks[1:], counts, strict=True
     ):
-        # Equal steps of the integral across the span, each position found by
-        # bisection, since the integral is monotone in x.
         targets = np.linspace(start, end, int(count) + 1)[1:-1]
         left, right = np.full_like(targets, a), np.full_like(targets, b)
         for _ in range(100):
@@ -737,8 +694,6 @@ def stacked_mesh_1d(*layers: Mesh1D) -> Mesh1D:
 
     x = layers[0].x
     for layer in layers[1:]:
-        # Drop the layer's own first node: it is the one already sitting at the
-        # top of the stack so far, and it is the join.
         x = np.concatenate([x, x[-1] + layer.x[1:]])
 
     return _assemble(x)

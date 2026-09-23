@@ -70,9 +70,6 @@ def reduction_factors(residual_history: list[float]) -> list[float]:
     return [usable[k] / usable[k + 1] for k in range(len(usable) - 1)]
 
 
-# --------------------------------------------------------------- quadratic
-
-
 def test_newton_converges_quadratically():
     """The characteristic drop, measured rather than eyeballed.
 
@@ -88,12 +85,8 @@ def test_newton_converges_quadratically():
     factors = reduction_factors(state.newton.residual_history)
     history = state.newton.residual_history
 
-    # A linear iteration cannot take four decades out of the residual in one
-    # step. Measured at 2.6e4 here, against 2.9 for the first step.
     assert factors[-1] > 1e3, f"final reduction {factors[-1]:.3g} from {history}"
 
-    # And the acceleration is the part that says quadratic rather than merely
-    # fast. A linear iteration has a flat factor whatever its rate.
     assert factors[-1] > 100 * factors[0], (
         f"reduction went {factors[0]:.3g} to {factors[-1]:.3g}, "
         f"which is not accelerating, from {history}"
@@ -122,9 +115,6 @@ def test_the_last_steps_are_not_limited():
 
     assert state.newton is not None
     assert state.newton.limited_steps < state.newton.iterations - 2
-
-
-# ------------------------------------------------------- the headline result
 
 
 def test_converges_at_one_volt_forward_bias():
@@ -170,9 +160,6 @@ def test_gummel_needs_far_more_cycles_than_newton_at_one_volt():
     assert newton.newton.iterations * 3 < gummel.gummel.iterations
 
 
-# ---------------------------------------------------- the two solvers agree
-
-
 @pytest.mark.parametrize("voltage", [0.0, 0.2, 0.4, 0.6, 0.8])
 def test_gummel_and_newton_reach_the_same_solution(voltage):
     """Different algorithms, one set of equations, so one answer.
@@ -202,9 +189,6 @@ def test_gummel_and_newton_reach_the_same_solution(voltage):
         )
         < 1e-7
     )
-
-
-# ------------------------------------------------------------- continuation
 
 
 def test_continuation_reaches_one_volt_inside_the_budget():
@@ -261,9 +245,6 @@ def test_continuation_never_has_to_retry_a_step():
     assert len(result.accepted) == len(result.events)
 
 
-# --------------------------------------------------------------- positivity
-
-
 @pytest.mark.parametrize("voltage", [-2.0, -0.5, 0.0, 0.3, 0.6, 0.9, 1.0])
 def test_no_carrier_density_is_negative_at_any_bias(voltage):
     """phases/PHASE-3.md, and nothing here clamps to achieve it.
@@ -280,9 +261,6 @@ def test_no_carrier_density_is_negative_at_any_bias(voltage):
     assert state.newton.converged, state.newton.message
     assert np.all(state.n.data > 0.0)
     assert np.all(state.p.data > 0.0)
-
-
-# ------------------------------------------------- the scale follows the state
 
 
 def test_a_six_decade_asymmetric_junction_converges():

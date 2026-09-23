@@ -110,9 +110,6 @@ def as_field(values: np.ndarray, unit: str, name: str) -> Field:
     return Field(values, unit, ScalingState.SCALED, Location.NODE, name=name)
 
 
-# ------------------------------------------------------------- the edge flux
-
-
 def test_zero_field_reduces_to_plain_diffusion() -> None:
     """B(0) = 1 on both sides, so the flux is Dn * dn/dx and nothing else.
 
@@ -273,9 +270,6 @@ def test_diffusivity_may_vary_per_edge() -> None:
     )
 
 
-# ----------------------------------------------------------------- residuals
-
-
 def test_electron_residual_is_zero_for_a_constant_current_solution() -> None:
     """Any n making Jn constant solves div(Jn) = 0 at every interior node.
 
@@ -296,7 +290,6 @@ def test_electron_residual_is_zero_for_a_constant_current_solution() -> None:
     n = np.empty(mesh.n_nodes)
     n[0] = 5.0
     for edge in range(mesh.n_edges):
-        # Jn = (Dn/h)*(B(X)*n_right - B(-X)*n_left), solved for n_right.
         n[edge + 1] = (
             current * h[edge] / D_N + float(np.asarray(B(-X[edge]))) * n[edge]
         ) / float(np.asarray(B(X[edge])))
@@ -336,9 +329,6 @@ def test_hole_residual_picks_up_recombination_with_the_same_sign() -> None:
     np.testing.assert_allclose(
         hole_continuity_residual(h, volume, D_P, psi, p, R), R * volume, rtol=1e-14
     )
-
-
-# ----------------------------------------------------------------- Jacobians
 
 
 def dense(
@@ -399,8 +389,6 @@ def test_recombination_slope_lands_on_the_diagonal_scaled_by_volume() -> None:
         electron_continuity_jacobian(h, volume, D_N, psi, slope), mesh.n_nodes
     )
 
-    # The flux entries on that diagonal are six orders of magnitude larger
-    # than the recombination term, so differencing them costs six digits.
     np.testing.assert_allclose(
         np.diag(with_slope - without), slope * volume, rtol=1e-10
     )
@@ -440,9 +428,6 @@ def test_hole_jacobian_is_an_m_matrix(graded: bool) -> None:
     assert np.all(np.diag(matrix) > 0.0)
     off_diagonal = matrix - np.diag(np.diag(matrix))
     assert np.all(off_diagonal <= 0.0)
-
-
-# ------------------------------------------------- the conservation invariant
 
 
 def ramp_potential(mesh: Mesh1D) -> np.ndarray:
@@ -625,9 +610,6 @@ def test_recombination_bends_the_current_the_way_it_should() -> None:
     assert np.max(np.abs(current - current.mean())) / abs(current).max() > 1e-3
     assert current[0] < 0.0 < current[-1]
     assert np.all(np.diff(current) > 0.0)
-
-
-# ------------------------------------------------------------ the Field layer
 
 
 def continuity_inputs(n_nodes: int = 21) -> tuple:

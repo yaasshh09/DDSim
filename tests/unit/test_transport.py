@@ -47,9 +47,6 @@ def diode(**overrides: float):
     return pn_diode(**settings)
 
 
-# ------------------------------------------------------- the equilibrium limit
-
-
 def test_zero_bias_reproduces_the_equilibrium_solution() -> None:
     """Equilibrium is an exact fixed point of the Gummel cycle.
 
@@ -95,9 +92,6 @@ def test_the_quasi_fermi_levels_are_flat_at_zero_bias() -> None:
 
     assert np.max(np.abs(solved.phi_n.data)) < 1e-9
     assert np.max(np.abs(solved.phi_p.data)) < 1e-9
-
-
-# --------------------------------------------------------------- forward bias
 
 
 def test_forward_bias_splits_the_quasi_fermi_levels_by_the_applied_bias() -> None:
@@ -151,9 +145,6 @@ def test_reverse_bias_depletes_the_junction() -> None:
     assert solved.n.data[junction] * solved.p.data[junction] < 1e-3
 
 
-# ------------------------------------------------------------------- models
-
-
 def test_lifetimes_follow_the_doping() -> None:
     """Scharfetter, evaluated on the total doping at each node.
 
@@ -192,9 +183,6 @@ def test_the_intrinsic_density_survives_a_different_C_0() -> None:
 
     ni2 = models.recombination.ni2  # type: ignore[attr-defined]
     np.testing.assert_allclose(ni2, (device.material.n_i / device.scale.C_0) ** 2)
-
-
-# ------------------------------------------------------------------ plumbing
 
 
 def test_a_guess_is_used_as_the_starting_point() -> None:
@@ -245,9 +233,6 @@ def test_the_update_history_falls_monotonically_at_low_bias() -> None:
     assert solved.gummel is not None
     history = solved.gummel.update_history
     assert history[-1] < history[0]
-
-
-# ------------------------------------------------------- the contact condition
 
 
 @pytest.mark.parametrize("voltage", [0.0, 0.4, -1.0])

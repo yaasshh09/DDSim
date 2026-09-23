@@ -70,12 +70,6 @@ def setup():
             OhmicContact(name="cathode", node=NX - 1, voltage=0.0),
         ),
     )
-    # Scalar lifetimes on purpose. TransportModels.for_device builds them per
-    # node from the local doping, and a per node array sized for the 1D mesh
-    # cannot be evaluated on the 2D one. The models have to be the same object
-    # on both sides for the comparison to mean anything, so the parts that
-    # depend on the node count are made uniform and the parts that depend on
-    # the edge count, the Arora diffusivities, are laid out per mesh below.
     scale = device.scale
     recombination = SumOfRecombination(
         (
@@ -98,8 +92,6 @@ def setup():
     )
     x_0 = scale.x_0
 
-    # An arbitrary state, uniform in y. Not a solution, and it does not need
-    # to be: the identity below holds at every state.
     state = initial_state(device)
     k = np.linspace(0.0, 3.0 * np.pi, NX)
     psi = state.psi.data + 0.35 * np.cos(k)
@@ -151,10 +143,6 @@ def residual_2d(setup):
         eps_r=1.0,
     )
 
-    # Per edge diffusivity has to be laid out on the 2D edge list, not the 1D
-    # one. Horizontal edges repeat the 1D per edge values row by row; vertical
-    # edges join two nodes of the same column, and the doping is uniform in y,
-    # so each takes the value of the column it runs along.
     Dn_1d = np.broadcast_to(np.asarray(models.Dn), (NX - 1,))
     Dp_1d = np.broadcast_to(np.asarray(models.Dp), (NX - 1,))
     Dn_node = np.concatenate([Dn_1d[:1], Dn_1d])

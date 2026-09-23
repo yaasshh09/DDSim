@@ -62,9 +62,6 @@ def named(parameters) -> dict[str, Any]:
     return {p.name: p for p in parameters}
 
 
-# ------------------------------------------------------------ what is offered
-
-
 def test_the_three_sweeps_the_phase_names_are_the_ones_offered() -> None:
     """A diode I-V, a MOS C-V and a MOSFET transfer curve. Anything else the
     browser could ask for does not exist yet."""
@@ -124,9 +121,6 @@ def test_the_model_flags_do_not_offer_an_object_the_browser_cannot_build() -> No
     """recombination is a model instance, not a number. Offering it would
     invite a device running physics this project never validated."""
     assert "recombination" not in named(model_parameters())
-
-
-# ----------------------------------------------------------- what is refused
 
 
 def test_a_knob_the_sweep_does_not_have_is_refused() -> None:
@@ -210,9 +204,6 @@ def test_an_iv_refusal_on_a_gated_device_says_what_to_use_instead() -> None:
         check_request("iv", build_from_spec("mos_cap", CAP), "body")
 
 
-# -------------------------------------------------------------- what it runs
-
-
 def test_a_diode_sweep_comes_back_as_an_iv_curve() -> None:
     curve, _ = run_sweep("iv", diode(), "anode", [0.0, 0.2])
 
@@ -288,9 +279,6 @@ def test_a_capacitance_sweep_has_no_transport_models() -> None:
     _, models = run_sweep("cv", device, "gate", [0.0])
 
     assert models is None
-
-
-# ----------------------------------------------------------------- telemetry
 
 
 @pytest.mark.parametrize(

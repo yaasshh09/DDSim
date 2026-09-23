@@ -108,9 +108,6 @@ def _bernoulli_pair(
     return np.asarray(B(X), dtype=np.float64), np.asarray(B(-X), dtype=np.float64)
 
 
-# --------------------------------------------------------------- edge fluxes
-
-
 def electron_current(
     h: npt.NDArray[np.float64],
     Dn: Diffusivity,
@@ -187,9 +184,6 @@ def _hole_current(
         (Dp * geometry.carrier_face / h)
         * (b_plus * p[node_left] - b_minus * p[node_right])
     )
-
-
-# ----------------------------------------------------------------- residuals
 
 
 def electron_continuity_residual(
@@ -281,9 +275,6 @@ def _hole_continuity_residual(
     return np.asarray(residual)
 
 
-# ----------------------------------------------------------------- Jacobians
-
-
 def electron_continuity_jacobian(
     h: npt.NDArray[np.float64],
     volume: npt.NDArray[np.float64],
@@ -321,17 +312,12 @@ def _electron_continuity_jacobian(
     """electron_continuity_jacobian with the Bernoulli pair already in hand."""
     b_plus, b_minus = bernoulli
 
-    # Coefficients of the two nodes in the edge flux Jn = right*n_right -
-    # left*n_left. Both are strictly positive because B(x) > 0 everywhere.
     right = np.asarray((Dn * geometry.carrier_face / h) * b_plus)
     left = np.asarray((Dn * geometry.carrier_face / h) * b_minus)
 
     nodes = np.arange(n_nodes, dtype=np.int64)
     node_left, node_right = geometry.ends(h.size)
 
-    # Each node picks up the flux coefficient of every face it touches.
-    # Scattered rather than sliced: in 1D the faces of a node are adjacent in
-    # the ordering and a slice would do, in 2D they are not.
     diagonal = dR_dn * volume
     np.add.at(diagonal, node_left, left)
     np.add.at(diagonal, node_right, right)
@@ -378,7 +364,6 @@ def _hole_continuity_jacobian(
     """hole_continuity_jacobian with the Bernoulli pair already in hand."""
     b_plus, b_minus = bernoulli
 
-    # Jp = left*p_left - right*p_right, the mirror of the electron flux.
     left = np.asarray((Dp * geometry.carrier_face / h) * b_plus)
     right = np.asarray((Dp * geometry.carrier_face / h) * b_minus)
 
@@ -394,9 +379,6 @@ def _hole_continuity_jacobian(
     values = np.concatenate([diagonal, -right, -left])
 
     return rows, cols, values
-
-
-# --------------------------------------------------------------- Field layer
 
 
 def _check(mesh: Mesh1D, named: tuple[tuple[str, Field], ...]) -> None:
@@ -455,8 +437,6 @@ def assemble_electron_continuity(
     R = np.asarray(recombination.rate(n.data, p.data), dtype=np.float64)
     slope, _ = recombination.electron_linearization(n.data, p.data)
 
-    # One pair for both halves of the system. It is the same psi and the same
-    # edges, and evaluating B twice is the most expensive thing here.
     bernoulli = _bernoulli_pair(psi.data, geometry)
     residual = _electron_continuity_residual(
         h, volume, Dn, bernoulli, n.data, R, geometry

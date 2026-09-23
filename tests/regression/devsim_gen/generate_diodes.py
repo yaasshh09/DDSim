@@ -123,7 +123,6 @@ def set_silicon_parameters(device: str) -> None:
         "V_t": P.V_T,
         "mu_n": P.MU_N,
         "mu_p": P.MU_P,
-        # Midgap traps, so both SRH reference densities are n_i.
         "n1": P.N_I,
         "p1": P.N_I,
     }

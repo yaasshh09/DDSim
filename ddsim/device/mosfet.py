@@ -285,11 +285,6 @@ def nmos(
     outer = sd_length - contact_length
     half_gate = 0.5 * L_gate
 
-    # Six segments, symmetric about the centre, with node lines landing on
-    # every boundary that anything is measured against: the two contact edges
-    # and the two gate mask edges. The two graded pairs are mirror images, so
-    # the columns come out symmetric and a device with the source and drain at
-    # the same bias has nothing to break its symmetry.
     x_axis = stacked_mesh_1d(
         uniform_mesh_1d(length=contact_length, n_nodes=n_contact),
         _junction_mesh(outer, n_sd, refine_at=outer, h_min=h_min_x),
@@ -299,9 +294,6 @@ def nmos(
         uniform_mesh_1d(length=contact_length, n_nodes=n_contact),
     )
 
-    # The silicon is graded to the surface, where the inversion layer is a
-    # couple of nanometres thick. The oxide holds no charge, so its potential
-    # is a straight line and uniform cells resolve it exactly.
     y_axis = stacked_mesh_1d(
         graded_mesh_1d(
             length=t_si, n_nodes=n_silicon, refine_at=t_si, h_min=h_min_y
@@ -312,9 +304,6 @@ def nmos(
     mesh = tensor_mesh_2d(x_axis, y_axis)
     regions = stacked_regions(mesh, interface_y=t_si)
 
-    # Column indices of every boundary, by counting nodes rather than by
-    # searching positions. Stacking shares one node at each join, so segment k
-    # ends at sum of the counts so far less one per join.
     i_contact_end = n_contact - 1
     i_gate_start = n_contact + n_sd - 2
     i_gate_end = i_gate_start + 2 * (n_channel - 1)

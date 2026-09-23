@@ -142,7 +142,6 @@ def cotangent_edge_weights(
     """
     angles = triangle_angles(points, triangles)
 
-    # The angle at vertex v faces the edge joining the other two vertices.
     facing = [(0, 1, 2), (1, 2, 0), (2, 0, 1)]
 
     pairs = []

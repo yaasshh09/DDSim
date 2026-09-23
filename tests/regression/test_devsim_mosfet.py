@@ -71,9 +71,6 @@ noise.
 """
 
 
-# ------------------------------------------------------------------ the mirror
-
-
 def test_process_mirrors_ddsim() -> None:
     """The process the generator handed DEVSIM is still ddsim's own.
 
@@ -211,8 +208,6 @@ def test_ddsim_resolves_the_implant() -> None:
     rows = np.asarray(device.mesh.y_axis.x)
     silicon = rows[rows <= t_si * (1.0 + 1e-12)]
     spacing = np.diff(silicon)
-    # Every row from two junction depths below the surface upward, which is
-    # where the profile has any structure left to resolve.
     inside = spacing[silicon[:-1] > t_si - 2.0 * x_j]
     assert inside.size > 0
     worst = float(inside.max())
@@ -291,14 +286,9 @@ def test_implant_shape_matches_ddsim() -> None:
 
     assert sigma == pytest.approx(expected_sigma, rel=1e-12)
     assert edge > 0.0
-    # The erfc length is defined by what it has to produce: the net doping
-    # falls to zero exactly one lateral_diffusion in from the gate mask edge.
     assert peak * 0.5 * math.erfc(
         float(process["lateral_diffusion"]) / edge
     ) == pytest.approx(Na, rel=1e-9)
-
-
-# ------------------------------------------------------------- the golden data
 
 
 def golden_path(benchmark: P.MosfetBenchmark) -> Path:
@@ -387,10 +377,6 @@ def test_golden_reference_is_converged(benchmark: P.MosfetBenchmark) -> None:
         f"is not comfortably inside the {benchmark.tolerance} it is used to "
         "assert. Refine the generator mesh and regenerate."
     )
-    # The check skips points whose two meshes disagree by less than the points
-    # know about themselves, which is right, and would be a way to report a
-    # small number by measuring almost nothing, which is not. See
-    # `MESH_NOISE_FACTOR` in the generator.
     skipped, total = (int(word) for word in line.split() if word.isdigit())
     assert skipped < 0.5 * total, (
         f"{benchmark.name} skipped {skipped} of {total} points as "
@@ -422,8 +408,6 @@ def test_golden_terminals_balance(
         "which is too much of the reference's own budget to be noise"
     )
 
-
-# ------------------------------------------------------------- the comparison
 
 _SOLVED: dict[tuple[str, float], IVCurve] = {}
 """One ddsim transfer curve per benchmark and drain bias, reused across tests."""
@@ -492,8 +476,6 @@ def test_ddsim_matches_devsim_drain_current(
         zip(golden.gate_voltage, expected, list(curve.current), strict=True)
     ):
         if abs(want) < P.CURRENT_FLOOR_MOSFET:
-            # Both codes are reporting a difference of much larger fluxes, so
-            # the only meaningful question is whether ddsim is also negligible.
             if abs(got) >= P.CURRENT_FLOOR_MOSFET:
                 failures.append(
                     f"{v_gate:+.3f} V: devsim gives {want:.3e}, below the "
@@ -518,9 +500,6 @@ def test_ddsim_matches_devsim_drain_current(
         + "\n  ".join(failures)
     )
     assert worst <= 1.0
-
-
-# ------------------------------------------------- benchmark 9, the Lg trend
 
 
 def _threshold(
@@ -729,9 +708,6 @@ def test_rolloff_dibl_matches_devsim(name: str) -> None:
         f"{name} DIBL disagrees by {relative:.1%}: devsim "
         f"{devsim_dibl * 1000:.1f} mV/V, ddsim {ddsim_dibl * 1000:.1f} mV/V"
     )
-
-
-# ----------------------------------- benchmark 10, the Lg trend, full stack
 
 
 _SOLVED_FULL: dict[tuple[str, float], IVCurve] = {}

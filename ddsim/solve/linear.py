@@ -134,9 +134,6 @@ class _CSCPattern:
             np.add.at(summed, self.group, gathered)
             return cast("npt.NDArray[Number]", summed)
 
-        # The branch above has already ruled out complex, so the weights are
-        # real here. The stubs cannot see that, hence the cast rather than a
-        # runtime conversion.
         return cast(
             "npt.NDArray[Number]",
             np.bincount(
@@ -164,8 +161,6 @@ def _build_pattern(
     sorted_rows = rows[order]
     sorted_cols = cols[order]
 
-    # A triplet starts a new CSC entry unless it repeats the (row, col) before
-    # it. Counting the starts gives each triplet the entry it belongs to.
     starts = np.empty(order.size, dtype=bool)
     starts[0] = True
     starts[1:] = (sorted_rows[1:] != sorted_rows[:-1]) | (
@@ -245,9 +240,6 @@ class SparseLU:
 
         shape = (int(shape[0]), int(shape[1]))
 
-        # The dtype is whatever came in, so that the Phase 4 AC solve can hand
-        # this a complex system. Anything not already floating or complex is
-        # promoted, which keeps an integer Jacobian working as it always did.
         entries = np.asarray(values)
         if not np.issubdtype(entries.dtype, np.inexact):
             entries = entries.astype(np.float64)
@@ -256,25 +248,15 @@ class SparseLU:
         unchanged = (
             pattern is not None
             and self._matrix is not None
-            # The dtype is part of what counts as unchanged. The replay path
-            # writes into the matrix already built for this pattern, and
-            # writing complex values into a float64 buffer discards the
-            # imaginary part with only a warning. A DC solve followed by an AC
-            # solve on the same solver is exactly that sequence.
             and self._matrix.dtype == entries.dtype
             and pattern.matches(rows, cols, shape)
         )
 
         if unchanged:
-            # Same structure, new numbers. Replay the conversion into the
-            # matrix already built for this pattern, so nothing is sorted,
-            # allocated or validated a second time.
             assert pattern is not None and self._matrix is not None
             matrix = self._matrix
             matrix.data[:] = pattern.data(entries)
         elif entries.size == 0:
-            # No triplets at all. There is nothing to cache and the matrix is
-            # singular by construction, so let scipy build it and say so.
             matrix = sp.coo_matrix(
                 (entries, (rows, cols)), shape=shape
             ).tocsc()
@@ -286,8 +268,6 @@ class SparseLU:
             matrix = sp.csc_matrix(
                 (pattern.data(entries), indices, indptr), shape=shape
             )
-            # lexsort put the rows in ascending order within every column, so
-            # SuperLU can be told not to check.
             matrix.has_sorted_indices = True
 
         try:

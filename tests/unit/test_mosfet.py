@@ -98,9 +98,6 @@ def net_doping_at(device, x: float, y: float) -> float:
     return float(device.doping(at)[0])
 
 
-# ------------------------------------------------------------------ terminals
-
-
 def test_the_device_has_four_terminals(fet):
     assert {c.name for c in fet.contacts} == {SOURCE, DRAIN, GATE, BODY}
 
@@ -164,9 +161,6 @@ def test_the_body_contact_covers_the_whole_bottom(fet):
     assert np.all(fet.mesh.node_y[list(nodes)] == 0.0)
 
 
-# ----------------------------------------------------------------- the stack
-
-
 def test_the_layers_have_the_thicknesses_asked_for(fet):
     y = fet.mesh.y_axis.x
     assert y[-1] == pytest.approx(T_SI + T_OX, rel=1e-14)
@@ -210,9 +204,6 @@ def test_no_doping_survives_inside_the_oxide(fet):
     oxide[fet.regions.oxide_nodes] = True
 
     np.testing.assert_array_equal(fet.net_doping.data[oxide], 0.0)
-
-
-# ------------------------------------------------------------------- doping
 
 
 def test_the_source_surface_reaches_the_concentration_asked_for(fet):
@@ -305,9 +296,6 @@ def test_the_drain_is_the_source_mirrored(fet):
             )
 
     np.testing.assert_allclose(doping, doping[mirror], rtol=1e-12)
-
-
-# ------------------------------------------------------------------ refusals
 
 
 def test_a_gate_shorter_than_the_lateral_diffusion_is_refused():

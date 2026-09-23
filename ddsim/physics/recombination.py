@@ -73,9 +73,6 @@ Lifetime = float | npt.NDArray[np.float64]
 """A carrier lifetime, scalar or per node, in the caller's units."""
 
 
-# ------------------------------------------------------- Scharfetter lifetime
-
-
 def scharfetter_lifetime(
     N_total: Density,
     *,
@@ -113,9 +110,6 @@ def scharfetter_lifetime(
     return np.asarray(
         tau_min + (tau_max - tau_min) / (1.0 + (total / N_ref) ** gamma)
     )
-
-
-# ------------------------------------------------------------------- the rate
 
 
 def _denominator(
@@ -228,9 +222,6 @@ def srh_hole_linearization(
     """(c, g) such that R = c*p - g, with the denominator frozen."""
     denominator = _denominator(n, p, tau_n, tau_p, n1, p1)
     return n / denominator, ni2 / denominator
-
-
-# ------------------------------------------------------------------- models
 
 
 @runtime_checkable

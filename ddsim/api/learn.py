@@ -107,8 +107,6 @@ def _split_header(
     return fields, body
 
 
-# ---------------------------------------------------------------- lessons
-
 _STEPS = "## Steps"
 _LOOK = "## What to look for"
 _SAW = "## What you saw"
@@ -209,11 +207,7 @@ def parse_lesson(name: str, text: str) -> Lesson:
         if kind not in COARSE:
             raise ValueError(f"{name}: {kind} has no coarse mesh")
         preset = COARSE[kind]
-        # The lesson's own settings win, so a lesson can move one mesh knob
-        # and keep the rest of the preset.
         device["parameters"] = {**preset.parameters, **device["parameters"]}
-        # The preset's note was measured on the device's defaults. A lesson
-        # that changes the device measures its own and says so here.
         mesh_note = fields.get("mesh_note") or preset.note
 
     for section in (_STEPS, _LOOK, _SAW):
@@ -250,8 +244,6 @@ def _step(name: str, start: dict[str, Any], chunk: str) -> Step:
     request = copy.deepcopy(start)
     request["device"]["parameters"].update(changes.get("device", {}))
     for key, value in changes.get("sweep", {}).items():
-        # A dict of knobs is merged into, so a step that sets one setting
-        # keeps the lesson's others. Anything else is replaced whole.
         if isinstance(value, dict):
             request["sweep"].setdefault(key, {}).update(value)
         else:
@@ -267,7 +259,6 @@ def _json(name: str, what: str, text: str) -> Any:
 
 
 KNOB_TOPICS: dict[str, str] = {
-    # pn diode
     "Na": "doping",
     "Nd": "doping",
     "length": "pn-diode",
@@ -276,10 +267,8 @@ KNOB_TOPICS: dict[str, str] = {
     "h_min": "mesh",
     "anode_voltage": "contacts-and-bias",
     "cathode_voltage": "contacts-and-bias",
-    # 1D stack
     "left_voltage": "contacts-and-bias",
     "right_voltage": "contacts-and-bias",
-    # MOS capacitor
     "substrate_doping": "doping",
     "t_ox": "mos-capacitor",
     "t_si": "mos-capacitor",
@@ -291,7 +280,6 @@ KNOB_TOPICS: dict[str, str] = {
     "gate_voltage": "contacts-and-bias",
     "body_voltage": "contacts-and-bias",
     "work_function": "mos-capacitor",
-    # nMOSFET
     "L_gate": "mosfet",
     "sd_length": "mosfet",
     "contact_length": "mosfet",
@@ -306,13 +294,11 @@ KNOB_TOPICS: dict[str, str] = {
     "drain_voltage": "contacts-and-bias",
     "source_voltage": "contacts-and-bias",
     "degenerate": "fermi-dirac-statistics",
-    # sweeps
     "step": "continuation",
     "start": "continuation",
     "max_iterations": "convergence",
     "update_tol": "convergence",
     "response": "cv-sweep",
-    # models
     "mobility": "mobility",
     "auger": "recombination",
     "field_dependent": "velocity-saturation",
@@ -322,7 +308,6 @@ KNOB_TOPICS: dict[str, str] = {
 devices means the same thing on both, which is why this is keyed by name."""
 
 KNOB_LABELS: dict[str, str] = {
-    # pn diode
     "Na": "P-side doping",
     "Nd": "N-side doping",
     "length": "Device length",
@@ -331,10 +316,8 @@ KNOB_LABELS: dict[str, str] = {
     "h_min": "Finest mesh spacing",
     "anode_voltage": "Anode voltage",
     "cathode_voltage": "Cathode voltage",
-    # 1D stack
     "left_voltage": "Left contact voltage",
     "right_voltage": "Right contact voltage",
-    # MOS capacitor
     "substrate_doping": "Body doping",
     "t_ox": "Oxide thickness",
     "t_si": "Silicon thickness",
@@ -346,7 +329,6 @@ KNOB_LABELS: dict[str, str] = {
     "gate_voltage": "Gate voltage",
     "body_voltage": "Body voltage",
     "work_function": "Gate work function",
-    # nMOSFET
     "L_gate": "Gate length",
     "sd_length": "Source and drain length",
     "contact_length": "Contact length",
@@ -361,13 +343,11 @@ KNOB_LABELS: dict[str, str] = {
     "drain_voltage": "Drain voltage",
     "source_voltage": "Source voltage",
     "degenerate": "Heavy doping statistics",
-    # sweeps
     "step": "First ramp step",
     "start": "Start from",
     "max_iterations": "Iteration budget",
     "update_tol": "Convergence tolerance",
     "response": "Which carriers follow",
-    # models
     "mobility": "Mobility model",
     "auger": "Auger recombination",
     "field_dependent": "Velocity saturation",

@@ -161,9 +161,6 @@ class AroraMobility:
         )
 
 
-# ----------------------------------------------------- field dependent, Phase 5
-
-
 @runtime_checkable
 class EdgeMobilityModel(Protocol):
     """A diffusivity that depends on the potential drop across its edge.
@@ -303,9 +300,6 @@ class CaugheyThomas:
             * u ** (self.beta - 1.0)
             * (1.0 + u**self.beta) ** (-(1.0 + self.beta) / self.beta)
         )
-
-
-# ------------------------------------------------- surface scattering, Phase 5
 
 
 @dataclass(frozen=True)
@@ -525,15 +519,6 @@ class LombardiSurface:
         mu_sr = self.roughness(E_perp, total_doping, carriers)
         bulk = np.asarray(mu_bulk, dtype=np.float64)
 
-        # mu_sr is delta E^-gamma and gamma carries the carrier density
-        # linearly, so a state holding far more carriers than doping underflows
-        # it to exactly zero. Matthiessen's rule gives zero mobility there,
-        # which is the right limit: no roughness channel means no conduction.
-        # Naming the infinity rather than dividing to reach it costs nothing
-        # where mu_sr is positive, and the arithmetic on that branch is the
-        # same arithmetic it always was. mu_ac is a sum of positive terms over
-        # a floored field and bulk comes from Arora, so neither can vanish and
-        # neither needs this.
         inverse_sr = np.divide(
             1.0, mu_sr, out=np.full_like(mu_sr, np.inf), where=mu_sr > 0.0
         )

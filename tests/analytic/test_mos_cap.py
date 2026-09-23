@@ -56,9 +56,6 @@ GATE_TOLERANCE = 20 * MILLIVOLT
 """What phases/PHASE-4.md gates flatband and threshold at."""
 
 
-# ------------------------------------------------------- textbook expressions
-
-
 def phi_F(net_doping: float) -> float:
     """Bulk Fermi potential [V], positive for p-type as the textbooks write it.
 
@@ -114,9 +111,6 @@ def threshold_voltage(
     )
 
 
-# --------------------------------------------------------------- the solve
-
-
 def solved(net_doping=-NA, work_function=C.PHI_M_N_POLY, **kwargs):
     """A solved capacitor: (device, state)."""
     device = mos_cap(
@@ -159,9 +153,6 @@ def gate_bias_for(target_psi_s: float, bracket=(-3.0, 3.0), **kwargs) -> float:
         return surface_potential(device, state) - target_psi_s
 
     return float(brentq(residual, *bracket, xtol=1e-9))
-
-
-# --------------------------------------------------------------- flatband
 
 
 @pytest.mark.parametrize(
@@ -210,12 +201,7 @@ def test_the_bias_that_removes_the_band_bending_is_the_flatband_voltage(
     found = gate_bias_for(0.0, work_function=work_function)
     expected = flatband_voltage(-NA, work_function)
     assert found == pytest.approx(expected, abs=GATE_TOLERANCE)
-    # And far tighter than the gate, because nothing here is approximated:
-    # flatband is an exact statement about three constants agreeing.
     assert found == pytest.approx(expected, abs=1e-5)
-
-
-# --------------------------------------------------------------- threshold
 
 
 @pytest.mark.parametrize("net_doping", [-1e15, -1e16, -1e17], ids=str)
@@ -238,10 +224,6 @@ def test_the_threshold_bias_matches_the_textbook_expression(net_doping):
     found = gate_bias_for(target, net_doping=net_doping)
     expected = threshold_voltage(net_doping, T_OX, C.PHI_M_N_POLY)
     assert found == pytest.approx(expected, abs=GATE_TOLERANCE)
-    # And far inside it. The measured worst case over these three dopings is
-    # 0.13 mV, at 1e17. See the cancellation test below for why the agreement
-    # is this good when the approximation it rests on is several percent wrong
-    # a hundred millivolts either side of threshold.
     assert found == pytest.approx(expected, abs=MILLIVOLT)
 
 
@@ -265,9 +247,6 @@ def test_the_threshold_moves_with_the_oxide_thickness_as_one_over_c_ox():
         rel=1e-12,
     )
     assert found == pytest.approx(expected, abs=GATE_TOLERANCE)
-
-
-# ------------------------------------------------------- the depletion region
 
 
 def surface_charge_exact(net_doping: float, psi_s: float) -> float:
@@ -363,9 +342,6 @@ def test_the_bulk_is_neutral_far_from_the_surface():
     assert abs(state.psi.data[bottom] - state.psi.data[one_up]) < 1e-9
 
 
-# ------------------------------------------------------------------ the oxide
-
-
 def test_the_oxide_potential_is_a_straight_line():
     """No charge means Laplace, and Laplace across a uniform slab is linear.
     Any curvature means charge leaked into the insulator."""
@@ -408,9 +384,6 @@ def test_no_carrier_density_is_negative_anywhere(v_gate):
     assert np.any(insulator), "this device has no oxide, so it checks nothing"
     assert np.all(state.n.data[insulator] == 0.0)
     assert np.all(state.p.data[insulator] == 0.0)
-
-
-# ------------------------------------------------------- the second dimension
 
 
 def test_the_solution_does_not_vary_across_the_device():

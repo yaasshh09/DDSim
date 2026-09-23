@@ -1,39 +1,26 @@
 "use strict";
 
-// The band diagram view and the 2D cutline. Every energy was computed on the
-// server. What happens here is geometry: choosing arrays to draw and, for a
-// cutline, bilinear interpolation of a node array along a line in the image.
-
 function drawBands(box, xs, pick) {
   const Ec = pick("Ec"), Ev = pick("Ev"), Efn = pick("Efn"), Efp = pick("Efp");
   const all = Array.from(Ec).concat(Array.from(Ev), Array.from(Efn), Array.from(Efp));
   const frame = axes(box.pen, box, xs, all, { logY: false });
-  // Four bands, four colours. Ec and Ev shared one until the design gave the
-  // valence band its own, and two curves in the same ink read as one curve.
   line(box.pen, frame, xs, Ec, BLUE);
   line(box.pen, frame, xs, Ev, PURPLE);
   line(box.pen, frame, xs, Efn, GREEN);
   line(box.pen, frame, xs, Efp, RED);
 }
 
-// Bilinear interpolation in index space. (i, j) are fractional column and row
-// indices, the space the image and the cutline share. An oxide node carries
-// NaN, so a sample that touches one is NaN too and the line breaks there.
 function interpolate(fields, name, i, j) {
   const ny = fields.shape[0], nx = fields.shape[1];
   const values = fields.arrays[name];
   const i0 = Math.max(0, Math.min(nx - 2, Math.floor(i)));
   const j0 = Math.max(0, Math.min(ny - 2, Math.floor(j)));
   const u = i - i0, v = j - j0;
-  // A corner with no weight is left out rather than multiplied by zero,
-  // because 0 * NaN is NaN and a silicon node next to oxide would vanish.
   const at = (a, b, weight) => (weight === 0 ? 0 : weight * values[b * nx + a]);
   return at(i0, j0, (1 - u) * (1 - v)) + at(i0 + 1, j0, u * (1 - v)) +
     at(i0, j0 + 1, (1 - u) * v) + at(i0 + 1, j0 + 1, u * v);
 }
 
-// Distance along the cutline in cm, from the physical coordinates of each
-// sample, so the band plot's x axis is a real length.
 function sampleAlong(fields, name, from, to, count) {
   const xAxis = fields.arrays.x, yAxis = fields.arrays.y;
   const ny = fields.shape[0], nx = fields.shape[1];
@@ -52,8 +39,6 @@ function sampleAlong(fields, name, from, to, count) {
   return { s: s, values: values };
 }
 
-// Canvas pixel to fractional (i, j). drawImage paints row 0 at the bottom, so
-// j is flipped the same way here.
 function indexAt(box, fields, px, py) {
   const ny = fields.shape[0], nx = fields.shape[1];
   return { i: (px / box.width) * (nx - 1), j: (1 - py / box.height) * (ny - 1) };

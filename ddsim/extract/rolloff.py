@@ -266,8 +266,6 @@ def gate_length_sweep(
         curves = {}
         for label, drain in (("linear", drain_low), ("saturated", drain_high)):
             device = nmos(L_gate=L_gate, drain_voltage=drain, **settings)
-            # Rebuilt per device: doping dependent mobility is an array over
-            # that device's edges, and the meshes differ between gate lengths.
             curves[label] = gate_sweep(
                 device,
                 voltages=list(gate_voltages),
@@ -295,9 +293,6 @@ def gate_length_sweep(
         )
         _, gm = transconductance(V_lin, J_lin)
 
-        # The slope window in gate bias, found by asking where the current
-        # crosses the two ends of the current window. Same interpolation the
-        # threshold itself uses, so the top of the window is the threshold.
         slope_window = (
             threshold_constant_current(
                 V_lin, J_lin, target / 10.0**slope_decades

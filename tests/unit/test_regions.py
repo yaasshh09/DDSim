@@ -38,9 +38,6 @@ from ddsim.device.regions import (
 )
 from ddsim.mesh.mesh2d import uniform_mesh_2d
 
-# 4 columns by 5 rows, so cells are 1e-5 wide and 5e-6 tall. The interface is
-# put at y = 1e-5, which is the row j = 2 node line, so rows 0 and 1 of cells
-# are silicon and rows 2 and 3 are oxide.
 WIDTH = 3e-5
 HEIGHT = 2e-5
 NX = 4
@@ -78,7 +75,6 @@ def test_only_nodes_strictly_inside_the_oxide_have_no_carriers(mesh, regions):
     for node in interface_nodes:
         assert node not in set(regions.oxide_nodes.tolist())
 
-    # Everything on the two node rows above the interface is oxide.
     for row in (3, 4):
         for i in range(NX):
             assert mesh.node_at(i, row) in set(regions.oxide_nodes.tolist())
@@ -122,11 +118,9 @@ def test_an_edge_wholly_in_one_material_carries_that_permittivity(mesh, regions)
     """Silicon edges come back at 1.0, because the scaling uses eps_Si."""
     eps_r = regions.eps_r
 
-    # A horizontal edge in the middle of the silicon, row j = 1.
     silicon_edge = 1 * (NX - 1) + 0
     assert eps_r[silicon_edge] == pytest.approx(1.0, rel=1e-14)
 
-    # A horizontal edge in the middle of the oxide, row j = 4 (the top).
     oxide_edge = 4 * (NX - 1) + 0
     assert eps_r[oxide_edge] == pytest.approx(
         C.EPS_R_OX / C.EPS_R_SI, rel=1e-14
@@ -183,9 +177,6 @@ def test_a_region_map_reports_what_it_is(mesh, regions):
     assert isinstance(regions, RegionMap)
 
 
-# ----------------------------------------------------------- interface nodes
-
-
 def test_the_interface_nodes_are_the_row_the_two_materials_share(mesh, regions):
     """Row j = 2 is the interface, which is where INTERFACE was put."""
     expected = [mesh.node_at(i, 2) for i in range(mesh.nx)]
@@ -213,9 +204,6 @@ def test_an_interface_node_holds_less_than_its_whole_dual_cell(mesh, regions):
 def test_a_single_material_device_has_no_interface(mesh):
     regions = stacked_regions(mesh, interface_y=HEIGHT)
     assert regions.interface_nodes(mesh).size == 0
-
-
-# ------------------------------------------------------- the carrier face
 
 
 def horizontal_edge(mesh, i: int, j: int) -> int:

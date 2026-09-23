@@ -27,9 +27,6 @@ def cap():
     return mos_cap(substrate_doping=-NA, t_ox=T_OX, t_si=T_SI)
 
 
-# ------------------------------------------------------------------ the stack
-
-
 def test_the_layers_have_the_thicknesses_asked_for(cap):
     y = cap.mesh.y_axis.x
     assert y[-1] == pytest.approx(T_SI + T_OX, rel=1e-14)
@@ -79,9 +76,6 @@ def test_the_default_substrate_is_thicker_than_the_depletion_region():
     assert y[-1] - 1e-6 > 5 * 3.04e-5
 
 
-# --------------------------------------------------------------- the contacts
-
-
 def test_the_body_is_a_plate_across_the_whole_bottom_edge(cap):
     body = next(c for c in cap.contacts if c.name == BODY)
     assert isinstance(body, OhmicPlate)
@@ -112,9 +106,6 @@ def test_the_biases_land_on_the_terminals_they_name():
     assert biases == {GATE: 1.5, BODY: -0.25}
 
 
-# ----------------------------------------------------------------- the doping
-
-
 def test_the_substrate_is_uniformly_doped_and_the_oxide_is_not_doped(cap):
     """The zero charge volume already makes the oxide doping irrelevant to the
     equations. This is for everything else that reads the array."""
@@ -133,9 +124,6 @@ def test_an_n_type_substrate_is_the_sign_flip_and_nothing_else():
     np.testing.assert_allclose(
         n_type.net_doping.data, -p_type.net_doping.data, rtol=1e-14
     )
-
-
-# -------------------------------------------------------------- what it won't
 
 
 @pytest.mark.parametrize("bad", [0.0, -1e-6], ids=["zero", "negative"])
@@ -161,9 +149,6 @@ def test_a_surface_spacing_too_coarse_for_the_substrate_is_reported():
     rather than returning one whose truncation error looks like physics."""
     with pytest.raises(ValueError, match="max_ratio"):
         mos_cap(n_silicon=8, h_min=1e-8)
-
-
-# ------------------------------------------------------------------ reporting
 
 
 def test_a_capacitor_reports_itself_as_a_2d_device(cap):

@@ -22,9 +22,6 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-# ------------------------------------------------------------------ constants
-# Mirrors of ddsim.core.constants, pinned by test_constants_mirror_ddsim.
-
 Q = 1.602176634e-19
 """Elementary charge [C]."""
 
@@ -94,11 +91,6 @@ intrinsic level in both codes, so psi_gate = V_gate + (PHI_M_MIDGAP - Phi_M).
 V_T = K_B * T / Q
 """Thermal voltage [V]. 0.02585199 V at 300 K."""
 
-
-# ------------------------------------------------- the Phase 5 model stack
-# Mirrors of ddsim.physics.mobility and ddsim.physics.statistics, pinned by
-# test_full_stack_parameters_mirror_ddsim. Only benchmark 10 runs these; the
-# benchmarks 6 to 9 set is the reduced one above.
 
 ARORA_N: tuple[float, float, float, float] = (88.0, 1252.0, 1.432e17, 0.88)
 """Arora mobility for electrons at 300 K: mu_min, mu_d, N_ref, exponent.
@@ -200,9 +192,6 @@ in both codes, which keeps the density monotone in the potential. At 1e20 in
 the source and drain, u is 3.5 for electrons, so nothing on these devices
 reaches it.
 """
-
-
-# --------------------------------------------------------------------- devices
 
 
 @dataclass(frozen=True)
@@ -325,9 +314,6 @@ BENCHMARKS: tuple[DiodeBenchmark, ...] = (
 )
 
 BY_NAME: dict[str, DiodeBenchmark] = {b.name: b for b in BENCHMARKS}
-
-
-# --------------------------------------------------------------------- helpers
 
 
 def scharfetter_lifetime(
@@ -620,9 +606,6 @@ def central_difference(
         midpoints.append(voltage[index])
         slopes.append((charge[index + 1] - charge[index - 1]) / span)
     return midpoints, slopes
-
-
-# --------------------------------------------------------------------- MOSFETs
 
 
 def erfcinv(target: float) -> float:

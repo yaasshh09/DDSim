@@ -80,9 +80,6 @@ def sweep():
     )
 
 
-# ------------------------------------------------------------- what came back
-
-
 def test_the_sweep_returns_a_point_per_gate_length(sweep):
     assert [point.L_gate for point in sweep] == [LONG, SHORT]
 
@@ -94,9 +91,6 @@ def test_every_point_carries_both_curves_it_was_extracted_from(sweep):
         assert point.saturated.measured_at == "drain"
         assert len(point.linear.voltage) == len(GATE_VOLTAGES)
         assert len(point.saturated.voltage) == len(GATE_VOLTAGES)
-
-
-# --------------------------------------------------- the acceptance criteria
 
 
 def test_the_subthreshold_slope_beats_no_thermal_limit(sweep):
@@ -163,9 +157,6 @@ def test_the_short_device_drives_more_current(sweep):
     assert short_channel.peak_transconductance > (
         long_channel.peak_transconductance
     )
-
-
-# --------------------------------------------- attributing the exponent
 
 
 def drain_current(L_gate: float, field_dependent: bool) -> float:
@@ -257,9 +248,6 @@ def test_velocity_saturation_is_what_holds_the_short_device_back():
     assert short_saturated < 0.75 * short_free
 
 
-# ------------------------------------------------------------------ refusals
-
-
 def test_a_sweep_with_no_gate_lengths_is_refused():
     with pytest.raises(ValueError, match="at least one gate length"):
         gate_length_sweep(gate_lengths=[], gate_voltages=GATE_VOLTAGES)
@@ -283,9 +271,6 @@ def test_the_process_is_the_one_that_was_handed_in():
     assert SHORT_CHANNEL_PROCESS["t_ox"] == 2e-7
     assert SHORT_CHANNEL_PROCESS["substrate_doping"] < 0.0
     assert "L_gate" not in SHORT_CHANNEL_PROCESS
-
-
-# ------------------------------------------------------- trimming the curve
 
 
 def test_the_leakage_floor_at_the_head_of_a_curve_is_trimmed_off():

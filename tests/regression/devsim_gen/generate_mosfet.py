@@ -105,11 +105,6 @@ from devsim.python_packages.simple_physics import (  # noqa: E402
     hce_name,
 )
 
-# Run as a script, only the script's own directory is on the path, so the
-# package qualified import below fails with no module named tests. The sibling
-# generator sidesteps it by importing `parameters` flat, which this file cannot
-# do because the test suite imports it by package path. Adding the root serves
-# both, and makes the invocation the README documents work.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))
 ))))
@@ -191,9 +186,6 @@ def note(message: str) -> None:
     print(f"    {message}", file=sys.stderr, flush=True)
 
 
-# ------------------------------------------------------------------- the mesh
-
-
 def build_mesh(
     benchmark: P.MosfetBenchmark,
     device: str,
@@ -233,13 +225,9 @@ def build_mesh(
     width = 2.0 * sd_length + L
 
     vertical = refine if refine_y is None else refine_y
-    # x lines.
     h_contact = benchmark.devsim_h_contact / refine
     h_junction = benchmark.devsim_h_junction / refine
     h_channel = benchmark.devsim_h_channel / refine
-    # y lines. The 0.2 * t_si grading below the implant and the AIR spacings
-    # are deliberately left alone by both factors: the first is a grading rule
-    # rather than a resolution, and the padding regions hold no semiconductor.
     h_surface = benchmark.devsim_h_surface / vertical
     h_depth = benchmark.devsim_h_depth / vertical
     h_oxide = t_ox / (benchmark.devsim_oxide_cells * vertical)
@@ -256,12 +244,6 @@ def build_mesh(
     ):
         add_2d_mesh_line(mesh=mesh, dir="x", pos=pos, ns=ns, ps=ps)
 
-    # ns is the spacing walking in -y from this line and ps the spacing walking
-    # in +y. The silicon is below the interface and the oxide above it, so the
-    # surface spacing is the ns of the interface line and not its ps. Getting
-    # the two the wrong way round is silent: it buys a mesh that looks refined,
-    # refines the oxide instead of the inversion layer, and converges slowly to
-    # the right answer.
     for pos, ns, ps in (
         (-AIR, AIR, AIR),
         (0.0, AIR, 0.2 * t_si),
@@ -380,9 +362,6 @@ def node_count(device: str) -> int:
     return len(get_node_model_values(device=device, region=BULK, name="x"))
 
 
-# ---------------------------------------------------------------- the physics
-
-
 def set_material_parameters(device: str) -> None:
     """Push every ddsim constant into devsim, overriding its own defaults.
 
@@ -400,7 +379,6 @@ def set_material_parameters(device: str) -> None:
         "V_t": P.V_T,
         "mu_n": P.MU_N,
         "mu_p": P.MU_P,
-        # Midgap traps, so both SRH reference densities are n_i.
         "n1": P.N_I,
         "p1": P.N_I,
     }
@@ -468,9 +446,6 @@ def set_lifetimes(device: str) -> None:
             f"{tau_min:.16e} + ({tau_max:.16e} - {tau_min:.16e}) / "
             f"(1 + (abs(NetDoping)/{P.N_REF_SRH:.16e})^{P.GAMMA_SRH:.16e})",
         )
-
-
-# --------------------------------------------------- the Phase 5 model stack
 
 
 def joyce_dixon(u: str) -> str:
@@ -570,14 +545,8 @@ def create_surface_mobility(device: str) -> None:
     form returns zero, which is the limit, while the reciprocal form returns a
     nan.
     """
-    # Created empty and filled by the refresh at the end of this function,
-    # which is the only thing that ever writes it.
     node_solution(device=device, region=BULK, name="E_perp")
     CreateNodeModel(device, BULK, "E_perp_used", "max(E_perp, E_perp_floor)")
-    # The doping the surface terms read, floored at n_i. The roughness exponent
-    # carries N^(-eta), so a node sitting exactly on the metallurgical junction
-    # would raise zero to a negative power and return an infinity. Same floor
-    # and same reason as ddsim's total_doping.
     CreateNodeModel(
         device, BULK, "N_surface", f"max(abs(NetDoping), {P.N_I:.16e})"
     )
@@ -711,14 +680,6 @@ def create_edge_mobility(device: str) -> None:
             edge_model=f"mu_lf_{carrier}",
             average_type="arithmetic",
         )
-        # The ratio squared rather than the ratio, so that the only square
-        # root in the expression is the one beta actually asks for. Written
-        # with an absolute value instead, devsim differentiates pow(E^2, 0.5)
-        # to E/pow(E^2, 0.5) and hands back a nan on every edge whose field is
-        # exactly zero, which in a neutral bulk is most of them. ddsim has the
-        # same kink and answers it the same way, by making the derivative at
-        # zero the symmetric one. 1e-300 is devsim's own guard, from the
-        # vector magnitudes in its mos_physics.py.
         squared = (
             f"pow(mu_lf_{carrier}*ElectricField/v_sat_{carrier}, 2) + 1e-300"
         )
@@ -775,14 +736,6 @@ def create_degenerate_currents(device: str) -> None:
                 node_model=f"Potential_{carrier}:{variable}",
             )
 
-        # Written out rather than handed to `diff`. devsim chains a derivative
-        # through an edge model it is given by name, which is how the Boltzmann
-        # current below picks up `Bern01:Potential@n0`, but it does not chain
-        # through a node model evaluated at @n0: asked for the derivative of
-        # `Potential_n@n0` with respect to `Potential@n0` it returns exactly
-        # zero. Measured, on every edge of the device. devsim's own simple_dd
-        # writes `vdiff:Potential@n0` out by hand too, which is the same
-        # workaround arrived at from the other direction.
         drop = f"(Potential_{carrier}@n0 - Potential_{carrier}@n1)/V_t"
         CreateEdgeModel(device, BULK, f"vdiff_{carrier}", drop)
         for variable in ("Potential", density):
@@ -975,9 +928,6 @@ def build_physics(
     for contact in (BODY, SOURCE, DRAIN):
         set_parameter(device=device, name=f"{contact}_bias", value=0.0)
         CreateSiliconPotentialOnlyContact(device, BULK, contact)
-    # devsim's CreateOxideContact pins Potential at the contact bias, so the
-    # work function is folded into the number handed over rather than being a
-    # parameter of its own. See gate_potential.
     set_parameter(device=device, name=f"{GATE}_bias", value=gate_potential(v_gate))
     CreateOxideContact(device, OXIDE, GATE)
     CreateSiliconOxideInterface(device, "si_ox")
@@ -999,12 +949,6 @@ def build_physics(
         create_bulk_mobility(device)
         create_surface_mobility(device)
         create_edge_mobility(device)
-        # Builds the Poisson and continuity equations and the Boltzmann
-        # currents, which the next call replaces in place. Going through it
-        # rather than around it keeps every other model it creates, the SRH
-        # rate and the two charge models, exactly the ones the reduced set
-        # uses, so the only thing this branch changes is what it means to
-        # change.
         CreateSiliconDriftDiffusion(device, BULK, mu_n="mu_ct_n", mu_p="mu_ct_p")
         create_degenerate_currents(device)
         for contact in (BODY, SOURCE, DRAIN):
@@ -1013,9 +957,6 @@ def build_physics(
         _surface_is_live = True
     settle(device)
     ramp_to(device, DRAIN, v_drain)
-
-
-# ------------------------------------------------------------- the solve loop
 
 
 def snapshot(device: str, poisson_only: bool = False) -> dict[tuple[str, str], list]:
@@ -1181,13 +1122,6 @@ def settle(
     balance_stalled = 0
     for index in range(passes):
         if refreshing:
-            # The frozen surface mobility, refreshed from the state the last
-            # pass reached. It has to happen here, inside the loop, rather
-            # than around a fully settled solve the way ddsim's
-            # `_surface_fixed_point` does it: ddsim can hold a coefficient
-            # still because its Newton carries damping and continuation, and
-            # devsim's repeated `solve` diverges outright when handed a
-            # mobility frozen at the initial guess for a whole settle.
             surface_sweeps += 1
             surface_moved = refresh_surface_mobility(device)
             if (
@@ -1195,27 +1129,10 @@ def settle(
                 or surface_sweeps >= SURFACE_SWEEPS
             ):
                 refreshing = False
-                # The mobility has stopped moving, so the potential test can
-                # start meaning something. Everything it recorded up to here
-                # was measured across a refresh that moved the potential
-                # itself, which is why the record has to be thrown away
-                # rather than carried: keeping it is what used to fail these
-                # solves. `best` would hold a coincidentally tiny move from
-                # the refreshing phase, 1.8e-7 V on the 1 um device at 1 V of
-                # drain, no later pass could beat it, and `stall` fired at a
-                # last move of 1.7e-4 V while every devsim solve inside was
-                # reporting RelError of exactly zero. `ramp_to` read that as
-                # a failed bias step and halved until it ran out of room, so
-                # a converged device died claiming no step above 0.1 mV
-                # converged.
                 best = float("inf")
                 stalled = 0
                 since_best = 0.0
                 if surface_moved >= SURFACE_RTOL:
-                    # The budget ran out rather than the mobility arriving.
-                    # `SURFACE_SWEEPS` calls that a diagnostic and not a
-                    # reason to throw away a converged potential, so say it
-                    # rather than freezing a moving coefficient in silence.
                     note(
                         f"surface mobility still moving at "
                         f"{surface_moved:.3e} after {surface_sweeps} "
@@ -1239,17 +1156,11 @@ def settle(
                     f"stalled at {best:.3e} V for {stall} passes, worst "
                     f"{since_best:.3e} V, last move {moved:.3e} V"
                 )
-            # A floor rather than a failure, and the two are told apart by
-            # how far from zero the bouncing is. See `SETTLE_FLOOR`.
             note(
                 f"settled on the solver floor, {since_best:.3e} V over "
                 f"{stall} passes"
             )
 
-        # The potential has arrived. It is checked once and not again: past
-        # this point the passes are being spent on the continuity residual and
-        # the potential only wanders in its own roundoff, so re-arming the
-        # stall counter on it would fail a solve that is still improving.
         arrived = True
         if not poisson_only and not sane(device):
             raise RuntimeError("settled on a state no bias can produce")
@@ -1259,41 +1170,14 @@ def settle(
         imbalance = terminal_imbalance(device)
         if imbalance < balance_tol:
             return index + 1
-        # A new best has to be a real one. The potential stall counter can take
-        # any improvement as progress because the potential either converges or
-        # bounces, but the imbalance has a third behaviour: it crawls. Measured
-        # on the 1 um device at zero gate, the same solve that reaches 1.8e-5
-        # in 26 passes on one run inched to 5.1e-3 over 400 on another, gaining
-        # a little on most passes and so resetting the counter forever. Which
-        # of the two a run gets is set by the order MKL sums a factorisation,
-        # which this generator deliberately does not pin. Demanding a tenth off
-        # the record keeps every genuine descent, the early ones gain 12 to 22
-        # percent a pass, and calls the crawl what it is.
         if imbalance < BALANCE_PROGRESS * best_balance:
             best_balance, balance_stalled = imbalance, 0
             continue
         best_balance = min(best_balance, imbalance)
         balance_stalled += 1
         if balance_stalled >= stall:
-            # A floor, not a failure. The cancellation has found its own
-            # roundoff and no further pass will improve it, so the honest move
-            # is to hand back the best state this mesh can produce. What it
-            # came to is recorded per point in the golden file, and the
-            # comparison spends it as tolerance.
             return index + 1
-    # Reaching here is a settle that is still improving after 400 passes,
-    # which has not been seen. What a stuck settle does instead is bounce, and
-    # `stall` is what catches that. Cutting `passes` to catch it is the wrong
-    # knob and was tried: at 60 it refuses settles that would have converged,
-    # which moved the 1 um equilibrium drain current by 0.4 percent and left
-    # the gate walk grinding at a knee it otherwise crosses in 35 s.
     if arrived:
-        # The potential converged and only the balance is outstanding, so the
-        # state is settled and the leftover is a diagnostic. Raising here would
-        # turn a usable point into a failed bias step, and `ramp_to` answers a
-        # failed step by halving and retrying, which cannot help a quantity the
-        # step size does not control. The imbalance is written down per point
-        # and the comparison spends it as tolerance.
         return passes
     raise RuntimeError(
         f"did not settle in {passes} passes, last move {moved:.3e} V, "
@@ -1456,9 +1340,6 @@ def terminal_imbalance(device: str) -> float:
     return 0.0 if scale == 0.0 else abs(drain + source) / scale
 
 
-# ----------------------------------------------------------------- the sweeps
-
-
 def device_name(
     benchmark: P.MosfetBenchmark, drain: float, refine: float = 1.0
 ) -> str:
@@ -1503,9 +1384,6 @@ def transfer_curve(
     rows: list[dict[str, Any]] = []
     for v_gate in benchmark.gate_voltages:
         ramp_to(device, GATE, gate_potential(v_gate))
-        # `ramp_to` leaves the potential settled and the continuity residual
-        # still falling. This is the only state that gets written down, so it
-        # is the only one worth the extra passes. See BALANCE_TOL.
         with quiet():
             settle(device, balance_tol=BALANCE_TOL)
         rows.append(
@@ -1715,23 +1593,12 @@ def main() -> int:
         low, high, nodes = sweep(benchmark)
 
         path = os.path.join(args.out, f"{benchmark.name}.csv")
-        # Written before the mesh check, not after. The check is a diagnostic
-        # on a mesh nobody ships, it is the most expensive and least reliable
-        # thing in the run, and losing an hour of converged curves to a stall
-        # in it is a bad trade. Written again below with the check's number in
-        # the header, so an interrupted run leaves data that is honest about
-        # not having been checked rather than no data at all.
         write_csv(benchmark, low, high, nodes, None, path)
 
         mesh_check = None
         if not args.no_mesh_check:
             print(f"{benchmark.name}: repeating on a halved mesh", flush=True)
             fine_low, fine_high, _ = sweep(benchmark, refine=2.0)
-            # Both curves are checked because both are compared. The halved
-            # mesh run already solves both, so reading only the low one threw
-            # away the more expensive half of a measurement already paid for,
-            # and left the high drain curve's mesh error unrecorded while the
-            # header it writes is read as covering it.
             mesh_check = max(
                 relative_difference(low, fine_low),
                 relative_difference(high, fine_high),

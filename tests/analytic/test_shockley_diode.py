@@ -125,9 +125,6 @@ def recombination_curve():
     return curve
 
 
-# ------------------------------------------------------- saturation current
-
-
 def test_saturation_current_matches_the_analytic_value(forward_curve) -> None:
     """docs/04-validation.md asks for 10 percent. This lands inside 3.
 
@@ -217,9 +214,6 @@ def test_reverse_current_is_flat_with_bias() -> None:
     assert currents[2] / currents[0] < 3.0
 
 
-# ------------------------------------------------------------ ideality factor
-
-
 def test_the_diffusion_limited_diode_has_ideality_one(forward_curve) -> None:
     """1e16 with the documented lifetimes is diffusion limited above 0.25 V."""
     midpoint, ideality = ideality_factor(
@@ -269,9 +263,6 @@ def test_the_ideality_never_exceeds_two(recombination_curve) -> None:
     )
 
     assert np.all(ideality < 2.0)
-
-
-# ------------------------------------------------------------ Gummel behaviour
 
 
 def test_gummel_converges_at_half_a_volt() -> None:

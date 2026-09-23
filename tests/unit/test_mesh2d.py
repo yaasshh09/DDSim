@@ -70,7 +70,6 @@ def test_every_edge_joins_two_geometrically_adjacent_nodes(mesh):
 
     np.testing.assert_allclose(np.hypot(dx, dy), mesh.h, rtol=1e-14)
 
-    # Every edge is axis aligned: exactly one of the two offsets is zero.
     assert np.all((dx == 0.0) ^ (dy == 0.0))
 
 
@@ -108,7 +107,6 @@ def test_a_horizontal_edge_carries_the_vertical_dual_extent(mesh):
     horizontal_face = mesh.dual_face[:n_horizontal]
     vertical_face = mesh.dual_face[n_horizontal:]
 
-    # A horizontal edge's face extent is drawn from the y dual grid.
     assert set(np.round(horizontal_face, 18)) <= set(np.round(y_axis.volume, 18))
     assert set(np.round(vertical_face, 18)) <= set(np.round(x_axis.volume, 18))
 
@@ -170,20 +168,6 @@ def test_the_geometry_it_hands_the_assemblies_is_consistent(mesh):
     np.testing.assert_array_equal(np.asarray(geometry.dual_face), mesh.dual_face)
 
 
-# ============================================ the field normal to a flat
-# interface, Phase 5
-#
-# Lombardi surface mobility wants the magnitude of the field normal to the
-# Si/SiO2 interface. On this mesh the interface is a horizontal line, so the
-# normal direction is y and the quantity is abs(dpsi/dy) at each node.
-#
-# It is nodal rather than edge based on purpose. A horizontal channel edge's
-# normal field lives on the vertical edges above and below its endpoints, not
-# on the edge itself, so there is no edge quantity to read. Working it out at
-# nodes and averaging onto edges afterwards is the same route the mobility
-# already takes, and it keeps the answer independent of which edge asked.
-
-
 def test_a_uniform_vertical_gradient_is_recovered_exactly(mesh):
     """The straightest possible check. psi = g*y everywhere makes dpsi/dy the
     constant g at every node including the two boundary rows, so anything that
@@ -240,9 +224,9 @@ def test_an_interior_node_averages_the_edges_either_side():
     E = normal_field(mesh, psi)
 
     lower, upper = 1.0 / h[0], 2.0 / h[1]
-    np.testing.assert_allclose(E[0], lower, rtol=1e-12)   # bottom row, one edge
+    np.testing.assert_allclose(E[0], lower, rtol=1e-12)
     np.testing.assert_allclose(E[2], 0.5 * (lower + upper), rtol=1e-12)
-    np.testing.assert_allclose(E[4], upper, rtol=1e-12)   # top row, one edge
+    np.testing.assert_allclose(E[4], upper, rtol=1e-12)
 
 
 def test_a_boundary_row_uses_the_single_edge_it_has(mesh):
@@ -285,7 +269,6 @@ def test_a_reversing_field_averages_to_near_zero_before_the_magnitude():
     y_axis = uniform_mesh_1d(length=2e-5, n_nodes=3)
     mesh = tensor_mesh_2d(uniform_mesh_1d(length=1e-5, n_nodes=2), y_axis)
 
-    # Symmetric well: 1, 0, 1 down the three rows.
     psi = np.array([1.0, 1.0, 0.0, 0.0, 1.0, 1.0])
 
     E = normal_field(mesh, psi)

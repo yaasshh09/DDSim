@@ -82,9 +82,6 @@ N_NODES = 20
 """The mesh size phases/PHASE-3.md names for the verification."""
 
 
-# ----------------------------------------------------------------- fixtures
-
-
 @pytest.fixture
 def device():
     """A 1e16 / 1e16 diode on a 20 node uniform mesh.
@@ -196,9 +193,6 @@ def state_x(request, equilibrium_x, perturbed_x):
     return equilibrium_x if request.param == "equilibrium" else perturbed_x
 
 
-# ------------------------------------------------------------------ helpers
-
-
 def residual_at(geometry, device, models):
     """A one argument residual, which is what the complex step harness takes."""
     h, volume = geometry
@@ -260,9 +254,6 @@ def assemble_state(device, models, x):
     )
 
 
-# ------------------------------------------------------------------ ordering
-
-
 def test_pack_and_unpack_round_trip():
     """Whatever the ordering is, it has to be reversible."""
     psi = np.array([1.0, 2.0, 3.0])
@@ -307,9 +298,6 @@ def test_pack_rejects_mismatched_lengths():
     """Three arrays of different length is a caller bug, not a broadcast."""
     with pytest.raises(ValueError, match="same length"):
         pack(np.zeros(3), np.zeros(4), np.zeros(3))
-
-
-# ----------------------------------------------------------------- residual
 
 
 def test_psi_rows_match_the_poisson_residual(device, geometry, models):
@@ -423,9 +411,6 @@ def flat_bar():
     x = pack(psi, np.exp(psi), np.exp(-psi))
 
     return device, models, (mesh.h / scale.x_0, mesh.volume / scale.x_0), x
-
-
-# ------------------------------------------- the nine blocks, the acceptance
 
 
 ALL_BLOCKS = [
@@ -644,9 +629,6 @@ def test_the_jacobian_sparsity_is_block_tridiagonal(geometry, models, perturbed_
     assert np.all(np.abs(row_node - col_node) <= 1)
 
 
-# ------------------------------------------------------------- Field layer
-
-
 def test_assemble_coupled_agrees_with_the_array_level_functions(
     device, geometry, models, perturbed_x
 ):
@@ -741,9 +723,6 @@ def test_assemble_coupled_rejects_a_field_of_the_wrong_length(
         )
 
 
-# ------------------------------------------------------------------ contacts
-
-
 def test_contacts_pin_all_three_unknowns_at_the_contact_node(
     device, models, perturbed_x
 ):
@@ -831,9 +810,6 @@ def test_two_contacts_sharing_a_name_are_rejected(device, models, perturbed_x):
             ),
             device.scale,
         )
-
-
-# ------------------------------------------------------------- row scaling
 
 
 def test_the_poisson_term_scale_counts_the_carriers_not_only_the_doping():
@@ -1020,12 +996,10 @@ def test_a_row_with_no_terms_in_it_is_skipped_rather_than_dividing_by_zero():
     p_scale = np.full(n_nodes, 8.0)
     scales = (psi_scale, n_scale, p_scale)
 
-    # scale_rows has already divided by row_weights, so undo that to place a
-    # known raw residual on each row.
     weights = row_weights(scales, n_nodes)
     raw = np.zeros(UNKNOWNS_PER_NODE * n_nodes)
-    raw[unknown_index(1, Unknown.N)] = 1e30  # the row with no terms
-    raw[unknown_index(2, Unknown.N)] = 2.0  # 2.0 / 4.0
+    raw[unknown_index(1, Unknown.N)] = 1e30
+    raw[unknown_index(2, Unknown.N)] = 2.0
 
     measured = residual_measure(raw / weights, scales, n_nodes)
 
@@ -1055,16 +1029,14 @@ def test_a_row_whose_terms_collapsed_is_skipped_like_one_with_none() -> None:
     """
     n_nodes = 3
     psi_scale = np.full(n_nodes, 2.0)
-    # Node 1's terms are positive but below the arithmetic granularity of a
-    # family that reaches 4.0, so the row carries no resolvable residual.
     n_scale = np.array([1.0, 1e-20, 4.0])
     p_scale = np.full(n_nodes, 8.0)
     scales = (psi_scale, n_scale, p_scale)
 
     weights = row_weights(scales, n_nodes)
     raw = np.zeros(UNKNOWNS_PER_NODE * n_nodes)
-    raw[unknown_index(1, Unknown.N)] = 1e-18  # 1e-18 / 1e-20 would read 100
-    raw[unknown_index(2, Unknown.N)] = 2.0  # 2.0 / 4.0
+    raw[unknown_index(1, Unknown.N)] = 1e-18
+    raw[unknown_index(2, Unknown.N)] = 2.0
 
     measured = residual_measure(raw / weights, scales, n_nodes)
 

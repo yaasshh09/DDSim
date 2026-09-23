@@ -1,20 +1,5 @@
 "use strict";
 
-// The start screen, phases/PHASE-7.md. Four things worth solving, said in
-// words somebody who has never met a MOSFET can follow, each one setting the
-// form up and getting out of the way.
-//
-// It is a panel at the top of the stage rather than a modal over it. A modal
-// would swallow the first click on everything underneath, which costs the
-// browser tests their first action and buys nothing: the plots behind it are
-// empty until something has been solved anyway.
-//
-// Nothing here computes. Each card names a device kind and a sweep kind that
-// the schema already carries, and setUp() puts them on the form.
-
-// A small schematic of each device, drawn from the same palette as the page.
-// Not decoration: the shape is what the words are describing, and seeing the
-// gate sit on top of the oxide is most of the explanation.
 const CARD_ART = {
   pn_diode:
     '<rect x="4" y="14" width="46" height="32" fill="#2d4a52"></rect>' +
@@ -45,8 +30,6 @@ const CARD_ART = {
     'fill="#e8f1f2"></path>',
 };
 
-// kind, sweep, and what the thing actually is. The blurb answers "why would
-// I press this", not "what is it called".
 const CARDS = [
   {
     kind: "pn_diode",
@@ -126,9 +109,6 @@ function buildWelcome() {
   }
 }
 
-// Put one card's device and sweep on the form, take the coarse mesh where the
-// device offers one, and leave. Nothing solves: pressing solve stays the
-// student's decision, because a solve takes real time.
 function startFrom(card) {
   el("device-kind").value = card.kind;
   onDeviceKind();
@@ -145,8 +125,6 @@ function dismissWelcome() {
   try {
     localStorage.setItem(SEEN, "1");
   } catch (blocked) {
-    // A private window refuses storage. The start screen simply comes back
-    // next time, which is a smaller problem than a page that will not load.
   }
 }
 

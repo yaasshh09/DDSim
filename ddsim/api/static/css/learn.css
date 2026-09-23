@@ -1,9 +1,3 @@
-/* The two teaching surfaces: the explanation drawer and the lesson panel.
-
-   Both hold prose rather than numbers, so both switch to Archivo at a size
-   and a measure meant for reading. Everything else on the page is a readout;
-   these two are the only places a sentence is the content. */
-
 #drawer {
   position: fixed;
   top: 0;
@@ -34,7 +28,6 @@
   color: var(--ink);
 }
 
-/* The knob's own signature: type, default, and what it does. */
 #drawer-knob {
   margin: 0 0 14px;
   font: 500 11px var(--sans);
@@ -81,8 +74,6 @@
   color: var(--ink-3);
 }
 
-/* An equation wider than the drawer scrolls sideways rather than being cut
-   off at the edge, which is where the Bernoulli pair ended up. */
 #drawer .katex-display,
 #lesson-panel .katex-display {
   overflow-x: auto;
@@ -99,8 +90,6 @@
   font: 500 11px var(--sans);
   color: var(--dim);
 }
-
-/* ------------------------------------------------------------ lesson mode */
 
 #lesson-panel {
   font: 500 13.5px/1.6 var(--sans);
@@ -127,10 +116,6 @@
   gap: 9px;
 }
 
-/* lessons.js gives each step a strong, an optional button and a div, in that
-   order. The marker is positioned out of the flow rather than given a grid
-   column, because a two column grid auto-placed that third child back into
-   the 20 px marker column and wrapped the whole step one word per line. */
 #lesson-steps li {
   position: relative;
   display: flex;
@@ -143,8 +128,6 @@
   counter-increment: step;
 }
 
-/* The step number is a token the eye can count down, so it is drawn rather
-   than left to the list marker the panel turned off. */
 #lesson-steps li::before {
   content: counter(step);
   position: absolute;
@@ -161,8 +144,6 @@
   color: var(--dim);
 }
 
-/* The button reads as the thing to do after the step has been explained, so
-   it follows the text even though the markup puts it before. */
 #lesson-steps li > strong {
   order: 0;
   font: 600 13px var(--sans);
@@ -177,8 +158,6 @@
   order: 2;
 }
 
-/* A step that can be set up is the one to do next, and the button is what
-   says so, so the ring follows the button. */
 #lesson-steps li:has(> button)::before {
   border-color: var(--signal);
   color: var(--signal);
@@ -223,7 +202,6 @@
   margin-bottom: 7px;
 }
 
-/* Which test stands behind the numbers the lesson just claimed. */
 #lesson-claims {
   margin: 12px 0 0;
   padding-left: 9px;

@@ -34,9 +34,6 @@ MICRON = 1e-4
 """One micron [cm]."""
 
 
-# ------------------------------------------------------------------- uniform
-
-
 def test_uniform_is_constant_everywhere() -> None:
     profile = Uniform(1e16)
     x = np.linspace(0.0, MICRON, 11)
@@ -49,9 +46,6 @@ def test_uniform_accepts_a_scalar_position() -> None:
 
 def test_negative_uniform_represents_acceptors() -> None:
     assert Uniform(-1e16)(0.0) == -1e16  # [cm^-3]
-
-
-# ---------------------------------------------------------------------- step
 
 
 def test_step_takes_the_left_value_before_the_position() -> None:
@@ -82,9 +76,6 @@ def test_step_changes_sign_across_the_junction() -> None:
     assert np.any(values > 0.0)
 
 
-# ------------------------------------------------------------------ gaussian
-
-
 def test_gaussian_peaks_at_its_centre() -> None:
     profile = Gaussian(peak=1e18, centre=0.3 * MICRON, sigma=0.05 * MICRON)
     assert profile(0.3 * MICRON) == pytest.approx(1e18, rel=1e-15)  # [cm^-3]
@@ -107,9 +98,6 @@ def test_gaussian_falls_by_one_e_at_one_sigma() -> None:
 def test_gaussian_rejects_non_positive_sigma() -> None:
     with pytest.raises(ValueError, match="sigma"):
         Gaussian(peak=1e18, centre=0.0, sigma=0.0)
-
-
-# ---------------------------------------------------------------------- erfc
 
 
 def test_erfc_matches_the_analytic_form() -> None:
@@ -135,9 +123,6 @@ def test_erfc_decays_monotonically(  # noqa: D103
 def test_erfc_rejects_non_positive_length() -> None:
     with pytest.raises(ValueError, match="length"):
         Erfc(peak=1e19, position=0.0, length=0.0)
-
-
-# --------------------------------------------------------------- composition
 
 
 def test_profiles_compose_by_addition() -> None:
@@ -183,9 +168,6 @@ def test_adding_a_non_profile_raises() -> None:
         Uniform(1e16) + 5.0  # type: ignore[operator]
 
 
-# --------------------------------------------------------- mesh independence
-
-
 def test_a_profile_gives_the_same_values_on_any_mesh() -> None:
     """The reason profiles are callables and not arrays.
 
@@ -203,9 +185,6 @@ def test_a_profile_gives_the_same_values_on_any_mesh() -> None:
         assert profile(position) == pytest.approx(
             float(profile(np.array([position]))[0]), rel=1e-15
         )
-
-
-# --------------------------------------------------------------- pn junction
 
 
 def test_abrupt_junction_is_p_type_on_the_left() -> None:
@@ -233,19 +212,6 @@ def test_abrupt_junction_rejects_negative_concentrations() -> None:
 def test_abrupt_junction_rejects_a_negative_donor_concentration() -> None:
     with pytest.raises(ValueError, match="Nd"):
         abrupt_junction(Na=1e16, Nd=-1e16, position=0.5 * MICRON)
-
-
-# -------------------------------------------------------- two dimensions
-#
-# Through Phase 4 a profile saw one array of positions and that array was x,
-# because nothing built so far varied with depth: a MOS substrate is uniform
-# and a diode varies along its length. A MOSFET source is not like that. It is
-# an implant, Gaussian in depth and bounded laterally, and it is the first
-# profile in this project that genuinely needs both coordinates.
-#
-# So a profile is now asked for a value at a Coordinates, which carries x and,
-# when the mesh has one, y. A bare array is still a position and still means x,
-# which is why every test above this line is untouched.
 
 
 def test_a_bare_position_is_still_the_x_axis() -> None:
@@ -292,9 +258,6 @@ def test_coordinates_refuse_an_axis_that_is_not_x_or_y() -> None:
         at.axis("z")  # type: ignore[arg-type]
 
 
-# --------------------------------------------------------------------- along
-
-
 def test_along_y_reads_the_depth_coordinate() -> None:
     """The whole point of the wrapper: a 1D shape evaluated down the depth."""
     depth = np.linspace(0.0, MICRON, 7)
@@ -325,9 +288,6 @@ def test_along_refuses_an_axis_it_does_not_have() -> None:
 
     with pytest.raises(ValueError, match="x or y"):
         Along(Uniform(1e16), "z")(at)  # type: ignore[arg-type]
-
-
-# ------------------------------------------------------------------- product
 
 
 def test_a_product_is_separable() -> None:
@@ -383,9 +343,6 @@ def test_multiplying_by_a_number_scales_the_profile() -> None:
 def test_multiplying_by_something_that_is_neither_raises() -> None:
     with pytest.raises(TypeError, match="DopingProfile or a number"):
         Uniform(1e16) * "half"  # type: ignore[operator]
-
-
-# ------------------------------------------------------------------ mirrored
 
 
 def test_mirroring_reflects_about_a_position() -> None:
@@ -446,9 +403,6 @@ def test_mirroring_a_bare_position_reflects_it() -> None:
     )
 
 
-# -------------------------------------------------------------------- layers
-
-
 def test_layers_takes_each_region_value_inside_it() -> None:
     profile = Layers(boundaries=(MICRON, 2.0 * MICRON), values=(-1e18, 1e14, 1e18))
     x = np.array([0.5, 1.5, 2.5]) * MICRON
@@ -482,11 +436,6 @@ def test_layers_needs_increasing_boundaries() -> None:
         Layers(boundaries=(2.0 * MICRON, MICRON), values=(1.0, 2.0, 3.0))
 
 
-# -------------------------------------------------------------------- window
-
-# One axis of a drawn implant's rectangle. What matters most is the erfc edge:
-# drawn with its outer edge on the device boundary it has to be the nmos
-# source's lateral factor exactly, or a drawn MOSFET is a different device.
 ACROSS = np.linspace(-0.5 * MICRON, 1.5 * MICRON, 401)
 
 

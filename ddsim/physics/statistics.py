@@ -32,9 +32,6 @@ from ddsim.core import constants as C
 Scalar = float | npt.NDArray[np.float64]
 
 
-# ------------------------------------------------------------ Boltzmann, scaled
-
-
 def n_boltzmann_scaled(psi: Scalar, phi_n: Scalar = 0.0) -> Scalar:
     """Electron density [1], in units of C_0 = n_i.
 
@@ -61,9 +58,6 @@ def dp_dpsi_scaled(psi: Scalar, phi_p: Scalar = 0.0) -> Scalar:
     return -p_boltzmann_scaled(psi, phi_p)
 
 
-# ---------------------------------------------------------- Boltzmann, physical
-
-
 def n_boltzmann(psi: Scalar, phi_n: Scalar, n_i: float, V_T: float) -> Scalar:
     """Electron density [cm^-3] from potentials in volts.
 
@@ -79,9 +73,6 @@ def n_boltzmann(psi: Scalar, phi_n: Scalar, n_i: float, V_T: float) -> Scalar:
 def p_boltzmann(psi: Scalar, phi_p: Scalar, n_i: float, V_T: float) -> Scalar:
     """Hole density [cm^-3] from potentials in volts."""
     return np.asarray(n_i * np.exp((np.asarray(phi_p) - np.asarray(psi)) / V_T))
-
-
-# ------------------------------------------------------- equilibrium from doping
 
 
 def psi_equilibrium_scaled(net_doping: Scalar) -> Scalar:
@@ -130,12 +121,9 @@ def equilibrium_densities_scaled(
     donors = N >= 0.0
     acceptors = ~donors
 
-    # Majority carrier first, from the quadratic formula. Adding two positive
-    # numbers, so no cancellation.
     n[donors] = 0.5 * (N[donors] + root[donors])
     p[acceptors] = 0.5 * (root[acceptors] - N[acceptors])
 
-    # Minority carrier from mass action. Exact rather than merely close.
     p[donors] = 1.0 / n[donors]
     n[acceptors] = 1.0 / p[acceptors]
 
@@ -510,8 +498,6 @@ class Degeneracy:
         """Silicon at temperature T [K], with both densities scaled by C_0."""
         return cls(Nc=C.Nc(T) / C_0, Nv=C.Nv(T) / C_0)
 
-    # ------------------------------------------------ the effective potential
-
     def _u(self, density: Scalar, states: float) -> npt.NDArray[np.float64]:
         """n/Nc, capped at the last density the series is validated to [1].
 
@@ -565,8 +551,6 @@ class Degeneracy:
     def d_hole_potential_dp(self, p: Scalar) -> npt.NDArray[np.float64]:
         """d(psi_eff_p)/dp [1]. Positive, and zero where the cap is active."""
         return np.asarray(self._slope(self._u(p, self.Nv)) / self.Nv)
-
-    # ----------------------------------------------------------- the inverse
 
     def _density(self, exponent: Scalar, states: float) -> npt.NDArray[np.float64]:
         """The density solving x = exp(exponent) * gamma(x/states) [1].
@@ -622,8 +606,6 @@ class Degeneracy:
         """-dp/dpsi at fixed phi_p [1], the hole mirror. Returned positive."""
         u = self._u(p, self.Nv)
         return np.asarray(np.asarray(p) / (1.0 + u * self._slope(u)))
-
-    # ---------------------------------------------------------- the contacts
 
     def equilibrium_densities(
         self, net_doping: Scalar

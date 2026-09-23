@@ -64,8 +64,6 @@ def solve_ratio(side_length: float, h_min: float, n_intervals: int) -> float | N
     if abs(uniform_total - side_length) <= DEGENERATE_TOLERANCE * side_length:
         return 1.0
 
-    # Bracket first. The sum grows monotonically with r, so doubling the upper
-    # bound until it overshoots is enough.
     low, high = 1.0, 2.0
     while geometric_sum(h_min, high, n_intervals) < side_length:
         high *= 2.0

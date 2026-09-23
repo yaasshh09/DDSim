@@ -61,9 +61,6 @@ meaningful.
 """
 
 
-# ------------------------------------------------------------------ the mirror
-
-
 @pytest.mark.parametrize(
     ("name", "mirror", "actual"),
     [
@@ -88,9 +85,6 @@ def test_mos_constants_mirror_ddsim(name: str, mirror: float, actual: float) -> 
         "golden data was solved with the generator's value, so it is stale. "
         "Regenerate it, do not edit the mirror."
     )
-
-
-# ------------------------------------------------------------- the golden data
 
 
 def golden_path(benchmark: P.MosBenchmark) -> Path:
@@ -166,8 +160,6 @@ def test_golden_header_matches_the_benchmark(benchmark: P.MosBenchmark) -> None:
     )
 
 
-# ------------------------------------------------------------- the comparison
-
 _SOLVED: dict[str, CVCurve] = {}
 """One ddsim sweep per benchmark, reused across the tests that need it."""
 
@@ -221,9 +213,6 @@ def compare(
     worst = 0.0
     for v, want, got in zip(voltage, expected, actual, strict=True):
         if abs(want) < floor:
-            # Flatband. Both codes are reporting a difference of large
-            # numbers, so the only meaningful question is whether ddsim is
-            # also negligible.
             if abs(got) >= floor:
                 failures.append(
                     f"{v:+.3f} V: devsim gives {want:.3e}, below the "
@@ -291,8 +280,6 @@ def test_ddsim_matches_devsim_capacitance(benchmark: P.MosBenchmark) -> None:
     )
     assert worst <= benchmark.tolerance
 
-
-# ------------------------------------------------- discretization, not physics
 
 CONVERGENCE_LADDER: tuple[tuple[int, float], ...] = (
     (121, 5e-8),

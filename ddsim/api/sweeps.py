@@ -113,9 +113,6 @@ def build_models(
     list here, which is the only way the two cannot disagree.
     """
     offered = {p.name: p for p in model_parameters()}
-    # The values were checked against for_device's own declared types, which
-    # is what makes handing them straight back as keyword arguments safe. The
-    # annotation says that rather than restating the signature here.
     accepted: dict[str, Any] = dict(
         checked_arguments("models", offered, flags or {})
     )
@@ -153,9 +150,6 @@ def check_request(
     """
     sweep = _sweep(kind)
     offered = {p.name: p for p in sweep_parameters(kind)}
-    # Any, because an enumerated name is about to become its member and
-    # because the values leave here as keyword arguments to a function whose
-    # own signature is what checked them. See checked_arguments.
     accepted: dict[str, Any] = dict(checked_arguments(kind, offered, settings or {}))
 
     for name, enum in enum_arguments(sweep).items():
@@ -168,9 +162,6 @@ def check_request(
             f"{sorted(models)}. Every point is an equilibrium Poisson solve."
         )
     if models and kind in _TRANSPORT:
-        # Built once here and thrown away, so that a flag this device cannot
-        # take, surface mobility on a 1D mesh, is refused with the solver's
-        # own reason before a job exists rather than inside it.
         build_models(device, models)
     if measure_at is not None and kind != "transfer":
         raise ValueError(
@@ -178,17 +169,9 @@ def check_request(
             f"is not a choice it has"
         )
 
-    # A transfer curve applies every contact in one pass, and a C-V point is a
-    # Poisson solve with the gate as a Dirichlet row, so both can name a gate.
-    # The Gummel path in iv_sweep pins a density at every terminal and cannot,
-    # which is why that one asks for the ohmic contacts. Asking for them on a
-    # gated device is itself the refusal, and it is the same one iv_sweep
-    # gives, so a diode sweep of a MOSFET is answered here rather than later.
     try:
         terminals = device.ohmic_contacts if kind == "iv" else device.contacts
     except TypeError as gated:
-        # The device says why a gate cannot be pinned. What the page can do
-        # about it is the api's to say: the transfer sweep takes any contact.
         raise TypeError(
             f"{gated} An iv sweep cannot hold a gate anywhere on the device. "
             "To sweep a drain or a body with the gate held, use a transfer "

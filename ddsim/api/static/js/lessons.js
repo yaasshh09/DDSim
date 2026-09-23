@@ -1,9 +1,3 @@
-// The guided experiments, phases/PHASE-7.md Stage 3. Shows what /api/lessons
-// sends and puts its requests on the form. Every request arrives whole from
-// the server, steps included, so nothing here merges, checks or computes one.
-// Leaving a lesson hides the text and leaves the form alone: the device the
-// student was given is theirs to keep poking at.
-
 async function lessons() {
   const listed = await (await fetch("/api/lessons")).json();
   for (const entry of listed) {

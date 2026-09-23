@@ -1,15 +1,9 @@
 "use strict";
 
-// The four trace colours, matching the .swatch rules in css/panels.css. The
-// names say which line they draw and not which hue they are, because the hue
-// belongs to the design system and the meaning does not.
 const BLUE = "#5fd4d6", PURPLE = "#a992ef", GREEN = "#e3a74f", RED = "#ea7a68";
 
 const el = (id) => document.getElementById(id);
 
-// How long the page waits after a slider stops moving before it submits.
-// Shorter than a 1D solve so a drag feels live, and long enough that one
-// sweep of the hand is one job rather than five.
 const LIVE_DELAY = 200;
 
 const state = {
@@ -31,14 +25,9 @@ const state = {
   turn: 0,        // which knob move is the newest, so an older one stands down
 };
 
-// ---------------------------------------------------------------- plotting
-
 function fit(canvas) {
   const ratio = window.devicePixelRatio || 1;
   const width = canvas.clientWidth || 600;
-  // The height the page declares, read once. Setting canvas.height below
-  // rewrites the attribute, so on a screen whose ratio is above 1 reading it
-  // again would grow the canvas by that ratio on every redraw.
   if (!canvas.dataset.height) canvas.dataset.height = canvas.getAttribute("height");
   const height = Number(canvas.dataset.height);
   canvas.width = Math.round(width * ratio);
@@ -53,7 +42,6 @@ function ink(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-// A decade is a position on a screen. Nothing physical is computed from it.
 const decades = (v) => Math.log10(v);
 const undecades = (v) => Math.pow(10, v);
 
@@ -66,7 +54,6 @@ function format(v) {
 
 function axes(pen, box, xs, ys, options) {
   const logY = Boolean(options && options.logY);
-  // Two frames sharing one box leave room on the right for the second one.
   const twin = Boolean(options && options.twin);
   const right = Boolean(options && options.right);
   const pad = { left: 62, right: twin ? 62 : 12, top: 10, bottom: 22 };
@@ -159,23 +146,16 @@ function line(pen, frame, xs, ys, colour, options) {
   }
 }
 
-// ------------------------------------------------------------- three plots
-
 function drawResidual() {
   const box = fit(el("residual"));
   if (!state.residual.length) return;
   const logY = el("residual-log").checked;
   const xs = state.residual.map((_, i) => i);
-  // The axis spans every family, not just the largest, or the smaller two
-  // would fall off the bottom of a log plot.
   const ys = state.residual.flatMap((r) =>
     r.families ? Object.values(r.families).concat([r.value]) : [r.value]
   );
   const frame = axes(box.pen, box, xs, ys, { logY: logY });
 
-  // A Newton iteration that came with its split draws one line per equation
-  // family, so a stall shows which equation is stuck. One without draws its
-  // single residual, and a Gummel cycle its update.
   const split = (family) => (r) => (r.families ? r.families[family] : null);
   const series = [
     [BLUE, (r) => (r.colour === BLUE ? (r.families ? r.families.psi : r.value) : null)],
@@ -196,16 +176,10 @@ function drawResidual() {
   }
 }
 
-// Every run that finished is still on the plot, faded, until it is cleared.
-// An overlay is the points that run was drawn with, held as they were: no
-// overlay is ever solved again, so the earlier curve cannot drift when the
-// knobs move under it.
 function drawCurve() {
   const box = fit(el("curve"));
   if (!state.points.length && !state.runs.length) return;
 
-  // One frame over every run on the plot, or the older ones would be drawn
-  // against an axis that does not reach them.
   const xs = [], ys = [];
   for (const run of state.runs.concat([{ points: state.points }])) {
     for (const point of run.points) {
@@ -235,9 +209,6 @@ function drawCurve() {
   showRuns();
 }
 
-// What one request asks for, flattened to names and values. Used only to say
-// how two runs differ, which is a comparison of the requests and not of any
-// physics: the page is reading back what it sent.
 function settings(body) {
   const flat = {
     device: body.device.kind,
@@ -248,8 +219,6 @@ function settings(body) {
   const sources = [body.device.parameters, body.sweep.settings, body.sweep.models];
   for (const source of sources) {
     for (const [name, value] of Object.entries(source || {})) {
-      // A stack's regions, spelled out rather than printed as objects, and a
-      // drawing's parts the same way, one record's values after another.
       if (name === "regions") {
         flat[name] = value
           .map((r) => r.dopant + " " + show(r.length) + " cm " + show(r.concentration))
@@ -271,9 +240,6 @@ function show(value) {
     : String(value);
 }
 
-// This run described by what it does not share with another one. An overlay
-// is labelled against the run that came after it, so the label says what made
-// this curve the one it is.
 function differences(mine, other) {
   if (!other) return "the run on screen";
   const a = settings(mine), b = settings(other);
@@ -282,8 +248,6 @@ function differences(mine, other) {
   return changed.map((k) => k + " " + show(a[k])).join(", ");
 }
 
-// The run on screen becomes an overlay, and every overlay is relabelled
-// against the run that follows it, the newest against `next`.
 function keep(next) {
   if (state.curve && state.points.length && state.request) {
     state.runs.push({
@@ -316,7 +280,6 @@ function drawProfile() {
     if (el("streamlines").checked && fields.arrays.Jx) {
       drawStreamlines(box, fields, traceStreamlines(fields, 12, 6));
     }
-    // A cutline already drawn follows the point slider to the new state.
     if (state.cutline) drawCutline(fields, state.cutline.from, state.cutline.to);
     return;
   }
@@ -332,7 +295,6 @@ function drawProfile() {
   });
   line(box.pen, potential, xs, fields.arrays.psi, BLUE);
 
-  // The densities span decades, so they share a log frame over the same x.
   const both = Array.from(fields.arrays.n).concat(Array.from(fields.arrays.p));
   const carriers = axes(box.pen, box, xs, both, {
     logY: true, twin: true, right: true, ink: GREEN,
@@ -341,11 +303,6 @@ function drawProfile() {
   line(box.pen, carriers, xs, fields.arrays.p, RED);
 }
 
-// The field image's colour ramp: the page ground, the mid teal, then the
-// signal cyan. Three stops interpolated straight in sRGB, low to high, which
-// is a sequential ramp because the value it paints has already been shifted
-// to run from 0 to 1 and no point on it means more than "further along".
-// A rainbow would invent a boundary wherever its hue turns.
 const RAMP = [
   [19, 34, 39],
   [43, 111, 116],
@@ -381,8 +338,6 @@ function drawImage(box, fields) {
     for (let i = 0; i < nx; i++) {
       const t = clamp((values[j * nx + i] - lo) / (hi - lo));
       const colour = ramp(t);
-      // y[0] is the bottom of the substrate and a canvas counts rows from
-      // the top, so row j is painted at ny - 1 - j and the gate is up.
       const at = 4 * ((ny - 1 - j) * nx + i);
       image.data[at] = colour[0];
       image.data[at + 1] = colour[1];
@@ -395,16 +350,9 @@ function drawImage(box, fields) {
   sheet.height = ny;
   sheet.getContext("2d").putImageData(image, 0, 0);
   box.pen.imageSmoothingEnabled = true;
-  // Pixel k of the sheet is centred on (k + 0.5), so cropping half a pixel
-  // off every side puts node i at i / (nx - 1) of the width, where the
-  // cutline and the streamlines put it.
   box.pen.drawImage(sheet, 0.5, 0.5, nx - 1, ny - 1, 0, 0, box.width, box.height);
 }
 
-// ----------------------------------------------------------------- the form
-
-// What a knob shows first: the value a lesson handed it, or the function's
-// own default. The default itself is left alone, because the drawer quotes it.
 function start(parameter) {
   return "value" in parameter ? parameter.value : parameter.default;
 }
@@ -415,10 +363,6 @@ function withValues(parameters, values) {
   );
 }
 
-// Put a whole request on the form, as a lesson hands it over. Every knob is
-// rebuilt from the schema, so a slider lands where its box says and a knob the
-// request leaves out goes back to the function's own default. Nothing solves:
-// the lesson says when to press solve.
 function setUp(body, meshNote) {
   const sweep = body.sweep;
   putDevice(body.device);
@@ -433,8 +377,6 @@ function setUp(body, meshNote) {
   if (meshNote) el("mesh-note").textContent = meshNote;
 }
 
-// Put the device half of a request on the form: a lesson's, or one loaded
-// from a file. A stack's regions become rows; left out, the defaults stay.
 function putDevice(device) {
   const parameters = device.parameters || {};
   el("device-kind").value = device.kind;
@@ -447,13 +389,8 @@ function putDevice(device) {
 function knob(parameter) {
   const label = document.createElement("label");
   const name = document.createElement("span");
-  // Words first, the argument name after it. The schema carries both, so the
-  // page never invents either one. The symbol stays because it is what the
-  // docs, the saved files and the run labels all say.
   name.textContent = parameter.label;
   name.appendChild(explainButton(() => explain(parameter.topic, parameter)));
-  // The symbol goes on after the button, because it is a block and anything
-  // appended after it would be pushed onto a third line of its own.
   const symbol = document.createElement("i");
   symbol.className = "symbol";
   symbol.textContent = parameter.name + (parameter.unit ? " " + parameter.unit : "");
@@ -477,8 +414,6 @@ function knob(parameter) {
   } else {
     input = document.createElement("input");
     input.type = "text";
-    // format() is what the slider writes, so a box that starts at 1e18 does
-    // not reshape itself into 1.0e+18 the first time it is nudged.
     const first = start(parameter);
     input.value =
       parameter.type === "float" && typeof first === "number"
@@ -495,8 +430,6 @@ function knob(parameter) {
   if (drag) control.appendChild(drag);
   label.appendChild(control);
 
-  // A number typed into the box is held to the same ends as the slider, and
-  // anything that is not a number goes back to the last value that was.
   if (parameter.type === "int" || parameter.type === "float") {
     input.dataset.good = input.value;
     input.addEventListener("change", () => {
@@ -513,10 +446,6 @@ function knob(parameter) {
   return label;
 }
 
-// Where a value sits on its slider, and back. A log knob's slider runs in
-// decades. Positions on a screen, like the plot axes. A p-type body is a
-// negative doping, so a log range below zero runs in decades of its size,
-// mirrored to keep more negative on the left.
 const position = (parameter, value) =>
   parameter.axis !== "log" ? value
     : parameter.low < 0 ? -decades(-value) : decades(value);
@@ -530,9 +459,6 @@ const within = (parameter, value) =>
 const written = (parameter, value) =>
   parameter.type === "int" ? String(Math.round(value)) : format(value);
 
-// A knob with a range declared in its own docstring gets a slider over that
-// range. A knob without one gets the box alone: the page has no business
-// inventing ends for a span it was told nothing about.
 function slider(parameter, box) {
   if (parameter.low === null || parameter.high === null) return null;
   const log = parameter.axis === "log";
@@ -542,8 +468,6 @@ function slider(parameter, box) {
   drag.dataset.slider = parameter.name;
   drag.min = String(position(parameter, parameter.low));
   drag.max = String(position(parameter, parameter.high));
-  // A whole number knob steps by one, everything else by a two hundredth of
-  // its travel, which is finer than the slider has pixels.
   drag.step = String(
     !log && parameter.type === "int"
       ? 1
@@ -558,9 +482,6 @@ function slider(parameter, box) {
   return drag;
 }
 
-// Whether the device on the form builds, asked of the server without solving
-// it. Empty when it does, the server's own reason when it does not, and
-// empty when the form cannot even be read, which the solve will then say.
 async function refusal() {
   let body;
   try {
@@ -578,12 +499,6 @@ async function refusal() {
   return String(failure.detail || "this device does not build");
 }
 
-// A device knob that moved into a device that cannot be built is walked back
-// towards its last good value until it builds, so it stops at the edge of what
-// the other knobs allow rather than landing on a refusal. The walk halves the
-// gap in slider positions, which is a search over a screen and not over any
-// physics: the server alone says what builds. Every value tried is the text
-// the box will show, so the one it stops on is exactly one that built.
 async function holdBuildable(parameter, box, drag) {
   const why = await refusal();
   if (!why) return "";
@@ -613,10 +528,6 @@ async function holdBuildable(parameter, box, drag) {
   );
 }
 
-// A knob moved, by its slider or its box. The page waits for the hand to
-// stop, holds a device knob to a device that builds, then replaces the solve
-// in flight rather than adding to it, so a drag across a knob leaves one job
-// running however many positions it passed through.
 function settle(parameter, box, drag) {
   clearTimeout(state.pending);
   state.pending = setTimeout(async () => {
@@ -624,7 +535,6 @@ function settle(parameter, box, drag) {
     const turn = ++state.turn;
     if (box.closest("#device-knobs")) {
       const note = await holdBuildable(parameter, box, drag);
-      // A newer move owns the form now, and it will settle itself.
       if (turn !== state.turn) return;
       el("knob-note").textContent = note;
     }
@@ -662,10 +572,6 @@ function defaultContact() {
   return contacts[el("device-kind").value] || "gate";
 }
 
-// The terminals on offer to sweep and to measure at, as lists rather than
-// boxes, so nobody has to guess a name. A drawing names its own electrodes,
-// so its list is read from the rows on the form; every other device's comes
-// from the schema. A choice already made stays chosen while it is listed.
 function offerContacts() {
   let names = state.schema.contacts[el("device-kind").value] || [];
   try {
@@ -694,14 +600,10 @@ function onDeviceKind() {
   offerContacts();
   el("contact").value = defaultContact();
 
-  // A 1D device solves while you drag it. A 2D one is seconds to minutes, so
-  // it keeps the solve button and is offered a coarse mesh instead, and the
-  // page says which it is rather than leaving a student to find out.
   el("mesh-choice").hidden = !state.schema.presets[kind];
   el("mesh-note").textContent = "";
   el("knob-note").textContent = "";
   el("voltage-note").textContent = "";
-  // The band view is a 1D profile. On a 2D device the cutline draws bands.
   el("bands").parentElement.style.display = live() ? "inline-flex" : "none";
   el("live-note").textContent = live()
     ? "moving a slider re-solves this device."
@@ -712,8 +614,6 @@ function live() {
   return state.schema.dimensions[el("device-kind").value] === 1;
 }
 
-// The coarse mesh, or back to the one the constructor declares. Only the
-// knobs the preset names are touched, so a doping a student set stays set.
 function useMesh(coarse) {
   const kind = el("device-kind").value;
   const preset = state.schema.presets[kind];
@@ -742,8 +642,6 @@ function onSweepKind() {
   state.valueName = kind === "cv" ? "capacitance" : "current";
 }
 
-// -------------------------------------------------------------- the solving
-
 async function schema() {
   state.schema = await (await fetch("/api/schema")).json();
 
@@ -763,8 +661,6 @@ async function schema() {
   el("node-budget").textContent = String(state.schema.node_budget);
   onDeviceKind();
   onSweepKind();
-  // Before "ready", so nothing can act on the page while the start screen is
-  // still being built. It hides itself once it has been dismissed once.
   welcome();
   el("state").textContent = "ready";
   el("drawer-close").addEventListener("click", () => el("drawer").classList.remove("open"));
@@ -779,8 +675,6 @@ function voltages() {
   if (values.some((v) => !isFinite(v))) {
     throw new Error("the voltage list has something in it that is not a number");
   }
-  // A sweep over a contact whose bias knob declares a range is held to it,
-  // the same ends the knob's own slider has, and the list says so.
   const contact = el("contact").value.trim();
   const bias = state.schema.devices[el("device-kind").value]
     .find((p) => p.name === contact + "_voltage" && p.low !== null);
@@ -810,7 +704,6 @@ function request() {
   return { device: deviceRequest(), sweep: sweep };
 }
 
-// The device half of a request, which is also what a saved device file holds.
 function deviceRequest() {
   const parameters = collect(el("device-knobs"));
   const regions = collectRegions();
@@ -830,9 +723,6 @@ function clear() {
   state.cutline = null;
   el("cutline-panel").hidden = true;
   el("message").textContent = "";
-  // An empty plot says what will appear in it rather than that it is empty.
-  // "no points yet" is true and tells somebody who has just arrived nothing
-  // about what they are waiting for.
   el("curve-note").textContent = "a point lands here as each voltage is solved";
   el("residual-note").textContent = "fills in while a solve is running";
   el("profile-note").textContent = "the inside of the device, once it is solved";
@@ -851,7 +741,6 @@ async function solve() {
     el("message").textContent = String(problem.message || problem);
     return;
   }
-  // Before anything is cleared: whatever finished is now an overlay.
   keep(body);
   state.request = body;
   clear();
@@ -892,8 +781,6 @@ function listen() {
   };
 }
 
-// The equation family carrying the largest entry of a split. A null is a
-// number that was not finite, which is the largest there is.
 function largest(families) {
   let worst = "", size = -Infinity;
   for (const [family, value] of Object.entries(families)) {
@@ -903,11 +790,6 @@ function largest(families) {
   return worst;
 }
 
-// Which equation a failed Newton attempt was stuck in. Both the residual and
-// the update are named, because an attempt fails when either misses its
-// tolerance and the page does not know the tolerances. Measured on a stalled
-// MOSFET: every residual sat at 1e-14 and the n update at 1.8e-10, so naming
-// the residual alone would have pointed at the wrong test.
 function stalled(split) {
   if (!split || !split.residual) return "";
   let named = "largest residual in " + largest(split.residual);
@@ -971,9 +853,6 @@ async function finish(body) {
   }
   if (body.status !== "done") return;
 
-  // A solve that worked has something to show, so the stage turns to it. A
-  // refusal does not: the message names the part that was wrong, and the
-  // editor has to stay open for that to be worth reading.
   setMode("results");
 
   const response = await fetch("/api/jobs/" + state.job + "/result");
@@ -1033,9 +912,6 @@ async function cancel() {
   el("state").textContent = body.cancelled ? "cancelling" : "already finished";
 }
 
-// Put down the job on screen without saying anything about it. The socket
-// goes first, so the frames of a solve nobody is waiting for any more stop
-// reaching the plots, and the cancel lands at that solve's next iteration.
 async function stop() {
   const socket = state.socket;
   if (socket) {
@@ -1049,9 +925,6 @@ async function stop() {
   }
 }
 
-// A student picking a device, not a file being loaded: loading keeps the sweep
-// the file names. An iv sweep takes only ohmic contacts and a 2D device starts
-// on its gate, so the diode's iv would make the first 2D solve a refusal.
 function chooseDevice() {
   onDeviceKind();
   const sweep = el("sweep-kind").value;
@@ -1065,10 +938,8 @@ function chooseDevice() {
 
 el("device-kind").addEventListener("change", chooseDevice);
 el("sweep-kind").addEventListener("change", onSweepKind);
-// A drawing's electrodes can be renamed, so its lists are read again on use.
 el("contact").addEventListener("focus", offerContacts);
 el("measure-at").addEventListener("focus", offerContacts);
-// The note says the list was held; it stands until the list is edited again.
 el("voltages").addEventListener("input", () => { el("voltage-note").textContent = ""; });
 el("solve").addEventListener("click", solve);
 el("cancel").addEventListener("click", cancel);

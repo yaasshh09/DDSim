@@ -46,9 +46,6 @@ def as_arrays(matrix: sp.coo_matrix) -> Triplets:
     return matrix.row, matrix.col, matrix.data, matrix.shape
 
 
-# ------------------------------------------------------------------- solving
-
-
 def test_solves_a_small_system() -> None:
     matrix = sp.coo_matrix(np.array([[4.0, 1.0], [1.0, 3.0]]))
     solver = SparseLU()
@@ -95,11 +92,7 @@ def test_duplicate_coo_entries_are_summed() -> None:
     values = np.array([1.0, 3.0, 2.0])
     solver = SparseLU()
     solver.factorize(rows, cols, values, (2, 2))
-    # The matrix is diag(4, 2), not diag(3, 2) or diag(1, 2).
     np.testing.assert_allclose(solver.solve(np.array([8.0, 2.0])), [2.0, 1.0])
-
-
-# ----------------------------------------------------------- pattern tracking
 
 
 def test_first_factorization_reports_a_new_pattern() -> None:
@@ -191,9 +184,6 @@ def test_ordering_is_colamd_not_natural() -> None:
     assert solver.fill_nnz == fill_first
 
 
-# ------------------------------------------------------------------- failures
-
-
 def test_singular_matrix_raises_an_informative_error() -> None:
     rows = np.array([0, 1])
     cols = np.array([0, 1])
@@ -220,9 +210,6 @@ def test_right_hand_side_of_wrong_length_raises() -> None:
     solver.factorize(*as_arrays(tridiagonal(5)))
     with pytest.raises(ValueError, match="length"):
         solver.solve(np.ones(4))
-
-
-# ------------------------------------------------------------ module boundary
 
 
 def test_solve_package_imports_nothing_semiconductor_specific() -> None:
@@ -329,9 +316,6 @@ def test_size_reports_the_factorized_dimension() -> None:
     assert solver.size == 7
 
 
-# ------------------------------------------------- pattern cached conversion
-
-
 def scattered_with_duplicates(n: int) -> tuple:
     """Triplets in no useful order, with the same entry contributed twice.
 
@@ -345,8 +329,6 @@ def scattered_with_duplicates(n: int) -> tuple:
             rows += [i, i + 1]
             cols += [i + 1, i]
             values += [-1.0, -1.0]
-    # The diagonal arrives in two pieces, out of order, as a stencil plus a
-    # source term would.
     for i in range(n):
         rows.append(i)
         cols.append(i)
@@ -381,8 +363,6 @@ def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() -> Non
     np.testing.assert_array_equal(solver._matrix.indices, expected.indices)
     np.testing.assert_array_equal(solver._matrix.data, expected.data)
 
-    # New numbers on the same pattern, which is every Newton step after the
-    # first. This is the path that skips scipy entirely.
     moved = values * 3.0 + 0.5
     solver.factorize(rows, cols, moved, shape)
     assert solver.pattern_unchanged is True
@@ -400,9 +380,6 @@ def test_a_system_with_no_triplets_is_reported_as_singular() -> None:
 
     with pytest.raises(RuntimeError, match="singular"):
         solver.factorize(empty, empty, np.array([]), (3, 3))
-
-
-# ------------------------------------------------- complex, for the AC solve
 
 
 def _complex_system() -> tuple[

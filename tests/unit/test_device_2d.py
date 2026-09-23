@@ -400,14 +400,6 @@ def test_scale_factors_are_shared_between_1d_and_2d() -> None:
     assert device.scale == ScaleFactors.for_silicon(C_0=C.n_i())
 
 
-# ------------------------------------------------------- doping in two axes
-#
-# A device evaluates its profile at the coordinates of its nodes, and on a grid
-# that is two coordinates rather than one. Everything before Phase 5 was handed
-# x alone, so these tests exist to say that giving a profile the second axis did
-# not move the first, and that the second one arrives where it should.
-
-
 def test_a_profile_that_reads_x_alone_gets_exactly_what_it_used_to() -> None:
     """The bit identical check the Phase 5 plan gates this change on.
 
@@ -452,11 +444,6 @@ def test_a_depth_profile_reaches_the_second_axis() -> None:
 
     doping = device.net_doping.data
 
-    # The interface row counts as silicon, because half of its dual cell is,
-    # which is what makes it the row an inversion layer forms on. Said by
-    # index rather than by comparing y against T_SI: the two are the same
-    # number to a rounding error, and which side of it a node line lands on
-    # is not what this test is about.
     interface_row = int(round(T_SI / DY))
     expected = np.where(
         np.arange(mesh.ny) <= interface_row, shape(mesh.y_axis.x), 0.0
@@ -504,15 +491,6 @@ def test_a_depth_profile_on_a_line_is_refused() -> None:
         _ = device.net_doping
 
 
-# ------------------------------------------------- contacts that carry current
-#
-# A gate does not. It sits on an insulator, so no carrier reaches it and no DC
-# current flows through it. Device.ohmic_contacts refuses a device that has one,
-# because the uncoupled blocks it serves genuinely cannot take a gate. Anything
-# that only needs to know which terminals carry current asks a different
-# question and gets an answer instead of a refusal.
-
-
 def test_the_gate_is_not_a_contact_that_carries_current() -> None:
     device = mos_device()
 
@@ -541,4 +519,4 @@ def test_asking_which_contacts_carry_current_never_refuses() -> None:
     with pytest.raises(TypeError):
         _ = device.ohmic_contacts
 
-    assert device.semiconductor_contacts  # no raise
+    assert device.semiconductor_contacts

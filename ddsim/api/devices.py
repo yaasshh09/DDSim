@@ -266,8 +266,6 @@ def device_dimension(kind: str) -> int:
     Cached, because the answer cannot change while the process runs and
     building an nmos to ask is a mesh and a doping profile.
     """
-    # Asked of the mesh rather than by importing its class, since api/ stops at
-    # device/ and does not reach into mesh/. Only a 2D mesh has rows.
     return 2 if hasattr(_builder(kind)().mesh, "ny") else 1
 
 
@@ -318,15 +316,8 @@ def parameters_of(
         )
 
     for name, parameter in inspect.signature(function).parameters.items():
-        # An argument with no default is part of the request rather than a
-        # knob on a form: there is nothing to render beside it and nothing to
-        # fall back to if it is left out. The caller passes those itself.
         if parameter.default is inspect.Parameter.empty:
             continue
-        # An enumerated argument is a closed set of names, and both the names
-        # and the default are on the enum itself. Crossing the wire as the
-        # string the enum already uses as its value means the browser never
-        # has to know the type exists.
         if isinstance(parameter.default, Enum):
             offered.append(
                 described(
@@ -494,8 +485,6 @@ def records_from_json(name: str, sent: Any) -> tuple[Any, ...]:
             )
         for field, annotation in expected.items():
             value = entry[field]
-            # bool is an int in Python, so it is refused by exact type, as
-            # _checked does for a knob.
             fits = (
                 type(value) is str
                 if annotation == "str"
@@ -591,8 +580,6 @@ def _checked(kind: str, parameter: Parameter, value: Any) -> float | int | bool 
                 f"{kind}.{parameter.name} is a name, got {type(value).__name__}"
             )
         return value
-    # float. A whole number arrives from JSON as an int and is perfectly good
-    # here, so it is widened rather than refused.
     if type(value) is int:
         return float(value)
     if type(value) is not float:

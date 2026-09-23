@@ -220,9 +220,6 @@ def test_waiting_for_a_job_gives_up_rather_than_hanging() -> None:
         jobs.wait(job.id, timeout=0.05)
 
 
-# --------------------------------------------------------------- the result
-
-
 def test_a_finished_job_keeps_what_the_work_returned() -> None:
     """A sweep's curve is the one thing a reader cannot afford to lose, and
     the frame queue is allowed to drop its oldest frame. So the return value

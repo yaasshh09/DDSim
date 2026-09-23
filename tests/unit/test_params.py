@@ -51,9 +51,6 @@ def exponential(voltage: np.ndarray, I_s: float, n: float) -> np.ndarray:
     return I_s * np.exp(voltage / (n * VT))
 
 
-# ------------------------------------------------------------ ideality factor
-
-
 @pytest.mark.parametrize("n", [1.0, 1.5, 2.0])
 def test_ideality_is_recovered_from_an_ideal_curve(n: float) -> None:
     """An exact Shockley curve must give back the n it was built with."""
@@ -103,9 +100,6 @@ def test_ideality_rejects_a_repeated_voltage() -> None:
     """Two points at the same bias give a zero denominator, not an answer."""
     with pytest.raises(ValueError, match="increasing"):
         ideality_factor(np.array([0.2, 0.2]), np.array([1e-9, 2e-9]))
-
-
-# --------------------------------------------------------- saturation current
 
 
 @pytest.mark.parametrize(("I_s", "n"), [(1e-12, 1.0), (3.7e-10, 1.0), (1e-9, 2.0)])
@@ -197,13 +191,6 @@ def test_saturation_current_ignores_the_minus_one_term_by_choosing_the_window(
     assert abs(clean - 1e-12) < abs(contaminated - 1e-12)
 
 
-# ------------------------------------------------------------ MOSFET parameters
-#
-# Same discipline as above: every curve here is built from a closed form whose
-# answer is known before the extractor is asked for it. phases/PHASE-5.md grades
-# the phase on these numbers, so an extractor that is itself under suspicion is
-# no use on the day a real device disagrees with DEVSIM.
-
 THERMAL_LIMIT = 1e3 * VT * math.log(10.0)
 """The 300 K subthreshold floor [mV/decade].
 
@@ -270,10 +257,6 @@ def test_the_subthreshold_slope_reports_the_steepest_part() -> None:
     it is the one a broken solve would push below 59.5, and the one to report.
     """
     gate = np.linspace(0.0, 0.6, 61)
-    # Offsets chosen so the steep branch is the smaller one at low bias and
-    # the shallow branch takes over near 0.48 V. Give them the same prefactor
-    # and the steep one is above the shallow one everywhere above zero, so the
-    # minimum is the shallow branch alone and the curve has one slope.
     steep = subthreshold_curve(gate, 1e-14, 65.0)
     shallow = subthreshold_curve(gate, 1e-9, 200.0)
     both = np.minimum(steep, shallow)
@@ -395,9 +378,6 @@ def test_dibl_refuses_two_equal_drain_biases() -> None:
         dibl(0.45, 0.40, 0.05, 0.05)
 
 
-# ------------------------------------------------- the leakage floor
-
-
 def test_a_leakage_floor_forges_a_slope_below_the_thermal_limit() -> None:
     """Why a subthreshold slope is read over a stated window of current.
 
@@ -423,9 +403,6 @@ def test_a_leakage_floor_forges_a_slope_below_the_thermal_limit() -> None:
 
     assert whole_curve < 59.5
     assert windowed == pytest.approx(70.0, rel=1e-2)
-
-
-# ------------------------------------------------- the saturation exponent
 
 
 def power_law_curve(
@@ -496,9 +473,6 @@ def test_the_saturation_exponent_needs_two_points_above_threshold() -> None:
 
     with pytest.raises(ValueError, match="above threshold"):
         saturation_exponent(gate, current, threshold=0.3)
-
-
-# ------------------------------------------------- what the extractors refuse
 
 
 def falling_then_rising(gate: np.ndarray) -> np.ndarray:

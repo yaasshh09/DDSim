@@ -55,9 +55,6 @@ def fails_beyond(limit: float, minimum_step: float):
     return solve
 
 
-# ---------------------------------------------------------------- the happy path
-
-
 def test_reaches_the_target_exactly() -> None:
     """The last step is clipped, so the target is hit and not merely passed.
 
@@ -116,9 +113,6 @@ def test_a_target_equal_to_the_start_does_nothing() -> None:
     assert result.converged
     assert result.solution == 7.0
     assert calls == []
-
-
-# ------------------------------------------------------------- step control
 
 
 def test_the_step_grows_by_the_growth_factor() -> None:
@@ -238,9 +232,6 @@ def test_running_out_of_attempts_is_reported() -> None:
     assert "attempts" in result.message
 
 
-# ------------------------------------------------------------- input checks
-
-
 @pytest.mark.parametrize(
     ("kwargs", "match"),
     [
@@ -280,9 +271,6 @@ def test_event_repr_reports_the_attempt() -> None:
 
     assert "step" in text
     assert "ok" in text or "failed" in text
-
-
-# ------------------------------------------------------------ live reporting
 
 
 def test_every_attempt_is_reported_as_it_is_made() -> None:

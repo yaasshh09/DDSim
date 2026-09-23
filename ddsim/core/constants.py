@@ -19,8 +19,6 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-# ---------------------------------------------------------------- fundamental
-
 q: float = 1.602176634e-19
 """Elementary charge [C]."""
 
@@ -41,9 +39,6 @@ T_ROOM: float = 300.0
 assumption."""
 
 
-# ------------------------------------------------------------ thermal voltage
-
-
 def V_T(T: float = T_ROOM) -> float:
     """Thermal voltage kT/q [V]. 0.0258520 V at 300 K."""
     return k_B * T / q
@@ -57,8 +52,6 @@ def SS_min(T: float = T_ROOM) -> float:
     """
     return V_T(T) * math.log(10.0)
 
-
-# ------------------------------------------------------------------- band gap
 
 _EG_0: float = 1.1696
 """Varshni zero temperature gap for silicon [eV]."""
@@ -79,9 +72,6 @@ def Eg(T: float = T_ROOM) -> float:
     which is this value rounded.
     """
     return _EG_0 - _EG_ALPHA * T * T / (T + _EG_BETA)
-
-
-# ------------------------------------------------- band edge density of states
 
 
 class BandDensityModel(Protocol):
@@ -172,8 +162,6 @@ def Nv(T: float = T_ROOM) -> float:
     return BAND_DENSITY.Nv(T)
 
 
-# --------------------------------------------------------- intrinsic density
-
 N_I_300: float = 1.0e10
 """Silicon intrinsic carrier density at 300 K [cm^-3].
 
@@ -205,8 +193,6 @@ def n_i(T: float = T_ROOM) -> float:
     return float(N_I_300 * (T / T_ROOM) ** 1.5 * math.exp(gap_term))
 
 
-# ---------------------------------------------------------------- permittivity
-
 EPS_R_SI: float = 11.7
 """Relative permittivity of silicon [1]."""
 
@@ -223,10 +209,6 @@ def eps_ox() -> float:
     """Permittivity of silicon dioxide [F/cm]."""
     return EPS_R_OX * eps_0
 
-
-# ------------------------------------------------------------------ transport
-# Constant stubs only. The real mobility models are Phase 2 and live in
-# physics/mobility.py. Do not add doping or field dependence here.
 
 AUGER_C_N: float = 2.8e-31
 """Auger coefficient for the electron channel [cm^6/s].
@@ -301,10 +283,6 @@ def D_p(T: float = T_ROOM) -> float:
     return V_T(T) * mu_p(T)
 
 
-# ------------------------------------------------------------ SRH lifetimes
-# Numbers only. The Scharfetter model that consumes them lives in
-# physics/recombination.py, because a model is not a constant.
-
 TAU_N_MAX: float = 1e-5
 """Electron lifetime in undoped silicon [s], from docs/06-constants.md."""
 
@@ -323,18 +301,6 @@ N_REF_SRH: float = 5e16
 GAMMA_SRH: float = 1.0
 """Sharpness of the Scharfetter lifetime transition [1]."""
 
-
-# ------------------------------------------------------- MOS work functions
-#
-# The MOS gate is a Dirichlet condition on psi with the work function
-# difference folded in, per docs/01-physics.md:
-#
-#     psi_gate = V_gate - Phi_MS
-#
-# so Phi_MS translates the whole C-V curve along the voltage axis without
-# changing its shape. Every regime still looks qualitatively correct with a
-# wrong value, which is why phases/PHASE-4.md pins flatband to 20 mV rather
-# than trusting the curve to look right.
 
 CHI_SI: float = 4.05
 """Electron affinity of silicon [eV], the conduction band edge below vacuum."""

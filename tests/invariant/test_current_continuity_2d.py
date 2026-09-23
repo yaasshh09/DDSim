@@ -213,9 +213,6 @@ def capped():
     return device, state, models
 
 
-# ------------------------------------------------------------- the gate
-
-
 def test_the_total_current_through_every_cut_is_the_same(plain) -> None:
     """The Phase 4 form of the Phase 2 gate.
 
@@ -270,9 +267,6 @@ def test_the_current_runs_from_the_anode(plain) -> None:
 
     assert currents["anode"] > 0.0
     assert currents["cathode"] < 0.0
-
-
-# ------------------------------------------------- the reduction to 1D
 
 
 def test_the_solution_is_the_same_on_every_row(plain) -> None:
@@ -346,9 +340,6 @@ def test_the_terminal_current_is_the_1d_one_times_the_height(plain) -> None:
     expected = terminal_currents(one_d, reference, reference_models)["anode"]
 
     assert cuts.mean() == pytest.approx(expected * HEIGHT, rel=1e-8)
-
-
-# ------------------------------------------------- transport under an oxide
 
 
 def test_no_carrier_crosses_into_the_dielectric(capped) -> None:

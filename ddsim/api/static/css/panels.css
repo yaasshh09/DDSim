@@ -1,10 +1,3 @@
-/* The plot panels and the run rail.
-
-   A panel is a titled instrument: a name, a line of provenance saying what is
-   on it, controls pushed right, the canvas, then a legend. The canvases are
-   painted by app.js, which reads --ink, --muted and --grid out of the token
-   file, so the plots and the chrome around them stay one palette. */
-
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -22,7 +15,6 @@
   color: var(--ink);
 }
 
-/* What the panel is showing, next to what it is called. */
 .panel h2 .of {
   font: 500 11px var(--sans);
   letter-spacing: 0;
@@ -36,8 +28,6 @@
   gap: 12px;
 }
 
-/* A switch inside a panel header is inline and its name comes first, which
-   is the opposite of a rail knob and right for a one word toggle. */
 .panel .tools label {
   display: inline-flex;
   align-items: center;
@@ -56,8 +46,6 @@
   padding: 3px 9px;
 }
 
-/* The point stepper is the one range that belongs in a header, because it
-   scrubs what the panel underneath is showing. */
 .panel .tools input[type="range"] {
   width: 96px;
 }
@@ -69,11 +57,6 @@ canvas {
   border-bottom: 1px solid var(--line);
 }
 
-/* Every canvas states its height here as well as in its height attribute.
-   Until fit() has run, a width bound canvas with no height of its own keeps
-   its default 300 by 200 ratio, which on a wide screen is half a metre of
-   empty panel before the first solve. These five numbers have to match the
-   height attributes in index.html, which is what fit() actually draws into. */
 #residual,
 #cutline {
   height: 200px;
@@ -99,8 +82,6 @@ canvas {
   margin: 4px 0 8px;
 }
 
-/* ------------------------------------------------------------- the legends */
-
 .legend {
   display: flex;
   gap: 16px;
@@ -118,9 +99,6 @@ canvas {
   gap: 6px;
 }
 
-/* A trace is a line on the plot, so its key is a line and not a block. The
-   four names match the four constants at the top of app.js, which are what
-   the canvas is actually painted with. Change one, change both. */
 .swatch {
   display: block;
   width: 10px;
@@ -148,7 +126,6 @@ canvas {
   background: var(--ink);
 }
 
-/* A note at the end of a legend is prose about the plot, not a key. */
 #curve-note,
 #profile-note,
 #residual-note,
@@ -161,11 +138,6 @@ canvas {
   color: var(--warn);
 }
 
-/* ---------------------------------------------------------- the right rail */
-
-/* Every run that finished is still on the plot, faded, until it is cleared,
-   and the rail is the list of them. app.js showRuns() writes one span per
-   run holding a dot and a label, so the rail styles spans. */
 #runs-note {
   display: grid;
   gap: 7px;
@@ -183,7 +155,6 @@ canvas {
   padding: 8px 10px 6px;
 }
 
-/* The run on screen, drawn in the colour the big plot draws it in. */
 #runs-note > span.current {
   border-color: var(--signal);
   background: var(--raised);
@@ -199,10 +170,6 @@ canvas {
   color: var(--ink);
 }
 
-/* Every card shares one frame, so a curve carrying ten times the current of
-   another sits higher rather than being rescaled to look identical. The
-   height is fixed because the picture is a comparison and not a reading: the
-   numbers are on the plot it was cut from. */
 #runs-note svg {
   display: block;
   width: 100%;
@@ -210,8 +177,6 @@ canvas {
   margin-top: 7px;
 }
 
-/* In the rail a run is one of a list rather than a trace on an axis, so its
-   key is the dot the plot draws at a point and not the line between them. */
 #runs-note .swatch {
   display: inline-block;
   width: 8px;
@@ -226,7 +191,6 @@ canvas {
   color: var(--muted);
 }
 
-/* The rail drops its empty state as soon as there is a run to show. */
 #rail:has(#runs-note > span) #runs-empty {
   display: none;
 }
@@ -235,8 +199,6 @@ canvas {
   margin-top: 12px;
 }
 
-/* The two file buttons split the rail. An explain button in the same row is
-   not one of the pair, so it keeps its own 17 px. */
 #rail .row button:not(.explain) {
   flex: 1;
 }

@@ -90,8 +90,6 @@ def solve_at(stack, v_gate, regions=None):
     scaled = mesh.scaled(scale, eps_r=regions.eps_r)
     volume = regions.semiconductor_volume / scale.x_0**2
 
-    # No doping where there is no semiconductor. The volume is zero there too,
-    # so this changes nothing numerically; it is written for the reader.
     doping = np.where(
         regions.semiconductor_volume > 0.0, -NA / scale.C_0, 0.0
     )

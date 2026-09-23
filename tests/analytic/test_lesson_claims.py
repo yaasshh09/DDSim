@@ -84,8 +84,6 @@ def psi_of(device, state) -> np.ndarray:
     return np.asarray(state.psi.to_physical(device.scale).data)
 
 
-# ----------------------------------------------- 01: the junction at rest
-
 JUNCTION = "01-pn-junction"
 
 
@@ -141,8 +139,6 @@ def test_the_lightly_doped_side_takes_the_potential_drop() -> None:
     assert n_side / (psi[-1] - psi[0]) > 0.95
 
 
-# ----------------------------------------------------------- 02: bias
-
 BIAS = "02-bias"
 
 
@@ -177,8 +173,6 @@ def test_reverse_bias_widens_the_depletion_region_as_the_square_root() -> None:
             analytic_depletion_width(1e16, 1e16, float(bias)), rel=3e-2
         )
 
-
-# ------------------------------------------------------- 03: MOS capacitor
 
 MOSCAP = "03-mos-capacitor"
 
@@ -226,8 +220,6 @@ def test_only_a_slow_signal_sees_the_inversion_layer() -> None:
     assert fast[top] < 0.1
 
 
-# --------------------------------------------------------------- 04: MOSFET
-
 MOSFET = "04-mosfet"
 
 
@@ -263,8 +255,6 @@ def test_the_threshold_lands_near_the_textbook_formula() -> None:
     formula = threshold_voltage(-1e17, 2e-6, C.PHI_M_N_POLY)
     assert measured == pytest.approx(formula, abs=0.05)
 
-
-# ------------------------------------------------------ 05: short channel
 
 SHORT = "05-short-channel"
 

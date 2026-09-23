@@ -107,9 +107,6 @@ def test_per_edge_weights_are_allowed():
     )
 
 
-# --------------------------------------------- what a mesh hands an assembly
-
-
 class TestScaledMesh:
     """Both meshes have to present the assemblies with the same three things.
 

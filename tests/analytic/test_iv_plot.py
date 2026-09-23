@@ -145,7 +145,6 @@ def test_iv_plot_is_generated() -> None:
     assert target.exists()
     assert target.stat().st_size > 10_000
 
-    # The plot has to show real physics, not a flat line.
     assert diffusion.current[-1] / diffusion.current[0] > 1e6
     assert peak > 1.7
     assert abs(I_s - 1.30e-10) / 1.30e-10 < 0.10

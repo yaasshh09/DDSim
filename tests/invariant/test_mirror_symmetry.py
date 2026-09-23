@@ -108,9 +108,6 @@ def anode_current(device: Device, voltage: float) -> float:
     return terminal_currents(biased, state)["anode"]
 
 
-# --------------------------------------------------- the mesh itself mirrors
-
-
 def test_the_graded_mesh_is_symmetric_about_a_central_refinement() -> None:
     """x[i] and LENGTH - x[-1-i] are the same point, or the rest is untestable.
 
@@ -137,9 +134,6 @@ def test_the_dual_cells_mirror_too() -> None:
 
     worst = float(np.max(np.abs(volume - volume[::-1]) / volume))
     assert worst < floor, f"worst {worst:.3e}, accumulation floor {floor:.3e}"
-
-
-# ------------------------------------------------- the physics mirrors exactly
 
 
 @pytest.mark.parametrize("voltage", [-1.0, -0.2, 0.0, 0.2, 0.4, 0.5])
@@ -229,9 +223,6 @@ def test_the_current_densities_mirror_with_a_sign_change() -> None:
             f"cancellation floor of {floor:.3e}. A difference above the floor "
             "is a left-right bias in the flux, not arithmetic."
         )
-
-
-# ------------------------------------- what a node landing on the step costs
 
 
 def test_a_node_on_the_step_is_the_only_thing_that_breaks_the_mirror() -> None:

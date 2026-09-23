@@ -82,9 +82,6 @@ def capacitance_at(v_gate: float, response=Response.LOW_FREQUENCY, **kwargs):
     return small_signal_capacitance(device, state, GATE, response=response)
 
 
-# ---------------------------------------------------------------- the charge
-
-
 def test_the_gate_holds_no_charge_at_flatband():
     """No bending means no field, and no field means nothing on the plates.
     The measurement of a quantity that has to be exactly zero is worth more
@@ -164,13 +161,8 @@ def test_the_accumulation_charge_is_the_oxide_drop():
     from tests.analytic.test_mos_cap import surface_potential
 
     psi_s = surface_potential(device, state)
-    # V_G = V_FB + psi_s + Q/C_ox, so the plate charge is what is left of
-    # the bias after flatband and the surface have taken their share.
     expected = C_OX * (v_gate - V_FB - psi_s)
     assert charge == pytest.approx(expected, rel=0.01)
-
-
-# ----------------------------------------------------------- the three regimes
 
 
 def test_accumulation_reaches_the_oxide_capacitance():
@@ -249,9 +241,6 @@ def test_every_capacitance_is_positive_and_below_the_oxide_value():
     assert np.all(curve.capacitance < C_OX)
 
 
-# ------------------------------------------------------ the derivative itself
-
-
 @pytest.mark.parametrize("v_gate", [-2.0, -0.5, 0.5], ids=str)
 def test_the_exact_derivative_matches_a_central_difference(v_gate):
     """The capacitance is dQ/dV taken by differentiating the solved system
@@ -279,9 +268,6 @@ def test_the_derivative_is_not_the_difference_it_is_checked_against():
     assert exact != (ahead - behind) / (2 * step)
 
 
-# --------------------------------------------------------------- the other type
-
-
 def test_an_n_type_substrate_mirrors_the_curve():
     """A PMOS capacitor is the same device with every sign turned round, so
     its C-V is the NMOS one reflected about flatband. Nothing in the solver
@@ -296,9 +282,6 @@ def test_an_n_type_substrate_mirrors_the_curve():
         n_type = capacitance_at(n_body - offset, net_doping=+NA,
                                 work_function=metal)
         assert p_type == pytest.approx(n_type, rel=1e-6)
-
-
-# ------------------------------------------------------------------ the sweep
 
 
 def test_a_sweep_returns_a_point_for_every_bias_asked_for():
@@ -324,9 +307,6 @@ def test_a_thicker_oxide_lowers_the_whole_curve():
                      gate_voltage=V_FB - 5.0)
     thick = small_signal_capacitance(device, solve_equilibrium(device), GATE)
     assert thick == pytest.approx(0.5 * thin, rel=0.02)
-
-
-# ------------------------------------------------------------- the body bias
 
 
 def test_the_whole_curve_shifts_with_the_body_bias():
@@ -399,9 +379,6 @@ def test_a_terminal_that_is_not_being_swept_does_not_move():
     np.testing.assert_array_equal(dpsi[list(body.nodes)], 0.0)
 
 
-# ------------------------------------------------- a thick oxide at a real bias
-
-
 THICK_T_OX = 1e-5
 """A 100 nm oxide [cm]. Older technologies and power devices are thicker."""
 
@@ -449,10 +426,6 @@ def test_a_thick_oxide_still_reports_a_charge_at_twenty_volts():
         )
         charges.append(charge)
 
-    # Not merely finite. Deep in inversion the surface potential is pinned, so
-    # every further volt falls across the oxide and the plate charge grows at
-    # exactly C_ox. That is the parallel plate, and it is what says the number
-    # is right rather than just present.
     c_ox = oxide_capacitance(THICK_T_OX)
     for index in range(1, len(biases)):
         span = biases[index] - biases[index - 1]

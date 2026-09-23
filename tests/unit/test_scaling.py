@@ -23,9 +23,6 @@ def scale() -> ScaleFactors:
     return ScaleFactors.for_silicon()
 
 
-# ------------------------------------------------------- reference quantities
-
-
 def test_psi_0_equals_thermal_voltage(scale: ScaleFactors) -> None:
     assert scale.psi_0 == C.V_T(300.0)  # [V]
 
@@ -95,9 +92,6 @@ def test_r_0_equals_d_0_c_0_over_x_0_squared(scale: ScaleFactors) -> None:
     assert scale.R_0 == pytest.approx(expected, rel=1e-15)
 
 
-# ----------------------------------------------------------- the real invariant
-
-
 @pytest.mark.parametrize("doping", [1e10, 1e14, 1e16, 1e18, 1e20])
 def test_scaled_poisson_coefficient_is_unity(doping: float) -> None:
     """lap(psi) = -(p - n + N) only holds if eps*psi_0/(q*C_0*x_0^2) == 1.
@@ -122,9 +116,6 @@ def test_scaled_recombination_coefficient_is_unity(scale: ScaleFactors) -> None:
     """div(Jn) = R in scaled form needs J_0/(x_0*R_0) == 1."""
     group = scale.J_0 / (C.q * scale.x_0 * scale.R_0)
     assert group == pytest.approx(1.0, rel=1e-14)
-
-
-# -------------------------------------------------------------- round tripping
 
 
 @pytest.mark.parametrize("unit", UNITS)
@@ -169,9 +160,6 @@ def test_array_input_returns_an_array(scale: ScaleFactors) -> None:
     assert isinstance(result, np.ndarray)
 
 
-# ------------------------------------------------------------------ strictness
-
-
 def test_unknown_unit_raises(scale: ScaleFactors) -> None:
     """Silently passing an unrecognised unit through is the failure this
     whole type exists to prevent."""
@@ -192,9 +180,6 @@ def test_scale_factors_are_immutable(scale: ScaleFactors) -> None:
 def test_negative_c_0_raises() -> None:
     with pytest.raises(ValueError, match="C_0"):
         ScaleFactors.for_silicon(C_0=-1.0)
-
-
-# ---------------------------------------------------------------- temperature
 
 
 def test_scale_factors_at_400k_differ_from_300k() -> None:

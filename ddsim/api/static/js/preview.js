@@ -1,27 +1,8 @@
 "use strict";
 
-// Painting a drawing onto its canvas: the palette, the mapping between
-// device coordinates and pixels, the picture itself and the key under it.
-//
-// Split out of drawing.js, which keeps the rows, the drag and the wiring.
-// Nothing here computes a physical quantity. The one piece of arithmetic
-// with an opinion in it is the band stretch below, and that is a statement
-// about a screen: a 2 nm oxide on a 1 um device is a fifth of a percent of
-// the height, and a picture that draws it to scale is a picture of a slab.
-
-// ------------------------------------------------------------- the preview
-
-// The preview's palette, drawn from css/tokens.css. Silicon is the raised
-// surface the rest of the page uses for a control and oxide is a step darker,
-// so the stack reads without a legend. The two dopants take the warn and
-// signal hues, the same pairing the profile plot uses for n and p.
 const MATERIAL_FILL = { silicon: "#2d4a52", oxide: "#16252a" };
 const DOPANT_INK = { n: "#e3a74f", p: "#5fd4d6" };
 
-// A doped region is washed in its own colour as well as outlined. Outlined
-// alone, an implant the size of a source was a dashed line on a slab and the
-// device did not read as a device. The wash says where the doping is; the
-// outline still says exactly which rectangle was typed.
 const DOPANT_WASH = { n: "rgba(227, 167, 79, 0.26)", p: "rgba(95, 212, 214, 0.16)" };
 
 function extent(parts) {
@@ -33,13 +14,8 @@ function extent(parts) {
   return { width: width || 1, height: height || 1 };
 }
 
-// The least of the canvas any one band may take. Below this an oxide is a
-// hairline and the device reads as a single slab.
 const MIN_BAND = 30;
 
-// Every y an edge is drawn at, in order, ends included. These are the bands
-// the stretch works on: between two of them the drawing has no feature, so
-// squeezing one loses nothing a reader was going to see.
 function bands(parts, height) {
   const edges = new Set([0, height]);
   for (const list of Object.values(parts)) {
@@ -51,11 +27,6 @@ function bands(parts, height) {
   return [...edges].sort((first, second) => first - second);
 }
 
-// A piecewise linear y, band by band, where each band gets at least MIN_BAND
-// pixels and the rest of the canvas is shared out in proportion. It is a
-// stretch of the picture and not of the device: the rows still hold the real
-// numbers, the key under the canvas still states the real extents, and back()
-// is the exact inverse so a drag lands where it looks like it landed.
 function stretch(edges, height, pixels) {
   const spans = edges.length - 1;
   if (spans < 1) return { at: () => 0, back: () => 0 };
@@ -91,10 +62,6 @@ function stretch(edges, height, pixels) {
   };
 }
 
-// From drawing coordinates to the canvas and back. x is plain: a device is
-// wider than it is tall and nothing across it is thin. y is stretched band
-// by band, so the gate oxide is something you can see and drag on. The
-// numbers in the rows are the drawing, not the picture.
 function previewFrame(box, parts) {
   const size = extent(parts);
   const up = stretch(bands(parts, size.height), size.height, box.height);
@@ -147,8 +114,6 @@ function drawPreview() {
   showScale(at.size, at.stretched);
 }
 
-// A name on the picture, over a plate of the page ground. Without it a
-// contact sitting on its own colour is two colours of the same brightness.
 function label(pen, box, text, colour, x, y) {
   const width = pen.measureText(text).width;
   pen.fillStyle = "rgba(11, 20, 23, 0.72)";
@@ -157,9 +122,6 @@ function label(pen, box, text, colour, x, y) {
   pen.fillText(text, x, y);
 }
 
-// How big the device is, under the picture. The two axes are stretched
-// apart to keep a thin oxide visible, so the picture cannot be measured by
-// eye and the numbers have to be written down somewhere.
 function showScale(size, stretched) {
   const bar = el("build-scale");
   if (!bar) return;

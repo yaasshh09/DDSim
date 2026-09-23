@@ -1,6 +1,3 @@
-// The explanation drawer. Renders what /api/learn sends: markdown through
-// marked, maths through KaTeX. Nothing here knows any physics; it shows text.
-
 function explainButton(onClick) {
   const button = document.createElement("button");
   button.type = "button";
@@ -20,9 +17,6 @@ function escapeText(text) {
 }
 
 function renderInto(element, markdown) {
-  // marked reads \, \! \| and \\ inside the TeX as markdown escapes and drops
-  // the backslash, so each $...$ is set aside before marked and put back,
-  // escaped as plain text, for KaTeX to find.
   const maths = [];
   const lifted = markdown.replace(/\$\$[\s\S]+?\$\$|\$[^$]+?\$/g, (tex) => {
     maths.push(tex);
@@ -40,8 +34,6 @@ function renderInto(element, markdown) {
   });
 }
 
-// Which click the drawer belongs to. A slow answer to an earlier click must
-// not land on top of a later one.
 let explaining = 0;
 
 async function explain(topicName, knob) {

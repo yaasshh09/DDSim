@@ -54,9 +54,6 @@ today still leaves the tightest device sitting at a sixth of its budget.
 """
 
 
-# ------------------------------------------------------------------ the mirror
-
-
 @pytest.mark.parametrize(
     ("name", "mirror", "actual"),
     [
@@ -109,9 +106,6 @@ def test_generator_lifetime_matches_ddsim() -> None:
         )
         mirror = P.scharfetter_lifetime(doping, P.TAU_N_MAX, P.TAU_N_MIN)
         assert mirror == pytest.approx(expected, rel=1e-15)
-
-
-# ------------------------------------------------------------- the golden data
 
 
 def golden_path(benchmark: P.DiodeBenchmark) -> Path:
@@ -170,8 +164,6 @@ def test_golden_header_matches_the_benchmark(benchmark: P.DiodeBenchmark) -> Non
     )
 
 
-# ------------------------------------------------------------ the comparison
-
 _SOLVED: dict[str, IVCurve] = {}
 """One ddsim sweep per benchmark, reused across the tests that need it."""
 
@@ -227,8 +219,6 @@ def test_ddsim_matches_devsim(benchmark: P.DiodeBenchmark) -> None:
         actual = measured[voltage]
 
         if abs(expected) < P.CURRENT_FLOOR:
-            # Zero bias. Both codes are reporting rounding, so the only
-            # meaningful question is whether ddsim is also negligible.
             if abs(actual) >= P.CURRENT_FLOOR:
                 failures.append(
                     f"{voltage:+.3f} V: devsim gives {expected:.3e} A/cm^2, "

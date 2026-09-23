@@ -119,9 +119,6 @@ def sweeps_taken(result) -> int:
     return len(result.residual_history) - result.iterations
 
 
-# ------------------------------------------- nothing before Phase 5 moved
-
-
 def test_a_device_has_no_surface_model_unless_it_is_asked_for(bulk_models):
     """Off by default, like Arora and Auger before it, and for the same
     reason: every result recorded before this existed was taken without it."""
@@ -146,14 +143,8 @@ def test_surface_mobility_on_a_line_is_refused():
     from whichever axis happened to be there."""
     diode = pn_diode(Na=1e16, Nd=1e16, length=2e-4, n_nodes=41)
 
-    # When the models are built, not at the first solve: a sweep through the
-    # api builds them before its job starts, so the refusal reaches the page
-    # as a refusal instead of a job that died.
     with pytest.raises(TypeError, match="Mesh2D"):
         TransportModels.for_device(diode, mobility="arora", surface=True)
-
-
-# ------------------------------------------------------- the fixed point
 
 
 def test_the_converged_state_is_self_consistent(inverted, surface_models):
@@ -218,9 +209,6 @@ def test_an_exhausted_sweep_budget_is_reported_as_not_converged(surface_models):
     assert "surface mobility" in state.newton.message
 
 
-# ---------------------------------------------------- where it applies
-
-
 def test_the_oxide_keeps_its_bulk_mobility(inverted, surface_models):
     """An insulator has no surface mobility and its doping is exactly zero,
     which the roughness exponent would raise to a negative power. Both are
@@ -252,9 +240,6 @@ def test_the_silicon_does_not_keep_its_bulk_mobility(inverted, surface_models):
     silicon = surface.semiconductor
 
     assert np.min(mu_n[silicon] / surface.mu_bulk_n[silicon]) < 0.5
-
-
-# ------------------------------------------------ what it does to a current
 
 
 @pytest.fixture(scope="module")
@@ -299,7 +284,6 @@ def test_the_correction_dies_away_from_the_interface(inverted, surface_models):
     )
     column = ratio[:, device.mesh.x_axis.n_nodes // 2]
 
-    # The interface is the last silicon row, the oxide sitting above it.
     interface = int(np.argmin(column))
     assert column[interface] < 0.5
     assert column[0] == pytest.approx(1.0, abs=0.01)
@@ -360,9 +344,6 @@ def test_the_normal_field_at_the_channel_is_a_physical_number(inverted):
     assert 1e5 < E[at_the_surface] < 2e6
 
 
-# ------------------------------------- the driver, with Newton stubbed out
-
-
 def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
     device, surface_models
 ):
@@ -383,8 +364,6 @@ def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
     def run(models, x):
         calls.append(models)
         if len(calls) == 1:
-            # Converged, but at a state far enough from the start that the
-            # mobility refreshed from it will not have settled.
             psi, n, p = unpack(x)
             moved = pack(psi + 0.5 * np.cos(np.arange(psi.size)), n, p)
             return NewtonResult(
@@ -412,9 +391,6 @@ def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
     assert result.message == "stub refused to converge"
     assert result.iterations == 7
     assert len(result.update_history) == 7
-
-
-# ------------------------------------------- building the correction
 
 
 def test_at_state_leaves_models_without_a_surface_alone(bulk_models, device):
@@ -457,9 +433,6 @@ def test_an_unknown_mobility_model_is_refused_here_too(device):
 
     with pytest.raises(ValueError, match="unknown mobility model"):
         _surface_scattering(device, "masetti", np.abs(device.net_doping.data))
-
-
-# -------------------------------------- with velocity saturation as well
 
 
 @pytest.fixture(scope="module")
@@ -511,9 +484,6 @@ def test_the_fixed_point_reaches_through_the_saturation_wrapper(
     )
     assert isinstance(refreshed.Dn, CaugheyThomas)
     assert _surface_moved(refreshed, refreshed) == 0.0
-
-
-# --------------------------------------------------- the low field prelude
 
 
 def test_a_cold_solve_with_velocity_saturation_converges():
@@ -584,9 +554,6 @@ def test_the_prelude_is_counted_in_what_the_solve_cost(device):
     assert len(cold.newton.update_history) == cold.newton.iterations
 
 
-# ------------------------------------- reading a current off the answer
-
-
 def test_a_terminal_current_uses_the_diffusivity_the_answer_implies(
     surface_models,
 ):
@@ -617,9 +584,6 @@ def test_a_terminal_current_uses_the_diffusivity_the_answer_implies(
     total = abs(sum(currents.values()))
 
     assert total / abs(currents["drain"]) < 1e-8
-
-
-# ------------------------------------- a mobility that vanished at the guess
 
 
 def test_a_vanished_diffusivity_counts_as_having_moved(surface_models):
@@ -678,9 +642,6 @@ def test_the_surface_model_alone_solves_at_a_drain_bias():
     state = solve_bias_newton(device, models, max_iterations=60)
 
     assert state.newton.converged, state.newton.message
-
-
-# ------------------------------------------------- a drawing with a side wall
 
 
 def _trench_drawing():

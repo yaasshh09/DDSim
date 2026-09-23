@@ -84,9 +84,6 @@ class ScaleFactors:
         max|net doping| in a later phase is a single call site change. See the
         choice of C_0 discussion in docs/02-numerics.md.
         """
-        # T is checked here as well as in __post_init__, because the defaults
-        # below evaluate n_i(T) and D_n(T), both of which divide by V_T(T).
-        # At T = 0 that is a ZeroDivisionError before validation ever runs.
         if T <= 0.0:
             raise ValueError(f"T must be positive, got {T}")
         return cls(
@@ -95,8 +92,6 @@ class ScaleFactors:
             eps=C.eps_Si() if eps is None else eps,
             D_0=max(C.D_n(T), C.D_p(T)) if D_0 is None else D_0,
         )
-
-    # ------------------------------------------------------ derived quantities
 
     @cached_property
     def psi_0(self) -> float:

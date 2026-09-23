@@ -312,8 +312,6 @@ def apply_dirichlet_nodes(
     pinned = np.asarray(nodes, dtype=np.int64)
     wanted = np.asarray(targets, dtype=np.float64)
 
-    # Membership as a lookup table over nodes, so classifying the triplets is
-    # one gather rather than one comparison sweep per pinned node.
     is_pinned = np.zeros(n_nodes, dtype=bool)
     is_pinned[pinned] = True
 
@@ -323,10 +321,6 @@ def apply_dirichlet_nodes(
     correction = np.zeros(n_nodes, dtype=np.float64)
     correction[pinned] = wanted - value[pinned]
 
-    # J*delta = -F, and delta at a pinned node is fixed, so its column moves to
-    # the right hand side: F_i becomes F_i + J[i, node] * correction[node].
-    # Only a handful of triplets qualify, so they are gathered by index rather
-    # than by mask.
     folded = np.flatnonzero(in_column & ~in_row)
     fold_rows = assembly.rows[folded]
 

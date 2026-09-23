@@ -29,9 +29,6 @@ def psi_scaled(values: list[float] | None = None) -> Field:
     return Field(values or [0.0, 19.3, 38.7], "V", ScalingState.SCALED, Location.NODE)
 
 
-# ---------------------------------------------------------------- construction
-
-
 def test_field_carries_data_unit_scaling_and_location() -> None:
     f = Field([1.0, 2.0], "cm^-3", ScalingState.PHYSICAL, Location.NODE)
     assert f.unit == "cm^-3"
@@ -64,9 +61,6 @@ def test_repr_shows_unit_scaling_and_location() -> None:
     assert "V" in text
     assert "SCALED" in text
     assert "NODE" in text
-
-
-# -------------------------------------------------- addition and subtraction
 
 
 def test_add_with_matching_metadata_succeeds() -> None:
@@ -144,9 +138,6 @@ def test_negation_preserves_metadata() -> None:
     assert result.scaling is ScalingState.PHYSICAL
 
 
-# ------------------------------------------------ multiplication and division
-
-
 def test_multiply_combines_unit_strings() -> None:
     volts = psi_physical()
     density = Field([2.0, 2.0, 2.0], "cm^-3", ScalingState.PHYSICAL, Location.NODE)
@@ -218,9 +209,6 @@ def test_divide_by_a_python_scalar_preserves_the_unit() -> None:
     assert result.unit == "V"
 
 
-# -------------------------------------------------------- state conversion
-
-
 def test_to_scaled_uses_the_scale_factors(scale: ScaleFactors) -> None:
     result = psi_physical().to_scaled(scale)
     assert result.scaling is ScalingState.SCALED
@@ -268,9 +256,6 @@ def test_conversion_preserves_unit_and_location(scale: ScaleFactors) -> None:
     assert result.location is Location.EDGE
 
 
-# ------------------------------------------------------------------ immutability
-
-
 def test_scaling_state_cannot_be_reassigned() -> None:
     f = psi_physical()
     with pytest.raises(AttributeError):
@@ -286,9 +271,6 @@ def test_unit_cannot_be_reassigned() -> None:
 def test_field_does_not_expose_array_protocol() -> None:
     """np.asarray(field) must not silently strip the metadata."""
     assert not hasattr(Field, "__array__")
-
-
-# ------------------------------------------------------- the definition of done
 
 
 def test_refuses_to_add_a_scaled_potential_to_a_physical_one() -> None:

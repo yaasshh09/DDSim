@@ -1,10 +1,3 @@
-/* The device editor, given the whole stage.
-
-   It used to be a 280 px canvas squeezed into the knob rail under nine rows
-   of numbers. Drawing a device is its own job and it gets its own half of
-   the window: a tool palette, a canvas with room to aim in, and the three
-   part lists laid out as tables rather than as runs of bare boxes. */
-
 #stage {
   flex: 1 1 auto;
   min-width: 0;
@@ -21,8 +14,6 @@
   overflow-y: auto;
 }
 
-/* ------------------------------------------------------- palette and canvas */
-
 #build-top {
   display: grid;
   grid-template-columns: 210px 1fr;
@@ -38,9 +29,6 @@
   padding: 12px 14px;
 }
 
-/* The tool list is a real select with its size opened out, so it is still one
-   control with one value. A palette of buttons would have needed a second
-   place to keep which one is pressed. */
 #drawing-tool[size] {
   width: 100%;
   height: auto;
@@ -75,8 +63,6 @@
   color: var(--dim);
 }
 
-/* --------------------------------------------------------------- the parts */
-
 #build-parts {
   display: grid;
   gap: 14px;
@@ -99,9 +85,6 @@
   margin-bottom: 11px;
 }
 
-/* The column names, sharing .part so every cell lines up with the box under
-   it. A heading is not a control, so it draws no border and takes no space
-   of its own beyond the width it is labelling. */
 .part.headings {
   border-bottom: 0;
   padding-bottom: 2px;
@@ -138,7 +121,6 @@
   color: var(--ink-2);
 }
 
-/* What the Build side says when the device is not one you drew. */
 #build-empty {
   max-width: 64ch;
 }
@@ -146,8 +128,6 @@
 #drawing:not([hidden]) ~ #build-empty {
   display: none;
 }
-
-/* ---------------------------------------------------------------- the tabs */
 
 #modes {
   display: flex;
@@ -173,11 +153,6 @@
   background: var(--signal-lift);
 }
 
-/* ------------------------------------------------- the key under the canvas */
-
-/* Six swatches naming what the colours in the picture are, and the extents
-   of the device, which cannot be read off a picture whose two axes are
-   stretched by different amounts. The six values match drawing.js. */
 #build-scale .swatch {
   width: 10px;
   height: 10px;

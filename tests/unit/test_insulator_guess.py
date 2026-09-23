@@ -124,9 +124,6 @@ def test_an_all_silicon_2d_device_is_returned_untouched():
     assert insulator_guess(device, guess) is guess
 
 
-# ------------------------------------------------------------ what it buys
-
-
 @pytest.mark.parametrize("v_gate", [-8.0, -4.0, 4.0, 8.0], ids=str)
 def test_a_cold_solve_far_from_flatband_converges_in_a_modest_budget(v_gate):
     """The measurement that motivated the fill. Without it these take 38, 28,

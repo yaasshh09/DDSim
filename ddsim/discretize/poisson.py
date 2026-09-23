@@ -129,7 +129,6 @@ def _carrier_densities(
     exponent_n = psi if phi_n is None else psi - phi_n
     exponent_p = -psi if phi_p is None else phi_p - psi
     if carriers is not None:
-        # exp(-inf) is exactly zero and does not overflow on the way there.
         exponent_n = np.where(carriers, exponent_n, -np.inf)
         exponent_p = np.where(carriers, exponent_p, -np.inf)
     if degeneracy is None:
@@ -202,11 +201,6 @@ def _poisson_residual(
     residual = np.zeros_like(psi)
     left, right = geometry.ends(h.size)
 
-    # Flux through each interior face, from the left node to the right node.
-    # face_flux[e] is the flux across edge e, positive when psi decreases
-    # towards the right node. The permittivity rides on the face rather than
-    # on the cell, which is what makes the normal component of D continuous
-    # across a material interface instead of E. See docs/01-physics.md.
     face_flux = geometry.weight * (psi[left] - psi[right]) / h
 
     # Each face contributes with opposite sign to the two cells it separates.
@@ -277,7 +271,6 @@ def _poisson_jacobian(
     np.add.at(diagonal, left, conductance)
     np.add.at(diagonal, right, conductance)
 
-    # Off diagonals: one entry per face, in each direction. Symmetric.
     rows = np.concatenate([nodes, left, right])
     cols = np.concatenate([nodes, right, left])
     values = np.concatenate([diagonal, -conductance, -conductance])
@@ -355,7 +348,6 @@ def assemble_poisson(
     n_values = None if phi_n is None else phi_n.data
     p_values = None if phi_p is None else phi_p.data
 
-    # One pair of exponentials for both halves of the system.
     densities = _carrier_densities(
         psi.data, n_values, p_values, volume > 0.0, degeneracy
     )

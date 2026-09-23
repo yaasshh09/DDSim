@@ -111,9 +111,6 @@ def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
     doping = device.net_doping.data
     n_nodes = device.mesh.n_nodes
 
-    # A gate has no doping under it to read and no quasi-Fermi level of its
-    # own: it is metal on an insulator. Only the contacts that touch
-    # semiconductor say anything about where phi_n and phi_p sit.
     ohmic = [c for c in device.contacts if not isinstance(c, GateContact)]
     n_side = [c for c in ohmic if doping[c.nodes[0]] >= 0.0]
     p_side = [c for c in ohmic if doping[c.nodes[0]] < 0.0]
@@ -193,20 +190,11 @@ def insulator_guess(
         device.degeneracy,
     )
 
-    # Hold the semiconductor. The gate is already held by apply_contacts, so
-    # what is left free is exactly the interior of the insulator.
     held = np.flatnonzero(device.regions.semiconductor_volume > 0.0)
     assembly = apply_dirichlet_nodes(
         assembly, psi, held.tolist(), psi[held].tolist()
     )
 
-    # Nonsingular by construction, so there is no special case here to write.
-    # Laplace on the insulator needs boundary data somewhere on every connected
-    # piece of it, and it always has some: build_device refuses a device with
-    # no contacts, tensor_mesh_2d only makes connected meshes, and every node
-    # of an insulator therefore reaches either a pinned contact or a held
-    # semiconductor node through the mesh. A floating insulator island would
-    # break that, and none can be built.
     solver = SparseLU()
     solver.factorize(
         assembly.rows, assembly.cols, assembly.values, assembly.shape
@@ -279,35 +267,14 @@ def solve_poisson(
             degeneracy,
         )
 
-    # The residual is a charge balance over each dual cell, so the size of its
-    # terms is the doping charge in the largest cell. Taking the threshold from
-    # that rather than from the initial residual is what lets a solve that
-    # starts at the answer report success: inside a Gummel cycle the potential
-    # arrives already converged, its residual already at the roundoff floor,
-    # and a threshold relative to that floor is unreachable by construction.
     charge = float(np.max(np.abs(doping_values) * charge_volume))
 
-    # The other half of the residual is a difference of face fluxes, each of
-    # size psi/h, and a difference cannot be resolved below machine epsilon
-    # times the size of the things being differenced. That is a floor no solve
-    # gets under however exactly it satisfies the equation.
-    #
-    # It has to be in the threshold because the two terms scale differently.
-    # The charge falls with the doping while the flux barely moves, psi being
-    # logarithmic in it. At 1e16 the charge threshold sits four decades above
-    # the floor and this never binds. Below about 1e13 it sinks underneath,
-    # and then a perfectly converged solve reports failure having spent its
-    # whole iteration budget on a residual that stopped moving at step three.
-    # Measured on a 1e12 uniform bar: residual pinned at 6.8e-12 for 47
-    # iterations against a threshold of 3.4e-12, update 4.4e-16 throughout.
     left, right = mesh.geometry.ends(mesh.n_edges)
     edge_psi = np.maximum(np.abs(psi_initial[left]), np.abs(psi_initial[right]))
     flux_floor = FLUX_FLOOR_MARGIN * EPS * float(
         np.max(mesh.geometry.weight * edge_psi / mesh.h)
     )
 
-    # Raise the scale only when the floor would otherwise bind, so that every
-    # device where the charge already dominates keeps the threshold it had.
     residual_scale = charge
     if residual_rtol > 0.0 and residual_rtol * charge < flux_floor:
         residual_scale = flux_floor / residual_rtol
@@ -354,9 +321,6 @@ def solve_equilibrium(
     phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
     doping_values = device.net_doping_scaled.data
 
-    # Charge neutral guess, shifted by the quasi-Fermi level of the local
-    # majority carrier so that a biased region starts near the potential its
-    # contact demands rather than a whole volt away from it.
     degeneracy = device.degeneracy
     if degeneracy is None:
         initial = np.asarray(psi_equilibrium_scaled(doping_values), dtype=np.float64)
@@ -368,8 +332,6 @@ def solve_equilibrium(
         majority = np.where(doping_values >= 0.0, phi_n.data, phi_p.data)
         initial = initial + majority
 
-    # Where there is no semiconductor the neutral guess says nothing, and the
-    # damping makes that expensive rather than merely inaccurate.
     initial = insulator_guess(device, initial)
 
     result = solve_poisson(
@@ -393,18 +355,6 @@ def solve_equilibrium(
     p_level = 0.0 if phi_p is None else phi_p.data
     psi = Field(result.x, "V", ScalingState.SCALED, Location.NODE, name="psi")
 
-    # An insulator holds no free carriers, so its nodes get zero rather than
-    # whatever Boltzmann says about a potential no carrier is sitting in. The
-    # difference is not cosmetic. psi in a thick oxide at an ordinary gate bias
-    # overflows exp, and the inf then meets the zero charge volume in
-    # extract/cv.py and becomes nan. Reporting 1e43 electrons in silicon
-    # dioxide is the same error one bias earlier, quietly.
-    #
-    # The exponentials on those nodes are computed and thrown away rather than
-    # masked beforehand, which keeps the Boltzmann expression itself in
-    # physics/statistics.py and unduplicated. Their overflow is ignored here
-    # because the values are discarded by construction, and only overflow is
-    # ignored, so a genuine nan in psi still surfaces.
     carriers = np.asarray(device.charge_volume_scaled) > 0.0
     with np.errstate(over="ignore"):
         if degeneracy is None:

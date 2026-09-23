@@ -125,17 +125,10 @@ def current_densities(
     scale = device.scale
     mesh = device.scaled_mesh
 
-    # A field dependent diffusivity is a function of this state, so it is
-    # evaluated at it. The current is being read off a converged solution, so
-    # this is the same diffusivity the solve converged with.
     drop = edge_drop(state.psi.data, mesh.geometry)
     Dn = diffusivity_at(models.Dn, drop, mesh.h)
     Dp = diffusivity_at(models.Dp, drop, mesh.h)
 
-    # Under Fermi-Dirac the solve puts each carrier's effective potential
-    # inside the Bernoulli argument, so the current has to be read with the
-    # same one. With plain psi the two terms stop cancelling on a degenerate
-    # side. Under Boltzmann both are psi itself and nothing moves.
     psi_n, psi_p = effective_potentials(
         state.psi.data, state.n.data, state.p.data, device.degeneracy
     )
@@ -231,7 +224,6 @@ def node_current_density(
     if isinstance(mesh, Mesh1D):
         return spread(slice(None)), np.zeros(n_nodes)
 
-    # Horizontal edges come first in a Mesh2D edge list, vertical ones after.
     horizontal = slice(0, mesh.n_horizontal)
     vertical = slice(mesh.n_horizontal, mesh.n_edges)
     return spread(horizontal), spread(vertical)
@@ -301,14 +293,6 @@ def terminal_currents(
     """
     electron_residual, hole_residual = continuity_residuals(device, state, models)
 
-    # A continuity residual is a divergence integrated over a dual cell, and a
-    # dual cell scales as x_0^d, so the conversion back to a current carries
-    # J_0 * x_0^(d-1): J_0 alone in 1D, J_0 * x_0 in 2D. Getting this wrong is
-    # invisible almost everywhere. A constant factor on every terminal leaves
-    # Kirchhoff satisfied and leaves every shape alone, which is threshold
-    # voltage, subthreshold slope, DIBL and the saturation exponent. See
-    # tests/analytic/test_ohmic_resistor.py, which is the only place that
-    # compares a 2D current against a number worked out without the solver.
     per_residual = device.scale.J_0 * device.scale.x_0 ** (device.dimension - 1)
 
     currents = {
@@ -451,10 +435,6 @@ def _walk_sweep(
     every point that lands. The solver frames underneath arrive through the
     same callback, which each public sweep closes its own `at_bias` over.
     """
-    # Two different failures, one meaning: there is nothing to continue from.
-    # A solver returns a stalled result rather than raising, but the guess it
-    # falls back on when given none is the Phase 1 equilibrium solve, and that
-    # one does raise.
     try:
         first = at_bias(start, None)
     except RuntimeError as error:
@@ -499,9 +479,6 @@ def _walk_sweep(
         current = total_current(
             device.with_bias(**{contact: target}), state, models, measured_at
         )
-        # The frame after the point, never instead of it. A reader that raises
-        # to cancel leaves the curve holding everything it had reached, which
-        # is what the job hands back.
         points.append(IVPoint(voltage=target, current=current, state=state))
         if on_frame is not None:
             on_frame(
@@ -594,11 +571,6 @@ def iv_sweep(
             warm = gummel(biased, guess)
             return warm if converged(warm) else None
 
-        # The cold start is the equilibrium solve with every bias already on,
-        # and a contact held far from zero is outside its basin. Only when it
-        # fails is the bias ramped in, by the coupled solver that already
-        # ramps a MOSFET's cold start, and Gummel carries on from there. A
-        # sweep that started before starts exactly as it did.
         cold: DeviceState | None = None
         refused: RuntimeError | None = None
         try:
@@ -688,11 +660,6 @@ def gate_sweep(
 
     def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
         biased = device.with_bias(**{contact: voltage})
-        # The cold one is the first point of the sweep, and on a MOSFET the
-        # drain bias is already on the device by then. From the Poisson guess
-        # that is a walk against the potential step limiter rather than a
-        # Newton solve, so it is ramped in. Every later point arrives with a
-        # guess from its neighbour and needs nothing.
         solved = (
             solve_bias_ramped(
                 biased,
@@ -709,7 +676,6 @@ def gate_sweep(
                 on_frame=on_frame,
             )
         )
-        # Both always attach a NewtonResult, converged or not.
         assert solved.newton is not None
         return solved if solved.newton.converged else None
 

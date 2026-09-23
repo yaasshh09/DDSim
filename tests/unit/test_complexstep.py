@@ -32,8 +32,6 @@ from tests.reference.complexstep import (
 )
 from tests.reference.highprec import dB_reference, relative_error
 
-# --------------------------------------------------------- the complex expm1
-
 
 def test_complex_expm1_matches_expm1_on_the_real_axis() -> None:
     """A zero imaginary part has to reproduce the real function exactly."""
@@ -59,9 +57,6 @@ def test_complex_expm1_keeps_the_second_order_term_at_the_origin() -> None:
     assert got.imag == pytest.approx(h, rel=1e-15)
 
 
-# ------------------------------------------------------- the complex Bernoulli
-
-
 def test_B_complex_reproduces_B_on_the_real_axis() -> None:
     """The complex path is different algebra, so it is checked against B."""
     x = np.array([-300.0, -37.0, -1.0, -0.05, 0.0, 0.05, 1.0, 37.0, 300.0])
@@ -79,9 +74,6 @@ def test_B_complex_does_not_overflow_in_the_positive_tail() -> None:
 
     assert math.isfinite(got.real)
     assert math.isfinite(got.imag)
-
-
-# ------------------------------------------------- complex step against Phase 0
 
 
 @pytest.mark.parametrize(
@@ -108,9 +100,6 @@ def test_complex_step_recovers_dB_dx_at_the_origin() -> None:
     got = B_complex(np.array([complex(0.0, DEFAULT_STEP)]))[0].imag / DEFAULT_STEP
 
     assert got == pytest.approx(float(dB_dx(0.0)), rel=1e-14)
-
-
-# ------------------------------------------------------- the generic harness
 
 
 def test_complex_step_jacobian_is_exact_for_a_linear_function() -> None:
@@ -157,10 +146,6 @@ def test_complex_step_jacobian_rejects_a_residual_that_drops_the_dtype() -> None
     """
 
     def f(x: np.ndarray) -> np.ndarray:
-        # .real rather than an astype, because filterwarnings = ["error"]
-        # already turns the implicit complex to float cast into a raise. A
-        # residual that takes the real part deliberately does not warn, and
-        # that is the one this guard has to catch.
         return np.asarray(x).real * 2.0
 
     with pytest.raises(TypeError, match="complex"):

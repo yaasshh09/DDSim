@@ -319,9 +319,6 @@ class Window(DopingProfile):
         if self.edge == "gaussian":
             outside = np.maximum(np.maximum(self.low - x, x - self.high), 0.0)
             return np.asarray(np.exp(-(outside**2) / (2.0 * self.length**2)))
-        # Open on the right, the general form would be 0.5 (2 - erfc), which
-        # cancels to nothing in the tail. Open on the left needs no case: its
-        # second term is erfc(+inf) = 0 exactly, which leaves nmos's source.
         if math.isinf(self.high) and not math.isinf(self.low):
             return np.asarray(0.5 * _erfc((self.low - x) / self.length))
         return np.asarray(

@@ -133,9 +133,6 @@ def build_mesh(
 
     create_1d_mesh(mesh=mesh)
     add_1d_mesh_line(mesh=mesh, pos=0.0, ps=h_bulk, tag="body")
-    # ps is the spacing walking in +x from this line, ns the spacing walking
-    # in -x. The silicon is below the interface and the oxide above it, so the
-    # surface spacing is the ns of this line, not its ps.
     add_1d_mesh_line(
         mesh=mesh, pos=interface, ns=h_surface, ps=h_oxide, tag="iface"
     )
@@ -200,9 +197,6 @@ def build_physics(benchmark: P.MosBenchmark, device: str) -> None:
         set_parameter(device=device, name=f"{contact}_bias", value=0.0)
     CreateSiliconPotentialOnlyContact(device, SILICON, BODY)
 
-    # No work function of its own: devsim's CreateOxideContact pins Potential
-    # at the contact bias, so the work function is folded into the number
-    # handed over. See gate_potential below.
     CreateOxideContact(device, OXIDE, GATE)
 
     CreateSiliconOxideInterface(device, "si_ox")

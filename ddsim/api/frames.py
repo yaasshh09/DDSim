@@ -196,8 +196,6 @@ def encode(frame: object) -> str | bytes:
                 ],
             }
         ).encode("utf-8")
-        # A Float32Array view throws unless it starts on a multiple of 4, so
-        # the header is padded with spaces, which JSON reads as nothing.
         header += b" " * (-(4 + len(header)) % 4)
         payload = b"".join(
             np.ascontiguousarray(values, dtype=WIRE_DTYPE).tobytes()
@@ -205,9 +203,6 @@ def encode(frame: object) -> str | bytes:
         )
         return struct.pack("<I", len(header)) + header + payload
 
-    # allow_nan=False would raise on a value _finite already turned into None,
-    # so it is set to say that nothing here can produce one rather than to
-    # catch anything. If it ever fires, a number skipped _finite.
     return json.dumps(_body(frame), allow_nan=False)
 
 
@@ -314,9 +309,6 @@ def field_frame(
     rather than against position would compress the junction into nothing,
     which is the one place anyone is looking.
     """
-    # Any on purpose. api/ is not allowed to import ddsim.mesh, which the
-    # import graph test enforces, so the two mesh types cannot be named here
-    # and the dimension is asked of the object instead.
     mesh: Any = device.mesh
     axes: tuple[tuple[str, str, npt.NDArray[np.float64]], ...]
     if hasattr(mesh, "x_axis"):

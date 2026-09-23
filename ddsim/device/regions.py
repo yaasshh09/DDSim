@@ -203,16 +203,12 @@ def _onto_edges(
     nx, ny = mesh.nx, mesh.ny
     dx, dy = mesh.x_axis.h, mesh.y_axis.h
 
-    # A horizontal edge at row j is bounded by the cell row below (j-1) and the
-    # cell row above (j), each contributing half its height to the face.
     below = np.zeros((ny, nx - 1))
     above = np.zeros((ny, nx - 1))
     below[1:] = cell_value * (0.5 * dy)[:, None]
     above[:-1] = cell_value * (0.5 * dy)[:, None]
     horizontal = (below + above).ravel()
 
-    # A vertical edge at column i is bounded by the cell column to its left
-    # (i-1) and to its right (i), each contributing half its width.
     left = np.zeros((ny - 1, nx))
     right = np.zeros((ny - 1, nx))
     left[:, 1:] = cell_value * (0.5 * dx)[None, :]
@@ -240,14 +236,9 @@ def region_map(
     eps_cell = np.vectorize(_RELATIVE_EPS.__getitem__)(cell_material)
     is_silicon = (cell_material == SILICON).astype(np.float64)
 
-    # --- onto edges. The permittivity and the silicon share of the face are
-    # the same sum over the same cells with different weights, so they are the
-    # same call twice.
     eps_r = _onto_edges(mesh, eps_cell)
     semiconductor_face = mesh.dual_face * _onto_edges(mesh, is_silicon)
 
-    # --- semiconductor volume onto nodes. Every cell hands a quarter of its
-    # area to each of its four corners.
     quarter = is_silicon * np.outer(0.5 * dy, 0.5 * dx)
     volume = np.zeros((ny, nx))
     volume[:-1, :-1] += quarter

@@ -65,9 +65,6 @@ def served() -> Iterator[Served]:
         create_app(registry), host="127.0.0.1", port=port, log_level="warning"
     )
     running = uvicorn.Server(config)
-    # A page that leaves mid solve is a normal thing for a page to do, and the
-    # server has to take it quietly. uvicorn logs an escaped exception here and
-    # the page never sees it, so this is the only place it can be caught.
     server_errors: list[logging.LogRecord] = []
     catcher = logging.Handler(level=logging.ERROR)
     catcher.emit = server_errors.append  # type: ignore[method-assign]
@@ -166,8 +163,6 @@ def test_a_knob_explains_itself_with_rendered_maths(server) -> None:
             assert "cm^-3" in page.inner_text("#drawer-knob")
             assert page.inner_text("#drawer-title")
             assert "$$" not in page.inner_text("#drawer-depth")
-            # marked reads \, as a markdown escape and drops the backslash,
-            # so KaTeX would draw a comma. Its annotation keeps what it got.
             tex = page.evaluate(
                 "[...document.querySelectorAll('#drawer-depth annotation')]"
                 ".map((a) => a.textContent).join(' ')"
@@ -244,9 +239,6 @@ def test_streamlines_trace_through_a_mosfet(server) -> None:
 
             assert count > 0
 
-            # Before anyone drags a cutline, that canvas has never been sized
-            # by fit(), so a width bound stretches its default 300 by 200 shape
-            # and leaves the panel hundreds of pixels tall with nothing in it.
             cutline_height = page.evaluate(
                 "el('cutline').getBoundingClientRect().height"
             )
@@ -284,9 +276,6 @@ def test_an_equation_wider_than_the_drawer_can_be_reached(server) -> None:
             assert errors == []
         finally:
             browser.close()
-
-
-# ------------------------------------------------------ stage 2, the sandbox
 
 
 def solved(page: Page, errors: list[str]) -> None:
@@ -344,7 +333,6 @@ def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
 
             assert kept == [first], "the overlay is not the first run's own numbers"
             assert second != first, "the second solve did not move the curve"
-            # Labelled by what differs from the run before it.
             assert "Na" in labels[0], labels
 
             page.click("#clear-runs")
@@ -377,7 +365,6 @@ def test_five_slider_moves_in_a_second_leave_one_solve_running(served) -> None:
             page.goto(served.url)
             wait_until(page, "el('state').textContent === 'ready'", errors)
 
-            # Five moves inside a second, faster than the page submits.
             page.evaluate(
                 """(async () => {
                   const slider = document.querySelector('[data-slider="Na"]');
@@ -395,10 +382,6 @@ def test_five_slider_moves_in_a_second_leave_one_solve_running(served) -> None:
             assert len(submitted) == 1, f"five moves submitted {len(submitted)} jobs"
             assert served.jobs.status(submitted[0]) is JobStatus.DONE
 
-            # And a move that lands while a solve is running replaces it. The
-            # long voltage list is what gives the move something to interrupt,
-            # and the waits are on the job rather than on the page, so this
-            # cannot pass by racing past a solve that already finished.
             page.fill("#voltages", ", ".join(str(v / 50) for v in range(40)))
             move = """(() => {
                   const slider = document.querySelector('[data-slider="Na"]');
@@ -424,8 +407,6 @@ def test_five_slider_moves_in_a_second_leave_one_solve_running(served) -> None:
             assert served.jobs.status(submitted[2]) is JobStatus.DONE
             assert errors == []
         finally:
-            # Before the close, or a response still in flight reaches a
-            # handler whose page is already gone.
             page.remove_listener("response", note_job)
             browser.close()
 
@@ -464,32 +445,25 @@ def test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server) -> No
                     errors,
                 )
 
-            # The length slider's bottom end is 0.1 um, under the 0.5 um
-            # junction. It stops just past the junction instead.
             solved_again(lambda: page.evaluate(drag, ["length", 0.0]))
             assert page.evaluate(box, "length") > page.evaluate(box, "junction")
             assert "stops at" in page.inner_text("#knob-note")
 
-            # Every node the slider has, at the coarsest spacing it has: 1000
-            # cells of 10 nm is 10 um in a 1 um device. h_min stops short.
             solved_again(lambda: page.evaluate(drag, ["length", 0.5]))
             solved_again(lambda: page.evaluate(drag, ["n_nodes", 1.0]))
             solved_again(lambda: page.evaluate(drag, ["h_min", 1.0]))
             assert page.evaluate(box, "h_min") < 1e-6
             assert "h_min" in page.inner_text("#knob-note")
 
-            # A number typed past a slider's end is held to that end.
             page.fill('#device-knobs [data-name="Na"]', "1e25")
             solved_again(
                 lambda: page.dispatch_event('#device-knobs [data-name="Na"]', "change")
             )
             assert page.evaluate(box, "Na") == 1e19
 
-            # The terminal is picked from the device's own, never typed.
             options = "Array.from(el('contact').options, (o) => o.value)"
             assert page.evaluate(options) == ["anode", "cathode"]
 
-            # And a voltage past the anode's declared range is held to it.
             page.fill("#voltages", "0, 0.5, 3")
             solved_again(lambda: page.click("#solve"))
             assert page.input_value("#voltages") == "0, 0.5, 1"
@@ -515,19 +489,13 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh(server) -> None:
 
             sliders = "document.querySelectorAll('[data-slider]').length"
             assert page.evaluate(sliders) > 0
-            # The diode has no coarse mesh, so no buttons offering one.
             assert page.is_hidden("#mesh-coarse")
 
             assert page.is_visible("#bands")
             page.select_option("#device-kind", "nmos")
             assert page.evaluate(sliders) > 0
             assert page.is_visible("#mesh-coarse")
-            # The band view draws a 1D profile. A 2D device gets bands from
-            # the cutline, so the checkbox would do nothing there.
             assert page.is_hidden("#bands")
-            # An iv sweep takes ohmic contacts only, and a 2D device starts on
-            # its gate, so leaving the diode's iv would make the first solve a
-            # refusal. Going back to a 1D device goes back to iv.
             assert page.input_value("#sweep-kind") == "transfer"
             page.select_option("#device-kind", "pn_diode")
             assert page.input_value("#sweep-kind") == "iv"
@@ -610,15 +578,12 @@ def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server) -> None
             wait_until(page, "!el('lesson-panel').hidden", errors)
             assert page.input_value("#device-kind") == "pn_diode"
             assert page.input_value("#voltages").startswith("0, 0.05, 0.1")
-            # The explanation's maths is rendered, not left as TeX.
             rendered = "document.querySelector('#lesson-saw .katex') !== null"
             assert page.evaluate(rendered)
 
             page.click("#lesson-steps li:has-text('Reverse bias') button")
             assert float(page.input_value('[data-name="length"]')) == 4e-4
             assert page.input_value("#voltages") == "0, -0.5, -1, -2"
-            # The slider was rebuilt at the lesson's value, to within the one
-            # step it snaps to, rather than at the default of -4 decades.
             slider = float(page.input_value('[data-slider="length"]'))
             assert abs(slider - (-3.3979)) <= 0.01
 
@@ -676,20 +641,12 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(
             page.fill("#voltages", "0, 0.2")
             solved(page, errors)
             assert page.evaluate("state.points.length") == 2
-            # The result is labelled as the validated solver on a structure
-            # nobody validated, and a benchmark device's is not.
             assert page.is_visible("#built-note")
 
-            # A second run with the base lightly doped the other way. Its
-            # overlay label names the regions rather than printing objects.
             set_region(page, 2, "p", "1e-4", "1e14")
             solved(page, errors)
             label = page.inner_text("#runs-note")
             assert "regions" in label and "object" not in label
-            # Each run in the rail carries a picture of its own curve: the
-            # one on screen and the one kept from the first solve. This sweep
-            # stops after 0 V, and a one-point run still gets its dot.
-            # "done" lands before the final curve is fetched, so this waits.
             wait_until(
                 page,
                 "document.querySelectorAll('#runs-note svg polyline').length === 2",
@@ -734,9 +691,6 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(
             browser.close()
 
 
-# ------------------------------------------------------ stage 5, drawing in 2D
-
-
 def electrode(page: Page, row: int, field: str, value: str) -> None:
     """Type one field of one electrode row, as a student would."""
     box = page.locator("#drawing-electrodes > div").nth(row)
@@ -769,8 +723,6 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
             assert page.input_value("#contact") == "gate"
             assert "20000" in page.inner_text("#drawing-note")
 
-            # A drag along the bottom edge with the gate tool adds a gate
-            # there, snapped onto y = 0, which is silicon.
             page.select_option("#drawing-tool", "gate")
             view = page.locator("#drawing-view").bounding_box()
             bottom = view["y"] + view["height"] - 2
@@ -969,7 +921,7 @@ def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values(server) -> None:
             )
             pairs = zip(column["sampled"], column["nodes"], strict=True)
             for sampled, node in pairs:
-                if math.isnan(node):  # an oxide node, where the line breaks
+                if math.isnan(node):
                     assert math.isnan(sampled)
                 else:
                     assert sampled == pytest.approx(node, rel=1e-12, abs=1e-12)

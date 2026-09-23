@@ -34,7 +34,6 @@ def test_band_diagram_is_generated() -> None:
     n = state.n.to_physical(device.scale).data  # [cm^-3]
     p = state.p.to_physical(device.scale).data  # [cm^-3]
 
-    # Band edges relative to the intrinsic level. E_c - E_i is half the gap.
     half_gap = 0.5 * C.Eg()  # [eV]
     E_i = -psi
     E_c = E_i + half_gap
@@ -80,7 +79,6 @@ def test_band_diagram_is_generated() -> None:
     assert target.exists()
     assert target.stat().st_size > 10_000
 
-    # The plot must show real physics, not a flat line.
     assert V_bi == pytest.approx(
         C.V_T() * math.log(1e16 * 1e16 / C.n_i() ** 2), rel=5e-3
     )

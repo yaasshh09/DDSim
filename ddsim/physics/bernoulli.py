@@ -175,8 +175,6 @@ def _B_complex(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
     """
     out = np.empty_like(z)
 
-    # 0/0 at the origin. The limit is exactly 1. A complex step argument is
-    # never exactly zero, so this only fires for a real valued complex array.
     origin = z == 0.0
     out[origin] = 1.0
 
@@ -187,7 +185,6 @@ def _B_complex(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
         w = z[negative]
         out[negative] = w / _complex_expm1(w)
     if positive.any():
-        # B(z) = -z*exp(-z)/expm1(-z), which keeps the exponent negative.
         w = z[positive]
         out[positive] = -w * np.exp(-w) / _complex_expm1(-w)
 
@@ -299,7 +296,6 @@ def dB_dx(x: float | npt.NDArray[np.float64]) -> float | npt.NDArray[np.float64]
     far_positive = values > ASYMPTOTE_CUTOFF_DB
     middle = ~near_zero & ~far_negative & ~far_positive
 
-    # Skipped when empty, for the same reason as in B.
     if near_zero.any():
         out[near_zero] = _dB_series(values[near_zero])
     if far_negative.any():

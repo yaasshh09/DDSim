@@ -46,9 +46,6 @@ def scaled_mesh(n_nodes: int = 21, length: float = MICRON) -> tuple:
     return mesh.h / scale.x_0, mesh.volume / scale.x_0
 
 
-# ------------------------------------------------------- the equilibrium limit
-
-
 @pytest.mark.parametrize("doping_scaled", [-1e6, -1.0, 0.0, 1.0, 1e6, 1e8])
 def test_residual_is_zero_for_uniform_material_at_equilibrium(
     doping_scaled: float,
@@ -75,9 +72,6 @@ def test_residual_is_nonzero_when_psi_is_off_equilibrium() -> None:
     assert np.max(np.abs(poisson_residual(h, volume, psi, net_doping))) > 1.0
 
 
-# ----------------------------------------------------------------- the operator
-
-
 def test_laplacian_of_a_linear_potential_vanishes_in_the_interior() -> None:
     """A linear psi has zero second derivative, so only the charge term is left.
 
@@ -91,8 +85,6 @@ def test_laplacian_of_a_linear_potential_vanishes_in_the_interior() -> None:
     residual = poisson_residual(h, volume, psi, net_doping)
     charge_only = -(np.exp(-psi) - np.exp(psi) + net_doping) * volume
 
-    # Interior nodes see only the charge term. Boundary nodes do not, because
-    # a reflecting boundary is not satisfied by a linear profile.
     np.testing.assert_allclose(residual[1:-1], charge_only[1:-1], atol=1e-14)
 
 
@@ -122,9 +114,6 @@ def test_charge_term_has_the_sign_that_pulls_psi_toward_neutrality() -> None:
 
     assert np.all(donors[1:-1] < 0.0)
     assert np.all(acceptors[1:-1] > 0.0)
-
-
-# ------------------------------------------------------------------- Jacobian
 
 
 def test_jacobian_matches_complex_step_differentiation() -> None:
@@ -225,16 +214,13 @@ def test_jacobian_laplacian_block_matches_the_uniform_mesh_stencil() -> None:
     rows, cols, values = poisson_jacobian(h, volume, np.zeros(11), np.zeros(11))
     matrix = sp.coo_matrix((values, (rows, cols)), shape=(11, 11)).toarray()
 
-    charge_diagonal = 2.0 * volume  # (n + p) * volume at psi = 0, n = p = 1
+    charge_diagonal = 2.0 * volume
     for i in range(1, 10):
         assert matrix[i, i - 1] == pytest.approx(-1.0 / spacing, rel=1e-14)
         assert matrix[i, i + 1] == pytest.approx(-1.0 / spacing, rel=1e-14)
         assert matrix[i, i] == pytest.approx(
             2.0 / spacing + charge_diagonal[i], rel=1e-14
         )
-
-
-# ------------------------------------------------------------ the Field wrapper
 
 
 def test_assemble_checks_scaling_state_at_entry() -> None:
@@ -312,9 +298,6 @@ def test_assemble_returns_a_square_system_of_the_right_size() -> None:
     assert assembly.residual.shape == (11,)
 
 
-# ------------------------------------------------- frozen quasi-Fermi levels
-
-
 def test_residual_uses_the_quasi_fermi_potentials_in_the_densities() -> None:
     """n = exp(psi - phi_n), p = exp(phi_p - psi), not exp(+/- psi).
 
@@ -332,7 +315,6 @@ def test_residual_uses_the_quasi_fermi_potentials_in_the_densities() -> None:
     phi = np.full(11, 2.0)
 
     residual = poisson_residual(h, volume, psi, net_doping, phi, phi)
-    # psi == phi means n = p = 1, so the charge term vanishes exactly.
     np.testing.assert_allclose(residual, 0.0, atol=1e-15)
 
 
@@ -395,9 +377,6 @@ def test_jacobian_with_quasi_fermi_matches_complex_step() -> None:
         )
 
 
-# -------------------------------------------------- carriers where there are none
-
-
 def test_an_insulator_node_contributes_no_charge_however_large_psi_gets():
     """A zero charge volume has to mean no carriers, not carriers times zero.
 
@@ -415,7 +394,7 @@ def test_an_insulator_node_contributes_no_charge_however_large_psi_gets():
     n_nodes = 5
     h = np.full(n_nodes - 1, 0.5)
     volume = np.full(n_nodes, 0.5)
-    volume[-2:] = 0.0  # the last two nodes are insulator
+    volume[-2:] = 0.0
 
     psi = np.array([0.0, 10.0, 100.0, 500.0, 800.0])
     net_doping = np.zeros(n_nodes)

@@ -44,9 +44,6 @@ def solved(request):
     return device, solve_equilibrium(device)
 
 
-# ------------------------------------------------------------- mass action
-
-
 def test_np_equals_n_i_squared_everywhere(solved) -> None:
     """docs/04-validation.md: under 1e-8 relative, everywhere, all doping.
 
@@ -65,9 +62,6 @@ def test_np_equals_n_i_squared_in_physical_units(solved) -> None:
     np.testing.assert_allclose(n * p, device.material.n_i**2, rtol=1e-8)
 
 
-# -------------------------------------------------------------- positivity
-
-
 def test_carrier_densities_are_strictly_positive(solved) -> None:
     """docs/04-validation.md: a negative density means a broken M-matrix.
 
@@ -82,9 +76,6 @@ def test_carrier_densities_are_finite(solved) -> None:
     _, state = solved
     assert np.all(np.isfinite(state.n.data))
     assert np.all(np.isfinite(state.p.data))
-
-
-# ------------------------------------------------------- charge neutrality
 
 
 def test_bulk_is_charge_neutral(solved) -> None:
@@ -134,9 +125,6 @@ def test_total_charge_in_the_device_is_conserved(solved) -> None:
     assert abs(total) / reference < 1e-6
 
 
-# ----------------------------------------------------- consistency of state
-
-
 def test_densities_agree_with_boltzmann_applied_to_psi(solved) -> None:
     """n and p must be the ones psi implies, not a stale copy."""
     _, state = solved
@@ -166,9 +154,6 @@ def test_potential_is_monotonic_across_the_junction(solved) -> None:
     """
     _, state = solved
     assert np.all(np.diff(state.psi.data) > -1e-12)
-
-
-# --------------------------------------------------------- other geometries
 
 
 def test_invariants_hold_for_a_gaussian_profile() -> None:

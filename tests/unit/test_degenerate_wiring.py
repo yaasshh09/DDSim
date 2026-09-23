@@ -94,9 +94,6 @@ HEAVY = 1e20
 """Source and drain doping [cm^-3], where n/Nc is 3.5 and Boltzmann is not on."""
 
 
-# ------------------------------------------------------------------ fixtures
-
-
 def junction(degenerate: bool, n_nodes: int = N_NODES):
     """A 1e17 / 1e20 abrupt junction, degenerate on the n side only.
 
@@ -191,9 +188,6 @@ def blocks_agree(assembled, reference, rtol=1e-10):
             )
 
 
-# --------------------------------------------------------------- the flag
-
-
 def test_a_device_is_boltzmann_unless_it_says_otherwise() -> None:
     """The default has to be off, or Phase 5 silently moves Phases 1 to 4.
 
@@ -214,9 +208,6 @@ def test_the_flag_builds_the_statistics_in_the_devices_own_scaling() -> None:
     device = junction(degenerate=True)
     assert device.degeneracy == Degeneracy.for_silicon(device.scale.C_0)
     assert device.degeneracy.Nc == pytest.approx(C.Nc(C.T_ROOM) / device.scale.C_0)
-
-
-# ------------------------------------------------------------- the contacts
 
 
 def test_the_contact_values_are_boltzmann_without_the_statistics() -> None:
@@ -276,9 +267,6 @@ def test_the_three_contact_values_are_one_state() -> None:
     )
 
 
-# ------------------------------------------------------------- Poisson terms
-
-
 def test_the_poisson_densities_are_their_own_derivatives_under_boltzmann() -> None:
     """dn/dpsi is n, which is the term that makes the Phase 1 matrix an
     M-matrix. Returning the same array is the arithmetic that was there.
@@ -319,9 +307,6 @@ def test_an_insulator_node_holds_no_carriers_under_either_statistics() -> None:
     assert dp[0] == 0.0
 
 
-# -------------------------------------------------- the effective potentials
-
-
 def test_boltzmann_returns_psi_itself_for_both_carriers() -> None:
     """The same array, not a copy of it. Nothing is computed on this path."""
     psi = np.linspace(-5.0, 5.0, 11)
@@ -341,12 +326,7 @@ def test_the_two_carriers_see_different_potentials_when_degenerate() -> None:
     assert np.all(psi_n < 0.0)
     assert np.all(psi_p > 0.0)
 
-    # Not mirror images of each other: the two bands have different densities
-    # of states, so the same carrier density is a different fraction of each.
     assert not np.allclose(psi_n, -psi_p, rtol=1e-3)
-
-
-# --------------------------------------------------- the Jacobian, all nine
 
 
 @pytest.mark.parametrize("doping", [HEAVY, -HEAVY], ids=["n+", "p+"])
@@ -590,8 +570,6 @@ def test_the_coupled_contacts_pin_the_degenerate_values() -> None:
     row = unknown_index(cathode, Unknown.PSI)
     assert pinned.residual[row] * C.V_T() * 1e3 == pytest.approx(-30.5, rel=1e-2)
 
-    # And the densities are pinned at their own degenerate values, which is
-    # the half of the contact that mass action changes rather than asinh.
     row = unknown_index(cathode, Unknown.N)
     assert pinned.residual[row] == pytest.approx(
         boltzmann[row]
@@ -599,9 +577,6 @@ def test_the_coupled_contacts_pin_the_degenerate_values() -> None:
         rel=1e-12,
     )
 
-
-
-# ------------------------------------------------ the quasi-Fermi levels
 
 
 def test_the_quasi_fermi_level_is_read_under_the_states_own_statistics() -> None:
@@ -616,11 +591,9 @@ def test_the_quasi_fermi_level_is_read_under_the_states_own_statistics() -> None
     device = junction(degenerate=True, n_nodes=201)
     state = solve_equilibrium(device)
 
-    # Equilibrium, so both levels are flat at zero whatever the statistics.
     assert float(np.max(np.abs(state.phi_n.data))) < 1e-12
     assert float(np.max(np.abs(state.phi_p.data))) < 1e-12
 
-    # And the Boltzmann reading of the same state is not, by the correction.
     boltzmann = replace(state, degeneracy=None)
     shift = float(np.max(np.abs(boltzmann.phi_n.data))) * C.V_T() * 1e3  # [mV]
     assert shift == pytest.approx(30.5, rel=1e-2)
@@ -810,9 +783,6 @@ def test_the_degenerate_diode_carries_a_current_close_to_the_boltzmann_one() -> 
     assert current[True] != current[False]
 
 
-# ------------------------------------------------------------ the fixed point
-
-
 def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None:
     """The invariant that says both halves of the change landed together.
 
@@ -872,9 +842,6 @@ def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None
         degeneracy=device.degeneracy,
     )
 
-    # The equilibrium product is broken by exactly the degeneracy factors,
-    # which is what makes SRH generate at rest. Asserted so this test says
-    # why it carries the term below rather than only that it does.
     assert float(np.max(np.abs(n * p - 1.0))) == pytest.approx(0.693, rel=1e-2)
 
     psi_row, n_row, p_row = unpack(residual)
