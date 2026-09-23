@@ -496,7 +496,7 @@ async function refusal() {
   });
   if (response.ok) return "";
   const failure = await response.json().catch(() => ({ detail: response.statusText }));
-  return String(failure.detail || "this device does not build");
+  return String(failure.detail || "this device can't be built");
 }
 
 async function holdBuildable(parameter, box, drag) {
@@ -523,7 +523,7 @@ async function holdBuildable(parameter, box, drag) {
   return (
     parameter.label + " stops at " + inside +
     (parameter.unit && parameter.unit !== "1" ? " " + parameter.unit : "") +
-    ", as far as it goes with the other settings where they are. " +
+    ", the furthest it can go with the other settings as they are. " +
     "Why: " + why
   );
 }
@@ -559,7 +559,7 @@ function collect(container) {
     } else if (input.value.trim() !== "") {
       const value = Number(input.value);
       if (!isFinite(value)) {
-        throw new Error(name + " is not a number: " + input.value);
+        throw new Error(name + " isn't a number: " + input.value);
       }
       sent[name] = input.dataset.kind === "int" ? Math.round(value) : value;
     }
@@ -606,8 +606,8 @@ function onDeviceKind() {
   el("voltage-note").textContent = "";
   el("bands").parentElement.style.display = live() ? "inline-flex" : "none";
   el("live-note").textContent = live()
-    ? "moving a slider re-solves this device."
-    : "press solve: this device has two axes and takes seconds to minutes.";
+    ? "Move a slider and this device solves again straight away."
+    : "Press solve when you're ready. This is a 2D device, so it takes seconds to minutes.";
 }
 
 function live() {
@@ -630,7 +630,7 @@ function useMesh(coarse) {
   }
   el("mesh-note").textContent = coarse
     ? preset.note
-    : "The mesh this device is validated on.";
+    : "The mesh this device was validated on.";
 }
 
 function onSweepKind() {
@@ -671,9 +671,9 @@ async function schema() {
 function voltages() {
   const asked = el("voltages").value.split(/[,\s]+/).filter((s) => s.length);
   const values = asked.map(Number);
-  if (!values.length) throw new Error("no voltages asked for");
+  if (!values.length) throw new Error("the voltage list is empty");
   if (values.some((v) => !isFinite(v))) {
-    throw new Error("the voltage list has something in it that is not a number");
+    throw new Error("something in the voltage list isn't a number");
   }
   const contact = el("contact").value.trim();
   const bias = state.schema.devices[el("device-kind").value]
@@ -684,7 +684,7 @@ function voltages() {
     el("voltages").value = held.join(", ");
     el("voltage-note").textContent =
       "held to " + format(bias.low) + " V to " + format(bias.high) +
-      " V, the range the " + contact + " bias is declared for";
+      " V, the range allowed for the " + contact + " bias";
   }
   return held;
 }
@@ -725,7 +725,7 @@ function clear() {
   el("message").textContent = "";
   el("curve-note").textContent = "a point lands here as each voltage is solved";
   el("residual-note").textContent = "fills in while a solve is running";
-  el("profile-note").textContent = "the inside of the device, once it is solved";
+  el("profile-note").textContent = "the inside of the device, once it's solved";
   el("point").disabled = true;
   el("point").max = "0";
   drawResidual();
@@ -960,6 +960,6 @@ window.addEventListener("resize", () => {
 });
 
 schema().catch((problem) => {
-  el("state").textContent = "the schema could not be loaded";
+  el("state").textContent = "couldn't load the device list";
   el("message").textContent = String(problem.message || problem);
 });

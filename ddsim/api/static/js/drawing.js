@@ -92,7 +92,7 @@ function collectDrawing() {
         const value = Number(text);
         if (text.trim() === "" || !isFinite(value)) {
           throw new Error(part.slice(0, -1) + " " + (index + 1) + ": " +
-            spec.field + " is not a number: " + text);
+            spec.field + " isn't a number: " + text);
         }
         record[spec.field] = value;
       }

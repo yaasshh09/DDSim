@@ -4,25 +4,25 @@ const PART_ABOUT = {
   blocks: {
     title: "Shapes",
     lede:
-      "Rectangles of silicon or oxide. A later one is painted over an " +
-      "earlier one, so an oxide drawn on top of silicon cuts a trench in it. " +
-      "Together they have to cover a rectangle with no gaps.",
+      "Rectangles of silicon or oxide. Each new one paints over the ones " +
+      "before it, so oxide drawn on top of silicon cuts a trench. Together " +
+      "they have to fill a rectangle with no gaps.",
     add: "add a shape",
   },
   implants: {
     title: "Doping",
     lede:
       "Rectangles of added impurity, p or n. Where two overlap they add up. " +
-      "Uniform holds its peak inside the box and stops at the edge; gaussian " +
-      "fades out past it, the way a real implant does.",
+      "Uniform stays at its peak inside the box and stops dead at the edge. " +
+      "Gaussian fades out past the edge, the way a real implant does.",
     add: "add doping",
   },
   electrodes: {
     title: "Contacts",
     lede:
       "Straight lines where a wire meets the device. An ohmic contact sits " +
-      "on silicon. A gate sits on oxide and has a work function. The name is " +
-      "what the sweep's contact box takes.",
+      "on silicon. A gate sits on oxide and has a work function. Whatever " +
+      "you name it shows up in the sweep's contact box.",
     add: "add a contact",
   },
 };
@@ -45,23 +45,23 @@ const PART_LABELS = {
 };
 
 const BUILD_HINT =
-  "Pick a tool, then drag a rectangle on the picture. A drag that ends near " +
-  "an edge already drawn snaps onto it. A contact is the longer way you " +
-  "dragged. Everything you draw shows up as a row below, and the numbers in " +
-  "those rows are the device: the picture stretches its two axes apart so a " +
-  "thin oxide stays visible.";
+  "Pick a tool, then drag a rectangle on the picture. If you let go near an " +
+  "edge you've already drawn, it snaps onto it. A contact runs along " +
+  "whichever way you dragged further. Everything you draw shows up as a row " +
+  "below, and those numbers are the real device. The picture stretches its " +
+  "two axes differently so a thin oxide stays visible.";
 
 const BUILD_EMPTY =
-  "This is where a device you draw is put together. Choose \"drawing\" as " +
-  "the device kind on the left, or pick \"Draw your own\" from the start " +
-  "screen, and the editor opens here.";
+  "This is where you draw your own device. Choose \"drawing\" as the device " +
+  "kind on the left, or pick \"Draw your own\" on the start screen, and the " +
+  "editor opens here.";
 
 const DRAWING_NOTE =
-  "Rectangles only, because the mesh is a grid of lines that each run the " +
-  "whole width or height, and a cell that is part oxide and part silicon " +
-  "has no single permittivity. A mesh over <b id=\"node-budget\"></b> nodes " +
-  "is refused. A device you drew is the validated solver's answer on a " +
-  "structure nothing has checked, and the page says so under the curve.";
+  "Rectangles only. The mesh is a grid of lines that each run the whole " +
+  "width or height, and a cell that's half oxide and half silicon wouldn't " +
+  "have one permittivity. Meshes over <b id=\"node-budget\"></b> nodes get " +
+  "turned down. Results on a drawn device are the validated solver's answer " +
+  "on a structure nothing has checked, and the page says so under the curve.";
 
 function buildEditor() {
   const into = el("build-parts");

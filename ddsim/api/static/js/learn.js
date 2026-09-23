@@ -54,7 +54,7 @@ async function explain(topicName, knob) {
       el("drawer-title").textContent = topic.title;
       renderInto(el("drawer-plain"), topic.plain);
       renderInto(el("drawer-depth"), topic.depth);
-      el("drawer-docs").textContent = "In the repo: " + topic.docs.join(", ");
+      el("drawer-docs").textContent = "More in the repo: " + topic.docs.join(", ");
     }
   }
   el("drawer").classList.add("open");

@@ -40,7 +40,7 @@
   <button id="welcome-open" class="flat" type="button">what is this?</button>
   <span class="gap"></span>
   <span class="beacon"></span>
-  <span id="state">loading the schema</span>
+  <span id="state">loading</span>
   <button id="cancel" type="button" disabled>cancel</button>
 </header>
 <main>
@@ -84,8 +84,8 @@
 
     <fieldset>
       <legend>models</legend>
-      <p class="aside lede">Off is the solver's own default, because every
-        result before phase 5 was taken without them.</p>
+      <p class="aside lede">These start switched off, which is the solver's
+        default. Turn them on for realistic transistor currents.</p>
       <div id="model-knobs"></div>
     </fieldset>
 
@@ -117,7 +117,7 @@
 
     <div class="panel">
       <h2 data-topic-id="residual-plot">residual
-        <span class="of">how far the iterate is from solving the system</span>
+        <span class="of">how far the solver still is from the answer</span>
         <span class="tools">
           <label><span>log</span><input id="residual-log" type="checkbox" checked></label>
         </span>
@@ -143,14 +143,14 @@
       </h2>
       <canvas id="curve" height="220"></canvas>
       <div class="legend">
-        <span id="built-note" hidden>a device built on this page: validated solver, unvalidated structure</span>
+        <span id="built-note" hidden>you built this device: the solver is validated, this structure isn't</span>
         <span id="curve-note">a point lands here as each voltage is solved</span>
       </div>
     </div>
 
     <div class="panel">
       <h2 data-topic-id="profile-plot">profile
-        <span class="of">the fields inside the device at one bias point</span>
+        <span class="of">what's going on inside the device at one voltage</span>
         <span class="tools">
           <label data-topic-id="bands-view"><span>bands</span>
             <input id="bands" type="checkbox"></label>
@@ -174,7 +174,7 @@
       </div>
       <div id="cutline-panel" data-topic-id="cutline" hidden>
         <canvas id="cutline" height="200"></canvas>
-        <div class="legend"><span id="cutline-note">drag across the image to draw a cutline</span></div>
+        <div class="legend"><span id="cutline-note">drag across the picture to draw a cutline</span></div>
       </div>
     </div>
   </section>
@@ -207,14 +207,14 @@
   <section id="rail">
     <div class="section">runs</div>
     <div class="legend" id="runs-note" data-topic-id="compare-runs"></div>
-    <p id="runs-empty">Every run that finishes stays on the curve, faded,
-      labelled by what it does not share with the run after it. Clearing the
-      plot clears this.</p>
+    <p id="runs-empty">Every finished run stays on the curve as a faded line,
+      labelled with whatever changed before the next run. Clearing the plot
+      clears this list too.</p>
 
     <div class="divider"></div>
     <div class="section">device file</div>
-    <p class="aside lede">A saved device is the device half of a request:
-      geometry, doping and mesh, with no sweep and no models.</p>
+    <p class="aside lede">Saving keeps just the device: its shape, doping and
+      mesh. The sweep and models aren't saved with it.</p>
     <div class="row" data-topic-id="device-file">
       <button id="device-save" class="flat" type="button">save device</button>
       <button id="device-open" class="flat" type="button">load device</button>

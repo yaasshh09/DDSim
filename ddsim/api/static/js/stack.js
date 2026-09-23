@@ -42,9 +42,9 @@ function regionRow(region) {
 }
 
 const STACK_NOTE =
-  "A device you built. The solver is validated against DEVSIM; this " +
-  "structure is not validated by anything, so its numbers are the validated " +
-  "solver's answer on an unchecked structure.";
+  "You built this one. The solver is checked against DEVSIM, but this " +
+  "structure is not validated by anything, so read its numbers as a " +
+  "trusted solver's answer on an untested design.";
 
 function showRegions(regions) {
   el("stack-note").textContent = STACK_NOTE;
@@ -71,7 +71,7 @@ function collectRegions() {
       const text = row.querySelector("[data-region=" + field + "]").value;
       const value = Number(text);
       if (text.trim() === "" || !isFinite(value)) {
-        throw new Error("region " + (index + 1) + ": " + field + " is not a number: " + text);
+        throw new Error("region " + (index + 1) + ": " + field + " isn't a number: " + text);
       }
       region[field] = value;
     }
@@ -102,12 +102,12 @@ async function loadDevice(file) {
   try {
     device = JSON.parse(await file.text());
   } catch (problem) {
-    el("message").textContent = file.name + " is not JSON: " + problem.message;
+    el("message").textContent = file.name + " isn't a JSON file: " + problem.message;
     return;
   }
   if (!device || !state.schema.devices[device.kind]) {
     el("message").textContent =
-      file.name + " names no device this page has: " + JSON.stringify(device && device.kind);
+      file.name + " is for a device this page doesn't have: " + JSON.stringify(device && device.kind);
     return;
   }
   putDevice(device);
@@ -120,7 +120,7 @@ async function loadDevice(file) {
   );
   el("message").textContent = unknown.length
     ? file.name + " sets " + unknown.join(", ") + ", which " + device.kind +
-      " does not have. Left out."
+      " doesn't have, so I left them out."
     : "";
 }
 

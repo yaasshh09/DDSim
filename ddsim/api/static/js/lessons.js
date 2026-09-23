@@ -40,7 +40,8 @@ async function openLesson(name) {
   renderInto(el("lesson-look"), lesson.look_for);
   renderInto(el("lesson-saw"), lesson.explanation);
   el("lesson-claims").textContent =
-    "Held by tests on this lesson's own device: " + lesson.claims.join(", ") + ".";
+    "Checked by tests on this lesson's own device: " +
+    lesson.claims.map((claim) => claim.replace(/_/g, " ")).join("; ") + ".";
   el("lesson-saw").parentElement.open = false;
   el("lesson-panel").hidden = false;
   setUp(lesson.request, lesson.mesh_note);
