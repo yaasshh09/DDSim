@@ -280,14 +280,14 @@ def _check_records(
             why = (
                 ""
                 if degenerate or implant.concentration < low
-                else f" Above {high:g} Boltzmann statistics misplace the Fermi "
-                "level; turn on degenerate, Fermi-Dirac statistics, as nmos does."
+                else f" Above {high:g}, Boltzmann statistics put the Fermi level "
+                "in the wrong place. Turn on degenerate (Fermi-Dirac "
+                "statistics), the way nmos does."
             )
             raise ValueError(
                 f"implant {number}: a concentration of {implant.concentration:g} "
-                f"cm^-3 is outside {low:g} to {high:g} cm^-3, the range "
-                "docs/01-physics.md states for the models this device is solved "
-                f"with.{why}"
+                f"cm^-3 is outside {low:g} to {high:g} cm^-3, the range the "
+                f"models here are built for (see docs/01-physics.md).{why}"
             )
 
     for electrode in electrodes:
@@ -618,9 +618,8 @@ def drawing(
                     f"touches it, so its {carriers} reach a contact only "
                     "through a junction. That leakage is too small for the "
                     "solver to pin the region's potential, and the solve "
-                    "stalls. A floating body needs a treatment this solver "
-                    "does not have. Tie it: put an ohmic electrode on the "
-                    f"{kind} region."
+                    "stalls. This solver can't handle a floating body, so tie "
+                    f"it down with an ohmic electrode on the {kind} region."
                 )
 
     return build_device(

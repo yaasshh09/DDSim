@@ -79,9 +79,9 @@ def _check_regions(regions: tuple[Region, ...]) -> None:
         if region.dopant not in ("n", "p"):
             raise ValueError(
                 f"region {number}: the dopant is 'n' or 'p', got "
-                f"{region.dopant!r}. An intrinsic layer is drawn as a lightly "
-                f"doped one, {low:g} n-type say, the bottom of the range the "
-                "models are used over."
+                f"{region.dopant!r}. For an intrinsic layer, draw a lightly "
+                f"doped one instead, say {low:g} n-type, the bottom of the "
+                "range the models are built for."
             )
         if not region.length > 0.0:
             raise ValueError(
@@ -91,9 +91,9 @@ def _check_regions(regions: tuple[Region, ...]) -> None:
         if not low <= region.concentration <= high:
             raise ValueError(
                 f"region {number}: a doping of {region.concentration:g} cm^-3 "
-                f"is outside {low:g} to {high:g} cm^-3, the range "
-                "docs/01-physics.md states for the mobility and recombination "
-                "models and the statistics this device is solved with."
+                f"is outside {low:g} to {high:g} cm^-3, the range the mobility, "
+                "recombination and statistics models here are built for (see "
+                "docs/01-physics.md)."
             )
 
 

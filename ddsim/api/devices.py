@@ -550,7 +550,7 @@ def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
     if node_count(device) > NODE_BUDGET:
         raise ValueError(
             f"this {kind} mesh is {node_count(device)} nodes, over the budget of "
-            f"{NODE_BUDGET}. Fewer nodes along one axis, or the coarse mesh."
+            f"{NODE_BUDGET}. Use fewer nodes along one axis, or the coarse mesh."
         )
     return device
 

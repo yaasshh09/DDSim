@@ -262,7 +262,8 @@ def nmos(
             f"no channel is left: the source and drain each reach "
             f"{lateral_diffusion:g} cm under a gate {L_gate:g} cm long, so "
             "the two junctions meet or cross. That geometry is a short "
-            "circuit, and a solver handed it returns one rather than an error."
+            "circuit, and a solver would happily return one instead of an "
+            "error. Shrink lateral_diffusion or lengthen the gate."
         )
 
     if contact_length >= sd_length:
