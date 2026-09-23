@@ -271,6 +271,20 @@ def device_dimension(kind: str) -> int:
     return 2 if hasattr(_builder(kind)().mesh, "ny") else 1
 
 
+@cache
+def contact_names(kind: str) -> tuple[str, ...]:
+    """The terminals the device this kind builds by default has, in order.
+
+    Args:
+        kind: a key of DEVICE_KINDS.
+
+    Read from the built device, like device_dimension and for the same
+    reason. A drawn device names its own electrodes, so for a drawing these
+    are the default drawing's and the page reads the rows it has instead.
+    """
+    return tuple(contact.name for contact in _builder(kind)().contacts)
+
+
 def parameters_of(
     function: Callable[..., Any], choices: dict[str, tuple[str, ...]] | None = None
 ) -> tuple[Parameter, ...]:

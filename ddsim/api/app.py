@@ -41,6 +41,7 @@ from ddsim.api.devices import (
     COARSE,
     DEVICE_KINDS,
     build_from_spec,
+    contact_names,
     device_dimension,
     device_parameters,
     drawing_defaults,
@@ -187,6 +188,9 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
             # constructor builds, so a device that grew a second axis stops
             # being dragged rather than solving for minutes on every drag.
             "dimensions": {kind: device_dimension(kind) for kind in DEVICE_KINDS},
+            # The terminals each device has, which the page offers as a list
+            # to sweep and to measure at rather than as a box to type into.
+            "contacts": {kind: list(contact_names(kind)) for kind in DEVICE_KINDS},
             # The regions each stack device starts from, drawn by the page as
             # rows rather than boxes. Only the devices built from regions.
             "regions": {

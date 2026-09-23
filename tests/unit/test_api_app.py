@@ -545,3 +545,14 @@ def test_a_device_can_be_checked_without_solving_it(client) -> None:
     assert fine.status_code == 200
     assert short.status_code == 400 and "inside" in short.json()["detail"]
     assert crowded.status_code == 400 and "h_min" in crowded.json()["detail"]
+
+
+def test_the_schema_names_each_devices_contacts(client) -> None:
+    """The page offers these as a list, so a student picks a terminal rather
+    than typing a name the device does not have. Read from the device each
+    constructor builds by default."""
+    contacts = client.get("/api/schema").json()["contacts"]
+
+    assert contacts["pn_diode"] == ["anode", "cathode"]
+    assert contacts["nmos"] == ["source", "drain", "gate", "body"]
+    assert set(contacts) == set(client.get("/api/schema").json()["devices"])
