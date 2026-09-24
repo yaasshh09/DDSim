@@ -12,13 +12,27 @@ committed file differs, so a moved range can't leave a stale case set behind.
 
 `run` solves every case cold, twice: once through the public sweep the API
 calls, and once as the fine-step reference, a ramp of every contact from zero
-in 2 percent steps. It writes the raw numbers into `ddsim_robustness.csv`. The
-pass rule lives in the test, not here, so the rule can be argued about without
-solving anything again. It refuses to run unless the BLAS thread counts are
-pinned to 1, since the speed axis compares one thread against one thread:
+in 2 percent steps. It writes the raw numbers into `ddsim_robustness.csv`. It
+refuses to run unless the BLAS thread counts are pinned to 1, since the speed
+axis compares one thread against one thread:
 
     MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \\
         .venv/Scripts/python.exe tools/scoreboard.py run
+
+The pass rule is `score`, applied to the raw numbers of both tools, so it can
+be argued about without solving anything again. The floors and the balance
+lines are the ones Tier 4 already measured and uses:
+
+- A result is valid when it converged and, wherever its benchmark family
+  requires balance, its terminal currents cancel to a tenth of the family's
+  tolerance. Noise has to sit an order below the tolerance it's judged by.
+- Two results agree when both sit under the family floor, or when they differ
+  by no more than the family tolerance plus three times the larger imbalance,
+  which is the Tier 4 comparison rule.
+- The references are the valid fine results of both tools. A driver passes a
+  case when it is valid and agrees with every reference. A case with no valid
+  reference, or with references that disagree, is dropped and named rather
+  than scored for either side.
 """
 
 from __future__ import annotations
@@ -46,6 +60,7 @@ from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias_ramped
 from ddsim.extract.cv import cv_sweep
 from ddsim.extract.iv import gate_sweep, iv_sweep, terminal_currents
+from ddsim.extract.rolloff import REFERENCE_CURRENT
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "scoreboard"
@@ -304,6 +319,114 @@ def run(names: list[str] | None, path: Path) -> Path:
                     f"{r.case} {r.driver} {r.converged} {r.value:.4g} {r.seconds:.1f}s"
                 )
     return path
+
+
+TOLERANCE = {"pn_diode": 0.02, "mos_cap": 0.02, "nmos": 0.05}
+"""Agreement required per family [1]: the Tier 4 targets of benchmarks 1, 4
+and 6 to 8."""
+
+DIODE_FLOOR = 1e-10
+"""Diode current carrying no information [A/cm^2]. CURRENT_FLOOR in
+tests/regression/devsim_gen/parameters.py, measured there."""
+
+MOSFET_FLOOR = 1e-5
+"""FULL_STACK_FLOOR of test_devsim_mosfet.py: under this fraction of the
+extraction target a drain current is compared against the floor [1]."""
+
+MOSFET_BALANCE = 1e-4
+"""LOAD_BEARING of test_devsim_mosfet.py: above this fraction of the target a
+drain current has to balance [1]."""
+
+NOISE_FACTOR = 3.0
+"""How much of a result's own imbalance counts as allowance [1], as in Tier 4."""
+
+REFERENCE_DRIVERS = ("ddsim_fine", "devsim_fine")
+
+
+def floor(case: Case) -> float:
+    """Under this |value| a result says nothing beyond "about zero"."""
+    if case.device == "pn_diode":
+        return DIODE_FLOOR
+    if case.device == "nmos":
+        return MOSFET_FLOOR * REFERENCE_CURRENT / case.knobs["L_gate"]
+    return 0.0
+
+
+def balance_line(case: Case) -> float:
+    """Above this |value| a result's terminal currents have to cancel."""
+    if case.device == "pn_diode":
+        return DIODE_FLOOR
+    if case.device == "nmos":
+        return MOSFET_BALANCE * REFERENCE_CURRENT / case.knobs["L_gate"]
+    return math.inf
+
+
+def valid(case: Case, result: Result) -> bool:
+    if not result.converged or not math.isfinite(result.value):
+        return False
+    if result.largest < balance_line(case):
+        return True
+    return result.imbalance <= 0.1 * TOLERANCE[case.device] * result.largest
+
+
+def agree(case: Case, a: Result, b: Result) -> bool:
+    low = floor(case)
+    if abs(a.value) < low and abs(b.value) < low:
+        return True
+    allowed = TOLERANCE[case.device] * max(abs(a.value), abs(b.value))
+    allowed += NOISE_FACTOR * max(a.imbalance, b.imbalance)
+    return abs(a.value - b.value) <= allowed
+
+
+@dataclass(frozen=True)
+class Score:
+    passes: dict[str, int]
+    """Cases each driver passed, over the cases not dropped."""
+    dropped: dict[str, str]
+    """Case name to the reason it counts for nobody."""
+    counted: int
+    """Cases scored."""
+
+
+def score(cases: list[Case], results: list[Result]) -> Score:
+    by_case: dict[str, dict[str, Result]] = {}
+    for r in results:
+        by_case.setdefault(r.case, {})[r.driver] = r
+    passes: dict[str, int] = {}
+    dropped: dict[str, str] = {}
+    for case in cases:
+        got = by_case.get(case.name, {})
+        references = [
+            got[d] for d in REFERENCE_DRIVERS if d in got and valid(case, got[d])
+        ]
+        if not references:
+            dropped[case.name] = "no valid reference"
+            continue
+        if not all(agree(case, a, b) for a in references for b in references):
+            dropped[case.name] = "the references disagree"
+            continue
+        for driver, r in got.items():
+            if valid(case, r) and all(agree(case, r, ref) for ref in references):
+                passes[driver] = passes.get(driver, 0) + 1
+    return Score(passes, dropped, len(cases) - len(dropped))
+
+
+def read_results(path: Path) -> list[Result]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    body = [line for line in lines if not line.startswith("#")]
+    return [
+        Result(
+            row["case"],
+            row["driver"],
+            row["converged"] == "True",
+            float(row["value"]),
+            float(row["imbalance"]),
+            float(row["largest"]),
+            float(row["seconds"]),
+            row["message"],
+        )
+        for row in csv.DictReader(body)
+    ]
 
 
 def main() -> int:

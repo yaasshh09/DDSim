@@ -25,6 +25,7 @@ import json
 import sys
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import pytest
 
@@ -193,3 +194,93 @@ def test_only_physical_knobs_are_drawn() -> None:
     for row in _cases():
         drawn = set(json.loads(row["knobs"]))
         assert drawn == set(tool.PHYSICAL[row["device"]]), row["case"]
+
+
+def _case(device: str = "pn_diode", **knobs: float) -> Any:
+    defaults = {"pn_diode": {}, "mos_cap": {}, "nmos": {"L_gate": 1e-4}}[device]
+    return tool.Case("x001", device, {**defaults, **knobs}, 0)
+
+
+def _result(
+    driver: str,
+    value: float,
+    imbalance: float = 0.0,
+    converged: bool = True,
+) -> Any:
+    return tool.Result("x001", driver, converged, value, imbalance, abs(value), 0.0, "")
+
+
+def test_two_currents_under_the_floor_agree() -> None:
+    case = _case()
+    assert tool.agree(case, _result("a", 1e-12), _result("b", -3e-11))
+
+
+def test_a_diode_current_off_by_more_than_two_percent_disagrees() -> None:
+    case = _case()
+    reference = _result("ref", 1e-3)
+    assert tool.agree(case, _result("a", 1.01e-3), reference)
+    assert not tool.agree(case, _result("a", 1.03e-3), reference)
+
+
+def test_an_unbalanced_diode_current_above_the_floor_is_not_valid() -> None:
+    case = _case()
+    assert tool.valid(case, _result("a", 1e-6, imbalance=1e-10))
+    assert not tool.valid(case, _result("a", 1e-6, imbalance=1e-8))
+
+
+def test_a_mosfet_tail_current_need_not_balance() -> None:
+    case = _case("nmos", L_gate=1e-4)
+    floor = tool.floor(case)
+    tail = _result("a", 5.0 * floor, imbalance=2.0 * floor)
+    assert tool.valid(case, tail)
+    load_bearing = _result("a", 1e3 * tool.floor(case), imbalance=1e2 * floor)
+    assert not tool.valid(case, load_bearing)
+
+
+def test_a_case_whose_references_disagree_is_dropped() -> None:
+    case = _case()
+    results = [
+        _result("ddsim", 1e-3),
+        _result("ddsim_fine", 1e-3),
+        _result("devsim_fine", 2e-3),
+    ]
+    score = tool.score([case], results)
+    assert score.dropped == {"x001": "the references disagree"}
+    assert score.passes.get("ddsim", 0) == 0
+
+
+def test_one_valid_reference_is_enough() -> None:
+    case = _case()
+    results = [
+        _result("ddsim", 1e-3),
+        _result("ddsim_fine", 1e-3, imbalance=1e-4),
+        _result("devsim_fine", 1.005e-3),
+    ]
+    score = tool.score([case], results)
+    assert score.dropped == {}
+    assert score.passes["ddsim"] == 1
+
+
+def test_a_solve_that_did_not_converge_never_passes() -> None:
+    case = _case()
+    results = [
+        _result("ddsim", 1e-3, converged=False),
+        _result("ddsim_fine", 1e-3),
+        _result("devsim_fine", 1e-3),
+    ]
+    assert tool.score([case], results).passes.get("ddsim", 0) == 0
+
+
+def test_the_floors_are_the_ones_tier_4_measured() -> None:
+    from tests.regression import test_devsim_mosfet as M
+    from tests.regression.devsim_gen import parameters as P
+
+    assert tool.DIODE_FLOOR == P.CURRENT_FLOOR
+    assert tool.MOSFET_FLOOR == M.FULL_STACK_FLOOR
+    assert tool.MOSFET_BALANCE == M.LOAD_BEARING
+    assert tool.NOISE_FACTOR == M.NOISE_FACTOR
+
+
+def test_a_current_under_the_floor_does_not_agree_with_a_real_one() -> None:
+    case = _case()
+    assert not tool.agree(case, _result("a", 1e-12), _result("b", 1e-6))
