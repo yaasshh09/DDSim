@@ -3,40 +3,31 @@ label {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  margin: 0;
   padding: 4px 0;
 }
 
-label > span:first-child {
-  flex: 1 1 auto;
-  min-width: 0;
-  order: 0;
-}
-
-label > .explain {
-  order: 1;
-}
+/* ordered by role, so the control lands on the same right edge whether
+   the explain button sits in the name span or on the label itself */
+label > span:first-child { flex: 1 1 auto; }
+label > .explain { order: 1; }
 
 label > .control,
 label > input,
 label > select,
-label > textarea {
-  order: 2;
-}
+label > textarea { order: 2; }
 
 label > span {
+  min-width: 0;
   font: 500 11.5px var(--sans);
   color: var(--ink-3);
-  min-width: 0;
 }
 
 label > span:first-child .symbol {
   display: block;
-  font: 500 11px var(--sans);
-  font-style: normal;
-  color: var(--dim);
-  letter-spacing: 0.02em;
   margin-top: 1px;
+  font: var(--note);
+  letter-spacing: 0.02em;
+  color: var(--dim);
 }
 
 .control {
@@ -50,12 +41,12 @@ input,
 select,
 button,
 textarea {
+  padding: 4px 8px;
   font: 500 12px var(--sans);
   color: var(--ink);
   background: var(--ground);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
-  padding: 4px 8px;
 }
 
 input[type="text"],
@@ -66,17 +57,17 @@ input[type="number"] {
 
 select {
   width: 142px;
+  padding: 5px 8px;
   background: var(--raised);
   border-color: var(--line-strong);
-  padding: 5px 8px;
 }
 
 textarea {
   width: 100%;
-  resize: vertical;
+  padding: 7px 8px;
   font: 500 11px/1.6 var(--sans);
   color: var(--ink-2);
-  padding: 7px 8px;
+  resize: vertical;
 }
 
 input:focus-visible,
@@ -88,43 +79,42 @@ button:focus-visible {
 }
 
 input[type="range"] {
-  appearance: none;
   width: 118px;
   height: 9px;
   padding: 0;
+  appearance: none;
   background: transparent;
   border: 0;
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
   height: 3px;
-  border-radius: 2px;
   background: var(--raised);
+  border-radius: 2px;
 }
 
 input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
   width: 9px;
   height: 9px;
   margin-top: -3px;
-  border-radius: 50%;
-  background: var(--signal);
-}
-
-input[type="range"]:disabled::-webkit-slider-thumb {
-  background: var(--faint);
-}
-
-input[type="checkbox"] {
   appearance: none;
+  background: var(--signal);
+  border-radius: 50%;
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb { background: var(--faint); }
+
+/* restyled in place rather than hidden: the smoke test measures #bands' box */
+input[type="checkbox"] {
+  position: relative;
+  flex: none;
   width: 30px;
   height: 16px;
-  flex: none;
   padding: 0;
-  border-radius: 9px;
+  appearance: none;
   background: var(--raised);
   border: 1px solid var(--line-strong);
-  position: relative;
+  border-radius: 9px;
   cursor: pointer;
 }
 
@@ -135,14 +125,11 @@ input[type="checkbox"]::after {
   left: 2px;
   width: 10px;
   height: 10px;
-  border-radius: 50%;
   background: var(--dim);
+  border-radius: 50%;
 }
 
-input[type="checkbox"]:checked {
-  background: var(--signal);
-  border-color: var(--signal);
-}
+input[type="checkbox"]:checked { background: var(--signal); border-color: var(--signal); }
 
 input[type="checkbox"]:checked::after {
   left: auto;
@@ -150,6 +137,4 @@ input[type="checkbox"]:checked::after {
   background: var(--ground);
 }
 
-label:has(input[type="checkbox"]:checked) > span {
-  color: var(--ink);
-}
+label:has(input[type="checkbox"]:checked) > span { color: var(--ink); }

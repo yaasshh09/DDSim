@@ -15,15 +15,19 @@
   --ink-2: #b6ccd0;
   --ink-3: #8fa9ae;
   --muted: #7d989e;
-
   --dim: #6f949c;
   --faint: #55757d;
 
   --signal: #5fd4d6;
   --signal-lift: #7ae0e2;
+  --signal-wash: rgb(95 212 214 / 16%);
   --warn: #e3a74f;
   --hot: #ea7a68;
   --violet: #a992ef;
+
+  /* keep in step with MATERIAL_FILL in js/preview.js */
+  --fill-si: #2d4a52;
+  --fill-ox: #16252a;
 
   --r-sm: 3px;
   --r: 4px;
@@ -31,16 +35,8 @@
   --r-lg: 6px;
   --r-chip: 12px;
 
-  /* Poppins, two weights, vendored under /static/vendor/fonts. 500 carries
-     everything that is read and 600 everything that is a heading or a value
-     worth finding, so the page has one axis of emphasis rather than four.
-
-     Poppins has no tabular figure feature and its digits are proportional:
-     a one is 350 units wide against a zero's 647. Every number here sits in
-     a box of its own width, and #state sits right of the header's gap so
-     its changing width only moves the gap. font-variant-numeric would do nothing,
-     which is why it is not set. */
   --sans: Poppins, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --note: 500 11px var(--sans);
 
   --axis-gutter: 52px;
 }

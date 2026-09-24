@@ -1,17 +1,13 @@
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-[hidden] {
-  display: none !important;
-}
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
-  background: var(--ground);
-  color: var(--ink-2);
   font: 500 12px/1.5 var(--sans);
+  color: var(--ink-2);
   -webkit-font-smoothing: antialiased;
+  background: var(--ground);
 }
 
 header {
@@ -31,32 +27,23 @@ header h1 {
   color: var(--ink);
 }
 
-.rule {
-  width: 1px;
-  height: 20px;
-  background: var(--line);
-}
+header .gap { flex: 1; }
 
-header .gap {
-  flex: 1;
-}
+.rule { width: 1px; height: 20px; background: var(--line); }
 
-#state {
-  font: 500 11.5px var(--sans);
-  color: var(--ink-2);
-}
+#state { font: 500 11.5px var(--sans); color: var(--ink-2); }
 
 .beacon {
+  flex: none;
   width: 7px;
   height: 7px;
-  flex: none;
-  border-radius: 50%;
   background: var(--faint);
+  border-radius: 50%;
 }
 
 header:has(#cancel:not(:disabled)) .beacon {
   background: var(--signal);
-  box-shadow: 0 0 0 3px rgb(95 212 214 / 16%);
+  box-shadow: 0 0 0 3px var(--signal-wash);
 }
 
 main {
@@ -67,27 +54,25 @@ main {
 
 #controls,
 #rail {
-  background: var(--rail);
   overflow-y: auto;
+  background: var(--rail);
 }
 
 #controls {
-  width: 340px;
   flex: 0 0 340px;
   padding: 16px 16px 28px;
   border-right: 1px solid var(--line);
 }
 
 #plots {
-  padding: 16px 18px 28px;
   display: grid;
   gap: 14px;
   align-content: start;
   overflow-y: auto;
+  padding: 16px 18px 28px;
 }
 
 #rail {
-  width: 268px;
   flex: 0 0 268px;
   padding: 16px 14px 28px;
   border-left: 1px solid var(--line);
@@ -95,9 +80,7 @@ main {
 
 #controls::-webkit-scrollbar,
 #plots::-webkit-scrollbar,
-#rail::-webkit-scrollbar {
-  width: 9px;
-}
+#rail::-webkit-scrollbar { width: 9px; }
 
 #controls::-webkit-scrollbar-thumb,
 #plots::-webkit-scrollbar-thumb,
@@ -106,35 +89,29 @@ main {
   border-radius: 5px;
 }
 
-fieldset {
-  border: 0;
-  margin: 0 0 18px;
-  padding: 0;
-}
+fieldset { margin: 0 0 18px; padding: 0; border: 0; }
 
 fieldset + fieldset {
-  border-top: 1px solid var(--line);
   padding-top: 15px;
+  border-top: 1px solid var(--line);
 }
 
 legend,
 .section {
-  padding: 0;
   margin-bottom: 9px;
+  padding: 0;
   font: 600 11px var(--sans);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--dim);
 }
 
-.section.voltages {
-  margin: 10px 0 5px;
-}
+.section.voltages { margin: 10px 0 5px; }
 
-/* A count or a unit sitting opposite a section header. */
+/* count or unit opposite a section header */
 .section-note {
   float: right;
-  font: 500 11px var(--sans);
+  font: var(--note);
   letter-spacing: 0;
   text-transform: none;
   color: var(--dim);
@@ -146,28 +123,23 @@ legend,
   color: var(--muted);
 }
 
-.aside.lede {
-  margin-top: 0;
-  margin-bottom: 10px;
-}
+.aside.lede { margin-top: 0; margin-bottom: 10px; }
 
 #mesh-note:not(:empty),
 #stack-note,
 #drawing-note,
 #live-note:not(:empty) {
-  border-left: 2px solid var(--warn);
   padding-left: 9px;
+  border-left: 2px solid var(--warn);
 }
 
-#live-note:not(:empty) {
-  border-left-color: var(--line-strong);
-}
+#live-note:not(:empty) { border-left-color: var(--line-strong); }
 
 #message:not(:empty) {
   margin-top: 12px;
   padding: 9px 10px;
-  white-space: pre-wrap;
   font: 500 11px/1.55 var(--sans);
+  white-space: pre-wrap;
   color: var(--hot);
   background: var(--panel);
   border: 1px solid var(--hot);
@@ -176,13 +148,9 @@ legend,
 
 .row {
   display: flex;
-  gap: 7px;
   align-items: center;
+  gap: 7px;
   margin-top: 10px;
 }
 
-.divider {
-  height: 1px;
-  background: var(--line);
-  margin: 15px 0 13px;
-}
+.divider { height: 1px; margin: 15px 0 13px; background: var(--line); }

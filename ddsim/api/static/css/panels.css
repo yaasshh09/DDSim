@@ -1,8 +1,8 @@
 .panel {
+  padding: 12px 14px 11px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  padding: 12px 14px 11px;
 }
 
 .panel h2 {
@@ -15,17 +15,13 @@
   color: var(--ink);
 }
 
-.panel h2 .of {
-  font: 500 11px var(--sans);
-  letter-spacing: 0;
-  color: var(--muted);
-}
+.panel h2 .of { font: var(--note); letter-spacing: 0; color: var(--muted); }
 
 .panel .tools {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: auto;
 }
 
 .panel .tools label {
@@ -35,37 +31,22 @@
   padding: 0;
 }
 
-.panel .tools label > span {
-  font: 500 11px var(--sans);
-  color: var(--ink-3);
-}
-
-.panel .tools button {
-  font: 500 11px var(--sans);
-  background: transparent;
-  padding: 3px 9px;
-}
-
-.panel .tools input[type="range"] {
-  width: 96px;
-}
+.panel .tools label > span { font: var(--note); color: var(--ink-3); }
+.panel .tools button { padding: 3px 9px; font: var(--note); background: transparent; }
+.panel .tools input[type="range"] { width: 96px; }
 
 canvas {
-  width: 100%;
   display: block;
+  width: 100%;
   border-left: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
 }
 
 #residual,
-#cutline {
-  height: 200px;
-}
+#cutline { height: 200px; }
 
 #curve,
-#profile {
-  height: 220px;
-}
+#profile { height: 220px; }
 
 #cutline-panel {
   margin-top: 12px;
@@ -75,56 +56,34 @@ canvas {
 
 #drawing-view {
   height: 180px;
-  cursor: crosshair;
+  margin: 4px 0 8px;
   background: var(--rail);
   border: 1px solid var(--line);
   border-radius: var(--r);
-  margin: 4px 0 8px;
+  cursor: crosshair;
 }
 
 .legend {
   display: flex;
-  gap: 16px;
   flex-wrap: wrap;
   align-items: center;
+  gap: 16px;
   margin-top: 9px;
   padding-left: var(--axis-gutter);
-  font: 500 11px var(--sans);
+  font: var(--note);
   color: var(--ink-3);
 }
 
-.legend > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
+.legend > span { display: inline-flex; align-items: center; gap: 6px; }
 
-.swatch {
-  display: block;
-  width: 10px;
-  height: 2px;
-  flex: none;
-}
+.swatch { display: block; flex: none; width: 10px; height: 2px; }
 
-.swatch.psi {
-  background: var(--signal);
-}
-
-.swatch.n {
-  background: var(--warn);
-}
-
-.swatch.p {
-  background: var(--hot);
-}
-
-.swatch.gummel {
-  background: var(--violet);
-}
-
-.swatch.rejected {
-  background: var(--ink);
-}
+/* same four values as the trace constants at the top of js/app.js */
+.swatch.psi { background: var(--signal); }
+.swatch.n { background: var(--warn); }
+.swatch.p { background: var(--hot); }
+.swatch.gummel { background: var(--violet); }
+.swatch.rejected { background: var(--ink); }
 
 #curve-note,
 #profile-note,
@@ -134,41 +93,28 @@ canvas {
   color: var(--dim);
 }
 
-#built-note {
-  color: var(--warn);
-}
+#built-note { color: var(--warn); }
 
 #runs-note {
   display: grid;
   gap: 7px;
-  padding: 0;
   margin: 0;
+  padding: 0;
   font: 500 11px/1.5 var(--sans);
 }
 
 #runs-note > span {
-  display: block;
+  padding: 8px 10px 6px;
   color: var(--ink-2);
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  padding: 8px 10px 6px;
 }
 
-#runs-note > span.current {
-  border-color: var(--signal);
-  background: var(--raised);
-}
+#runs-note > span.current { background: var(--raised); border-color: var(--signal); }
 
-#runs-note > span > b {
-  display: block;
-  font-weight: 500;
-  color: var(--ink-2);
-}
-
-#runs-note > span.current > b {
-  color: var(--ink);
-}
+#runs-note > span > b { display: block; font-weight: 500; color: var(--ink-2); }
+#runs-note > span.current > b { color: var(--ink); }
 
 #runs-note svg {
   display: block;
@@ -181,24 +127,14 @@ canvas {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
   margin-right: 7px;
   vertical-align: 0;
+  border-radius: 50%;
 }
 
-#runs-empty {
-  font: 500 11.5px/1.55 var(--sans);
-  color: var(--muted);
-}
+#runs-empty { font: 500 11.5px/1.55 var(--sans); color: var(--muted); }
 
-#rail:has(#runs-note > span) #runs-empty {
-  display: none;
-}
+#rail:has(#runs-note > span) #runs-empty { display: none; }
 
-#rail .row {
-  margin-top: 12px;
-}
-
-#rail .row button:not(.explain) {
-  flex: 1;
-}
+#rail .row { margin-top: 12px; }
+#rail .row button:not(.explain) { flex: 1; }

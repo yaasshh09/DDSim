@@ -3,41 +3,25 @@
   top: 0;
   right: 0;
   z-index: 10;
-  height: 100%;
+  overflow-y: auto;
   width: min(460px, 100%);
+  height: 100%;
   padding: 16px 20px 28px;
   background: var(--rail);
   border-left: 1px solid var(--line-strong);
-  overflow-y: auto;
   transform: translateX(100%);
   transition: transform 0.12s ease-out;
 }
 
-#drawer.open {
-  transform: none;
-}
+#drawer.open { transform: none; }
 
-#drawer-close {
-  float: right;
-  margin-left: 12px;
-}
+#drawer-close { float: right; margin-left: 12px; }
 
-#drawer h2 {
-  margin: 2px 0 4px;
-  font: 600 15px var(--sans);
-  color: var(--ink);
-}
+#drawer h2 { margin: 2px 0 4px; font: 600 15px var(--sans); color: var(--ink); }
 
-#drawer-knob {
-  margin: 0 0 14px;
-  font: 500 11px var(--sans);
-  color: var(--dim);
-}
+#drawer-knob { margin: 0 0 14px; font: var(--note); color: var(--dim); }
 
-#drawer-plain {
-  font: 500 13.5px/1.65 var(--sans);
-  color: var(--ink-2);
-}
+#drawer-plain { font: 500 13.5px/1.65 var(--sans); color: var(--ink-2); }
 
 #drawer details {
   margin-top: 14px;
@@ -47,26 +31,20 @@
 
 #drawer summary,
 #lesson-panel summary {
-  font: 500 11px var(--sans);
+  font: var(--note);
   color: var(--signal);
-  cursor: pointer;
   list-style: none;
+  cursor: pointer;
 }
 
 #drawer summary::marker,
-#lesson-panel summary::marker {
-  content: "";
-}
+#lesson-panel summary::marker { content: ""; }
 
 #drawer summary::before,
-#lesson-panel summary::before {
-  content: "\25B8\00a0";
-}
+#lesson-panel summary::before { content: "\25B8\00a0"; }
 
 #drawer details[open] summary::before,
-#lesson-panel details[open] summary::before {
-  content: "\25BE\00a0";
-}
+#lesson-panel details[open] summary::before { content: "\25BE\00a0"; }
 
 #drawer-depth {
   margin-top: 9px;
@@ -78,42 +56,28 @@
 #lesson-panel .katex-display {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 11px 13px;
   margin: 10px 0;
+  padding: 11px 13px;
   background: var(--ground);
   border: 1px solid var(--line);
   border-radius: var(--r);
 }
 
-#drawer-docs {
-  margin: 14px 0 0;
-  font: 500 11px var(--sans);
-  color: var(--dim);
-}
+#drawer-docs { margin: 14px 0 0; font: var(--note); color: var(--dim); }
 
-#lesson-panel {
-  font: 500 13.5px/1.6 var(--sans);
-  color: var(--ink-2);
-}
+#lesson-panel { font: 500 13.5px/1.6 var(--sans); color: var(--ink-2); }
 
-#lesson-panel h2 {
-  margin: 0 0 8px;
-  font: 600 13px var(--sans);
-  color: var(--ink);
-}
+#lesson-panel h2 { margin: 0 0 8px; font: 600 13px var(--sans); color: var(--ink); }
 
-#lesson-summary {
-  margin: 0 0 16px;
-  max-width: 78ch;
-}
+#lesson-summary { max-width: 78ch; margin: 0 0 16px; }
 
 #lesson-steps {
+  display: grid;
+  gap: 9px;
   margin: 0;
   padding: 0;
   list-style: none;
   counter-reset: step;
-  display: grid;
-  gap: 9px;
 }
 
 #lesson-steps li {
@@ -122,60 +86,47 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 7px;
+  max-width: 78ch;
   margin: 0;
   padding: 0 0 4px 31px;
-  max-width: 78ch;
   counter-increment: step;
 }
 
 #lesson-steps li::before {
   content: counter(step);
   position: absolute;
-  left: 0;
   top: 0;
-  width: 20px;
-  height: 20px;
+  left: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  font: 500 11px var(--sans);
+  width: 20px;
+  height: 20px;
+  font: var(--note);
   color: var(--dim);
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
 }
 
-#lesson-steps li > strong {
-  order: 0;
-  font: 600 13px var(--sans);
-  color: var(--ink);
-}
+#lesson-steps li:has(> button)::before { color: var(--signal); border-color: var(--signal); }
 
-#lesson-steps li > div {
-  order: 1;
-}
+#lesson-steps li > strong { font: 600 13px var(--sans); color: var(--ink); }
+#lesson-steps li > div { order: 1; }
 
 #lesson-steps li > button {
   order: 2;
-}
-
-#lesson-steps li:has(> button)::before {
-  border-color: var(--signal);
-  color: var(--signal);
-}
-
-#lesson-steps li > button {
   margin: 1px 0 0;
+  padding: 6px 14px;
   font: 600 11.5px var(--sans);
   color: var(--ground);
   background: var(--signal);
   border-color: var(--signal);
-  padding: 6px 14px;
 }
 
+/* the id keeps the ground colour on hover by itself */
 #lesson-steps li > button:hover {
   background: var(--signal-lift);
   border-color: var(--signal-lift);
-  color: var(--ground);
 }
 
 #lesson-panel details {
@@ -186,26 +137,21 @@
 
 #lesson-look,
 #lesson-saw {
-  margin-top: 10px;
   max-width: 78ch;
+  margin-top: 10px;
   color: var(--ink-3);
 }
 
 #lesson-look ul,
-#lesson-saw ul {
-  margin: 0;
-  padding-left: 18px;
-}
+#lesson-saw ul { margin: 0; padding-left: 18px; }
 
 #lesson-look li,
-#lesson-saw li {
-  margin-bottom: 7px;
-}
+#lesson-saw li { margin-bottom: 7px; }
 
 #lesson-claims {
   margin: 12px 0 0;
   padding-left: 9px;
-  border-left: 2px solid var(--line-strong);
   font: 500 11.5px/1.55 var(--sans);
   color: var(--muted);
+  border-left: 2px solid var(--line-strong);
 }
