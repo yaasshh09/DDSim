@@ -342,16 +342,112 @@ def run(names: list[str] | None, path: str) -> str:
     return path
 
 
+REFINEMENTS = (1.0, 1.5, 2.25)
+"""The accuracy axis's refinements, the same three tools/scoreboard.py uses."""
+
+ACCURACY = (
+    (1, "diode_1e16_1e16"),
+    (2, "diode_1e18_1e16"),
+    (3, "diode_1e20_1e15"),
+    (4, "mos_cap_5nm"),
+    (5, "mos_cap_20nm"),
+    (6, "nmos_1um"),
+    (7, "nmos_180nm"),
+    (8, "nmos_65nm"),
+    (9, "rolloff_100nm"),
+    (10, "fullstack_100nm"),
+)
+"""The same benchmark devices, quantities and biases as tools/scoreboard.py:
+diode anode current at 0.6 V, MOS capacitor capacitance at 0 V, MOSFET drain
+current at 1.0 V of gate and 50 mV of drain."""
+
+
+def _silicon_nodes(device: str, region: str) -> int:
+    return len(devsim.get_node_model_values(device=device, region=region, name="x"))
+
+
+def accuracy_point(name: str, r: float) -> tuple[int, float]:
+    """One benchmark's quantity on DEVSIM's reference mesh refined by r."""
+    if name.startswith("diode"):
+        bench = P.BY_NAME[name]
+        device = f"{name}_acc"
+        with GM.quiet():
+            GD.build_mesh(bench, device, refine=r)
+            GD.set_doping(bench, device)
+            GD.set_silicon_parameters(device)
+            GD.build_physics(device)
+            GD.ramp_to(device, 0.6, 0.0, step=0.05)
+        return _silicon_nodes(device, GD.REGION), GD.anode_current(device)
+    if name.startswith("mos_cap"):
+        bench = {b.name: b for b in P.MOS_BENCHMARKS}[name]
+        device = f"{name}_acc"
+        charges = []
+        with GM.quiet():
+            GC.build_mesh(bench, device, refine=r)
+            GC.set_material_parameters(device)
+            GC.build_physics(bench, device)
+            for v in (-CV_STEP, CV_STEP):
+                devsim.set_parameter(
+                    device=device,
+                    name=f"{GC.GATE}_bias",
+                    value=GC.gate_potential(bench, v),
+                )
+                devsim.solve(
+                    type="dc",
+                    absolute_error=1e-10,
+                    relative_error=1e-12,
+                    maximum_iterations=100,
+                )
+                charges.append(
+                    devsim.get_contact_charge(
+                        device=device, contact=GC.GATE, equation="PotentialEquation"
+                    )
+                )
+        capacitance = (charges[1] - charges[0]) / (2.0 * CV_STEP)
+        return _silicon_nodes(device, GC.SILICON), capacitance
+    import dataclasses
+
+    bench = dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=(1.0,))
+    rows, nodes = GM.transfer_curve(bench, 0.05, refine=r)
+    return nodes, rows[0]["drain"]
+
+
+def run_accuracy(path: str) -> str:
+    today = datetime.date.today().isoformat()
+    header = [
+        f"# written {today} by devsim_gen/scoreboard.py accuracy",
+        f"# devsim {devsim.__version__}, refinements {REFINEMENTS}",
+        "benchmark,name,refine,nodes,value,seconds",
+    ]
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(header) + "\n")
+        for number, name in ACCURACY:
+            for r in REFINEMENTS:
+                started = time.perf_counter()
+                try:
+                    nodes, value = accuracy_point(name, r)
+                finally:
+                    _cleanup()
+                seconds = time.perf_counter() - started
+                f.write(f"{number},{name},{r},{nodes},{value!r},{seconds:.3f}\n")
+                f.flush()
+                print(f"{name} r={r} {nodes} nodes {value:.8g} {seconds:.1f}s")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["api", "run"])
+    parser.add_argument("command", choices=["api", "run", "accuracy"])
     parser.add_argument("names", nargs="*", help="run only these cases")
-    parser.add_argument("--out", default=os.path.join(OUT, "devsim_robustness.csv"))
+    parser.add_argument("--out", default=None)
     args = parser.parse_args()
     if args.command == "api":
         print(write_api())
+    elif args.command == "accuracy":
+        print(run_accuracy(args.out or os.path.join(OUT, "devsim_accuracy.csv")))
     else:
-        print(run(args.names or None, args.out))
+        out = args.out or os.path.join(OUT, "devsim_robustness.csv")
+        print(run(args.names or None, out))
     return 0
 
 

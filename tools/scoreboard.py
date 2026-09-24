@@ -517,7 +517,10 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
             work_function=m.work_function,
         )
         cv = cv_sweep(device, "gate", [ACCURACY_BIAS["mos_cap"]])
-        return silicon_nodes(device), float(cv.points[-1].capacitance)
+        # mos_cap solves a 1D stack on a few identical columns. Count one
+        # column, the same way DEVSIM's 1D mesh counts it.
+        columns = device.mesh.nx  # type: ignore[union-attr]
+        return silicon_nodes(device) // columns, float(cv.points[-1].capacitance)
     f = P.MOSFET_BY_NAME[name]
     full = f.models == P.FULL_MODELS
     defaults = inspect.signature(nmos).parameters
