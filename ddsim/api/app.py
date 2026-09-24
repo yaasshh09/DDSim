@@ -354,12 +354,13 @@ def create_app(registry: JobRegistry | None = None) -> FastAPI:
                 ),
             )
         point = points[index]
+        voltage = point_voltage(point)
         message = encode(
             field_frame(
-                done.device,
+                done.device.with_bias(**{done.curve.contact: voltage}),
                 point.state,
                 index=index,
-                voltage=point_voltage(point),
+                voltage=voltage,
                 models=done.models,
             )
         )

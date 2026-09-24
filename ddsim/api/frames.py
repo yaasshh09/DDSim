@@ -334,6 +334,8 @@ def field_frame(
     ]
     if models is not None:
         Jx, Jy = node_current_density(device, state, models)
+        if len({c.voltage for c in device.semiconductor_contacts}) <= 1:
+            Jx, Jy = np.zeros_like(Jx), np.zeros_like(Jy)
         arrays += [("Jx", "A/cm^2", Jx), ("Jy", "A/cm^2", Jy)]
 
     return FieldFrame(index=index, voltage=voltage, shape=shape, arrays=tuple(arrays))

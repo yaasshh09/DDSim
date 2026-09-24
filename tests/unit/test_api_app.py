@@ -386,6 +386,20 @@ def test_the_fields_of_a_point_come_back_as_float32_behind_a_header(
     assert np.max(arrays["n"]) > 1e15
 
 
+def test_the_fields_of_a_point_know_the_bias_it_was_swept_to(client) -> None:
+    """The job keeps the device as it was built, anode at 0 V. The fields at
+    0.2 V have to be taken on the device at 0.2 V, or every point of an I-V
+    would look like it was at rest and lose its current."""
+    job = submit(client, diode_request())
+    drain(client, job)
+
+    at_rest = decode_fields(client.get(f"/api/jobs/{job}/fields/0").content)
+    forward = decode_fields(client.get(f"/api/jobs/{job}/fields/1").content)
+
+    assert not np.any(at_rest["Jx"])
+    assert np.max(np.abs(forward["Jx"])) > 0.0
+
+
 def test_the_fields_of_a_capacitance_point_carry_its_gate_bias(client) -> None:
     """A C-V point calls its bias gate_voltage and an I-V point calls it
     voltage. The wire calls both voltage, so this is the branch that would

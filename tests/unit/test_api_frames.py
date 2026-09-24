@@ -316,6 +316,35 @@ def test_a_transport_frame_carries_the_node_currents() -> None:
     assert arrays["Jx"].size == device.mesh.nx * device.mesh.ny
 
 
+def test_a_device_with_every_contact_at_one_bias_carries_no_current() -> None:
+    """A gate on an insulator draws no current, so with source, drain and
+    body all at one voltage the current density is exactly zero. What the
+    solver hands back there is roundoff, and the page would trace its random
+    direction as streamlines."""
+    device = nmos(**COARSE_FET).with_bias(gate=0.5, drain=0.0)
+    state = solve_bias_ramped(device)
+    models = TransportModels.for_device(device)
+
+    arrays = decode_fields(
+        encode(field_frame(device, state, index=0, voltage=0.5, models=models))
+    )
+
+    assert not np.any(arrays["Jx"])
+    assert not np.any(arrays["Jy"])
+
+
+def test_a_drain_bias_leaves_the_current_in() -> None:
+    device = nmos(**COARSE_FET).with_bias(gate=0.5, drain=0.1)
+    state = solve_bias_ramped(device)
+    models = TransportModels.for_device(device)
+
+    arrays = decode_fields(
+        encode(field_frame(device, state, index=0, voltage=0.5, models=models))
+    )
+
+    assert np.nanmax(np.abs(arrays["Jx"])) > 0.0
+
+
 def test_the_band_edges_cross_in_ev() -> None:
     device = diode()
     state = solve_equilibrium(device)
