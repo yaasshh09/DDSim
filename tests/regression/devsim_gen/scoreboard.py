@@ -282,17 +282,21 @@ def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
             GM.build_mesh(bench, device, process=process)
             GM.set_material_parameters(device)
             GM.set_doping(bench, device, process=process)
+            # The golden transfer curves start every device at zero gate, put
+            # the drain on, then walk the gate. All three drivers keep that
+            # order, so the only thing that differs is the walk itself.
             if driver == "devsim_expert":
-                GM.build_physics(device, k["gate_voltage"], drain, P.FULL_MODELS, wf)
+                GM.build_physics(device, 0.0, drain, P.FULL_MODELS, wf)
+                GM.ramp_to(device, GM.GATE, gate)
             else:
                 GM.build_physics(device, 0.0, 0.0, P.FULL_MODELS, wf)
                 if driver == "devsim_stock":
-                    _stock_ramp(device, GM.GATE, gate, 0.1)
                     _stock_ramp(device, GM.DRAIN, drain, 0.1)
+                    _stock_ramp(device, GM.GATE, gate, 0.1)
                 else:
                     small = 0.1 / FINE
-                    GM.ramp_to(device, GM.GATE, gate, step=small, max_step=small)
                     GM.ramp_to(device, GM.DRAIN, drain, step=small, max_step=small)
+                    GM.ramp_to(device, GM.GATE, gate, step=small, max_step=small)
             GM.settle(device, balance_tol=GM.BALANCE_TOL)
         currents = [
             GM.terminal_current(device, c) for c in (GM.DRAIN, GM.SOURCE, GM.BODY)
@@ -305,11 +309,21 @@ def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
 SOLVERS = {"pn_diode": _diode, "mos_cap": _mos_cap, "nmos": _nmos}
 
 
-def run(names: list[str] | None, path: str) -> str:
+def _done(path: str) -> set[tuple[str, str]]:
+    """The (case, driver) pairs a previous run already wrote to path."""
+    if not os.path.exists(path):
+        return set()
+    with open(path, encoding="utf-8") as f:
+        body = [line for line in f.read().splitlines() if not line.startswith("#")]
+    return {(row["case"], row["driver"]) for row in csv.DictReader(body)}
+
+
+def run(names: list[str] | None, path: str, resume: bool = False) -> str:
     unpinned = [v for v in THREAD_VARIABLES if os.environ.get(v) != "1"]
     if unpinned:
         raise SystemExit(f"set {', '.join(unpinned)} to 1 first, see the docstring")
     cases = [c for c in read_cases() if names is None or c["case"] in names]
+    done = _done(path) if resume else set()
     today = datetime.date.today().isoformat()
     header = [
         f"# written {today} by devsim_gen/scoreboard.py run",
@@ -318,10 +332,13 @@ def run(names: list[str] | None, path: str) -> str:
         f"# fine step {1.0 / FINE:g} of the expert step",
         "case,driver,converged,value,imbalance,largest,seconds,message",
     ]
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
-        f.write("\n".join(header) + "\n")
+    with open(path, "a" if done else "w", encoding="utf-8", newline="\n") as f:
+        if not done:
+            f.write("\n".join(header) + "\n")
         for case in cases:
             for driver in DRIVERS:
+                if (case["case"], driver) in done:
+                    continue
                 started = time.perf_counter()
                 try:
                     value, imbalance, largest = SOLVERS[case["device"]](case, driver)
@@ -407,9 +424,10 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
         return _silicon_nodes(device, GC.SILICON), capacitance
     import dataclasses
 
-    bench = dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=(1.0,))
+    # From zero gate up, the way the golden curves are walked.
+    bench = dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=(0.0, 1.0))
     rows, nodes = GM.transfer_curve(bench, 0.05, refine=r)
-    return nodes, rows[0]["drain"]
+    return nodes, rows[-1]["drain"]
 
 
 def run_accuracy(path: str) -> str:
@@ -495,6 +513,7 @@ def main() -> int:
     parser.add_argument("command", choices=["api", "run", "accuracy", "speed"])
     parser.add_argument("names", nargs="*", help="run only these cases")
     parser.add_argument("--out", default=None)
+    parser.add_argument("--resume", action="store_true", help="keep finished rows")
     args = parser.parse_args()
     if args.command == "api":
         print(write_api())
@@ -504,7 +523,7 @@ def main() -> int:
         print(run_speed(args.out or os.path.join(OUT, "devsim_speed.csv")))
     else:
         out = args.out or os.path.join(OUT, "devsim_robustness.csv")
-        print(run(args.names or None, out))
+        print(run(args.names or None, out, resume=args.resume))
     return 0
 
 
