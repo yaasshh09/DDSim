@@ -454,6 +454,11 @@ fly deploy --ha=false
 `--ha=false` matters. Jobs live in the memory of one process, so a second
 machine would get asked about jobs it never started.
 
+The machine is `performance-1x` and not a shared CPU on purpose. A shared CPU
+wakes from a stop with 5 s of burst and then runs at an eighth of a core, so a
+50 nm sweep that takes 50 s on a laptop would take about 400 s there and hit
+the 5 minute limit.
+
 ## How it is kept honest
 
 A drift-diffusion solver with a sign error does not crash. It converges cleanly
