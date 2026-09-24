@@ -47,9 +47,10 @@ runs out long before the mesh gets interesting.
 
 - All of the above, shown failing first.
 - Benchmark 19: a 3D p+n diode on one Gmsh tetrahedral mesh loaded into both
-  tools, within 2 percent on log I. Likely (unverified): DEVSIM's Gmsh import
-  handles 3D tetrahedra. Check that against its documentation before building
-  the benchmark around it.
+  tools, within 2 percent on log I. DEVSIM's `create_gmsh_mesh` docstring
+  lists tetrahedra among its element types (`create_gmsh_mesh:tetrahedron` in
+  `data/scoreboard/devsim_api.txt`), so the import exists. Whether its 3D
+  solve handles this device well is what the benchmark finds out.
 - The scoreboard's speed axis gets a 3D row: wall time and peak memory, both
   tools, the same mesh.
 - The 3D row on the capability matrix moves to yes.

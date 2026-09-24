@@ -1,0 +1,204 @@
+# written 2026-09-24 by tools/scoreboard.py cases
+# seed 20260924, split (('pn_diode', 60), ('mos_cap', 40), ('nmos', 100)), 4 significant digits
+# knobs not listed keep the constructor default
+case,device,knobs,redraws
+d001,pn_diode,"{""Na"": 213600000000000.0, ""Nd"": 604700000000000.0, ""length"": 0.000198, ""junction"": 5.16e-05, ""anode_voltage"": -4.749}",0
+d002,pn_diode,"{""Na"": 1.365e+17, ""Nd"": 3.31e+16, ""length"": 0.0002707, ""junction"": 2.847e-05, ""anode_voltage"": -2.959}",0
+d003,pn_diode,"{""Na"": 1.329e+18, ""Nd"": 3.299e+18, ""length"": 3.644e-05, ""junction"": 2.291e-05, ""anode_voltage"": -4.236}",1
+d004,pn_diode,"{""Na"": 2598000000000000.0, ""Nd"": 269300000000000.0, ""length"": 6.263e-05, ""junction"": 2.138e-05, ""anode_voltage"": -3.503}",0
+d005,pn_diode,"{""Na"": 2.728e+18, ""Nd"": 580000000000000.0, ""length"": 0.0009576, ""junction"": 6.019e-05, ""anode_voltage"": -1.73}",2
+d006,pn_diode,"{""Na"": 2.171e+18, ""Nd"": 3.162e+18, ""length"": 0.0009473, ""junction"": 5.462e-05, ""anode_voltage"": -0.2298}",0
+d007,pn_diode,"{""Na"": 9176000000000000.0, ""Nd"": 229200000000000.0, ""length"": 9.425e-05, ""junction"": 8.289e-05, ""anode_voltage"": -3.291}",1
+d008,pn_diode,"{""Na"": 1.702e+16, ""Nd"": 1.317e+16, ""length"": 0.0001097, ""junction"": 2.831e-05, ""anode_voltage"": -1.348}",2
+d009,pn_diode,"{""Na"": 3.721e+18, ""Nd"": 7.308e+18, ""length"": 7.365e-05, ""junction"": 3.18e-05, ""anode_voltage"": -4.814}",0
+d010,pn_diode,"{""Na"": 7.936e+16, ""Nd"": 2.123e+17, ""length"": 0.000843, ""junction"": 6.952e-05, ""anode_voltage"": -0.422}",0
+d011,pn_diode,"{""Na"": 8218000000000000.0, ""Nd"": 6.504e+17, ""length"": 0.0004339, ""junction"": 4.167e-05, ""anode_voltage"": 0.2465}",1
+d012,pn_diode,"{""Na"": 7.136e+17, ""Nd"": 377500000000000.0, ""length"": 0.0006929, ""junction"": 3.018e-05, ""anode_voltage"": -3.418}",2
+d013,pn_diode,"{""Na"": 1.03e+17, ""Nd"": 775900000000000.0, ""length"": 3.278e-05, ""junction"": 1.207e-05, ""anode_voltage"": -4.423}",0
+d014,pn_diode,"{""Na"": 1271000000000000.0, ""Nd"": 290900000000000.0, ""length"": 5.591e-05, ""junction"": 4.729e-05, ""anode_voltage"": -4.847}",0
+d015,pn_diode,"{""Na"": 1539000000000000.0, ""Nd"": 2.848e+18, ""length"": 0.0001187, ""junction"": 2.549e-05, ""anode_voltage"": -1.812}",1
+d016,pn_diode,"{""Na"": 1043000000000000.0, ""Nd"": 6365000000000000.0, ""length"": 2.451e-05, ""junction"": 2.007e-05, ""anode_voltage"": -3.814}",0
+d017,pn_diode,"{""Na"": 2.611e+16, ""Nd"": 2351000000000000.0, ""length"": 0.0001712, ""junction"": 1.839e-05, ""anode_voltage"": -2.367}",0
+d018,pn_diode,"{""Na"": 164800000000000.0, ""Nd"": 2.064e+18, ""length"": 0.0001102, ""junction"": 8.505e-05, ""anode_voltage"": -1.273}",0
+d019,pn_diode,"{""Na"": 4.887e+16, ""Nd"": 6.433e+17, ""length"": 0.000136, ""junction"": 7.684e-05, ""anode_voltage"": -2.283}",0
+d020,pn_diode,"{""Na"": 6.773e+18, ""Nd"": 1.436e+17, ""length"": 0.0009131, ""junction"": 1.519e-05, ""anode_voltage"": -1.716}",0
+d021,pn_diode,"{""Na"": 2336000000000000.0, ""Nd"": 3697000000000000.0, ""length"": 0.0002749, ""junction"": 2.722e-05, ""anode_voltage"": -1.312}",0
+d022,pn_diode,"{""Na"": 8378000000000000.0, ""Nd"": 169100000000000.0, ""length"": 5.312e-05, ""junction"": 2.818e-05, ""anode_voltage"": -1.402}",0
+d023,pn_diode,"{""Na"": 2.576e+16, ""Nd"": 1.745e+18, ""length"": 0.0003748, ""junction"": 3.528e-05, ""anode_voltage"": -4.859}",0
+d024,pn_diode,"{""Na"": 1.18e+17, ""Nd"": 7.02e+17, ""length"": 0.0007916, ""junction"": 8.415e-05, ""anode_voltage"": -3.274}",0
+d025,pn_diode,"{""Na"": 7.786e+18, ""Nd"": 130200000000000.0, ""length"": 6.026e-05, ""junction"": 5.549e-05, ""anode_voltage"": -2.765}",0
+d026,pn_diode,"{""Na"": 4.082e+16, ""Nd"": 4.229e+18, ""length"": 5.996e-05, ""junction"": 1.592e-05, ""anode_voltage"": -0.289}",0
+d027,pn_diode,"{""Na"": 1.167e+18, ""Nd"": 5.253e+16, ""length"": 0.0005699, ""junction"": 8.382e-05, ""anode_voltage"": 0.2201}",0
+d028,pn_diode,"{""Na"": 2367000000000000.0, ""Nd"": 110100000000000.0, ""length"": 8.562e-05, ""junction"": 4.46e-05, ""anode_voltage"": -0.7483}",0
+d029,pn_diode,"{""Na"": 7.18e+17, ""Nd"": 3952000000000000.0, ""length"": 0.0002476, ""junction"": 6.339e-05, ""anode_voltage"": -4.278}",1
+d030,pn_diode,"{""Na"": 1996000000000000.0, ""Nd"": 1.039e+17, ""length"": 0.0001122, ""junction"": 8.562e-05, ""anode_voltage"": -4.547}",1
+d031,pn_diode,"{""Na"": 694000000000000.0, ""Nd"": 2.362e+16, ""length"": 2.249e-05, ""junction"": 1.508e-05, ""anode_voltage"": -2.449}",0
+d032,pn_diode,"{""Na"": 4.49e+17, ""Nd"": 380400000000000.0, ""length"": 0.0001526, ""junction"": 3.317e-05, ""anode_voltage"": -0.2635}",1
+d033,pn_diode,"{""Na"": 1.191e+17, ""Nd"": 5.495e+16, ""length"": 0.0001085, ""junction"": 8.293e-05, ""anode_voltage"": -1.037}",0
+d034,pn_diode,"{""Na"": 7.301e+16, ""Nd"": 1.016e+16, ""length"": 0.0006391, ""junction"": 6.05e-05, ""anode_voltage"": -4.757}",1
+d035,pn_diode,"{""Na"": 3.526e+18, ""Nd"": 1789000000000000.0, ""length"": 7.831e-05, ""junction"": 6.748e-05, ""anode_voltage"": -0.9801}",0
+d036,pn_diode,"{""Na"": 1.006e+18, ""Nd"": 2.901e+16, ""length"": 0.0004693, ""junction"": 7.057e-05, ""anode_voltage"": -4.995}",1
+d037,pn_diode,"{""Na"": 5.761e+16, ""Nd"": 7.443e+17, ""length"": 0.0002678, ""junction"": 3.532e-05, ""anode_voltage"": 0.3651}",0
+d038,pn_diode,"{""Na"": 5.488e+17, ""Nd"": 1.644e+17, ""length"": 0.0007874, ""junction"": 6.208e-05, ""anode_voltage"": -4.604}",1
+d039,pn_diode,"{""Na"": 8.469e+17, ""Nd"": 4.743e+17, ""length"": 0.0006737, ""junction"": 2.499e-05, ""anode_voltage"": -1.204}",1
+d040,pn_diode,"{""Na"": 444200000000000.0, ""Nd"": 147600000000000.0, ""length"": 0.0001097, ""junction"": 3.548e-05, ""anode_voltage"": -2.54}",0
+d041,pn_diode,"{""Na"": 816200000000000.0, ""Nd"": 8.09e+18, ""length"": 0.0007221, ""junction"": 7.126e-05, ""anode_voltage"": -3.205}",0
+d042,pn_diode,"{""Na"": 8.624e+18, ""Nd"": 963000000000000.0, ""length"": 0.0004184, ""junction"": 4.88e-05, ""anode_voltage"": -3.661}",2
+d043,pn_diode,"{""Na"": 116500000000000.0, ""Nd"": 1.786e+18, ""length"": 0.0003522, ""junction"": 8.265e-05, ""anode_voltage"": -2.972}",2
+d044,pn_diode,"{""Na"": 9.613e+17, ""Nd"": 3460000000000000.0, ""length"": 0.0003218, ""junction"": 7.511e-05, ""anode_voltage"": -4.71}",0
+d045,pn_diode,"{""Na"": 4.76e+18, ""Nd"": 8.705e+17, ""length"": 6.396e-05, ""junction"": 3.199e-05, ""anode_voltage"": -2.597}",1
+d046,pn_diode,"{""Na"": 2145000000000000.0, ""Nd"": 3.3e+17, ""length"": 0.0008747, ""junction"": 7.71e-05, ""anode_voltage"": -0.5215}",0
+d047,pn_diode,"{""Na"": 1184000000000000.0, ""Nd"": 3.932e+18, ""length"": 6.94e-05, ""junction"": 2.268e-05, ""anode_voltage"": -2.55}",0
+d048,pn_diode,"{""Na"": 3.801e+18, ""Nd"": 3.652e+18, ""length"": 0.0009004, ""junction"": 2.491e-05, ""anode_voltage"": -0.4805}",0
+d049,pn_diode,"{""Na"": 1.45e+18, ""Nd"": 1.024e+16, ""length"": 4.472e-05, ""junction"": 3.367e-05, ""anode_voltage"": -0.8079}",0
+d050,pn_diode,"{""Na"": 838100000000000.0, ""Nd"": 9.401e+17, ""length"": 0.0001626, ""junction"": 3.509e-05, ""anode_voltage"": -3.145}",0
+d051,pn_diode,"{""Na"": 3.697e+16, ""Nd"": 3.919e+17, ""length"": 8.189e-05, ""junction"": 3.521e-05, ""anode_voltage"": -1.456}",0
+d052,pn_diode,"{""Na"": 1879000000000000.0, ""Nd"": 5794000000000000.0, ""length"": 0.000105, ""junction"": 6.012e-05, ""anode_voltage"": -3.209}",0
+d053,pn_diode,"{""Na"": 2.514e+18, ""Nd"": 1.588e+17, ""length"": 0.000179, ""junction"": 8.153e-05, ""anode_voltage"": -3.502}",0
+d054,pn_diode,"{""Na"": 5.116e+16, ""Nd"": 1.315e+17, ""length"": 0.0005182, ""junction"": 6.987e-05, ""anode_voltage"": -0.06101}",1
+d055,pn_diode,"{""Na"": 2.322e+18, ""Nd"": 6282000000000000.0, ""length"": 0.0005518, ""junction"": 8.402e-05, ""anode_voltage"": -0.1715}",0
+d056,pn_diode,"{""Na"": 169800000000000.0, ""Nd"": 4471000000000000.0, ""length"": 6.246e-05, ""junction"": 1.386e-05, ""anode_voltage"": -1.012}",0
+d057,pn_diode,"{""Na"": 5.173e+16, ""Nd"": 5371000000000000.0, ""length"": 0.0003782, ""junction"": 8.173e-05, ""anode_voltage"": -0.1372}",0
+d058,pn_diode,"{""Na"": 9.77e+17, ""Nd"": 7.308e+17, ""length"": 0.0002472, ""junction"": 4.693e-05, ""anode_voltage"": -1.382}",2
+d059,pn_diode,"{""Na"": 966800000000000.0, ""Nd"": 2.615e+16, ""length"": 0.0003155, ""junction"": 1.413e-05, ""anode_voltage"": -1.56}",0
+d060,pn_diode,"{""Na"": 4037000000000000.0, ""Nd"": 431800000000000.0, ""length"": 6.441e-05, ""junction"": 1.75e-05, ""anode_voltage"": -0.6667}",1
+c001,mos_cap,"{""substrate_doping"": -1081000000000000.0, ""t_ox"": 1.07e-07, ""t_si"": 0.0003713, ""work_function"": 4.94, ""gate_voltage"": 0.5221}",0
+c002,mos_cap,"{""substrate_doping"": -3.915e+16, ""t_ox"": 5.866e-07, ""t_si"": 0.0001436, ""work_function"": 5.208, ""gate_voltage"": -1.863}",0
+c003,mos_cap,"{""substrate_doping"": -7.765e+16, ""t_ox"": 1.76e-07, ""t_si"": 0.0001859, ""work_function"": 4.975, ""gate_voltage"": -0.9965}",0
+c004,mos_cap,"{""substrate_doping"": -2458000000000000.0, ""t_ox"": 1.766e-06, ""t_si"": 0.0001524, ""work_function"": 4.044, ""gate_voltage"": -1.836}",0
+c005,mos_cap,"{""substrate_doping"": -2.25e+18, ""t_ox"": 9.676e-07, ""t_si"": 7.444e-05, ""work_function"": 5.241, ""gate_voltage"": 0.7028}",0
+c006,mos_cap,"{""substrate_doping"": -527900000000000.0, ""t_ox"": 1.878e-06, ""t_si"": 0.0009594, ""work_function"": 4.692, ""gate_voltage"": -0.8452}",0
+c007,mos_cap,"{""substrate_doping"": -3.477e+18, ""t_ox"": 1.047e-06, ""t_si"": 0.0006969, ""work_function"": 4.038, ""gate_voltage"": 0.9777}",0
+c008,mos_cap,"{""substrate_doping"": -2781000000000000.0, ""t_ox"": 1.502e-07, ""t_si"": 0.0002831, ""work_function"": 4.934, ""gate_voltage"": 0.4738}",0
+c009,mos_cap,"{""substrate_doping"": -144600000000000.0, ""t_ox"": 1.572e-07, ""t_si"": 0.0001803, ""work_function"": 4.732, ""gate_voltage"": -0.5023}",0
+c010,mos_cap,"{""substrate_doping"": -270100000000000.0, ""t_ox"": 1.107e-07, ""t_si"": 0.0005843, ""work_function"": 4.768, ""gate_voltage"": -0.4847}",0
+c011,mos_cap,"{""substrate_doping"": -276700000000000.0, ""t_ox"": 1.806e-06, ""t_si"": 0.0001879, ""work_function"": 5.147, ""gate_voltage"": -1.706}",0
+c012,mos_cap,"{""substrate_doping"": -248100000000000.0, ""t_ox"": 5.814e-07, ""t_si"": 8.368e-05, ""work_function"": 4.194, ""gate_voltage"": 0.8575}",0
+c013,mos_cap,"{""substrate_doping"": -2.014e+17, ""t_ox"": 1.357e-06, ""t_si"": 0.0002087, ""work_function"": 4.585, ""gate_voltage"": -1.627}",0
+c014,mos_cap,"{""substrate_doping"": -2.203e+16, ""t_ox"": 5.105e-06, ""t_si"": 0.000855, ""work_function"": 4.504, ""gate_voltage"": -0.1747}",0
+c015,mos_cap,"{""substrate_doping"": -1.918e+16, ""t_ox"": 4.712e-06, ""t_si"": 0.0002403, ""work_function"": 4.797, ""gate_voltage"": -1.215}",0
+c016,mos_cap,"{""substrate_doping"": -6.926e+17, ""t_ox"": 5.406e-07, ""t_si"": 0.0009236, ""work_function"": 4.307, ""gate_voltage"": 1.553}",0
+c017,mos_cap,"{""substrate_doping"": -1.02e+18, ""t_ox"": 9.379e-07, ""t_si"": 0.0009589, ""work_function"": 4.517, ""gate_voltage"": 1.417}",0
+c018,mos_cap,"{""substrate_doping"": -1.114e+18, ""t_ox"": 3.555e-06, ""t_si"": 6.717e-05, ""work_function"": 5.015, ""gate_voltage"": -1.536}",0
+c019,mos_cap,"{""substrate_doping"": -604200000000000.0, ""t_ox"": 3.166e-07, ""t_si"": 0.0001124, ""work_function"": 5.182, ""gate_voltage"": -0.4186}",0
+c020,mos_cap,"{""substrate_doping"": -2.965e+17, ""t_ox"": 8.948e-06, ""t_si"": 0.0001373, ""work_function"": 4.623, ""gate_voltage"": -0.9424}",0
+c021,mos_cap,"{""substrate_doping"": -1.907e+16, ""t_ox"": 5.584e-07, ""t_si"": 8.09e-05, ""work_function"": 5.282, ""gate_voltage"": 1.258}",0
+c022,mos_cap,"{""substrate_doping"": -547400000000000.0, ""t_ox"": 4.749e-06, ""t_si"": 0.0004076, ""work_function"": 4.783, ""gate_voltage"": -1.15}",0
+c023,mos_cap,"{""substrate_doping"": -1.399e+17, ""t_ox"": 8.031e-07, ""t_si"": 0.0002163, ""work_function"": 5.3, ""gate_voltage"": -1.568}",0
+c024,mos_cap,"{""substrate_doping"": -1.825e+16, ""t_ox"": 1.631e-07, ""t_si"": 0.0007558, ""work_function"": 4.93, ""gate_voltage"": -0.8853}",0
+c025,mos_cap,"{""substrate_doping"": -4.453e+16, ""t_ox"": 6.932e-06, ""t_si"": 9.985e-05, ""work_function"": 4.76, ""gate_voltage"": -0.852}",0
+c026,mos_cap,"{""substrate_doping"": -7.866e+18, ""t_ox"": 1.826e-07, ""t_si"": 0.0009983, ""work_function"": 5.292, ""gate_voltage"": -0.8023}",0
+c027,mos_cap,"{""substrate_doping"": -3.756e+17, ""t_ox"": 7.779e-07, ""t_si"": 6.678e-05, ""work_function"": 5.033, ""gate_voltage"": 1.178}",0
+c028,mos_cap,"{""substrate_doping"": -182100000000000.0, ""t_ox"": 8.17e-06, ""t_si"": 0.0006906, ""work_function"": 4.066, ""gate_voltage"": 0.2261}",0
+c029,mos_cap,"{""substrate_doping"": -1.992e+18, ""t_ox"": 5.026e-07, ""t_si"": 6.414e-05, ""work_function"": 4.677, ""gate_voltage"": 1.859}",0
+c030,mos_cap,"{""substrate_doping"": -9.402e+16, ""t_ox"": 9.586e-06, ""t_si"": 0.0002053, ""work_function"": 4.703, ""gate_voltage"": 0.5238}",0
+c031,mos_cap,"{""substrate_doping"": -1.516e+18, ""t_ox"": 2.773e-06, ""t_si"": 0.0005998, ""work_function"": 4.93, ""gate_voltage"": -0.9234}",0
+c032,mos_cap,"{""substrate_doping"": -9547000000000000.0, ""t_ox"": 1.977e-07, ""t_si"": 0.0008685, ""work_function"": 4.586, ""gate_voltage"": 1.85}",0
+c033,mos_cap,"{""substrate_doping"": -648400000000000.0, ""t_ox"": 2.891e-07, ""t_si"": 7.219e-05, ""work_function"": 5.001, ""gate_voltage"": 0.3938}",0
+c034,mos_cap,"{""substrate_doping"": -4.858e+16, ""t_ox"": 1.497e-06, ""t_si"": 7.59e-05, ""work_function"": 4.925, ""gate_voltage"": -0.8786}",0
+c035,mos_cap,"{""substrate_doping"": -5.943e+17, ""t_ox"": 1.966e-06, ""t_si"": 0.0007889, ""work_function"": 4.447, ""gate_voltage"": -0.5236}",0
+c036,mos_cap,"{""substrate_doping"": -4.492e+16, ""t_ox"": 6.69e-06, ""t_si"": 8.766e-05, ""work_function"": 5.289, ""gate_voltage"": 0.7491}",0
+c037,mos_cap,"{""substrate_doping"": -2.76e+16, ""t_ox"": 6.6e-07, ""t_si"": 0.00024, ""work_function"": 4.652, ""gate_voltage"": 0.9452}",0
+c038,mos_cap,"{""substrate_doping"": -1.5e+18, ""t_ox"": 6.323e-06, ""t_si"": 0.0004475, ""work_function"": 4.244, ""gate_voltage"": 0.02394}",0
+c039,mos_cap,"{""substrate_doping"": -6150000000000000.0, ""t_ox"": 5.937e-07, ""t_si"": 7.41e-05, ""work_function"": 4.857, ""gate_voltage"": -1.335}",0
+c040,mos_cap,"{""substrate_doping"": -2.899e+18, ""t_ox"": 3.485e-07, ""t_si"": 8.22e-05, ""work_function"": 5.078, ""gate_voltage"": 1.787}",0
+m001,nmos,"{""L_gate"": 2.949e-05, ""substrate_doping"": -5446000000000000.0, ""sd_peak"": 1.184e+18, ""x_j"": 8.421e-06, ""lateral_diffusion"": 4.927e-06, ""t_ox"": 1.181e-06, ""work_function"": 4.127, ""gate_voltage"": 1.022, ""drain_voltage"": -0.305}",0
+m002,nmos,"{""L_gate"": 8.069e-05, ""substrate_doping"": -549200000000000.0, ""sd_peak"": 2.969e+18, ""x_j"": 4.917e-05, ""lateral_diffusion"": 1.153e-06, ""t_ox"": 8.305e-07, ""work_function"": 5.166, ""gate_voltage"": 2.221, ""drain_voltage"": 0.1563}",0
+m003,nmos,"{""L_gate"": 6.752e-05, ""substrate_doping"": -1.328e+18, ""sd_peak"": 7.427e+18, ""x_j"": 4.437e-05, ""lateral_diffusion"": 1.198e-06, ""t_ox"": 5.598e-07, ""work_function"": 4.087, ""gate_voltage"": 1.252, ""drain_voltage"": -0.02324}",0
+m004,nmos,"{""L_gate"": 6.073e-06, ""substrate_doping"": -286600000000000.0, ""sd_peak"": 1.259e+19, ""x_j"": 1.291e-05, ""lateral_diffusion"": 1.022e-06, ""t_ox"": 8.258e-06, ""work_function"": 4.169, ""gate_voltage"": 0.2944, ""drain_voltage"": 1.272}",0
+m005,nmos,"{""L_gate"": 6.048e-05, ""substrate_doping"": -1.21e+18, ""sd_peak"": 1.839e+19, ""x_j"": 4.668e-06, ""lateral_diffusion"": 7.016e-06, ""t_ox"": 7.026e-07, ""work_function"": 4.505, ""gate_voltage"": -0.3534, ""drain_voltage"": 1.279}",1
+m006,nmos,"{""L_gate"": 1.497e-05, ""substrate_doping"": -5.966e+18, ""sd_peak"": 3.463e+19, ""x_j"": 1.082e-05, ""lateral_diffusion"": 3.131e-06, ""t_ox"": 6.69e-07, ""work_function"": 4.592, ""gate_voltage"": 2.219, ""drain_voltage"": 1.019}",0
+m007,nmos,"{""L_gate"": 5.805e-05, ""substrate_doping"": -425800000000000.0, ""sd_peak"": 1.98e+18, ""x_j"": 4.873e-06, ""lateral_diffusion"": 1.695e-05, ""t_ox"": 1.271e-06, ""work_function"": 4.268, ""gate_voltage"": 0.08354, ""drain_voltage"": 0.1054}",0
+m008,nmos,"{""L_gate"": 5.512e-05, ""substrate_doping"": -3.334e+17, ""sd_peak"": 3.576e+18, ""x_j"": 1.24e-05, ""lateral_diffusion"": 1.449e-05, ""t_ox"": 7.043e-07, ""work_function"": 4.559, ""gate_voltage"": -0.256, ""drain_voltage"": -0.009194}",0
+m009,nmos,"{""L_gate"": 9.692e-05, ""substrate_doping"": -6.026e+18, ""sd_peak"": 2.969e+19, ""x_j"": 4.439e-05, ""lateral_diffusion"": 1.11e-05, ""t_ox"": 7.275e-07, ""work_function"": 4.068, ""gate_voltage"": 1.812, ""drain_voltage"": -0.2016}",2
+m010,nmos,"{""L_gate"": 0.0001933, ""substrate_doping"": -9.755e+16, ""sd_peak"": 3.383e+19, ""x_j"": 1.043e-05, ""lateral_diffusion"": 2.267e-05, ""t_ox"": 1.841e-06, ""work_function"": 4.208, ""gate_voltage"": -0.8207, ""drain_voltage"": 0.4425}",0
+m011,nmos,"{""L_gate"": 1.727e-05, ""substrate_doping"": -1562000000000000.0, ""sd_peak"": 3.531e+18, ""x_j"": 3.282e-06, ""lateral_diffusion"": 1.453e-06, ""t_ox"": 3.725e-06, ""work_function"": 5.047, ""gate_voltage"": -0.3852, ""drain_voltage"": 0.7694}",0
+m012,nmos,"{""L_gate"": 0.0001926, ""substrate_doping"": -481700000000000.0, ""sd_peak"": 5.008e+18, ""x_j"": 9.498e-06, ""lateral_diffusion"": 2.806e-05, ""t_ox"": 3.104e-06, ""work_function"": 4.246, ""gate_voltage"": -0.9262, ""drain_voltage"": -0.4181}",0
+m013,nmos,"{""L_gate"": 0.000152, ""substrate_doping"": -2.842e+18, ""sd_peak"": 2.975e+19, ""x_j"": 3.684e-05, ""lateral_diffusion"": 1.175e-05, ""t_ox"": 1.29e-06, ""work_function"": 4.307, ""gate_voltage"": 0.2616, ""drain_voltage"": 1.291}",0
+m014,nmos,"{""L_gate"": 5.862e-06, ""substrate_doping"": -233400000000000.0, ""sd_peak"": 4.815e+19, ""x_j"": 5.137e-06, ""lateral_diffusion"": 2.139e-06, ""t_ox"": 1.606e-07, ""work_function"": 5.06, ""gate_voltage"": 1.579, ""drain_voltage"": 1.886}",4
+m015,nmos,"{""L_gate"": 8.698e-05, ""substrate_doping"": -1414000000000000.0, ""sd_peak"": 1.943e+19, ""x_j"": 2.443e-05, ""lateral_diffusion"": 2.285e-06, ""t_ox"": 2.075e-07, ""work_function"": 5.225, ""gate_voltage"": 0.4608, ""drain_voltage"": 0.09867}",1
+m016,nmos,"{""L_gate"": 0.0001377, ""substrate_doping"": -141500000000000.0, ""sd_peak"": 3.115e+18, ""x_j"": 2.434e-05, ""lateral_diffusion"": 1.861e-05, ""t_ox"": 8.492e-06, ""work_function"": 4.927, ""gate_voltage"": -0.9594, ""drain_voltage"": 1.473}",0
+m017,nmos,"{""L_gate"": 4.612e-05, ""substrate_doping"": -2976000000000000.0, ""sd_peak"": 4.981e+18, ""x_j"": 7.444e-06, ""lateral_diffusion"": 1.632e-05, ""t_ox"": 4.1e-07, ""work_function"": 5.075, ""gate_voltage"": -0.6164, ""drain_voltage"": 0.269}",1
+m018,nmos,"{""L_gate"": 7.921e-06, ""substrate_doping"": -2872000000000000.0, ""sd_peak"": 1.836e+19, ""x_j"": 3.563e-05, ""lateral_diffusion"": 1.99e-06, ""t_ox"": 2.154e-06, ""work_function"": 4.461, ""gate_voltage"": 1.631, ""drain_voltage"": 0.08042}",0
+m019,nmos,"{""L_gate"": 4.197e-05, ""substrate_doping"": -2.12e+17, ""sd_peak"": 1.636e+18, ""x_j"": 4.161e-06, ""lateral_diffusion"": 1.74e-05, ""t_ox"": 2.252e-06, ""work_function"": 4.797, ""gate_voltage"": -0.08445, ""drain_voltage"": 0.03505}",0
+m020,nmos,"{""L_gate"": 1.042e-05, ""substrate_doping"": -2.762e+18, ""sd_peak"": 6.387e+18, ""x_j"": 2.347e-05, ""lateral_diffusion"": 4.053e-06, ""t_ox"": 1.675e-07, ""work_function"": 4.768, ""gate_voltage"": -0.2614, ""drain_voltage"": 1.647}",0
+m021,nmos,"{""L_gate"": 8.729e-05, ""substrate_doping"": -2.415e+18, ""sd_peak"": 2.904e+19, ""x_j"": 2.822e-05, ""lateral_diffusion"": 6.459e-06, ""t_ox"": 4.443e-06, ""work_function"": 4.096, ""gate_voltage"": 0.9441, ""drain_voltage"": 1.044}",1
+m022,nmos,"{""L_gate"": 2.421e-05, ""substrate_doping"": -117800000000000.0, ""sd_peak"": 6.554e+19, ""x_j"": 1.436e-05, ""lateral_diffusion"": 3.289e-06, ""t_ox"": 4.428e-06, ""work_function"": 4.176, ""gate_voltage"": -0.02904, ""drain_voltage"": 1.323}",1
+m023,nmos,"{""L_gate"": 7.67e-06, ""substrate_doping"": -5618000000000000.0, ""sd_peak"": 6.867e+18, ""x_j"": 1.527e-05, ""lateral_diffusion"": 3.354e-06, ""t_ox"": 3.535e-07, ""work_function"": 4.536, ""gate_voltage"": -0.3791, ""drain_voltage"": 0.6868}",0
+m024,nmos,"{""L_gate"": 0.0002434, ""substrate_doping"": -4.049e+17, ""sd_peak"": 1.205e+18, ""x_j"": 4.609e-05, ""lateral_diffusion"": 1.114e-05, ""t_ox"": 1.418e-07, ""work_function"": 4.677, ""gate_voltage"": 0.5424, ""drain_voltage"": 1.188}",0
+m025,nmos,"{""L_gate"": 0.0001727, ""substrate_doping"": -1.054e+18, ""sd_peak"": 1.665e+19, ""x_j"": 4.265e-06, ""lateral_diffusion"": 1.075e-05, ""t_ox"": 7.43e-06, ""work_function"": 5.265, ""gate_voltage"": 0.07768, ""drain_voltage"": 1.919}",0
+m026,nmos,"{""L_gate"": 0.000141, ""substrate_doping"": -2561000000000000.0, ""sd_peak"": 1.266e+18, ""x_j"": 1.006e-05, ""lateral_diffusion"": 1.548e-05, ""t_ox"": 3.868e-07, ""work_function"": 4.186, ""gate_voltage"": 2.126, ""drain_voltage"": 1.174}",0
+m027,nmos,"{""L_gate"": 6.055e-06, ""substrate_doping"": -1.081e+17, ""sd_peak"": 2.25e+19, ""x_j"": 2.315e-05, ""lateral_diffusion"": 2.56e-06, ""t_ox"": 2.88e-07, ""work_function"": 4.996, ""gate_voltage"": -0.1591, ""drain_voltage"": 0.04549}",0
+m028,nmos,"{""L_gate"": 0.0001847, ""substrate_doping"": -1.26e+17, ""sd_peak"": 4.347e+18, ""x_j"": 4.394e-05, ""lateral_diffusion"": 4.099e-06, ""t_ox"": 6.166e-06, ""work_function"": 4.055, ""gate_voltage"": 0.4294, ""drain_voltage"": -0.3238}",0
+m029,nmos,"{""L_gate"": 2.439e-05, ""substrate_doping"": -179400000000000.0, ""sd_peak"": 6.694e+18, ""x_j"": 2.873e-05, ""lateral_diffusion"": 1.689e-06, ""t_ox"": 6.471e-06, ""work_function"": 4.673, ""gate_voltage"": -0.9729, ""drain_voltage"": 0.3276}",0
+m030,nmos,"{""L_gate"": 6.458e-05, ""substrate_doping"": -1.374e+17, ""sd_peak"": 5.951e+18, ""x_j"": 1.21e-05, ""lateral_diffusion"": 1.283e-06, ""t_ox"": 2.82e-06, ""work_function"": 4.447, ""gate_voltage"": 1.443, ""drain_voltage"": 0.7452}",0
+m031,nmos,"{""L_gate"": 2.469e-05, ""substrate_doping"": -5.589e+18, ""sd_peak"": 1.713e+19, ""x_j"": 1.207e-05, ""lateral_diffusion"": 2.814e-06, ""t_ox"": 8.111e-06, ""work_function"": 4.733, ""gate_voltage"": -0.1526, ""drain_voltage"": 0.7715}",0
+m032,nmos,"{""L_gate"": 0.0001728, ""substrate_doping"": -5.001e+16, ""sd_peak"": 1.053e+19, ""x_j"": 1.408e-05, ""lateral_diffusion"": 9.588e-06, ""t_ox"": 1.322e-06, ""work_function"": 4.434, ""gate_voltage"": 2.016, ""drain_voltage"": 0.2323}",0
+m033,nmos,"{""L_gate"": 6.592e-05, ""substrate_doping"": -9232000000000000.0, ""sd_peak"": 2.366e+19, ""x_j"": 4.895e-05, ""lateral_diffusion"": 1.095e-06, ""t_ox"": 3.866e-07, ""work_function"": 4.014, ""gate_voltage"": 1.235, ""drain_voltage"": -0.1779}",3
+m034,nmos,"{""L_gate"": 4.234e-05, ""substrate_doping"": -6464000000000000.0, ""sd_peak"": 2.818e+18, ""x_j"": 3.099e-06, ""lateral_diffusion"": 2.23e-06, ""t_ox"": 3.124e-07, ""work_function"": 4.954, ""gate_voltage"": -0.2173, ""drain_voltage"": -0.4992}",1
+m035,nmos,"{""L_gate"": 1.93e-05, ""substrate_doping"": -6.808e+16, ""sd_peak"": 3.283e+18, ""x_j"": 2.043e-05, ""lateral_diffusion"": 2.311e-06, ""t_ox"": 3.2e-06, ""work_function"": 4.965, ""gate_voltage"": 1.032, ""drain_voltage"": 1.681}",0
+m036,nmos,"{""L_gate"": 3.083e-05, ""substrate_doping"": -3.712e+16, ""sd_peak"": 1.098e+19, ""x_j"": 4.953e-05, ""lateral_diffusion"": 1.875e-06, ""t_ox"": 3.709e-07, ""work_function"": 4.092, ""gate_voltage"": -0.9555, ""drain_voltage"": 1.471}",0
+m037,nmos,"{""L_gate"": 1.632e-05, ""substrate_doping"": -1.468e+18, ""sd_peak"": 7.65e+19, ""x_j"": 8.618e-06, ""lateral_diffusion"": 2.243e-06, ""t_ox"": 3.674e-06, ""work_function"": 4.535, ""gate_voltage"": -0.5036, ""drain_voltage"": 1.702}",0
+m038,nmos,"{""L_gate"": 5.135e-06, ""substrate_doping"": -7827000000000000.0, ""sd_peak"": 4.585e+18, ""x_j"": 1.971e-05, ""lateral_diffusion"": 1.059e-06, ""t_ox"": 3.553e-07, ""work_function"": 4.263, ""gate_voltage"": 0.6168, ""drain_voltage"": -0.3661}",0
+m039,nmos,"{""L_gate"": 8.321e-06, ""substrate_doping"": -4.108e+17, ""sd_peak"": 4.388e+19, ""x_j"": 6.309e-06, ""lateral_diffusion"": 3.444e-06, ""t_ox"": 5.317e-06, ""work_function"": 4.44, ""gate_voltage"": -0.3957, ""drain_voltage"": 0.5844}",0
+m040,nmos,"{""L_gate"": 0.0001621, ""substrate_doping"": -3.871e+18, ""sd_peak"": 5.159e+19, ""x_j"": 2.72e-05, ""lateral_diffusion"": 5.442e-06, ""t_ox"": 1.654e-06, ""work_function"": 4.921, ""gate_voltage"": -0.7424, ""drain_voltage"": 1.613}",0
+m041,nmos,"{""L_gate"": 0.0001392, ""substrate_doping"": -1.803e+16, ""sd_peak"": 9.347e+18, ""x_j"": 1.199e-05, ""lateral_diffusion"": 7.259e-06, ""t_ox"": 1.296e-06, ""work_function"": 4.22, ""gate_voltage"": 0.8404, ""drain_voltage"": 1.203}",0
+m042,nmos,"{""L_gate"": 9.372e-05, ""substrate_doping"": -2.29e+18, ""sd_peak"": 5.184e+19, ""x_j"": 6.639e-06, ""lateral_diffusion"": 2.121e-05, ""t_ox"": 2.103e-06, ""work_function"": 4.79, ""gate_voltage"": 1.381, ""drain_voltage"": 1.613}",0
+m043,nmos,"{""L_gate"": 1.872e-05, ""substrate_doping"": -1324000000000000.0, ""sd_peak"": 7.978e+18, ""x_j"": 1.141e-05, ""lateral_diffusion"": 6.918e-06, ""t_ox"": 1.824e-06, ""work_function"": 4.792, ""gate_voltage"": 2.131, ""drain_voltage"": 1.968}",1
+m044,nmos,"{""L_gate"": 0.0002108, ""substrate_doping"": -366200000000000.0, ""sd_peak"": 1.088e+18, ""x_j"": 3.544e-05, ""lateral_diffusion"": 2.197e-06, ""t_ox"": 1.93e-07, ""work_function"": 4.111, ""gate_voltage"": 1.189, ""drain_voltage"": 0.3654}",1
+m045,nmos,"{""L_gate"": 4.126e-05, ""substrate_doping"": -5217000000000000.0, ""sd_peak"": 1.639e+19, ""x_j"": 7.798e-06, ""lateral_diffusion"": 1.932e-05, ""t_ox"": 1.203e-06, ""work_function"": 5.184, ""gate_voltage"": 1.146, ""drain_voltage"": 0.7822}",0
+m046,nmos,"{""L_gate"": 0.000182, ""substrate_doping"": -6.333e+16, ""sd_peak"": 6.913e+18, ""x_j"": 4.245e-06, ""lateral_diffusion"": 2.012e-05, ""t_ox"": 3.607e-07, ""work_function"": 5.112, ""gate_voltage"": 0.8506, ""drain_voltage"": 0.1008}",0
+m047,nmos,"{""L_gate"": 2.795e-05, ""substrate_doping"": -1.703e+16, ""sd_peak"": 8.259e+19, ""x_j"": 3.967e-05, ""lateral_diffusion"": 1.306e-06, ""t_ox"": 2.659e-07, ""work_function"": 4.922, ""gate_voltage"": -0.3135, ""drain_voltage"": 0.4939}",0
+m048,nmos,"{""L_gate"": 8.769e-06, ""substrate_doping"": -139800000000000.0, ""sd_peak"": 8.46e+18, ""x_j"": 3.013e-06, ""lateral_diffusion"": 3.379e-06, ""t_ox"": 1.114e-06, ""work_function"": 4.742, ""gate_voltage"": 0.8116, ""drain_voltage"": 1.081}",1
+m049,nmos,"{""L_gate"": 3.721e-05, ""substrate_doping"": -2.374e+16, ""sd_peak"": 1.498e+18, ""x_j"": 2.346e-05, ""lateral_diffusion"": 1.529e-06, ""t_ox"": 7.942e-07, ""work_function"": 4.702, ""gate_voltage"": 2.295, ""drain_voltage"": -0.2183}",1
+m050,nmos,"{""L_gate"": 4.723e-05, ""substrate_doping"": -546900000000000.0, ""sd_peak"": 4.013e+18, ""x_j"": 6.712e-06, ""lateral_diffusion"": 6.253e-06, ""t_ox"": 1.008e-06, ""work_function"": 5.207, ""gate_voltage"": 2.439, ""drain_voltage"": 1.582}",2
+m051,nmos,"{""L_gate"": 0.0001324, ""substrate_doping"": -2.186e+16, ""sd_peak"": 1.317e+19, ""x_j"": 2.645e-05, ""lateral_diffusion"": 2.231e-05, ""t_ox"": 3.117e-07, ""work_function"": 4.302, ""gate_voltage"": -0.9037, ""drain_voltage"": -0.052}",0
+m052,nmos,"{""L_gate"": 3.365e-05, ""substrate_doping"": -7.027e+18, ""sd_peak"": 2.684e+19, ""x_j"": 6.273e-06, ""lateral_diffusion"": 3.218e-06, ""t_ox"": 3.579e-06, ""work_function"": 5.212, ""gate_voltage"": -0.09837, ""drain_voltage"": -0.3452}",0
+m053,nmos,"{""L_gate"": 2.157e-05, ""substrate_doping"": -1.465e+17, ""sd_peak"": 1.375e+18, ""x_j"": 2.57e-05, ""lateral_diffusion"": 2.779e-06, ""t_ox"": 6.817e-06, ""work_function"": 4.049, ""gate_voltage"": 2.317, ""drain_voltage"": 1.825}",0
+m054,nmos,"{""L_gate"": 0.0001288, ""substrate_doping"": -1.966e+17, ""sd_peak"": 2.955e+18, ""x_j"": 1.032e-05, ""lateral_diffusion"": 1.155e-06, ""t_ox"": 1.175e-07, ""work_function"": 4.318, ""gate_voltage"": 1.803, ""drain_voltage"": 0.8234}",0
+m055,nmos,"{""L_gate"": 2.325e-05, ""substrate_doping"": -1168000000000000.0, ""sd_peak"": 1.396e+18, ""x_j"": 2.765e-06, ""lateral_diffusion"": 2.228e-06, ""t_ox"": 2.342e-07, ""work_function"": 4.485, ""gate_voltage"": 0.9648, ""drain_voltage"": -0.3032}",0
+m056,nmos,"{""L_gate"": 0.0001353, ""substrate_doping"": -3.79e+18, ""sd_peak"": 6.619e+19, ""x_j"": 5.61e-06, ""lateral_diffusion"": 1.046e-05, ""t_ox"": 1.864e-06, ""work_function"": 4.102, ""gate_voltage"": 0.07194, ""drain_voltage"": 0.3026}",0
+m057,nmos,"{""L_gate"": 0.0001459, ""substrate_doping"": -3510000000000000.0, ""sd_peak"": 8.462e+19, ""x_j"": 7.031e-06, ""lateral_diffusion"": 1.414e-05, ""t_ox"": 4.242e-06, ""work_function"": 4.094, ""gate_voltage"": -0.7877, ""drain_voltage"": 0.1956}",0
+m058,nmos,"{""L_gate"": 0.0001242, ""substrate_doping"": -3034000000000000.0, ""sd_peak"": 1.557e+18, ""x_j"": 1.141e-05, ""lateral_diffusion"": 5.09e-06, ""t_ox"": 1.019e-06, ""work_function"": 4.242, ""gate_voltage"": 1.28, ""drain_voltage"": 0.7645}",0
+m059,nmos,"{""L_gate"": 2.729e-05, ""substrate_doping"": -770800000000000.0, ""sd_peak"": 7.337e+19, ""x_j"": 2.033e-05, ""lateral_diffusion"": 5.028e-06, ""t_ox"": 1.768e-06, ""work_function"": 4.891, ""gate_voltage"": 0.7541, ""drain_voltage"": 1.771}",0
+m060,nmos,"{""L_gate"": 0.0001282, ""substrate_doping"": -3106000000000000.0, ""sd_peak"": 1.894e+19, ""x_j"": 2.979e-05, ""lateral_diffusion"": 2.25e-05, ""t_ox"": 3.773e-07, ""work_function"": 4.776, ""gate_voltage"": 0.1545, ""drain_voltage"": 1.576}",1
+m061,nmos,"{""L_gate"": 7.267e-05, ""substrate_doping"": -7.698e+16, ""sd_peak"": 4.907e+18, ""x_j"": 3.497e-05, ""lateral_diffusion"": 2.005e-05, ""t_ox"": 1.455e-06, ""work_function"": 4.362, ""gate_voltage"": 2.197, ""drain_voltage"": -0.335}",1
+m062,nmos,"{""L_gate"": 5.729e-05, ""substrate_doping"": -3894000000000000.0, ""sd_peak"": 3.615e+19, ""x_j"": 3.747e-05, ""lateral_diffusion"": 1.856e-05, ""t_ox"": 5.736e-06, ""work_function"": 4.056, ""gate_voltage"": 0.4022, ""drain_voltage"": 0.9253}",0
+m063,nmos,"{""L_gate"": 0.0001504, ""substrate_doping"": -970600000000000.0, ""sd_peak"": 1.211e+19, ""x_j"": 6.374e-06, ""lateral_diffusion"": 2.783e-06, ""t_ox"": 9.109e-07, ""work_function"": 4.834, ""gate_voltage"": 0.5054, ""drain_voltage"": 0.4282}",1
+m064,nmos,"{""L_gate"": 0.0001021, ""substrate_doping"": -7.132e+17, ""sd_peak"": 2.607e+18, ""x_j"": 1.342e-05, ""lateral_diffusion"": 2.666e-06, ""t_ox"": 1.96e-06, ""work_function"": 4.895, ""gate_voltage"": 0.09548, ""drain_voltage"": 0.01959}",0
+m065,nmos,"{""L_gate"": 6.94e-05, ""substrate_doping"": -7226000000000000.0, ""sd_peak"": 1.14e+19, ""x_j"": 3.925e-06, ""lateral_diffusion"": 5.696e-06, ""t_ox"": 4.651e-07, ""work_function"": 5.27, ""gate_voltage"": 1.427, ""drain_voltage"": 1.468}",0
+m066,nmos,"{""L_gate"": 7.737e-05, ""substrate_doping"": -2.3e+18, ""sd_peak"": 7.092e+19, ""x_j"": 8.186e-06, ""lateral_diffusion"": 3.628e-06, ""t_ox"": 2.216e-06, ""work_function"": 4.894, ""gate_voltage"": 1.034, ""drain_voltage"": 0.9377}",1
+m067,nmos,"{""L_gate"": 8.364e-05, ""substrate_doping"": -6.974e+16, ""sd_peak"": 1.787e+19, ""x_j"": 3.876e-06, ""lateral_diffusion"": 1.812e-06, ""t_ox"": 3.188e-06, ""work_function"": 4.048, ""gate_voltage"": 0.6013, ""drain_voltage"": -0.2238}",0
+m068,nmos,"{""L_gate"": 0.0001628, ""substrate_doping"": -228500000000000.0, ""sd_peak"": 3.3e+18, ""x_j"": 1.594e-05, ""lateral_diffusion"": 3.036e-06, ""t_ox"": 5.802e-06, ""work_function"": 4.763, ""gate_voltage"": -0.5025, ""drain_voltage"": 0.3062}",0
+m069,nmos,"{""L_gate"": 8.06e-05, ""substrate_doping"": -1.889e+17, ""sd_peak"": 3.154e+19, ""x_j"": 2.856e-05, ""lateral_diffusion"": 1.684e-06, ""t_ox"": 7.69e-07, ""work_function"": 5.206, ""gate_voltage"": 0.6893, ""drain_voltage"": 1.416}",1
+m070,nmos,"{""L_gate"": 9.408e-05, ""substrate_doping"": -1.341e+17, ""sd_peak"": 1.534e+18, ""x_j"": 1.345e-05, ""lateral_diffusion"": 1.153e-06, ""t_ox"": 2.166e-06, ""work_function"": 4.529, ""gate_voltage"": -0.8845, ""drain_voltage"": 1.189}",0
+m071,nmos,"{""L_gate"": 4.437e-05, ""substrate_doping"": -1.177e+17, ""sd_peak"": 1.255e+19, ""x_j"": 8.719e-06, ""lateral_diffusion"": 2.185e-06, ""t_ox"": 7.137e-06, ""work_function"": 5.169, ""gate_voltage"": 1.563, ""drain_voltage"": -0.1365}",0
+m072,nmos,"{""L_gate"": 1.312e-05, ""substrate_doping"": -6.018e+16, ""sd_peak"": 2.159e+19, ""x_j"": 4.635e-06, ""lateral_diffusion"": 3.107e-06, ""t_ox"": 4.325e-07, ""work_function"": 4.294, ""gate_voltage"": -0.005405, ""drain_voltage"": 0.9479}",0
+m073,nmos,"{""L_gate"": 6.238e-05, ""substrate_doping"": -1.205e+17, ""sd_peak"": 4.536e+19, ""x_j"": 3.343e-06, ""lateral_diffusion"": 2.978e-06, ""t_ox"": 8.073e-06, ""work_function"": 4.234, ""gate_voltage"": 1.728, ""drain_voltage"": 1.551}",0
+m074,nmos,"{""L_gate"": 0.0002008, ""substrate_doping"": -1.197e+16, ""sd_peak"": 2.998e+19, ""x_j"": 1.303e-05, ""lateral_diffusion"": 8.272e-06, ""t_ox"": 4.632e-06, ""work_function"": 5.102, ""gate_voltage"": 1.561, ""drain_voltage"": 1.113}",0
+m075,nmos,"{""L_gate"": 2.527e-05, ""substrate_doping"": -7090000000000000.0, ""sd_peak"": 4.194e+18, ""x_j"": 1.978e-05, ""lateral_diffusion"": 3.191e-06, ""t_ox"": 6.953e-07, ""work_function"": 4.328, ""gate_voltage"": -0.2639, ""drain_voltage"": 0.4906}",0
+m076,nmos,"{""L_gate"": 1.249e-05, ""substrate_doping"": -1.053e+18, ""sd_peak"": 2.246e+18, ""x_j"": 1.816e-05, ""lateral_diffusion"": 2.648e-06, ""t_ox"": 1.826e-06, ""work_function"": 4.73, ""gate_voltage"": 1.363, ""drain_voltage"": 1.476}",0
+m077,nmos,"{""L_gate"": 0.0001311, ""substrate_doping"": -5.14e+16, ""sd_peak"": 3.011e+19, ""x_j"": 2.155e-05, ""lateral_diffusion"": 1.508e-05, ""t_ox"": 2.931e-07, ""work_function"": 4.216, ""gate_voltage"": 1.149, ""drain_voltage"": 1.146}",0
+m078,nmos,"{""L_gate"": 3.584e-05, ""substrate_doping"": -3.931e+17, ""sd_peak"": 1.904e+18, ""x_j"": 7.48e-06, ""lateral_diffusion"": 3.461e-06, ""t_ox"": 1.702e-06, ""work_function"": 4.844, ""gate_voltage"": 0.0727, ""drain_voltage"": 1.515}",0
+m079,nmos,"{""L_gate"": 0.0002089, ""substrate_doping"": -1.346e+16, ""sd_peak"": 3.908e+19, ""x_j"": 3.91e-05, ""lateral_diffusion"": 2.827e-05, ""t_ox"": 6.937e-07, ""work_function"": 4.466, ""gate_voltage"": 1.191, ""drain_voltage"": 1.516}",0
+m080,nmos,"{""L_gate"": 8.017e-06, ""substrate_doping"": -3575000000000000.0, ""sd_peak"": 1.152e+19, ""x_j"": 4.542e-05, ""lateral_diffusion"": 1.373e-06, ""t_ox"": 1.931e-06, ""work_function"": 4.306, ""gate_voltage"": -0.5912, ""drain_voltage"": 0.3911}",0
+m081,nmos,"{""L_gate"": 7.167e-06, ""substrate_doping"": -1.451e+16, ""sd_peak"": 8.666e+18, ""x_j"": 2.605e-05, ""lateral_diffusion"": 1.688e-06, ""t_ox"": 5.954e-06, ""work_function"": 4.32, ""gate_voltage"": 2.337, ""drain_voltage"": 0.7757}",0
+m082,nmos,"{""L_gate"": 6.744e-06, ""substrate_doping"": -1412000000000000.0, ""sd_peak"": 1.771e+19, ""x_j"": 6.896e-06, ""lateral_diffusion"": 2.5e-06, ""t_ox"": 5.465e-07, ""work_function"": 4.864, ""gate_voltage"": 1.786, ""drain_voltage"": -0.3125}",0
+m083,nmos,"{""L_gate"": 8.409e-06, ""substrate_doping"": -796800000000000.0, ""sd_peak"": 1.853e+18, ""x_j"": 1.916e-05, ""lateral_diffusion"": 1.209e-06, ""t_ox"": 4.61e-07, ""work_function"": 4.707, ""gate_voltage"": -0.08911, ""drain_voltage"": -0.0159}",1
+m084,nmos,"{""L_gate"": 2.03e-05, ""substrate_doping"": -7435000000000000.0, ""sd_peak"": 2.096e+19, ""x_j"": 4.644e-05, ""lateral_diffusion"": 5.811e-06, ""t_ox"": 1.848e-06, ""work_function"": 4.645, ""gate_voltage"": -0.2032, ""drain_voltage"": 0.00941}",0
+m085,nmos,"{""L_gate"": 1.891e-05, ""substrate_doping"": -3.463e+17, ""sd_peak"": 2.882e+18, ""x_j"": 3.663e-05, ""lateral_diffusion"": 7.378e-06, ""t_ox"": 1.02e-06, ""work_function"": 4.954, ""gate_voltage"": -0.7125, ""drain_voltage"": -0.2055}",1
+m086,nmos,"{""L_gate"": 4.691e-05, ""substrate_doping"": -319400000000000.0, ""sd_peak"": 1.926e+19, ""x_j"": 3.729e-06, ""lateral_diffusion"": 1.153e-06, ""t_ox"": 3.898e-06, ""work_function"": 5.199, ""gate_voltage"": -0.2837, ""drain_voltage"": 1.113}",0
+m087,nmos,"{""L_gate"": 6.587e-05, ""substrate_doping"": -3.326e+17, ""sd_peak"": 4.633e+18, ""x_j"": 1.175e-05, ""lateral_diffusion"": 3.747e-06, ""t_ox"": 4.807e-06, ""work_function"": 4.909, ""gate_voltage"": 1.324, ""drain_voltage"": 0.1677}",0
+m088,nmos,"{""L_gate"": 8.925e-05, ""substrate_doping"": -4.644e+16, ""sd_peak"": 6.15e+19, ""x_j"": 7.139e-06, ""lateral_diffusion"": 3.384e-06, ""t_ox"": 7.223e-06, ""work_function"": 5.085, ""gate_voltage"": 0.6416, ""drain_voltage"": -0.01826}",0
+m089,nmos,"{""L_gate"": 2.709e-05, ""substrate_doping"": -4.263e+16, ""sd_peak"": 2.708e+19, ""x_j"": 1.235e-05, ""lateral_diffusion"": 9.704e-06, ""t_ox"": 8.066e-06, ""work_function"": 5.2, ""gate_voltage"": 0.2331, ""drain_voltage"": 0.03284}",1
+m090,nmos,"{""L_gate"": 4.168e-05, ""substrate_doping"": -1.175e+16, ""sd_peak"": 2.317e+19, ""x_j"": 1.506e-05, ""lateral_diffusion"": 1.684e-05, ""t_ox"": 6.063e-07, ""work_function"": 4.957, ""gate_voltage"": 0.3913, ""drain_voltage"": 1.95}",0
+m091,nmos,"{""L_gate"": 5.467e-06, ""substrate_doping"": -3.196e+17, ""sd_peak"": 9.675e+18, ""x_j"": 2.861e-05, ""lateral_diffusion"": 1.502e-06, ""t_ox"": 1.211e-06, ""work_function"": 4.407, ""gate_voltage"": 0.7957, ""drain_voltage"": -0.1851}",1
+m092,nmos,"{""L_gate"": 0.0001069, ""substrate_doping"": -7.167e+18, ""sd_peak"": 3.628e+19, ""x_j"": 5.809e-06, ""lateral_diffusion"": 1.85e-05, ""t_ox"": 4.886e-06, ""work_function"": 4.571, ""gate_voltage"": 1.516, ""drain_voltage"": 0.3688}",0
+m093,nmos,"{""L_gate"": 2.006e-05, ""substrate_doping"": -353500000000000.0, ""sd_peak"": 2.672e+18, ""x_j"": 2.403e-05, ""lateral_diffusion"": 1.724e-06, ""t_ox"": 7.223e-07, ""work_function"": 4.539, ""gate_voltage"": 2.241, ""drain_voltage"": 1.797}",0
+m094,nmos,"{""L_gate"": 2.578e-05, ""substrate_doping"": -539700000000000.0, ""sd_peak"": 1.144e+19, ""x_j"": 4.808e-05, ""lateral_diffusion"": 4.792e-06, ""t_ox"": 2.186e-06, ""work_function"": 5.092, ""gate_voltage"": 1.782, ""drain_voltage"": 1.833}",1
+m095,nmos,"{""L_gate"": 9.114e-05, ""substrate_doping"": -196300000000000.0, ""sd_peak"": 7.332e+19, ""x_j"": 1.178e-05, ""lateral_diffusion"": 1.619e-06, ""t_ox"": 3.152e-07, ""work_function"": 5.23, ""gate_voltage"": 0.365, ""drain_voltage"": 0.01389}",1
+m096,nmos,"{""L_gate"": 3.257e-05, ""substrate_doping"": -340100000000000.0, ""sd_peak"": 7.708e+19, ""x_j"": 9.663e-06, ""lateral_diffusion"": 6.949e-06, ""t_ox"": 1.362e-06, ""work_function"": 4.353, ""gate_voltage"": 1.557, ""drain_voltage"": 1.752}",0
+m097,nmos,"{""L_gate"": 4.592e-05, ""substrate_doping"": -1788000000000000.0, ""sd_peak"": 1.97e+18, ""x_j"": 9.181e-06, ""lateral_diffusion"": 1.333e-05, ""t_ox"": 1.023e-07, ""work_function"": 4.611, ""gate_voltage"": 0.0451, ""drain_voltage"": 1.74}",0
+m098,nmos,"{""L_gate"": 4.197e-05, ""substrate_doping"": -448400000000000.0, ""sd_peak"": 2.366e+19, ""x_j"": 1.812e-05, ""lateral_diffusion"": 6.427e-06, ""t_ox"": 5.931e-06, ""work_function"": 5.188, ""gate_voltage"": 1.655, ""drain_voltage"": -0.2461}",1
+m099,nmos,"{""L_gate"": 0.0002623, ""substrate_doping"": -995000000000000.0, ""sd_peak"": 1.018e+19, ""x_j"": 3.076e-06, ""lateral_diffusion"": 9.028e-06, ""t_ox"": 2e-07, ""work_function"": 4.612, ""gate_voltage"": 2.104, ""drain_voltage"": 0.07075}",0
+m100,nmos,"{""L_gate"": 6.048e-05, ""substrate_doping"": -2.131e+16, ""sd_peak"": 1.483e+19, ""x_j"": 3.425e-06, ""lateral_diffusion"": 1.95e-05, ""t_ox"": 1.204e-07, ""work_function"": 4.893, ""gate_voltage"": 2.422, ""drain_voltage"": -0.2031}",0
