@@ -18,6 +18,18 @@ moves during this phase, something is wrong.
    is one device plus one target bias, solved cold from equilibrium. The case
    list is written to `data/scoreboard/cases.csv` once and never regenerated
    silently.
+   - Only physical knobs are drawn: doping, geometry, oxide, work function
+     and bias. Mesh knobs stay at their defaults, and each tool meshes the
+     device its own way at benchmark quality. Drawing DDSim's mesh knobs would
+     test DDSim's mesher, and DEVSIM has no equivalent knob to set.
+   - The split is 60 pn diodes, 40 MOS capacitors and 100 NMOS, with the
+     MOSFET on the full Phase 5 model stack, because the MOSFET is where
+     robustness is hard. The diode and MOS capacitor use the benchmark 1 to 5
+     models.
+   - A draw that DDSim's device check refuses is drawn again, and the number
+     of redraws is recorded. The drawn and stack devices aren't included,
+     since DEVSIM can't be scripted from a drawing without writing a second
+     geometry engine.
 2. **Three drivers per case.**
    - DDSim, through the same public solve the CLI and the API call.
    - DEVSIM stock: its own `python_packages/ramp.py`, as shipped.

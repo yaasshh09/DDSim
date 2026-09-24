@@ -41,11 +41,17 @@ from its docstring (`dc`, `ac`, `noise`, `transient_bdf1`, `transient_bdf2`,
 
 DDSim has these and DEVSIM doesn't ship them:
 
-- automatic bias continuation that cold starts a MOSFET without a hand-written ramp
-- tested physics models built in (Joyce-Dixon, Arora, Lombardi, Caughey-Thomas),
-  where DEVSIM gives you examples to copy
+- automatic bias continuation that cold starts a MOSFET without a hand-written
+  ramp. DEVSIM ships `python_packages/ramp.py`, which steps one bias and halves
+  the step on failure. The scoreboard measures whether that's enough.
 - a browser client that streams the residual live, with guided lessons
 - a device check that refuses a bad input before solving it
+
+Physics models are close to parity. DEVSIM's `python_packages` ship SRH,
+Klaassen and Philips mobility, Philips velocity saturation and a Fermi
+statistics module, and anything else is written as equations. DDSim builds
+in Arora, Lombardi, Caughey-Thomas and Joyce-Dixon. Those are different model
+choices, not a lead, and the capability matrix records them as such.
 
 ## The order
 
