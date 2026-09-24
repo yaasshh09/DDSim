@@ -173,6 +173,12 @@ inputs from the one below it:
 Phases 0 to 5 and 7 are done. Phase 6 extracts compact models for SPICE, so it
 waits until the SPICE project exists.
 
+What comes next is in [phases/ROADMAP.md](phases/ROADMAP.md). DDSim already
+agrees with DEVSIM, and my next goal is to beat it on numbers I can measure.
+The plan starts with a scoreboard, then adds AC and noise, transient, error
+estimates, the bipolar transistor, breakdown, unstructured and 3D meshes,
+quantum correction and other materials.
+
 ## Going deeper
 
 | File | What's in it |
@@ -182,6 +188,7 @@ waits until the SPICE project exists.
 | [docs/04-validation.md](docs/04-validation.md) | Every analytic test case and DEVSIM benchmark |
 | [docs/07-decisions.md](docs/07-decisions.md) | Every decision that changes a result, and every known deviation from a reference |
 | [phases/](phases/) | Scope and acceptance criteria for each phase |
+| [phases/ROADMAP.md](phases/ROADMAP.md) | Phases 8 to 18, and what beating DEVSIM means in numbers |
 
 ```
 ddsim/core/        constants, scaling, the Field type

@@ -279,6 +279,72 @@ them is most of the value of having written it.
 - **Tunnelling** (gate leakage, band to band) is absent. A classical transport
   model has no barrier penetration.
 
+## Planned physics, Phases 9 to 18
+
+None of this is in the code yet. It's written here first so that the symbols
+are fixed before any code uses them, the same way the table at the top of
+this file fixed the ones in use today. Each phase file has the tests. This
+section only has the physics and the names.
+
+| Symbol | Code | Meaning | Units | Phase |
+|---|---|---|---|---|
+| T | `T` | lattice temperature, uniform | K | 9 |
+| Q_f | `Q_f` | fixed oxide charge at the Si/SiO2 interface, as a sheet density of elementary charges | cm^-2 | 9 |
+| Nd+, Na- | `Nd_plus`, `Na_minus` | ionized dopants once incomplete ionization exists. `Nd` and `Na` then mean the chemical doping | cm^-3 | 9 |
+| omega | `omega` | angular frequency of the small signal | rad/s | 10 |
+| Y | `Y` | small-signal admittance matrix between contacts | S/cm^2 in 1D, S/cm in 2D | 10 |
+| phi_Bn, phi_Bp | `phi_Bn`, `phi_Bp` | Schottky barrier heights | V | 14 |
+| alpha_n, alpha_p | `alpha_n`, `alpha_p` | impact ionization coefficients | cm^-1 | 14 |
+| G_ii | `G_ii` | impact ionization generation rate | cm^-3 s^-1 | 14 |
+| E_par | `E_par` | field component along the edge current | V/cm | 14 |
+
+**Temperature (Phase 9).** Every quantity that depends on T takes the
+device's T, and none of them falls back to 300 K on its own. n_i, Eg, Nc, Nv
+and the Arora and Lombardi mobilities already do. Saturation velocity joins
+them. SRH lifetimes stay constant in T. Lattice temperature is uniform, so
+there's no self heating.
+
+**Fixed oxide charge (Phase 9).** It's a sheet charge q Q_f on the interface.
+In box integration it adds q Q_f times the interface length of each interface
+node's dual cell to that node's Poisson source. For a sheet exactly at the
+interface, the flatband voltage moves by -q Q_f / C_ox.
+
+**Noise (Phase 10).** By the impedance field method, the noise at a contact
+is the local noise sources carried to the contact by the Green's function of
+the linearized system. The sources are diffusion noise for each carrier and
+generation-recombination noise from SRH. Their exact forms go in here, with a
+source, before the noise code is written.
+
+**Transient (Phase 11).** The dn/dt and dp/dt terms in the continuity
+equations above stop being zero. Poisson has no time derivative. The current
+at a contact becomes conduction current plus displacement current.
+
+**Schottky contacts (Phase 14).** Thermionic emission replaces the ohmic
+condition:
+
+    Jn . n_hat = q * v_n * (n - n_0B),   n_0B = Nc * exp(-phi_Bn / V_T)
+    v_n = A_n* * T^2 / (q * Nc)
+
+and likewise for holes. The sign convention is fixed by the phase's tests,
+since a formula can carry the wrong sign straight into code.
+
+**Impact ionization (Phase 14).**
+
+    G_ii = (alpha_n * |Jn| + alpha_p * |Jp|) / q
+    alpha = a * exp(-b / E_par)
+
+It's the Chynoweth form, taken edge by edge with the field along the current.
+The Impact ionization section above explains why it waited this long.
+
+**Quantum correction (Phase 17).** Schrodinger-Poisson on the 1D MOS
+capacitor, and density gradient in the 2D MOSFET. It covers confinement only;
+tunnelling stays absent.
+
+**Heterojunctions (Phase 18).** psi and the normal component of D are
+continuous at the interface. The band edges step by the difference in
+electron affinity, and carriers cross an abrupt step by thermionic emission,
+in the same form as the Schottky contact.
+
 ## Derivation chain, for the writeup
 
 Drift-diffusion isn't fundamental. It's the first two moments of the

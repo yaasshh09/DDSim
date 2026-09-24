@@ -414,3 +414,72 @@ assembled for the DC Newton solve. The terminal admittance is
 Y = G + i*omega*C, and the capacitance is Im(Y) / omega.
 
 This reuses the DC Jacobian entirely. It's about 60 lines once Phase 3 works.
+
+### The mass matrix, planned for Phase 10
+
+What's shipped so far is only the omega to zero limit, where M drops out (see
+the docstring of `extract/cv.py`). The frequency solve needs M written down.
+
+With unknowns (psi, n, p) node interleaved as in `discretize/coupled.py`, the
+continuity residuals with their time derivatives are
+
+    F_n,i = R_i*volume_i + (dn_i/dt)*volume_i - (Jn_{i+1/2} - Jn_{i-1/2})
+    F_p,i = (Jp_{i+1/2} - Jp_{i-1/2}) + R_i*volume_i + (dp_i/dt)*volume_i
+
+so M is diagonal, with volume_i at the n row and the p row of node i and
+nothing at the Poisson row. Both signs are positive, because the time
+derivative sits on the same side as R in both equations. In scaled units,
+time is measured in t_0 = x_0^2 / D_0. The test for M differentiates a time
+stepped residual by finite differences and compares it entry by entry. It
+exists because a sign error in M still gives a plausible-looking admittance.
+
+The system at frequency omega is complex. SciPy's `splu` factorizes complex
+matrices, so the same linear solver wrapper carries over.
+
+## Time integration (Phase 11)
+
+Planned. Backward Euler first, then variable step BDF2.
+
+Backward Euler solves, per step,
+
+    F(x_{k+1}) + M (x_{k+1} - x_k) / dt = 0
+
+by Newton, with Jacobian J + M/dt. Adding M/dt to the diagonal of the
+continuity blocks makes the matrix more diagonally dominant, so a transient
+step is easier than the DC solve at the same bias. A step that fails is
+halved, the same way a continuation step is.
+
+BDF2 with variable steps uses the standard variable coefficient form. The
+local truncation error is estimated from the gap between the explicit
+predictor and the converged corrector, and that estimate controls step
+acceptance and the next dt. Order is measured, not assumed: halving dt on a
+smooth problem must cut the error by 2 for backward Euler and by 4 for BDF2.
+
+The terminal current in a transient includes the displacement current, the
+time derivative of the contact charge that `extract/cv.py` already knows how
+to read. Without it, the terminal currents stop summing to zero.
+
+## Error estimation (Phase 12)
+
+Planned. The dual weighted residual estimate for a goal Q, such as a terminal
+current:
+
+1. Solve the adjoint J^T z = dQ/dx at the converged state, reusing the
+   factorization with `trans='T'`.
+2. Prolong the solution and z onto the mesh refined once everywhere.
+3. Assemble the residual F_fine of the prolonged solution there. There's no
+   solve on the fine mesh.
+4. The estimate is eta = -z_fine . F_fine. The per cell terms are the
+   refinement indicator.
+
+The check that matters is the effectivity index, estimate over true error,
+where true error comes from Richardson extrapolation. It has to sit in
+[0.5, 2] on every benchmark that has a Richardson reference.
+
+## Iterative linear solves (Phase 16)
+
+Planned for 3D, where a direct LU fills in too much. GMRES preconditioned by
+an incomplete LU, inside an inexact Newton whose linear tolerance follows the
+Eisenstat-Walker forcing rule. `splu` stays the default in 1D and 2D. On
+every 2D benchmark, the two must reach the same converged state within the
+Newton tolerance.
