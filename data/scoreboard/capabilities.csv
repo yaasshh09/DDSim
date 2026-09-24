@@ -1,0 +1,40 @@
+capability,ddsim,ddsim_evidence,devsim,devsim_evidence,note
+1D drift-diffusion DC,yes,tests/analytic/test_shockley_diode.py::test_the_diffusion_limited_diode_has_ideality_one,yes,solve:dc + python_packages.simple_physics.CreateSiliconDriftDiffusion,
+2D drift-diffusion DC,yes,tests/analytic/test_mosfet_transport.py::test_the_sweep_reaches_every_gate_bias,yes,solve:dc + create_2d_mesh,
+Bias ramp that ships with the tool,yes,tests/convergence/test_newton_convergence.py::test_continuation_reaches_one_volt_inside_the_budget,yes,python_packages.ramp.rampbias,DEVSIM's ramp halves its step on failure and never grows it back. The robustness axis measures the difference
+Gummel iteration,yes,tests/analytic/test_shockley_diode.py::test_gummel_converges_at_half_a_volt,no,,
+Quasi-static C-V,yes,tests/analytic/test_mos_cv.py::test_the_low_frequency_curve_comes_back_up_in_inversion,yes,solve:ac + get_contact_charge,
+High frequency C-V,yes,tests/analytic/test_mos_cv.py::test_the_high_frequency_curve_stays_down_in_inversion,yes,solve:ac,ddsim freezes the minority carriers by hand. DEVSIM solves at a frequency. Phase 10 closes this
+Small-signal AC at any frequency,no,,yes,solve:ac,Phase 10
+Noise,no,,yes,solve:noise,Phase 10
+Transient,no,,yes,solve:transient_bdf1 + solve:transient_bdf2 + solve:transient_tr,Phase 11
+Circuit elements on contacts,no,,yes,circuit_element,Phase 11 adds a series resistor and a source
+Fermi-Dirac statistics,yes,tests/unit/test_statistics.py::test_joyce_dixon_inverts_the_integral_to_under_one_percent,scripted,tests/regression/devsim_gen/generate_mosfet.py::joyce_dixon,DEVSIM's fermi_physics.py is comments only
+SRH recombination,yes,tests/unit/test_recombination.py::test_srh_model_matches_the_free_function,yes,python_packages.simple_physics.CreateSRH,
+Auger recombination,yes,tests/unit/test_coupled_transport.py::test_auger_raises_the_recombination_rate,scripted,node_model + equation,
+Arora doping mobility,yes,tests/unit/test_mobility.py::test_electron_mobility_matches_the_literature,scripted,tests/regression/devsim_gen/generate_mosfet.py::create_bulk_mobility,
+Klaassen doping mobility,no,,yes,python_packages.Klaassen.Klaassen_Mobility,
+Lombardi surface mobility,yes,tests/unit/test_mobility.py::test_the_inversion_layer_is_two_to_three_times_slower_than_bulk,scripted,tests/regression/devsim_gen/generate_mosfet.py::create_surface_mobility,
+Philips surface mobility,no,,yes,python_packages.Klaassen.Philips_Surface_Mobility,
+Velocity saturation,yes,tests/unit/test_mobility.py::test_the_drift_velocity_saturates_at_v_sat,yes,python_packages.Klaassen.Philips_VelocitySaturation,
+Temperature as a device input,no,,scripted,set_parameter + node_model,DEVSIM's SetSiliconParameters sets kT but leaves n_i fixed. Phase 9
+Fixed oxide charge,no,,scripted,interface_model + interface_equation,Phase 9
+Incomplete ionization,no,,scripted,node_model,Phase 9
+Impact ionization,no,,scripted,edge_model + equation,Phase 14
+Schottky contacts,no,,scripted,contact_equation,Phase 14
+Bipolar transistor,no,,scripted,create_2d_mesh + contact_equation,Phase 13
+Heterojunctions,no,,scripted,interface_equation + python_packages.simple_physics.CreateSiliconSiliconInterface,Phase 18
+Quantum correction,no,,scripted,node_model + equation,Phase 17
+User-written equations with symbolic derivatives,no,,yes,equation + node_model + symdiff,
+Gmsh mesh import,no,,yes,create_gmsh_mesh,Phase 15
+Unstructured 2D meshes,no,,yes,create_gmsh_mesh:triangle,Phase 15
+3D meshes,no,,yes,create_gmsh_mesh:tetrahedron,Phase 16
+Cylindrical coordinates,no,,yes,cylindrical_node_volume + cylindrical_edge_couple,Phase 15
+Iterative linear solver,no,,yes,solver:iterative,Phase 16
+Discretization error estimates,no,,no,,Phase 12
+Adaptive mesh refinement,no,,no,,Phase 12
+Device check before solving,yes,tests/unit/test_api_app.py::test_a_device_can_be_checked_without_solving_it,no,,
+Browser client with live residual,yes,tests/unit/test_api_app.py::test_telemetry_arrives_before_the_job_is_finished,no,,
+Cancellable solves,yes,tests/unit/test_api_app.py::test_cancelling_stops_the_solve,no,,
+Guided lessons,yes,tests/unit/test_lessons.py::test_a_lesson_splits_into_its_parts,no,,
+Draw a 2D device in the browser,yes,tests/analytic/test_drawn_devices.py::test_the_drawn_mos_capacitor_reproduces_mos_cap_c_v,no,,

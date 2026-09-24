@@ -48,8 +48,9 @@ DDSim has these and DEVSIM doesn't ship them:
 - a device check that refuses a bad input before solving it
 
 Physics models are close to parity. DEVSIM's `python_packages` ship SRH,
-Klaassen and Philips mobility, Philips velocity saturation and a Fermi
-statistics module, and anything else is written as equations. DDSim builds
+Klaassen and Philips mobility and Philips velocity saturation, and anything
+else is written as equations. Its `fermi_physics.py` is comments only, and its
+`SetSiliconParameters(T)` sets kT but leaves n_i fixed. DDSim builds
 in Arora, Lombardi, Caughey-Thomas and Joyce-Dixon. Those are different model
 choices, not a lead, and the capability matrix records them as such.
 
