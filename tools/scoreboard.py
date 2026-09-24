@@ -417,6 +417,13 @@ these. A ratio of 1.5 rather than 2 keeps the finest 2D mesh at five times the
 reference's nodes instead of sixteen."""
 
 
+ORDER_RANGE = (0.5, 3.0)
+"""Observed orders a fit is believed for [1]. Scharfetter-Gummel is first
+order at junctions and second in smooth regions (docs/02-numerics.md), so an
+order far outside this means the three meshes aren't in the asymptotic range
+yet, and the limit it implies is noise."""
+
+
 @dataclass(frozen=True)
 class Fit:
     limit: float | None
@@ -433,9 +440,10 @@ def richardson(levels: list[tuple[float, int, float]], dimension: int) -> Fit:
     """Extrapolate three (refinement, nodes, value) levels to zero spacing.
 
     Assumes value = limit + C h^p on a constant refinement ratio. If the two
-    moves have opposite signs or don't shrink, the meshes aren't in the
-    asymptotic range and there is no honest limit to report, so all four
-    fields come back None rather than a number that means nothing.
+    moves have opposite signs, don't shrink, or imply an order outside
+    ORDER_RANGE, the meshes aren't in the asymptotic range and there is no
+    honest limit to report, so all four fields come back None rather than a
+    number that means nothing.
     """
     (r1, n1, q1), (r2, _, q2), (r3, _, q3) = sorted(levels)
     ratio = r2 / r1
@@ -443,6 +451,8 @@ def richardson(levels: list[tuple[float, int, float]], dimension: int) -> Fit:
     if d1 * d2 <= 0.0 or abs(d2) >= abs(d1):
         return Fit(None, None, None, None)
     order = math.log(d1 / d2) / math.log(ratio)
+    if not ORDER_RANGE[0] <= order <= ORDER_RANGE[1]:
+        return Fit(None, None, None, None)
     limit = q3 - d2 / (ratio**order - 1.0)
     error = abs(q1 - limit) / abs(limit)
     nodes = n1 * (error / 0.01) ** (dimension / order)
