@@ -411,6 +411,160 @@ def score(cases: list[Case], results: list[Result]) -> Score:
     return Score(passes, dropped, len(cases) - len(dropped))
 
 
+REFINEMENTS = (1.0, 1.5, 2.25)
+"""Mesh refinement factors for the accuracy axis: every spacing divided by
+these. A ratio of 1.5 rather than 2 keeps the finest 2D mesh at five times the
+reference's nodes instead of sixteen."""
+
+
+@dataclass(frozen=True)
+class Fit:
+    limit: float | None
+    """The Richardson extrapolated value, None outside the asymptotic range."""
+    order: float | None
+    """Observed order of convergence in h [1]."""
+    error: float | None
+    """Relative error of the reference mesh against the limit [1]."""
+    nodes_for_one_percent: float | None
+    """Silicon nodes at which the error model reaches 1 percent [1]."""
+
+
+def richardson(levels: list[tuple[float, int, float]], dimension: int) -> Fit:
+    """Extrapolate three (refinement, nodes, value) levels to zero spacing.
+
+    Assumes value = limit + C h^p on a constant refinement ratio. If the two
+    moves have opposite signs or don't shrink, the meshes aren't in the
+    asymptotic range and there is no honest limit to report, so all four
+    fields come back None rather than a number that means nothing.
+    """
+    (r1, n1, q1), (r2, _, q2), (r3, _, q3) = sorted(levels)
+    ratio = r2 / r1
+    d1, d2 = q1 - q2, q2 - q3
+    if d1 * d2 <= 0.0 or abs(d2) >= abs(d1):
+        return Fit(None, None, None, None)
+    order = math.log(d1 / d2) / math.log(ratio)
+    limit = q3 - d2 / (ratio**order - 1.0)
+    error = abs(q1 - limit) / abs(limit)
+    nodes = n1 * (error / 0.01) ** (dimension / order)
+    return Fit(limit, order, error, nodes)
+
+
+ACCURACY = (
+    (1, "diode_1e16_1e16"),
+    (2, "diode_1e18_1e16"),
+    (3, "diode_1e20_1e15"),
+    (4, "mos_cap_5nm"),
+    (5, "mos_cap_20nm"),
+    (6, "nmos_1um"),
+    (7, "nmos_180nm"),
+    (8, "nmos_65nm"),
+    (9, "rolloff_100nm"),
+    (10, "fullstack_100nm"),
+)
+"""One device per Tier 4 benchmark, by golden file stem. Benchmark 9 is five
+devices; its 100 nm one stands for it, as does benchmark 10's."""
+
+ACCURACY_BIAS = {"diode": 0.6, "mos_cap": 0.0, "mosfet": (1.0, 0.05)}
+"""Where each family's quantity is read: diode anode current at 0.6 V, MOS
+capacitor low frequency capacitance at 0 V of gate, MOSFET drain current at
+1.0 V of gate and 50 mV of drain, all above every floor [V]."""
+
+
+def _scaled(nodes: int, r: float) -> int:
+    """A node count with every spacing divided by r."""
+    return round((nodes - 1) * r) + 1
+
+
+def silicon_nodes(device: Device) -> int:
+    """Nodes carrying all three unknowns, the count both tools can agree on."""
+    if device.regions is None:
+        return int(device.mesh.n_nodes)
+    return int(np.count_nonzero(device.regions.semiconductor_volume > 0.0))
+
+
+def accuracy_point(name: str, r: float) -> tuple[int, float]:
+    """One benchmark's quantity on its reference mesh refined by r."""
+    sys.path.insert(0, str(ROOT))
+    import inspect
+
+    from ddsim.device.mos_cap import mos_cap
+    from ddsim.device.mosfet import nmos
+    from ddsim.device.pn_diode import pn_diode
+    from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
+    from tests.regression.devsim_gen import parameters as P
+
+    if name.startswith("diode"):
+        b = P.BY_NAME[name]
+        device = pn_diode(
+            Na=b.Na,
+            Nd=b.Nd,
+            length=b.length,
+            junction=b.junction,
+            n_nodes=_scaled(b.n_nodes, r),
+            h_min=b.h_min / r,
+        )
+        curve = iv_sweep(device, "anode", [ACCURACY_BIAS["diode"]])
+        return silicon_nodes(device), float(curve.current[-1])
+    if name.startswith("mos_cap"):
+        m = {b.name: b for b in P.MOS_BENCHMARKS}[name]
+        device = mos_cap(
+            substrate_doping=m.substrate_doping,
+            t_ox=m.t_ox,
+            t_si=m.t_si,
+            n_silicon=_scaled(m.n_silicon, r),
+            n_oxide=_scaled(m.n_oxide, r),
+            h_min=m.h_min / r,
+            work_function=m.work_function,
+        )
+        cv = cv_sweep(device, "gate", [ACCURACY_BIAS["mos_cap"]])
+        return silicon_nodes(device), float(cv.points[-1].capacitance)
+    f = P.MOSFET_BY_NAME[name]
+    full = f.models == P.FULL_MODELS
+    defaults = inspect.signature(nmos).parameters
+    mesh: dict[str, Any] = {
+        k: _scaled(defaults[k].default, r)
+        for k in ("n_contact", "n_sd", "n_channel", "n_silicon", "n_oxide")
+    }
+    mesh["h_min_x"] = defaults["h_min_x"].default / r
+    mesh["h_min_y"] = defaults["h_min_y"].default / r
+    gate, drain = ACCURACY_BIAS["mosfet"]
+    device = nmos(
+        L_gate=f.L_gate,
+        drain_voltage=drain,
+        degenerate=full,
+        **SHORT_CHANNEL_PROCESS,
+        **mesh,
+    )
+    models = (
+        TransportModels.for_device(
+            device, mobility="arora", field_dependent=True, surface=True
+        )
+        if full
+        else TransportModels.for_device(device, mobility="constant")
+    )
+    curve = gate_sweep(device, [gate], models=models)
+    return silicon_nodes(device), float(curve.current[-1])
+
+
+def run_accuracy(path: Path) -> Path:
+    header = [
+        f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
+        f"# ddsim {_git_sha()}, refinements {REFINEMENTS}, biases {ACCURACY_BIAS}",
+        "benchmark,name,refine,nodes,value,seconds",
+    ]
+    with path.open("w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(header) + "\n")
+        for number, name in ACCURACY:
+            for r in REFINEMENTS:
+                started = time.perf_counter()
+                nodes, value = accuracy_point(name, r)
+                seconds = time.perf_counter() - started
+                f.write(f"{number},{name},{r},{nodes},{value!r},{seconds:.3f}\n")
+                f.flush()
+                print(f"{name} r={r} {nodes} nodes {value:.8g} {seconds:.1f}s")
+    return path
+
+
 def read_results(path: Path) -> list[Result]:
     lines = path.read_text(encoding="utf-8").splitlines()
     body = [line for line in lines if not line.startswith("#")]
@@ -431,12 +585,14 @@ def read_results(path: Path) -> list[Result]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["cases", "run"])
+    parser.add_argument("command", choices=["cases", "run", "accuracy"])
     parser.add_argument("names", nargs="*", help="run only these cases")
     parser.add_argument("--out", type=Path, default=OUT / "ddsim_robustness.csv")
     args = parser.parse_args()
     if args.command == "cases":
         print(write_cases())
+    elif args.command == "accuracy":
+        print(run_accuracy(OUT / "ddsim_accuracy.csv"))
     else:
         print(run(args.names or None, args.out))
     return 0

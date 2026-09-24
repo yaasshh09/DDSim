@@ -284,3 +284,23 @@ def test_the_floors_are_the_ones_tier_4_measured() -> None:
 def test_a_current_under_the_floor_does_not_agree_with_a_real_one() -> None:
     case = _case()
     assert not tool.agree(case, _result("a", 1e-12), _result("b", 1e-6))
+
+
+def test_richardson_recovers_a_known_limit_and_order() -> None:
+    limit, order, dimension, h = 2.0, 1.7, 2, 1e-3
+    levels = []
+    for r in tool.REFINEMENTS:
+        nodes = round(1000 * r**dimension)
+        levels.append((r, nodes, limit + 0.3 * (h / r) ** order))
+    fit = tool.richardson(levels, dimension)
+    assert fit.limit == pytest.approx(limit, rel=1e-12)
+    assert fit.order == pytest.approx(order, rel=1e-9)
+    error = 0.3 * h**order / limit
+    assert fit.error == pytest.approx(error, rel=1e-9)
+    needed = 1000 * (error / 0.01) ** (dimension / order)
+    assert fit.nodes_for_one_percent == pytest.approx(needed, rel=1e-6)
+
+
+def test_richardson_refuses_moves_that_do_not_shrink() -> None:
+    levels = [(1.0, 100, 1.0), (1.5, 225, 1.1), (2.25, 506, 1.0)]
+    assert tool.richardson(levels, 2).order is None
