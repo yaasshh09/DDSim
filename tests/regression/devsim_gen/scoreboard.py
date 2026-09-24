@@ -435,9 +435,64 @@ def run_accuracy(path: str) -> str:
     return path
 
 
+SPEED_RUNS = 5
+SPEED = (
+    (1, "diode_1e16_1e16"),
+    (2, "diode_1e18_1e16"),
+    (3, "diode_1e20_1e15"),
+    (4, "mos_cap_5nm"),
+    (5, "mos_cap_20nm"),
+    (6, "nmos_1um"),
+    (7, "nmos_180nm"),
+    (8, "nmos_65nm"),
+)
+"""Benchmark sweeps 1 to 8, exactly as the golden generators run them, with
+no mesh convergence check."""
+
+
+def speed_sweep(name: str) -> int:
+    """Run one benchmark's golden sweep and return the points reached."""
+    if name.startswith("diode"):
+        with GM.quiet():
+            return len(GD.sweep(P.BY_NAME[name]))
+    if name.startswith("mos_cap"):
+        bench = {b.name: b for b in P.MOS_BENCHMARKS}[name]
+        with GM.quiet():
+            return len(GC.sweep(bench))
+    low, high, _ = GM.sweep(P.MOSFET_BY_NAME[name])
+    return len(low) + len(high)
+
+
+def run_speed(path: str) -> str:
+    unpinned = [v for v in THREAD_VARIABLES if os.environ.get(v) != "1"]
+    if unpinned:
+        raise SystemExit(f"set {', '.join(unpinned)} to 1 first, see the docstring")
+    today = datetime.date.today().isoformat()
+    header = [
+        f"# written {today} by devsim_gen/scoreboard.py speed",
+        f"# devsim {devsim.__version__}, python {platform.python_version()}",
+        f"# {platform.platform()}, {platform.processor()}, one BLAS thread",
+        "benchmark,name,run,points,seconds",
+    ]
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(header) + "\n")
+        for number, name in SPEED:
+            for run_index in range(1, SPEED_RUNS + 1):
+                started = time.perf_counter()
+                try:
+                    points = speed_sweep(name)
+                finally:
+                    _cleanup()
+                seconds = time.perf_counter() - started
+                f.write(f"{number},{name},{run_index},{points},{seconds:.3f}\n")
+                f.flush()
+                print(f"{name} run {run_index}: {points} points {seconds:.1f}s")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["api", "run", "accuracy"])
+    parser.add_argument("command", choices=["api", "run", "accuracy", "speed"])
     parser.add_argument("names", nargs="*", help="run only these cases")
     parser.add_argument("--out", default=None)
     args = parser.parse_args()
@@ -445,6 +500,8 @@ def main() -> int:
         print(write_api())
     elif args.command == "accuracy":
         print(run_accuracy(args.out or os.path.join(OUT, "devsim_accuracy.csv")))
+    elif args.command == "speed":
+        print(run_speed(args.out or os.path.join(OUT, "devsim_speed.csv")))
     else:
         out = args.out or os.path.join(OUT, "devsim_robustness.csv")
         print(run(args.names or None, out))

@@ -568,6 +568,91 @@ def run_accuracy(path: Path) -> Path:
     return path
 
 
+SPEED_RUNS = 5
+"""Timed repeats per benchmark sweep. The median is reported."""
+
+SPEED = (
+    (1, "diode_1e16_1e16"),
+    (2, "diode_1e18_1e16"),
+    (3, "diode_1e20_1e15"),
+    (4, "mos_cap_5nm"),
+    (5, "mos_cap_20nm"),
+    (6, "nmos_1um"),
+    (7, "nmos_180nm"),
+    (8, "nmos_65nm"),
+)
+"""Benchmark sweeps 1 to 8, exactly as the Tier 4 tests run them."""
+
+
+def speed_sweep(name: str) -> int:
+    """Run one benchmark's full Tier 4 sweep and return the points reached."""
+    sys.path.insert(0, str(ROOT))
+    from ddsim.device.mos_cap import mos_cap
+    from ddsim.device.mosfet import nmos
+    from ddsim.device.pn_diode import pn_diode
+    from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
+    from tests.regression.devsim_gen import parameters as P
+
+    if name.startswith("diode"):
+        b = P.BY_NAME[name]
+        device = pn_diode(
+            Na=b.Na,
+            Nd=b.Nd,
+            length=b.length,
+            junction=b.junction,
+            n_nodes=b.n_nodes,
+            h_min=b.h_min,
+        )
+        return len(iv_sweep(device, "anode", list(b.voltages), step=0.05).points)
+    if name.startswith("mos_cap"):
+        m = {b.name: b for b in P.MOS_BENCHMARKS}[name]
+        device = mos_cap(
+            substrate_doping=m.substrate_doping,
+            t_ox=m.t_ox,
+            t_si=m.t_si,
+            n_silicon=m.n_silicon,
+            n_oxide=m.n_oxide,
+            h_min=m.h_min,
+            work_function=m.work_function,
+        )
+        return len(cv_sweep(device, "gate", list(m.voltages)).points)
+    f = P.MOSFET_BY_NAME[name]
+    points = 0
+    for drain in (f.drain_low, f.drain_high):
+        device = nmos(
+            L_gate=f.L_gate,
+            drain_voltage=drain,
+            degenerate=False,
+            **SHORT_CHANNEL_PROCESS,
+        )
+        models = TransportModels.for_device(device, mobility="constant")
+        points += len(gate_sweep(device, list(f.gate_voltages), models=models).points)
+    return points
+
+
+def run_speed(path: Path) -> Path:
+    unpinned = [v for v in THREAD_VARIABLES if os.environ.get(v) != "1"]
+    if unpinned:
+        raise SystemExit(f"set {', '.join(unpinned)} to 1 first, see the docstring")
+    header = [
+        f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
+        f"# ddsim {_git_sha()}, python {platform.python_version()}",
+        f"# {platform.platform()}, {platform.processor()}, one BLAS thread",
+        "benchmark,name,run,points,seconds",
+    ]
+    with path.open("w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(header) + "\n")
+        for number, name in SPEED:
+            for run_index in range(1, SPEED_RUNS + 1):
+                started = time.perf_counter()
+                points = speed_sweep(name)
+                seconds = time.perf_counter() - started
+                f.write(f"{number},{name},{run_index},{points},{seconds:.3f}\n")
+                f.flush()
+                print(f"{name} run {run_index}: {points} points {seconds:.1f}s")
+    return path
+
+
 def read_results(path: Path) -> list[Result]:
     lines = path.read_text(encoding="utf-8").splitlines()
     body = [line for line in lines if not line.startswith("#")]
@@ -588,7 +673,7 @@ def read_results(path: Path) -> list[Result]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["cases", "run", "accuracy"])
+    parser.add_argument("command", choices=["cases", "run", "accuracy", "speed"])
     parser.add_argument("names", nargs="*", help="run only these cases")
     parser.add_argument("--out", type=Path, default=OUT / "ddsim_robustness.csv")
     args = parser.parse_args()
@@ -596,6 +681,8 @@ def main() -> int:
         print(write_cases())
     elif args.command == "accuracy":
         print(run_accuracy(OUT / "ddsim_accuracy.csv"))
+    elif args.command == "speed":
+        print(run_speed(OUT / "ddsim_speed.csv"))
     else:
         print(run(args.names or None, args.out))
     return 0
