@@ -454,19 +454,6 @@ fly deploy --ha=false
 `--ha=false` matters. Jobs live in the memory of one process, so a second
 machine would get asked about jobs it never started.
 
-### Deploying it
-
-The `Dockerfile` and `fly.toml` put it on Fly.io as one machine that stops
-when nobody is using it.
-
-```bash
-fly launch --no-deploy --copy-config
-fly deploy --ha=false
-```
-
-`--ha=false` matters. Jobs live in the memory of one process, so a second
-machine would get asked about jobs it never started.
-
 ## How it is kept honest
 
 A drift-diffusion solver with a sign error does not crash. It converges cleanly
