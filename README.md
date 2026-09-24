@@ -2,524 +2,199 @@
 
 [![CI](https://github.com/yaasshh09/DDSim/actions/workflows/ci.yml/badge.svg)](https://github.com/yaasshh09/DDSim/actions/workflows/ci.yml)
 
-I wrote this drift-diffusion semiconductor device simulator from scratch. It
-solves the Van Roosbroeck system (Poisson's equation plus the electron and hole
-continuity equations) self consistently, and gets a device's I-V and C-V
-curves from nothing but its geometry and doping.
+I built a semiconductor device simulator from scratch. You give it a device's
+shape and doping, and it solves the drift-diffusion equations to get the I-V
+and C-V curves. Nothing is fitted along the way.
 
-It's layer 2 of a four layer solver stack. AtomSIM solves the isolated atom, a
-band module supplies effective masses, DDSim handles carrier transport, and a
-SPICE layer solves the circuit. The goal is for every material parameter DDSim
-uses to eventually come from a layer below it.
+**Try it in the browser: [ddsim.fly.dev](https://ddsim.fly.dev)**
 
-## Where it is
+![A PN diode solved in the browser: residual, I-V curve and band diagram](docs/images/site/diode.png)
 
-Six of the seven phases are done. There's a PN diode solved two ways (Gummel
-block iteration and full Newton on the coupled 3N system), a two material MOS
-capacitor in 2D whose C-V curve comes out of the same solver with nothing
-fitted, and an NMOS whose gate length sweep produces threshold roll-off, DIBL
-and velocity saturation from five devices that differ in one argument.
+## At a glance
 
-All ten DEVSIM benchmarks have golden data and pass. The tenth runs both codes
-at the full Phase 5 model stack, so the mobility models and Fermi-Dirac
-statistics get checked against someone else's implementation too, not just
-mine. The browser frontend is done as well. The one phase left is the SPICE
-bridge, and that has to wait until the SPICE project exists.
+| | |
+|---|---|
+| What it solves | Poisson's equation plus electron and hole continuity (the Van Roosbroeck system), in 1D and 2D |
+| Devices | PN diode, MOS capacitor, NMOS transistor, and any 2D device you draw |
+| Numerics | Scharfetter-Gummel discretization, full Newton on the coupled system, bias continuation, exact small-signal C-V |
+| Physics models | SRH and Auger recombination, Arora, Lombardi and Caughey-Thomas mobility, Fermi-Dirac statistics |
+| Checked against | Closed-form textbook limits, plus DEVSIM 2.11 on 10 benchmarks |
+| Tests | 2,680 |
+| Built with | Python, NumPy, SciPy sparse. FastAPI and plain JavaScript for the web app, with no build step |
 
-| Phase | Scope | Status |
-|---|---|---|
-| 0 | Scaling, the Field type, Bernoulli, meshes, linear solver | done |
-| 1 | Equilibrium Poisson in 1D, PN diode | done |
-| 2 | Scharfetter-Gummel continuity, Gummel iteration, I-V | done |
-| 3 | Full Newton, coupled 3N system, Arora mobility, Auger | done |
-| 4 | 2D, MOS capacitor, C-V | done |
-| 5 | MOSFET, gate length sweep | done |
-| 6 | Compact model extraction for SPICE | waiting on SPICE |
-| 7 | Browser frontend, live solver telemetry | done |
+## The main result: short-channel effects that nobody put in
 
-## PN diode at equilibrium
+The goal I set for this project: sweep a MOSFET's gate length from 1 um down to
+50 nm and have threshold roll-off, DIBL and velocity saturation show up from
+the physics alone. If any of them had been hardcoded or fitted, the project
+would have failed.
 
-1e16 / 1e16 abrupt junction, 4 um, 801 nodes. Everything below emerges from
-solving Poisson with Boltzmann statistics. Nothing is fitted.
+All five devices come from one fixed process (2 nm oxide, 1e18 channel). Gate
+length is the only thing that changes.
 
-![PN diode at equilibrium](docs/images/pn_diode_equilibrium.png)
+![NMOS gate length sweep, with DEVSIM overlaid](docs/images/mosfet_rolloff.png)
 
-The bands bend by exactly the built-in potential, the Fermi level is flat
-because this is equilibrium, n and p cross at n_i precisely at the metallurgical
-junction, and the field is the triangle the depletion approximation predicts.
+| Gate length | Threshold at 50 mV | Threshold at 1 V | Subthreshold slope | DIBL | Saturation exponent |
+|---|---|---|---|---|---|
+| 1 um | 0.2773 V | 0.2693 V | 72.6 mV/dec | 8.5 mV/V | 1.85 |
+| 200 nm | 0.2622 V | 0.2496 V | 73.4 mV/dec | 13.2 mV/V | 1.64 |
+| 100 nm | 0.2290 V | 0.1999 V | 74.4 mV/dec | 30.7 mV/V | 1.40 |
+| 70 nm | 0.1805 V | 0.1212 V | 78.3 mV/dec | 62.5 mV/V | 1.28 |
+| 50 nm | 0.0952 V | -0.0252 V | 87.8 mV/dec | 126.7 mV/V | 1.11 |
 
-Measured against closed form results:
+- **Threshold roll-off (182 mV).** Near the ends of a short channel, the source
+  and drain junctions have already depleted some of the charge the gate would
+  otherwise have to. That's a 2D Poisson effect and nothing else.
+- **DIBL (8.5 to 127 mV/V).** Raising the drain pulls the source barrier down,
+  which matters more the closer the drain gets.
+- **Velocity saturation (exponent 1.85 down to 1.11).** A long channel follows
+  the square law. Once the channel field passes the critical field, the carrier
+  velocity stops rising and the exponent drops toward 1. I checked this directly:
+  switching off field-dependent mobility changes the 50 nm current by 40
+  percent and the 1 um current by under 1 percent.
+- **The subthreshold slope never beats 59.5 mV/dec**, the thermal limit at
+  300 K. A test fails if it does.
 
-| Quantity | Simulated | Analytic | Error |
+The open markers are DEVSIM running the same five devices with the same
+models. The two codes share parameter values and nothing else, and they agree
+to within 2.67 percent.
+
+## How I know it's right
+
+A drift-diffusion code with a sign error won't crash. It converges cleanly to a
+wrong answer that looks believable. So every result gets checked against
+something that doesn't depend on my code.
+
+| Check | DDSim | Reference | Error |
 |---|---|---|---|
-| Built-in potential, 1e16 / 1e16 | 0.71432 V | 0.71432 V | pinned by the contacts |
-| Depletion width, 0 V | 0.4248 um | 0.4298 um | 1.17 % |
-| Depletion width, -1 V | 0.6574 um | 0.6659 um | 1.27 % |
-| Depletion width, -5 V | 1.2102 um | 1.2157 um | 0.45 % |
-| Debye decay length into the bulk | fitted | L_D | under 1 % |
-| n p / n_i^2 | 1.0 | 1.0 | 3e-16 |
+| Diode depletion width at -5 V | 1.2102 um | 1.2157 um (analytic) | 0.45 % |
+| Diode saturation current | 1.3322e-10 A/cm^2 | 1.330 to 1.353e-10 (analytic) | 0.1 to 1.6 % |
+| MOS flatband voltage | -0.9192182 V | -0.9192182 V (work function difference) | 2.4e-10 V |
+| MOS threshold, 1e16 doping | -0.063867 V | -0.063885 V (analytic) | 0.018 mV |
+| MOS C-V curve | full sweep | DEVSIM 2.11 | 0.56 % worst point |
+| MOSFET roll-off, matched models | 5 gate lengths | DEVSIM 2.11 | 0.06 % |
+| Newton Jacobian, all 9 blocks | analytic | complex-step derivative | 3.5e-14 |
 
-Newton converges in 8 iterations from the charge neutral guess, with a
-quadratic tail, at every doping level from 1e14 to 1e20 cm^-3.
+| MOS capacitor C-V against DEVSIM | Diode I-V, ideality factor crossover |
+|---|---|
+| ![MOS capacitor C-V](docs/images/mos_cap_cv.png) | ![PN diode I-V](docs/images/pn_diode_iv.png) |
 
-## PN diode I-V
+Each of these plots is drawn by a test, and that test asserts the claims on
+the plot before it draws anything.
 
-12 um device, SRH recombination with Scharfetter doping dependent lifetimes,
-constant mobility. The current, the saturation current and the ideality factor
-all come out of the solve. Nothing is fitted.
+A few other things that keep it honest:
 
-![PN diode I-V](docs/images/pn_diode_iv.png)
+- **Scaled and physical units can't mix.** Every array carries its unit and
+  scaling state, and adding the wrong two raises an error.
+- **Tests come first.** A test written after the code tends to assert whatever
+  the code already does.
+- **Newton beats Gummel, and I measured by how much.** At 2 V forward bias,
+  Gummel iteration takes 466 cycles and Newton takes 4.
 
-The saturation current is the sharpest number here, because it is set by
-minority carrier diffusion into the quasi-neutral regions and therefore tests
-the continuity equations, the contact conditions and the lifetimes at once:
+## The web app
 
-| Quantity | Simulated | Analytic | Error |
-|---|---|---|---|
-| Saturation current, 1e16 / 1e16 | 1.3322e-10 A/cm^2 | 1.330 to 1.353e-10 | 0.1 to 1.6 % |
-| Reverse current at -1 V | -3.94e-9 A/cm^2 | between I_s and 9.7e-9 | in bracket |
-| Jn + Jp spread across the device, 0.5 V | 3.3e-10 | 0 | gate is 1e-6 |
-| Terminal current sum, 0.5 V | 2.0e-12 of the largest | 0 | gate is 1e-8 |
+The browser front end runs the real solver on the server and streams progress
+back over a WebSocket, so you watch the residual fall and the curve draw itself
+point by point.
 
-The saturation current deserves its range rather than a single number. The
-simulated value is mesh converged: 1.33256e-10 on 101 nodes, 1.33220e-10 on
-201, 1.33194e-10 on 801, so it has stopped moving to five significant figures.
-The analytic expression is the loose one, because the quasi-neutral width it
-needs depends on where the depletion edge is taken, and that moves the answer
-by 1.7 percent across the fitting window. Quoting the tightest pairing as the
-error would be quoting my choice of depletion edge.
+![An NMOS transfer curve solving live in the browser](docs/images/mosfet_live.gif)
 
-This diode is short based: the hole diffusion length is 55 um against a 6 um
-n side, so the coth(W/L) factor in the general expression is worth a factor of
-nine and the agreement does not survive dropping it.
+| Pick a device to start | Or follow a guided lesson |
+|---|---|
+| ![Welcome screen with four starting devices](docs/images/site/welcome.png) | ![A guided lesson on the pn junction](docs/images/site/lesson.png) |
 
-**The ideality factor crossover is the result worth looking at.** At 1e16 the
-diode is diffusion limited and n = 1 across the whole useful range. Raise the
-doping to 1e18 and depletion region recombination takes over at low bias, and
-the ideality rises to 1.79 before falling back to 1 as diffusion current
-overtakes it again. The only thing that changed is the doping. Nothing in the
-code contains a 2, and the peak sits below 2 for a physical reason: the
-depletion region narrows under forward bias, so the recombination volume
-shrinks and the current rises slightly faster than exp(V/2V_T).
+| See the current flow and draw a cutline | C-V of a MOS capacitor |
+|---|---|
+| ![NMOS current streamlines and bands along a cutline](docs/images/site/nmos.png) | ![MOS capacitor C-V in the browser](docs/images/site/mos-cap.png) |
 
-Gummel converges in 4 cycles at 0.3 V, 12 at 0.7 V, 25 at 0.9 V and 60 at
-1.1 V, with the per cycle convergence rate climbing from 0.51 to 0.95 as
-injection passes the doping. That degradation is expected, is linear
-convergence doing what linear convergence does, and is the reason Phase 3
-exists.
+**Every knob, plot and legend has an explainer.** Each one starts with a plain
+explanation, then goes into the equations and points to the docs it came from.
 
-## Full Newton on the coupled system
+![The band diagram explainer](docs/images/site/explainer.png)
 
-The three equations solved simultaneously instead of in a cycle, with the full
-3N Jacobian for (psi, n, p) interleaved by node.
+**You can draw your own device** out of silicon, oxide, implants and contacts,
+then solve it like any other.
 
-The phase brief said the headline result would be converging at 1 V "where
-Gummel failed". Gummel does not fail at 1 V. It does not fail at 2 V either.
-Measured along 0.05 V continuation steps with a large cycle budget, it
-converges every single time and simply costs more and more:
+![The device editor](docs/images/site/editor.png)
 
-| Bias | Gummel cycles | Newton steps |
-|---|---|---|
-| 0.1 V | 3 | 5 |
-| 0.5 V | 5 | 5 |
-| 1.0 V | 46 | 4 |
-| 1.5 V | 224 | 4 |
-| 2.0 V | 466 | 4 |
-
-Linear convergence degrading without bound, against quadratic convergence that
-does not care. By 2 V Gummel costs 116 times more. That is the honest answer to
-the question the phase asked, and it is a better one than the question assumed.
-
-Cold from the Poisson guess with no continuation at all, the 1e16 diode takes
-4 Newton steps at 0.6 V, 8 at 0.8 V, 9 at 1.0 V and 11 at 1.2 V, with the
-residual reaching 1e-16 and no carrier density going negative anywhere.
-Continuation from 0 to 1 V takes 6 solves against a budget of 40 and never has
-to retry a step.
-
-**Every one of the nine Jacobian blocks is verified against complex step
-differentiation**, individually, on three states including one constructed so
-that every Bernoulli argument sits exactly on its removable singularity. Worst
-disagreement 3.5e-14 against a criterion of 1e-10.
-
-That test is not decoration. Seven deliberate errors were introduced into the
-Jacobian to see what would catch them: a copied charge term, a flipped sign, a
-swapped Bernoulli factor, a dropped cross term, and so on. The block
-verification caught all seven. The convergence tests caught five, and the two
-they missed were both about recombination, where a wrong derivative leaves the
-residual history identical to three significant figures. A Jacobian error that
-does not show up in the convergence rate is not hypothetical.
-
-## MOS capacitor C-V
-
-Two dimensions, two materials, and nothing fitted anywhere.
-
-The figure is benchmark 4 of `docs/04-validation.md`: a 5 nm oxide on 2 um of
-1e16 p-type silicon with an n+ poly gate, box integration on a structured mesh
-graded to 0.5 nm at the surface.
-
-![MOS capacitor C-V](docs/images/mos_cap_cv.png)
-
-The open circles are DEVSIM 2.11 solving the same stack, from `data/golden/`.
-Both sides are the gate charge put through the same central difference, because
-DEVSIM has no exact derivative path here and comparing an exact derivative
-against a difference quotient would measure the operator rather than the
-physics. Worst disagreement across the sweep: 0.562 percent, against a 2
-percent budget. The visible gap near threshold is that difference quotient
-cutting the corner of a curve that turns hard there, which is why the number
-quoted is not taken off the picture.
-
-Every line drawn on the figure is a closed form with nothing fitted in it, and
-each one is asserted in the test that draws it. The table below reports the
-same checks on the 10 nm stack, which is where the doping sweep in
-`tests/analytic/` lives:
-
-| Quantity | Simulated | Closed form | Error |
-|---|---|---|---|
-| Flatband voltage | -0.9192182 V | Phi_MS = -0.9192182 V | 2.4e-10 V |
-| Threshold voltage, 1e15 | -0.223715 V | -0.223720 V | 0.004 mV |
-| Threshold voltage, 1e16 | -0.063867 V | -0.063885 V | 0.018 mV |
-| Threshold voltage, 1e17 | 0.336417 V | 0.336288 V | 0.129 mV |
-| Flatband capacitance | 146.161 nF/cm^2 | C_ox in series with eps_Si/L_D, 146.145 | 1.1e-4 |
-| Accumulation capacitance | 342.485 nF/cm^2 at V_FB - 5 V | C_ox = 345.313 nF/cm^2 | 0.82 %, gate is 1 % |
-| High frequency capacitance at V_TH | 31.560 nF/cm^2 | C_ox in series with eps_Si/W_max, 31.023 | 1.7 % |
-
-The phase gates flatband and threshold at 20 mV. They come out three orders
-inside that, and the reason is worth stating because it is not luck.
-
-**The depletion approximation is exact at threshold, by cancellation.** It is
-several percent wrong on either side: at a quarter of the way to threshold it
-undercounts the surface charge by 7.5 percent. At psi_s = 2 phi_F exactly, the
-inversion term in the Poisson-Boltzmann charge is (n_i/Na)^2 exp(2 phi_F/V_T),
-and 2 phi_F is defined as V_T ln((Na/n_i)^2), so that term is exactly 1. It
-cancels the 1 that the Debye tail at the depletion edge subtracts, identically,
-at every doping. The textbook threshold expression is the exact answer at the
-one point it is evaluated at. Measured, the ratio is 1.000000 at 1e15, 1e16 and
-1e17.
-
-Away from that point the solver is checked against the full Poisson-Boltzmann
-charge instead, and tracks it to 0.2 percent while the depletion approximation
-is 2.4 to 7.5 percent out.
-
-**Flatband is the sharpest single number.** Bias the gate at Phi_MS and the
-whole stack sits at one potential, to a spread of 1e-15 in scaled units, with
-Newton taking zero steps because the initial guess is already the answer. It
-needs the gate work function, the body contact potential and the intrinsic
-reference to agree exactly, and those are computed by three pieces of code that
-never otherwise meet.
-
-**There is no interface condition anywhere in this project.** Continuity of
-normal D across Si/SiO2 is not imposed; it is what the flux balance at an
-interface node already says once every edge carries its own permittivity. That
-is the main reason box integration was chosen. Materials are mapped onto cells
-rather than nodes, because the face a horizontal edge crosses spans half a cell
-either side of it, and at the interface those halves are different materials.
-Classifying nodes instead moves the effective oxide thickness by half a mesh
-cell, which is a percent of t_ox and reads as physics rather than bookkeeping.
-
-**The capacitance is a derivative, not a difference.** Differentiating
-F(psi; V) = 0 with respect to the terminal bias gives one linear system on the
-DC Jacobian whose solution is dpsi/dV exactly, so there is no step size and no
-truncation error. It agrees with a 10 mV central difference to a part in ten
-thousand, which is the central difference's own second order error. This is the
-omega to zero limit of the small signal system docs/02-numerics.md asks for;
-the mass matrix is empty because Boltzmann statistics have already eliminated n
-and p as unknowns.
-
-The high frequency curve is the same solve with the minority carrier response
-held fixed, which is what a signal faster than minority carrier generation
-does. It is the only approximation on the figure and it is the reason the two
-curves separate exactly at threshold and nowhere else.
-
-## MOSFET gate length sweep
-
-The headline result of Phase 5, and the thing the whole project was built to
-produce. Five NMOS devices, one process, gate lengths from 1 um down to 50 nm.
-`L_gate` is the only argument that differs between them: the 2 nm oxide, the
-1e18 channel, the 25 nm junctions and the 10 nm of lateral encroachment are the
-same in all five, because that is what roll-off means. A process is fixed once
-on a wafer and the gate length is the number a designer draws differently.
-
-![NMOS gate length sweep](docs/images/mosfet_rolloff.png)
-
-| Lg | Vth at 0.05 V | Vth at 1.0 V | Vth, extrapolated | SS | DIBL | alpha | peak gm |
-|---|---|---|---|---|---|---|---|
-| 1 um | 0.2782 V | 0.2699 V | 0.2806 V | 72.7 mV/dec | 8.8 mV/V | 1.761 | 8.66e-2 |
-| 200 nm | 0.2629 V | 0.2499 V | 0.2634 V | 73.6 mV/dec | 13.6 mV/V | 1.557 | 4.48e-1 |
-| 100 nm | 0.2293 V | 0.1997 V | 0.2303 V | 74.5 mV/dec | 31.1 mV/V | 1.300 | 9.31e-1 |
-| 70 nm | 0.1803 V | 0.1207 V | 0.1840 V | 78.4 mV/dec | 62.8 mV/V | 1.194 | 1.34e0 |
-| 50 nm | 0.0947 V | -0.0258 V | 0.1037 V | 87.8 mV/dec | 126.8 mV/V | 1.030 | 1.79e0 |
-
-Currents are per cm of width. Threshold is the constant current method at
-Id = 100 nA * W / L, and the extrapolated column is the tangent at peak
-transconductance with the -Vd/2 correction. alpha is the power fitted to
-Id against gate overdrive in saturation.
-
-The first and third columns are worth reading against each other. They are two
-unrelated ways of deciding where a device turns on, one a current threshold and
-one a tangent, and they agree to a few millivolts at every gate length. Nothing
-was tuned to make them; they disagreed by 180 mV until a scale error in the 2D
-terminal current was found and fixed, and their agreeing now is the check that
-it was the right fix. See docs/07-decisions.md.
-
-Every device is solved with the full Phase 5 model stack: Fermi-Dirac
-statistics by Joyce-Dixon, Arora doping dependent mobility inside Lombardi
-surface scattering inside Caughey-Thomas. Two of those are named in the phase
-scope as not optional and the third is what the exponent measures.
-
-### What emerged, and why
-
-**Threshold roll-off, 184 mV by constant current between 1 um and 50 nm, 177 mV
-by linear extrapolation.** Nothing in the solver knows what a short channel is.
-The gate has to deplete the channel charge underneath it, and near either end
-of a short channel some of that charge is already depleted by the source or
-drain junction, which the gate then gets for free. That sharing is a two
-dimensional Poisson solution and nothing else, and it grows as the two
-junctions approach each other. The doping did not move between these five
-devices.
-
-**DIBL, 8.8 to 126.8 mV/V.** The gap between the two curves on the left panel.
-Raising the drain to 1 V pulls the source barrier down through the channel, so
-less gate is needed to turn the device on. At 1 um the drain is too far away to
-reach and the residual 8.8 mV/V is what a drain a micron away still does.
-
-**Subthreshold slope off its limit, 72.7 to 87.8 mV/decade.** Every value is
-above 59.5, which is kT/q ln 10 at 300 K and which no thermally activated
-current can beat. It sits flat while the gate owns the barrier and lifts once
-the drain starts sharing control. 72.7 rather than 59.5 at the long end is the
-body factor: the gate moves the surface potential by less than the bias applied
-to it, because the depletion capacitance divides with the oxide capacitance.
-
-**Velocity saturation, alpha from 1.761 to 1.030.** A long channel MOSFET
-saturates as the square of overdrive, because the inversion charge and the
-velocity that carries it both rise with the gate. Once the channel field passes
-the critical field the velocity stops rising and one factor drops out.
-
-The exponent alone cannot prove that is the cause, because several things move
-together as the gate shortens, so it is measured directly instead. The same
-device is solved twice at Vg = 1.2 V and Vd = 1.0 V with only Caughey-Thomas
-switched, Lombardi on in both. At 1 um the current changes by 0.9 percent. At
-50 nm it changes by 40.2 percent, because 1 V across 50 nm is twenty times the
-critical field.
-Same equations, same doping, same bias.
-
-Turning the models off one at a time is also how much of the exponent belongs
-to what. At 50 nm alpha reads 1.233 with neither surface nor field dependent
-mobility, 1.160 with Lombardi added, and 1.033 with Caughey-Thomas on top. The
-1 um device with the same models off reads 1.972. So most of the fall from 2 is
-the geometry, and the two mobility models take the rest, which is worth saying
-plainly rather than crediting the whole of it to velocity saturation.
-
-The sweep, the process and the extraction all live in `ddsim/extract/rolloff.py`,
-and the figure is produced by `tests/analytic/test_mosfet_rolloff_plot.py`,
-which asserts every one of these claims before it draws anything.
-
-### DEVSIM on the same figure
-
-The open markers on the left panel are DEVSIM 2.11 solving the same five
-devices. That took its own benchmark. Benchmarks 6 to 9 of
-`docs/04-validation.md` run both codes at Boltzmann statistics and constant
-mobility on purpose, matched model for model, because that's what makes a
-disagreement about the geometry mean something. At that reduced set the
-roll-off agrees to 0.06 percent and DIBL to 1.1 percent or better. But this
-figure runs the full Phase 5 stack, and its thresholds aren't theirs: at 50 nm
-benchmark 9 gives +0.0065 and -0.1181 V where this figure reports +0.0947 and
--0.0258, because a constant current criterion rides on the current scale and
-mobility sets that. Overlaying those would have drawn a gap that was the model
-set, not an error.
-
-So benchmark 10 runs DEVSIM again at the full stack, Fermi-Dirac by
-Joyce-Dixon with Arora inside Lombardi inside Caughey-Thomas, on its own mesh
-and out of its own expressions. The two codes share parameter values and
-nothing else, and they agree to 2.67 percent on every fully resolved point.
-The tolerance lives in `tests/regression/test_devsim_mosfet.py`, not on the
-figure.
-
-### Where these numbers stop meaning anything
-
-The sweep stops at 50 nm because that is where the model does, not because the
-solver stops converging.
-
-**Drift-diffusion assumes the local field sets the local velocity.** In a 50 nm
-channel a carrier crosses in less time than it takes to reach the steady
-velocity of the field it is in, so a real device overshoots and this one cannot
-by construction. Velocity overshoot is invisible here, and it is the effect
-that makes short real transistors faster than this model says.
-
-**Quantum confinement in the inversion layer is not modelled.** The inversion
-charge sits in a triangular well a few nanometres wide, its states are
-quantised, and the centroid of the charge is pushed away from the interface.
-That raises the effective oxide thickness by a few angstroms and shifts the
-threshold. Neither appears here.
-
-**The 2 nm oxide leaks and this model does not.** Direct tunnelling through
-2 nm of SiO2 is a real gate current at 1 V and there is no gate current in
-these equations at all.
-
-None of these are hard to add badly. Extending the sweep to 20 nm and reporting
-numbers with all three of them missing would be worth less than stopping here
-and saying why.
+The form isn't written by hand. It's generated from the signatures of the
+solver functions, so the browser always offers exactly what the code has. The
+page never computes a physical quantity itself, and a test enforces that.
 
 ## Running it
 
 ```bash
 python -m venv .venv
 .venv/Scripts/pip install -e ".[dev]"
-.venv/Scripts/python -m playwright install chromium   # once, for the browser smoke test
-.venv/Scripts/pytest
+.venv/Scripts/pytest            # the full suite
+.venv/Scripts/ddsim serve       # then open http://127.0.0.1:8000
 ```
+
+Or from Python:
 
 ```python
 from ddsim.device.pn_diode import pn_diode
 from ddsim.extract.iv import iv_sweep
-from ddsim.extract.params import ideality_factor
 
 device = pn_diode(Na=1e16, Nd=1e16, length=12e-4, junction=6e-4, n_nodes=201)
 curve = iv_sweep(device, "anode", [0.1, 0.2, 0.3, 0.4, 0.5], step=0.05)
-
 for point in curve.points:
     print(f"{point.voltage:.2f} V  {point.current:.4e} A/cm^2")
-
-bias, n = ideality_factor(curve.voltage, curve.current)
-print(f"ideality {n[-1]:.3f} at {bias[-1]:.2f} V")
 ```
 
-Each bias point is continued from the one before it, which is the only way a
-forward biased solve reaches its answer. There is no such thing as a good
-initial guess at 0.5 V.
+The browser smoke test needs Chromium once: `.venv/Scripts/python -m playwright install chromium`.
 
-## In the browser
+## Limits
 
-```bash
-.venv/Scripts/pip install -e ".[serve]"
-.venv/Scripts/ddsim serve
-```
-
-Then open http://127.0.0.1:8000. Describe a device by geometry and doping,
-press solve, and watch the residual fall and the curve draw itself point by
-point. The page is a few static files in this repo, with marked and KaTeX
-vendored so it works offline, and there is no build step.
-
-![An nmos Id-Vg solving live in the browser](docs/images/mosfet_live.gif)
-
-That is the 1 um nmos on the page's coarse mesh, drain at 50 mV, gate stepped
-from 0 to 1.2 V with constant mobility, recorded from the real page at real
-speed. Each sawtooth in the residual plot is one bias point: the potential,
-electron and hole residuals fall together to the floor, then the next step
-starts. `tools/record_live_solve.py` records it again.
-
-The form is not written by hand. The device knobs, the sweep knobs and the
-model flags are read from the signatures of the functions behind them, so what
-the browser offers is what the code has, with the same defaults. That includes
-the mobility model, field dependence and surface scattering, which are off by
-default because every result before Phase 5 was taken without them. A MOSFET
-solved with them off has no velocity saturation in it, and the form says so by
-showing the flags rather than choosing for you.
-
-### Learning with it
-
-Every knob, plot and legend entry has an `i` button beside it. Pressing it
-opens an explanation in two layers: a plain one first, then the equations and
-the numerics behind it, with a pointer to the docs in this repo it came from.
-The pictures show what the solver actually computed. The diode gets a band
-diagram with both quasi-Fermi levels, and on the 2D devices you can drag a
-cutline to see the bands along it, or switch on streamlines to watch the
-current leave the source, crowd into the channel and reach the drain. The
-server computes every energy and every current vector; the page only draws
-them.
-
-### Honest limits
-
-- No authentication, bound to loopback unless you pass `--host` on purpose,
-  which prints a warning. Off loopback it runs at most 2 solves at once,
-  stops any solve after 5 minutes, and forgets finished ones after 30.
-- A 50 nm MOSFET sweep takes minutes. The page says what it is doing rather
-  than pretending to be interactive, and a solve can be cancelled.
-- Cancelling takes effect at the solver's next reported iteration. A solve that
-  has stopped reporting cannot be interrupted until it reports again.
-- The browser shows the solver's answer and cannot check it. The DEVSIM
+- **The sweep stops at 50 nm because the model does.** Drift-diffusion assumes
+  the local field sets the local velocity. Below about 50 nm, carriers go
+  quasi-ballistic, so velocity overshoot can't appear here by construction.
+- **No quantum confinement** in the inversion layer, and **no gate tunneling**
+  through the 2 nm oxide.
+- **The web app is an instrument, not a service.** There's no authentication.
+  The public copy runs at most 2 solves at once and stops any solve after 5
+  minutes. A 50 nm transistor takes close to a minute, and the page shows
+  what it's doing instead of pretending to be instant.
+- **The browser shows the solver's answer but can't check it.** The DEVSIM
   regressions in CI are what check it.
-- Nothing in the client computes a physical quantity. A test greps it for the
-  transcendental functions and for every constant name in `core/constants.py`.
 
-### Deploying it
+## Where it fits
 
-The `Dockerfile` and `fly.toml` put it on Fly.io as one machine that stops
-when nobody is using it.
+DDSim is layer 2 of a four-layer stack I'm building. Each layer should get its
+inputs from the one below it:
 
-```bash
-fly launch --no-deploy --copy-config
-fly deploy --ha=false
+| Layer | Project | Solves | Status |
+|---|---|---|---|
+| 0 | AtomSIM | Schrodinger equation for an isolated atom | done |
+| 1 | band module | band structure and effective masses | later |
+| 2 | **DDSim** | carrier transport in devices | done except Phase 6 |
+| 3 | SPICE | circuits | next |
+
+Phases 0 to 5 and 7 are done. Phase 6 extracts compact models for SPICE, so it
+waits until the SPICE project exists.
+
+## Going deeper
+
+| File | What's in it |
+|---|---|
+| [docs/01-physics.md](docs/01-physics.md) | The equations and every approximation |
+| [docs/02-numerics.md](docs/02-numerics.md) | Scharfetter-Gummel, Newton, scaling, continuation |
+| [docs/04-validation.md](docs/04-validation.md) | Every analytic test case and DEVSIM benchmark |
+| [docs/07-decisions.md](docs/07-decisions.md) | Every decision that changes a result, and every known deviation from a reference |
+| [phases/](phases/) | Scope and acceptance criteria for each phase |
+
 ```
-
-`--ha=false` matters. Jobs live in the memory of one process, so a second
-machine would get asked about jobs it never started.
-
-The machine is `performance-1x` and not a shared CPU on purpose. A shared CPU
-wakes from a stop with 5 s of burst and then runs at an eighth of a core, so a
-50 nm sweep that takes 50 s on a laptop would take about 400 s there and hit
-the 5 minute limit.
-
-## How it is kept honest
-
-A drift-diffusion solver with a sign error does not crash. It converges cleanly
-to a physically wrong answer that looks entirely plausible. Everything about the
-way this repo is built is a response to that.
-
-**Scaled and physical units cannot mix.** Every array carries its unit, its
-scaling state and its mesh location, and arithmetic across any of them raises
-rather than coercing. A scaled potential of 38.7 and a physical potential of
-1.0 V are the same thing, and nothing else would notice them being added.
-
-**Every quantity is tested against an analytic limit**, not against whatever the
-code currently produces. The Bernoulli function is checked against an 80 digit
-reference, its branch thresholds tuned by measurement rather than taken from the
-docs. Jacobians are verified by complex step differentiation, which is exact.
-
-**The invariants are checked, and so are the reasons they fail.** Current
-continuity is the strongest single check available: with recombination off, the
-total current through every plane of the device has to be identical. It holds
-to 3e-10 at 0.5 V and degrades to 1e-2 at zero bias, which looks alarming and
-is not a conservation error. Jn is the difference of two edge terms of size
-(Dn/h)*n and near equilibrium those cancel to nothing, so what is left is
-machine epsilon times the ratio of a flux term to the current. That claim is
-measured rather than asserted: the observed spread over the predicted floor
-sits between 0.4 and 1.2 across seven decades of bias. An invariant that is
-allowed to fail without an explanation is worth nothing, and so is one whose
-explanation is never checked.
-
-**Tests are written first.** In a numerics project, a test written after the
-code tends to assert whatever the code already does.
-
-Validation runs in four tiers: unit tests against textbook formulas, analytic
-device tests against closed form results, invariants that hold for every solve,
-and regression against DEVSIM. See `docs/04-validation.md`.
-
-## Layout
-
-    ddsim/core/        constants, de Mari scaling, the Field type
-    ddsim/mesh/        1D meshes uniform, graded and stacked; 2D tensor meshes
-    ddsim/physics/     pure functions: Bernoulli, carrier statistics, recombination
-    ddsim/discretize/  residual and Jacobian assembly, boundary conditions
-    ddsim/solve/       Newton, Gummel, continuation, no semiconductor knowledge
-    ddsim/device/      composition: geometry and doping in, a Device out
-    ddsim/extract/     post processing: terminal current and charge, I-V, C-V
-    ddsim/api/         the web server, the browser page, lessons and explainers
-    docs/              physics, numerics, architecture, validation, constants,
-                       and the decisions and deviations log
-    phases/            scope and acceptance criteria per phase
-
-`docs/07-decisions.md` records every physics decision that affects a result and
-every place the code knowingly disagrees with a reference or with one of its own
-docs. Tests cite rows in it to justify what they assert.
-
-## Success criterion
-
-Sweep MOSFET gate length from 1 um down to 50 nm and watch threshold voltage
-roll-off, DIBL and velocity saturation emerge from the physics with no empirical
-fitting. If any short channel effect is hardcoded or fitted, the project has
-failed regardless of how good the plots look.
+ddsim/core/        constants, scaling, the Field type
+ddsim/mesh/        1D and 2D meshes
+ddsim/physics/     Bernoulli, carrier statistics, recombination, mobility
+ddsim/discretize/  residual and Jacobian assembly
+ddsim/solve/       Newton, Gummel, continuation
+ddsim/device/      geometry and doping in, a Device out
+ddsim/extract/     terminal currents, I-V, C-V, threshold and roll-off
+ddsim/api/         the web server and the browser page
+```
 
 ## License
 
-CC BY-NC 4.0. You're free to use, share and adapt it for non-commercial work
-as long as you credit me. See [LICENSE](LICENSE).
+CC BY-NC 4.0. You're free to use, share and adapt it for non-commercial work as
+long as you credit me. See [LICENSE](LICENSE).
