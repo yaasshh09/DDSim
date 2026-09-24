@@ -464,7 +464,7 @@ ACCURACY = (
 """One device per Tier 4 benchmark, by golden file stem. Benchmark 9 is five
 devices; its 100 nm one stands for it, as does benchmark 10's."""
 
-ACCURACY_BIAS = {"diode": 0.6, "mos_cap": 0.0, "mosfet": (1.0, 0.05)}
+ACCURACY_BIAS: dict[str, Any] = {"diode": 0.6, "mos_cap": 0.0, "mosfet": (1.0, 0.05)}
 """Where each family's quantity is read: diode anode current at 0.6 V, MOS
 capacitor low frequency capacitance at 0 V of gate, MOSFET drain current at
 1.0 V of gate and 50 mV of drain, all above every floor [V]."""
@@ -671,9 +671,217 @@ def read_results(path: Path) -> list[Result]:
     ]
 
 
+def _rows(path: Path) -> list[dict[str, str]]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return list(csv.DictReader(line for line in lines if not line.startswith("#")))
+
+
+def read_accuracy(path: Path) -> dict[str, list[tuple[float, int, float]]]:
+    levels: dict[str, list[tuple[float, int, float]]] = {}
+    for row in _rows(path):
+        level = (float(row["refine"]), int(row["nodes"]), float(row["value"]))
+        levels.setdefault(row["name"], []).append(level)
+    return levels
+
+
+def dimension(name: str) -> int:
+    """Diodes and MOS capacitors are 1D problems, the MOSFETs 2D."""
+    return 1 if name.startswith(("diode", "mos_cap")) else 2
+
+
+def read_speed(path: Path) -> dict[str, float]:
+    """Median seconds per converged bias point, per benchmark."""
+    per_point: dict[str, list[float]] = {}
+    for row in _rows(path):
+        seconds = float(row["seconds"]) / int(row["points"])
+        per_point.setdefault(row["name"], []).append(seconds)
+    return {name: float(np.median(values)) for name, values in per_point.items()}
+
+
+def _capabilities() -> list[dict[str, str]]:
+    return _rows(OUT / "capabilities.csv")
+
+
+@dataclass(frozen=True)
+class Board:
+    robustness: Score
+    ddsim_fit: dict[str, Fit]
+    devsim_fit: dict[str, Fit]
+    ddsim_speed: dict[str, float]
+    devsim_speed: dict[str, float]
+    capabilities: list[dict[str, str]]
+
+
+def load_board() -> Board:
+    results = read_results(OUT / "ddsim_robustness.csv") + read_results(
+        OUT / "devsim_robustness.csv"
+    )
+    fits = []
+    for tool_name in ("ddsim", "devsim"):
+        levels = read_accuracy(OUT / f"{tool_name}_accuracy.csv")
+        fits.append({n: richardson(lv, dimension(n)) for n, lv in levels.items()})
+    return Board(
+        score(read_cases(), results),
+        fits[0],
+        fits[1],
+        read_speed(OUT / "ddsim_speed.csv"),
+        read_speed(OUT / "devsim_speed.csv"),
+        _capabilities(),
+    )
+
+
+def _fewer_nodes(board: Board) -> tuple[int, int, int]:
+    """Benchmarks where each tool reaches 1 percent on fewer nodes, and ties."""
+    ours = theirs = undecided = 0
+    for _, name in ACCURACY:
+        a = board.ddsim_fit[name].nodes_for_one_percent
+        b = board.devsim_fit[name].nodes_for_one_percent
+        if a is None or b is None:
+            undecided += 1
+        elif a < b:
+            ours += 1
+        else:
+            theirs += 1
+    return ours, theirs, undecided
+
+
+def _speed_ratio(board: Board) -> float:
+    """Geometric mean over benchmarks 1 to 8 of ddsim's time over DEVSIM's."""
+    ratios = [board.ddsim_speed[n] / board.devsim_speed[n] for _, n in SPEED]
+    return float(np.exp(np.mean(np.log(ratios))))
+
+
+def _estimates(board: Board) -> tuple[str, str]:
+    row = {r["capability"]: r for r in board.capabilities}
+    has = row["Discretization error estimates"]
+    return (
+        "every result" if has["ddsim"] == "yes" else "none",
+        "every result" if has["devsim"] == "yes" else "none",
+    )
+
+
+def headline(board: Board) -> str:
+    s = board.robustness
+    ours, theirs, undecided = _fewer_nodes(board)
+    ratio = _speed_ratio(board)
+    caps = board.capabilities
+    ddsim_yes = sum(r["ddsim"] == "yes" for r in caps)
+    devsim_yes = sum(r["devsim"] == "yes" for r in caps)
+    scripted = sum(r["devsim"] == "scripted" for r in caps)
+    estimates = _estimates(board)
+    speed = f"{ratio:.2g}x DEVSIM's" if ratio >= 1.0 else f"{1.0 / ratio:.2g}x faster"
+    lines = [
+        "| Axis | DDSim | DEVSIM 2.11 |",
+        "|---|---|---|",
+        f"| Robustness: cold solves passed, of {s.counted} scored | "
+        f"{s.passes.get('ddsim', 0)} | stock ramp {s.passes.get('devsim_stock', 0)}, "
+        f"my ramp {s.passes.get('devsim_expert', 0)} |",
+        f"| Accuracy: benchmarks reaching 1% on fewer nodes, of {len(ACCURACY)} | "
+        f"{ours} | {theirs} ({undecided} not in the asymptotic range) |",
+        f"| Error estimates reported | {estimates[0]} | {estimates[1]} |",
+        f"| Speed: time per bias point, benchmarks 1 to 8 | {speed} | 1x |",
+        f"| Capabilities, of {len(caps)} rows | {ddsim_yes} | {devsim_yes} built in, "
+        f"{scripted} if you write the equations |",
+    ]
+    return "\n".join(lines)
+
+
+def _number(value: float | None, digits: int = 3) -> str:
+    return "n/a" if value is None else f"{value:.{digits}g}"
+
+
+def details(board: Board) -> str:
+    s = board.robustness
+    drivers = ("ddsim", "ddsim_fine", "devsim_stock", "devsim_expert", "devsim_fine")
+    lines = [
+        "# Scoreboard details",
+        "",
+        "Generated by `tools/scoreboard.py summary` from the CSVs in this folder.",
+        "Don't edit it by hand: tests/regression/test_scoreboard.py regenerates",
+        "it and fails if this file is stale. The rules are in phases/PHASE-8.md",
+        "and in the docstring of tools/scoreboard.py.",
+        "",
+        "## Robustness",
+        "",
+        f"{s.counted} of {s.counted + len(s.dropped)} cases scored.",
+        "",
+        "| Driver | Passed |",
+        "|---|---|",
+    ]
+    lines += [f"| {d} | {s.passes.get(d, 0)} |" for d in drivers]
+    lines += ["", "Dropped cases, which count for nobody:", ""]
+    lines += [f"- {case}: {reason}" for case, reason in sorted(s.dropped.items())]
+    if not s.dropped:
+        lines.append("- none")
+    lines += [
+        "",
+        "## Accuracy",
+        "",
+        "Relative error of each tool's reference mesh against its own Richardson",
+        "limit, the observed order, and the silicon nodes its error model needs",
+        "for 1 percent. The last column is how far apart the two limits are.",
+        "",
+        "| # | Device | DDSim nodes | DDSim error | DDSim order | DDSim nodes "
+        "for 1% | DEVSIM nodes | DEVSIM error | DEVSIM order | DEVSIM nodes "
+        "for 1% | Limits differ by |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    ddsim_levels = read_accuracy(OUT / "ddsim_accuracy.csv")
+    devsim_levels = read_accuracy(OUT / "devsim_accuracy.csv")
+    for number, name in ACCURACY:
+        a, b = board.ddsim_fit[name], board.devsim_fit[name]
+        gap = (
+            None
+            if a.limit is None or b.limit is None
+            else abs(a.limit - b.limit) / abs(b.limit)
+        )
+        lines.append(
+            f"| {number} | {name} | {min(ddsim_levels[name])[1]} | "
+            f"{_number(a.error)} | {_number(a.order)} | "
+            f"{_number(a.nodes_for_one_percent)} | {min(devsim_levels[name])[1]} | "
+            f"{_number(b.error)} | {_number(b.order)} | "
+            f"{_number(b.nodes_for_one_percent)} | {_number(gap)} |"
+        )
+    lines += [
+        "",
+        "## Speed",
+        "",
+        f"Median of {SPEED_RUNS} runs, seconds per converged bias point, one",
+        "BLAS thread each.",
+        "",
+        "| # | Benchmark | DDSim | DEVSIM | Ratio |",
+        "|---|---|---|---|---|",
+    ]
+    for number, name in SPEED:
+        ours_s, theirs_s = board.ddsim_speed[name], board.devsim_speed[name]
+        lines.append(
+            f"| {number} | {name} | {ours_s:.3g} | {theirs_s:.3g} | "
+            f"{ours_s / theirs_s:.2g} |"
+        )
+    lines += ["", "## Capabilities", "", "See capabilities.csv.", ""]
+    return "\n".join(lines)
+
+
+START, END = "<!-- scoreboard:start -->", "<!-- scoreboard:end -->"
+"""The markers around the generated table in the repository README."""
+
+
+def write_summary() -> None:
+    board = load_board()
+    (OUT / "README.md").write_text(details(board), encoding="utf-8", newline="\n")
+    readme = ROOT / "README.md"
+    text = readme.read_text(encoding="utf-8")
+    before, rest = text.split(START, 1)
+    _, after = rest.split(END, 1)
+    readme.write_text(
+        before + START + "\n" + headline(board) + "\n" + END + after, encoding="utf-8"
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["cases", "run", "accuracy", "speed"])
+    commands = ["cases", "run", "accuracy", "speed", "summary"]
+    parser.add_argument("command", choices=commands)
     parser.add_argument("names", nargs="*", help="run only these cases")
     parser.add_argument("--out", type=Path, default=OUT / "ddsim_robustness.csv")
     args = parser.parse_args()
@@ -683,6 +891,8 @@ def main() -> int:
         print(run_accuracy(OUT / "ddsim_accuracy.csv"))
     elif args.command == "speed":
         print(run_speed(OUT / "ddsim_speed.csv"))
+    elif args.command == "summary":
+        write_summary()
     else:
         print(run(args.names or None, args.out))
     return 0
