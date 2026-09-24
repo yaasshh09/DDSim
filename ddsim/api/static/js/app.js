@@ -277,9 +277,13 @@ function drawProfile() {
     el("cutline-panel").hidden = false;
     el("legend-bands").hidden = true;
     drawImage(box, fields);
+    let note = "at " + format(fields.voltage) + " V";
     if (el("streamlines").checked && fields.arrays.Jx) {
-      drawStreamlines(box, fields, traceStreamlines(fields, 12, 6));
+      const lines = traceStreamlines(fields, 12, 6);
+      drawStreamlines(box, fields, lines);
+      if (!lines.length) note += ", no current flows: every contact is at the same voltage";
     }
+    el("profile-note").textContent = note;
     if (state.cutline) drawCutline(fields, state.cutline.from, state.cutline.to);
     return;
   }

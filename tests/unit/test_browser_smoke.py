@@ -238,12 +238,47 @@ def test_streamlines_trace_through_a_mosfet(server) -> None:
             )
 
             assert count > 0
+            assert "no current" not in page.inner_text("#profile-note")
 
             cutline_height = page.evaluate(
                 "el('cutline').getBoundingClientRect().height"
             )
 
             assert cutline_height == pytest.approx(200, abs=1)
+            assert errors == []
+        finally:
+            browser.close()
+
+
+def test_a_mosfet_at_rest_says_why_it_has_no_streamlines(server) -> None:
+    """With source, drain and body at one voltage no current flows, the
+    server sends zeros, and an empty plot with current switched on would look
+    broken. See docs/07-decisions.md, 2026-09-24."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            page.select_option("#device-kind", "nmos")
+            page.select_option("#sweep-kind", "transfer")
+            for name, value in {**COARSE_FET, "drain_voltage": "0"}.items():
+                page.fill(f'[data-name="{name}"]', value)
+            page.fill("#voltages", "0.5")
+            page.click("#solve")
+            wait_until(
+                page,
+                "el('state').textContent.startsWith('done') && state.fields !== null",
+                errors,
+            )
+
+            assert "no current flows" in page.inner_text("#profile-note")
+
+            page.uncheck("#streamlines")
+
+            assert "no current" not in page.inner_text("#profile-note")
             assert errors == []
         finally:
             browser.close()
