@@ -191,6 +191,7 @@ def build_mesh(
     device: str,
     refine: float = 1.0,
     refine_y: float | None = None,
+    process: dict[str, float] | None = None,
 ) -> None:
     """Create and finalise the 2D structure for one benchmark.
 
@@ -198,6 +199,8 @@ def build_mesh(
         benchmark: the device definition.
         device: devsim device name.
         refine: divide every spacing by this. 1 is the golden mesh.
+        process: the vertical process, P.MOSFET_PROCESS if None. The
+            scoreboard's robustness cases draw their own.
         refine_y: divide the vertical spacings by this instead of `refine`,
             leaving the lateral columns on `refine`. None halves both together,
             which is what a convergence check wants.
@@ -215,7 +218,7 @@ def build_mesh(
     body contact, the implant depth, the silicon surface and the gate.
     """
     mesh = device
-    process = P.MOSFET_PROCESS
+    process = P.MOSFET_PROCESS if process is None else process
     sd_length = process["sd_length"]
     contact = process["contact_length"]
     t_si = process["t_si"]
@@ -391,7 +394,11 @@ def set_material_parameters(device: str) -> None:
         set_parameter(device=device, region=OXIDE, name=name, value=value)
 
 
-def set_doping(benchmark: P.MosfetBenchmark, device: str) -> None:
+def set_doping(
+    benchmark: P.MosfetBenchmark,
+    device: str,
+    process: dict[str, float] | None = None,
+) -> None:
     """The separable implant ddsim's `nmos` builds, written as one expression.
 
         N(x, y) = sub + peak * lateral(x) * depth(y) + the same mirrored
@@ -401,7 +408,7 @@ def set_doping(benchmark: P.MosfetBenchmark, device: str) -> None:
     concentrations, the erfc length from the lateral encroachment and the same
     two, so both junctions land exactly where they were asked to in both codes.
     """
-    process = P.MOSFET_PROCESS
+    process = P.MOSFET_PROCESS if process is None else process
     sigma, edge = P.implant_shape(process)
     width = 2.0 * process["sd_length"] + benchmark.L_gate
 
@@ -849,7 +856,7 @@ def create_degenerate_contact(device: str, contact: str) -> None:
         )
 
 
-def gate_potential(v_gate: float) -> float:
+def gate_potential(v_gate: float, work_function: float = P.PHI_M_N_POLY) -> float:
     """The potential to pin the gate at [V], measured from the intrinsic level.
 
     docs/01-physics.md writes the gate condition as psi_gate = V_gate - Phi_MS,
@@ -862,7 +869,7 @@ def gate_potential(v_gate: float) -> float:
     and the doping has cancelled. ddsim uses the second form for the same
     reason: a contact has no business reading the substrate under it.
     """
-    return v_gate + (P.PHI_M_MIDGAP - P.PHI_M_N_POLY)
+    return v_gate + (P.PHI_M_MIDGAP - work_function)
 
 
 def seed_potential(device: str) -> None:
@@ -902,7 +909,11 @@ def seed_potential(device: str) -> None:
 
 
 def build_physics(
-    device: str, v_gate: float, v_drain: float, models: str = P.REDUCED_MODELS
+    device: str,
+    v_gate: float,
+    v_drain: float,
+    models: str = P.REDUCED_MODELS,
+    work_function: float = P.PHI_M_N_POLY,
 ) -> None:
     """Equilibrium Poisson, then the full drift diffusion system.
 
@@ -928,7 +939,11 @@ def build_physics(
     for contact in (BODY, SOURCE, DRAIN):
         set_parameter(device=device, name=f"{contact}_bias", value=0.0)
         CreateSiliconPotentialOnlyContact(device, BULK, contact)
-    set_parameter(device=device, name=f"{GATE}_bias", value=gate_potential(v_gate))
+    set_parameter(
+        device=device,
+        name=f"{GATE}_bias",
+        value=gate_potential(v_gate, work_function),
+    )
     CreateOxideContact(device, OXIDE, GATE)
     CreateSiliconOxideInterface(device, "si_ox")
     settle(device, poisson_only=True)
@@ -1205,12 +1220,14 @@ def ramp_to(
     target: float,
     step: float = 0.1,
     min_step: float = 1e-4,
+    max_step: float = 0.1,
 ) -> None:
     """Walk one contact bias to target, halving the step on a failure.
 
     The step grows back, but only after `GROWTH_STREAK` steps in a row have
     converged, because the hard part of a transfer curve is the knee and there
-    is no reason to crawl the rest of it at the pace the knee needed.
+    is no reason to crawl the rest of it at the pace the knee needed. It never
+    grows past `max_step` [V], which the scoreboard's fine reference sets small.
     """
     present = get_parameter(device=device, name=f"{contact}_bias")
     streak = 0
@@ -1236,7 +1253,7 @@ def ramp_to(
         present = nxt
         streak += 1
         if streak >= GROWTH_STREAK:
-            step = min(2.0 * step, 0.1)
+            step = min(2.0 * step, max_step)
             streak = 0
 
 

@@ -13,22 +13,55 @@ types and linear solvers its docstring lists as `solve:<type>` and
 matrix cites these names, and test_scoreboard.py checks each citation against
 this file, so a claim about what DEVSIM can do is a claim about this snapshot
 rather than about my memory of its manual.
+
+`run` solves the robustness cases in `cases.csv` three ways and writes
+`devsim_robustness.csv`, in the same columns as ddsim's file:
+
+- `devsim_stock`: DEVSIM's own `python_packages/ramp.py` walks the bias, one
+  solve per step, halving on failure and never growing back.
+- `devsim_expert`: the driver that produced the golden data for that device
+  family, which is the best I know how to write for DEVSIM.
+- `devsim_fine`: the expert driver with its step held ten times smaller, as
+  the reference.
+
+All three share the physics, the mesh, the equilibrium start and the solver
+tolerances, so what differs between them is only how the bias gets walked.
+Every device is deleted after its case, since devsim solves every live device
+at once (see README.md here).
+
+    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \\
+        .venv-devsim/Scripts/python.exe tests/regression/devsim_gen/scoreboard.py run
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import csv
 import datetime
+import json
+import math
 import os
+import platform
 import re
 import sys
+import time
+from typing import Any
 
 import devsim
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 OUT = os.path.join(ROOT, "data", "scoreboard")
+
+sys.path.insert(0, HERE)
+sys.path.insert(0, ROOT)
+
+import generate_diodes as GD  # noqa: E402
+import generate_mos_cv as GC  # noqa: E402
+import generate_mosfet as GM  # noqa: E402
+import parameters as P  # noqa: E402
+from devsim.python_packages.ramp import rampbias  # noqa: E402
 
 
 def _choices(doc: str | None, argument: str) -> list[str]:
@@ -92,12 +125,233 @@ def write_api() -> str:
     return path
 
 
+THREAD_VARIABLES = ("MKL_NUM_THREADS", "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS")
+DRIVERS = ("devsim_stock", "devsim_expert", "devsim_fine")
+FINE = 10.0
+"""How much smaller the reference's step is than the expert's [1]."""
+
+CV_STEP = 0.005
+"""Half the gate span of DEVSIM's central difference capacitance [V]. ddsim
+takes the derivative exactly, so this is kept small enough that its
+truncation error sits far under the 2 percent the comparison allows."""
+
+
+def read_cases() -> list[dict[str, Any]]:
+    with open(os.path.join(OUT, "cases.csv"), encoding="utf-8") as f:
+        body = [line for line in f.read().splitlines() if not line.startswith("#")]
+    return [
+        {
+            "case": row["case"],
+            "device": row["device"],
+            "knobs": json.loads(row["knobs"]),
+        }
+        for row in csv.DictReader(body)
+    ]
+
+
+def _noop(device: str) -> None:
+    return None
+
+
+def _stock_ramp(device: str, contact: str, target: float, step: float) -> None:
+    """DEVSIM's shipped ramp, at the expert driver's tolerances and budget."""
+    rampbias(device, contact, target, step, 1e-4, 100, 1e-8, 1e30, _noop)
+
+
+def _cleanup() -> None:
+    """Delete every device and mesh. devsim solves every live device at once."""
+    for name in list(devsim.get_device_list()):
+        devsim.delete_device(device=name)
+    for name in list(devsim.get_mesh_list()):
+        devsim.delete_mesh(mesh=name)
+
+
+def _diode(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
+    k = case["knobs"]
+    bench = P.DiodeBenchmark(
+        name=f"{case['case']}_{driver}",
+        number=0,
+        Na=k["Na"],
+        Nd=k["Nd"],
+        length=k["length"],
+        junction=k["junction"],
+        voltages=(k["anode_voltage"],),
+        tolerance=0.02,
+    )
+    device = bench.name
+    target = k["anode_voltage"]
+    with GM.quiet():
+        GD.build_mesh(bench, device)
+        GD.set_doping(bench, device)
+        GD.set_silicon_parameters(device)
+        GD.build_physics(device)
+        if driver == "devsim_stock":
+            _stock_ramp(device, GD.ANODE, target, 0.05)
+        else:
+            step = 0.05 if driver == "devsim_expert" else 0.05 / FINE
+            GD.ramp_to(device, target, 0.0, step=step)
+    anode = GD.anode_current(device)
+    cathode = GD.cathode_current(device)
+    return anode, abs(anode + cathode), max(abs(anode), abs(cathode))
+
+
+def _mos_cap(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
+    k = case["knobs"]
+    bench = P.MosBenchmark(
+        name=f"{case['case']}_{driver}",
+        number=0,
+        substrate_doping=k["substrate_doping"],
+        t_ox=k["t_ox"],
+        t_si=k["t_si"],
+        work_function=k["work_function"],
+        voltages=(k["gate_voltage"],),
+        tolerance=0.02,
+    )
+    device = bench.name
+    target = k["gate_voltage"]
+
+    def gate(v: float) -> None:
+        devsim.set_parameter(
+            device=device, name=f"{GC.GATE}_bias", value=GC.gate_potential(bench, v)
+        )
+        devsim.solve(
+            type="dc",
+            absolute_error=1e-10,
+            relative_error=1e-12,
+            maximum_iterations=100,
+        )
+
+    with GM.quiet():
+        GC.build_mesh(bench, device)
+        GC.set_material_parameters(device)
+        GC.build_physics(bench, device)
+        start = target - CV_STEP
+        if driver == "devsim_stock":
+            gate(0.0)
+            end = GC.gate_potential(bench, start)
+            rampbias(device, GC.GATE, end, 0.1, 1e-4, 100, 1e-12, 1e-10, _noop)
+        elif driver == "devsim_expert":
+            gate(start)
+        else:
+            steps = max(1, math.ceil(abs(start) / 0.01))
+            for index in range(1, steps + 1):
+                gate(start * index / steps)
+        charges = []
+        for v in (start, target + CV_STEP):
+            gate(v)
+            charges.append(
+                devsim.get_contact_charge(
+                    device=device, contact=GC.GATE, equation="PotentialEquation"
+                )
+            )
+    capacitance = (charges[1] - charges[0]) / (2.0 * CV_STEP)
+    # A C-V point has no current to balance, and the body contact's charge is
+    # not the silicon's, so both columns are zero as they are in ddsim's file.
+    return capacitance, 0.0, 0.0
+
+
+def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
+    k = case["knobs"]
+    process = dict(P.MOSFET_PROCESS)
+    for key in ("substrate_doping", "sd_peak", "x_j", "lateral_diffusion", "t_ox"):
+        process[key] = k[key]
+    L = k["L_gate"]
+    h_surface = 6.25e-9
+    bench = P.MosfetBenchmark(
+        name=f"{case['case']}_{driver}",
+        number=0,
+        L_gate=L,
+        gate_voltages=(k["gate_voltage"],),
+        drain_low=k["drain_voltage"],
+        drain_high=k["drain_voltage"],
+        tolerance=0.05,
+        devsim_h_junction=min(L / 80.0, 5e-7),
+        devsim_h_channel=min(L / 40.0, 2e-6),
+        devsim_h_surface=h_surface,
+        devsim_h_depth=P.implant_shape(process)[0] * P.H_DEPTH_SIGMAS,
+        devsim_oxide_cells=min(64, max(4, round(process["t_ox"] / h_surface))),
+        models=P.FULL_MODELS,
+    )
+    device = bench.name
+    wf = k["work_function"]
+    gate = GM.gate_potential(k["gate_voltage"], wf)
+    drain = k["drain_voltage"]
+    GM._surface_is_live = False
+    try:
+        with GM.quiet():
+            GM.build_mesh(bench, device, process=process)
+            GM.set_material_parameters(device)
+            GM.set_doping(bench, device, process=process)
+            if driver == "devsim_expert":
+                GM.build_physics(device, k["gate_voltage"], drain, P.FULL_MODELS, wf)
+            else:
+                GM.build_physics(device, 0.0, 0.0, P.FULL_MODELS, wf)
+                if driver == "devsim_stock":
+                    _stock_ramp(device, GM.GATE, gate, 0.1)
+                    _stock_ramp(device, GM.DRAIN, drain, 0.1)
+                else:
+                    small = 0.1 / FINE
+                    GM.ramp_to(device, GM.GATE, gate, step=small, max_step=small)
+                    GM.ramp_to(device, GM.DRAIN, drain, step=small, max_step=small)
+            GM.settle(device, balance_tol=GM.BALANCE_TOL)
+        currents = [
+            GM.terminal_current(device, c) for c in (GM.DRAIN, GM.SOURCE, GM.BODY)
+        ]
+    finally:
+        GM._surface_is_live = False
+    return currents[0], abs(sum(currents)), max(abs(c) for c in currents)
+
+
+SOLVERS = {"pn_diode": _diode, "mos_cap": _mos_cap, "nmos": _nmos}
+
+
+def run(names: list[str] | None, path: str) -> str:
+    unpinned = [v for v in THREAD_VARIABLES if os.environ.get(v) != "1"]
+    if unpinned:
+        raise SystemExit(f"set {', '.join(unpinned)} to 1 first, see the docstring")
+    cases = [c for c in read_cases() if names is None or c["case"] in names]
+    today = datetime.date.today().isoformat()
+    header = [
+        f"# written {today} by devsim_gen/scoreboard.py run",
+        f"# devsim {devsim.__version__}, python {platform.python_version()}",
+        f"# {platform.platform()}, {platform.processor()}, one BLAS thread",
+        f"# fine step {1.0 / FINE:g} of the expert step",
+        "case,driver,converged,value,imbalance,largest,seconds,message",
+    ]
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(header) + "\n")
+        for case in cases:
+            for driver in DRIVERS:
+                started = time.perf_counter()
+                try:
+                    value, imbalance, largest = SOLVERS[case["device"]](case, driver)
+                    converged, message = True, ""
+                except Exception as failure:  # noqa: BLE001 - a failure is a result
+                    value = imbalance = largest = math.nan
+                    converged = False
+                    message = str(failure).replace("\n", " ").replace('"', "'")[:200]
+                finally:
+                    _cleanup()
+                seconds = time.perf_counter() - started
+                f.write(
+                    f"{case['case']},{driver},{converged},{value!r},{imbalance!r},"
+                    f'{largest!r},{seconds:.3f},"{message}"\n'
+                )
+                f.flush()
+                print(f"{case['case']} {driver} {converged} {value:.4g} {seconds:.1f}s")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=["api"])
+    parser.add_argument("command", choices=["api", "run"])
+    parser.add_argument("names", nargs="*", help="run only these cases")
+    parser.add_argument("--out", default=os.path.join(OUT, "devsim_robustness.csv"))
     args = parser.parse_args()
     if args.command == "api":
         print(write_api())
+    else:
+        print(run(args.names or None, args.out))
     return 0
 
 
