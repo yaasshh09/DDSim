@@ -71,7 +71,7 @@ def _poisson_assembly(
     Unlike sample_assembly this takes the profile rather than a single level,
     which is what a plate over nodes of differing doping needs.
     """
-    scaled = mesh.scaled(scale)  # type: ignore[attr-defined]
+    scaled = mesh.scaled(scale)
     rows, cols, values = poisson_jacobian(scaled.h, scaled.volume, psi, net_doping)
     return SparseAssembly(
         residual=poisson_residual(scaled.h, scaled.volume, psi, net_doping),
@@ -317,9 +317,9 @@ def test_built_in_potential_is_the_difference_between_the_two_contacts() -> None
 
     anode = ohmic_psi_scaled(-doping, 0.0)
     cathode = ohmic_psi_scaled(doping, 0.0)
-    V_bi = (cathode - anode) * scale.psi_0  # [V]
+    V_bi = (cathode - anode) * scale.psi_0
 
-    expected = scale.psi_0 * math.log(1e16 * 1e16 / scale.C_0**2)  # [V]
+    expected = scale.psi_0 * math.log(1e16 * 1e16 / scale.C_0**2)
     assert V_bi == pytest.approx(expected, rel=1e-6)
 
 

@@ -77,7 +77,6 @@ canvas {
 
 .swatch { display: block; flex: none; width: 10px; height: 2px; }
 
-/* same colours as the trace consts in app.js */
 .swatch.psi { background: var(--signal); }
 .swatch.n { background: var(--warn); }
 .swatch.p { background: var(--hot); }

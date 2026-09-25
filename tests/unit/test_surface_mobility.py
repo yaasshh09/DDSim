@@ -313,9 +313,6 @@ def test_the_reduction_grows_with_gate_bias(transfer_curves):
     assert np.all(np.diff(ratios) > 0.0)
 
 
-# --------------------------------------------------------------- the units
-
-
 def test_the_normal_field_at_the_channel_is_a_physical_number(inverted):
     """The one place this could be quietly wrong with no other symptom.
 

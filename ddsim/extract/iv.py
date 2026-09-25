@@ -200,8 +200,6 @@ def node_current_density(
     """
     Jn, Jp = current_densities(device, state, models)
     total = Jn.data + Jp.data
-    # In 1D the face is the scalar unit cross section, so give it one entry
-    # per edge before it is sliced by family.
     face = np.broadcast_to(edge_current_face(device), total.shape)
     mesh = device.mesh
     n_nodes = mesh.n_nodes

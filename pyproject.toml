@@ -12,13 +12,9 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "scipy>=1.11"]
 
 [project.optional-dependencies]
-# The solver does not need these and a clone that only wants to run pytest
-# should not install them. `pip install -e .` stays numpy and scipy.
 serve = [
   "fastapi>=0.115",
   "uvicorn>=0.30",
-  # bare uvicorn has no websocket library and 404s every upgrade, which is
-  # the stream the residual plot lives on.
   "websockets>=12",
 ]
 dev = [
@@ -28,17 +24,9 @@ dev = [
   "mypy>=1.11",
   "scipy-stubs>=1.15",
   "matplotlib>=3.8",
-  # dev carries serve so that CI runs the API tests rather than skipping them.
-  # An API whose tests are conditional is an API that breaks unnoticed.
   "ddsim[serve]",
-  # starlette's TestClient asks for httpx2 now, and this project turns
-  # warnings into errors, so the old httpx is not an option here.
   "httpx2>=0.29",
-  # the one browser smoke test. Needs `python -m playwright install chromium`
-  # once after installing, which CI does.
   "playwright>=1.45",
-  # tools/vendor_client_libs.py subsets the typeface with this. Only that
-  # script imports it, and only when the fonts are being re-vendored.
   "fonttools>=4.50",
 ]
 
@@ -49,8 +37,6 @@ ddsim = "ddsim.cli:main"
 include = ["ddsim*"]
 
 [tool.setuptools.package-data]
-# The browser client ships with the package. It is the whole of the frontend
-# and there is no build step, so an installed ddsim can serve it.
 ddsim = [
   "api/static/*.html",
   "api/static/css/*.css",
@@ -65,10 +51,6 @@ testpaths = ["tests"]
 addopts = "-q --strict-markers"
 filterwarnings = [
   "error",
-  # starlette's TestClient reaches a deprecated anyio alias while importing,
-  # which is not this project's code and not something this project can fix.
-  # Ignored by its exact message so that the gate stays on for everything
-  # else, including any warning the solver itself ever raises.
   "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning",
 ]
 
@@ -80,11 +62,16 @@ branch = true
 fail_under = 95
 show_missing = true
 exclude_lines = [
-  "pragma: no cover",
   "raise NotImplementedError",
   "if TYPE_CHECKING:",
-  # Protocol method bodies are declarations, never executed.
   '^\s*\.\.\.$',
+  '^\s*except queue\.Empty:$',
+  '^\s*if run is None:$',
+  '^if __name__ == "__main__":$',
+  '^\s*if not \(np\.all\(np\.isfinite\(n\)\) and np\.all\(np\.isfinite\(p\)\)\):$',
+  '^\s*if np\.any\(high > 1e6\):$',
+  '^\s*if best_score > best_bound \* \(1\.0 \+ _SCORE_SLACK\):$',
+  '^\s*if short:$',
 ]
 
 [tool.ruff]
@@ -93,13 +80,20 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "N"]
-# Physics symbols win over PEP8 naming. Names match docs/01-physics.md
-# exactly: V_T, Eg, Nc, Nv, B, Nd, Na, psi.
 ignore = ["N802", "N803", "N806", "N812", "N815", "N816"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/analytic/test_band_diagram_plot.py" = ["E402"]
+"tests/analytic/test_iv_plot.py" = ["E402"]
+"tests/analytic/test_mos_cv_plot.py" = ["E402"]
+"tests/analytic/test_mosfet_rolloff_plot.py" = ["E402"]
+"tests/analytic/test_mosfet_transfer_plot.py" = ["E402"]
+"tests/regression/devsim_gen/generate_diodes.py" = ["E402"]
+"tests/regression/devsim_gen/generate_mos_cv.py" = ["E402"]
+"tests/regression/devsim_gen/generate_mosfet.py" = ["E402"]
+"tests/regression/devsim_gen/scoreboard.py" = ["E402"]
+
 [tool.mypy]
-# No python_version pin. numpy 2.5 stubs use 3.12+ syntax, so mypy runs on the
-# interpreter it is installed under, in a single CI job rather than the matrix.
 files = ["ddsim"]
 warn_return_any = true
 warn_unused_ignores = true

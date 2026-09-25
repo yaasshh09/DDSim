@@ -123,8 +123,6 @@ class ScaleFactors:
         """Recombination rate scale [cm^-3 s^-1]."""
         return self.D_0 * self.C_0 / (self.x_0 * self.x_0)
 
-    # ------------------------------------------------------------ unit lookup
-
     @cached_property
     def _registry(self) -> dict[str, float]:
         """Maps a unit string to the factor that converts physical to scaled.

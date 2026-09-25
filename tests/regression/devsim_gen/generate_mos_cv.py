@@ -51,7 +51,7 @@ import os
 import sys
 from typing import Any
 
-from devsim import (  # noqa: E402
+from devsim import (
     add_1d_contact,
     add_1d_interface,
     add_1d_mesh_line,
@@ -64,8 +64,8 @@ from devsim import (  # noqa: E402
     set_parameter,
     solve,
 )
-from devsim.python_packages.model_create import CreateSolution  # noqa: E402
-from devsim.python_packages.simple_physics import (  # noqa: E402
+from devsim.python_packages.model_create import CreateSolution
+from devsim.python_packages.simple_physics import (
     CreateOxideContact,
     CreateOxidePotentialOnly,
     CreateSiliconOxideInterface,
@@ -73,7 +73,7 @@ from devsim.python_packages.simple_physics import (  # noqa: E402
     CreateSiliconPotentialOnlyContact,
 )
 
-from tests.regression.devsim_gen import parameters as P  # noqa: E402
+from tests.regression.devsim_gen import parameters as P
 
 SILICON = "bulk"
 OXIDE = "oxide"

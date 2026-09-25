@@ -130,9 +130,6 @@ def test_the_constant_model_returns_one_value_per_node() -> None:
     assert got.shape == (7,)
 
 
-# ------------------------------------------------- nodes to edges, and units
-
-
 def test_edge_diffusivity_averages_the_two_endpoint_values() -> None:
     """Mobility is a nodal quantity and the flux needs it on the edge.
 
@@ -214,25 +211,6 @@ def test_the_arora_undoped_limit_does_not_match_the_tabulated_mobility() -> None
 
     assert float(electrons(0.0)) / C.MU_N_300 == pytest.approx(0.9456, rel=1e-3)
     assert float(holes(0.0)) / C.MU_P_300 == pytest.approx(0.9815, rel=1e-3)
-
-
-# ------------------------------------------------------------ Caughey-Thomas
-#
-# The field dependent model, and the one that produces velocity saturation.
-#
-#     mu(E) = mu_0 / (1 + (mu_0 |E| / v_sat)^beta)^(1/beta)
-#
-# It lives on edges rather than on nodes, because the field it wants is the
-# component along the current direction and on a box integration mesh that is
-# the potential drop across an edge divided by its length. The full field
-# magnitude is the common and wrong shortcut, and it is wrong by more the more
-# a mesh is graded, since a graded mesh has edges of wildly different lengths
-# meeting at a node.
-#
-# Everything below is unit free. The model is given a low field diffusivity, a
-# saturation velocity and a potential drop in one consistent system, and the
-# transport layer passes scaled ones. That is why these tests can use 1.0 for
-# the low field value and read the answers off directly.
 
 
 def edges(value: float, count: int = 5):

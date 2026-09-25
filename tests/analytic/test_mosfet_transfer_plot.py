@@ -48,13 +48,13 @@ import numpy as np
 import pytest
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
-from ddsim.device.mosfet import nmos  # noqa: E402
-from ddsim.device.transport import TransportModels  # noqa: E402
-from ddsim.extract.iv import gate_sweep  # noqa: E402
-from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS  # noqa: E402
-from tests.regression.devsim_gen import parameters as P  # noqa: E402
+from ddsim.device.mosfet import nmos
+from ddsim.device.transport import TransportModels
+from ddsim.extract.iv import gate_sweep
+from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
+from tests.regression.devsim_gen import parameters as P
 
 OUTPUT = pathlib.Path(__file__).resolve().parents[2] / "docs" / "images"
 GOLDEN_DIR = pathlib.Path(__file__).resolve().parents[2] / "data" / "golden"

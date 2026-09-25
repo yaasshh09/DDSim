@@ -404,10 +404,6 @@ def _residual_from(
     F_psi, F_n, F_p = unpack(out)
     node_left, node_right = geometry.ends(h.size)
 
-    # Poisson. The flux through each interior face, positive when psi falls to
-    # the right, contributing with opposite sign to the two cells it separates.
-    # The permittivity rides on the face, which is what makes the normal
-    # component of D continuous across a material interface rather than E.
     face_flux = geometry.weight * (psi[node_left] - psi[node_right]) / h
     np.add.at(F_psi, node_left, face_flux)
     np.add.at(F_psi, node_right, -face_flux)
@@ -420,8 +416,6 @@ def _residual_from(
     np.add.at(F_n, node_left, -Jn)
     np.add.at(F_n, node_right, Jn)
 
-    # Hole continuity. B(X) multiplies the left hand node, the mirror image,
-    # and the divergence enters with the opposite sign.
     Jp = (Dp * geometry.carrier_face / h) * (
         bp_plus * p[node_left] - bp_minus * p[node_right]
     )
@@ -650,8 +644,6 @@ def _jacobian_from(
 
     J.add(Unknown.N, nodes, Unknown.P, nodes, dR_dp * volume)
 
-    # --- dF_p/dpsi. The same stencil as the electron block with the opposite
-    # sign, because Jp enters its residual with the opposite sign.
     H_sg = (Dp * geometry.carrier_face / h) * (
         dbp_plus * p[node_left] + dbp_minus * p[node_right]
     )
@@ -672,8 +664,6 @@ def _jacobian_from(
     to_left = (Dp * geometry.carrier_face / h) * bp_plus
     to_right = (Dp * geometry.carrier_face / h) * bp_minus
     if dpsi_p_dp is not None:
-        # The mirror of the electron block. The sign is opposite because the
-        # hole effective potential rises where the electron one falls.
         to_left = to_left - H_sg * dpsi_p_dp[node_left]
         to_right = to_right - H_sg * dpsi_p_dp[node_right]
     diagonal = dR_dp * volume

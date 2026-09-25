@@ -25,9 +25,9 @@ MICRON = 1e-4
 
 def test_silicon_material_matches_the_constants_doc() -> None:
     silicon = Material.silicon()
-    assert silicon.T == 300.0  # [K]
-    assert silicon.n_i == 1.0e10  # [cm^-3]
-    assert silicon.eps == pytest.approx(11.7 * 8.8541878128e-14)  # [F/cm]
+    assert silicon.T == 300.0
+    assert silicon.n_i == 1.0e10
+    assert silicon.eps == pytest.approx(11.7 * 8.8541878128e-14)
 
 
 def test_material_at_another_temperature_moves_n_i() -> None:
@@ -41,7 +41,7 @@ def test_build_device_evaluates_doping_on_the_mesh() -> None:
         doping=Uniform(1e16),
         contacts=(OhmicContact("anode", 0, 0.0), OhmicContact("cathode", 10, 0.0)),
     )
-    np.testing.assert_allclose(device.net_doping.data, 1e16)  # [cm^-3]
+    np.testing.assert_allclose(device.net_doping.data, 1e16)
 
 
 def test_net_doping_is_a_physical_node_field() -> None:
@@ -79,7 +79,7 @@ def test_device_requires_at_least_one_contact() -> None:
 def test_device_is_immutable() -> None:
     device = pn_diode()
     with pytest.raises(AttributeError):
-        device.mesh = None  # type: ignore[misc]
+        device.mesh = None
 
 
 def test_doping_stays_re_evaluable_after_construction() -> None:
@@ -112,7 +112,7 @@ def test_pn_diode_refines_the_mesh_at_the_junction() -> None:
     device = pn_diode(junction=0.5 * MICRON, h_min=1e-7)
     finest = int(np.argmin(device.mesh.h))
     midpoint = 0.5 * (device.mesh.x[finest] + device.mesh.x[finest + 1])
-    assert abs(midpoint - 0.5 * MICRON) < 2e-7  # [cm]
+    assert abs(midpoint - 0.5 * MICRON) < 2e-7
 
 
 def test_pn_diode_contacts_default_to_zero_bias() -> None:
@@ -143,7 +143,7 @@ def test_equilibrium_psi_can_be_converted_to_volts() -> None:
     state = solve_equilibrium(device)
     volts = state.psi.to_physical(device.scale)
     assert volts.scaling is ScalingState.PHYSICAL
-    assert np.max(np.abs(volts.data)) < 2.0  # [V], nothing silly
+    assert np.max(np.abs(volts.data)) < 2.0
 
 
 def test_equilibrium_pins_psi_at_the_contacts() -> None:
@@ -195,7 +195,7 @@ def test_equilibrium_accepts_a_device_with_a_bias_applied() -> None:
 def test_device_state_is_immutable() -> None:
     state = solve_equilibrium(pn_diode())
     with pytest.raises(AttributeError):
-        state.psi = None  # type: ignore[misc]
+        state.psi = None
 
 
 def test_solve_does_not_mutate_the_device() -> None:
@@ -218,7 +218,7 @@ def test_build_device_defaults_to_silicon() -> None:
         contacts=(OhmicContact("a", 0, 0.0),),
     )
     assert isinstance(device, Device)
-    assert device.material.n_i == 1.0e10  # [cm^-3]
+    assert device.material.n_i == 1.0e10
 
 
 def test_device_rejects_duplicate_contact_names() -> None:

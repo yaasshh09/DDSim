@@ -1,3 +1,1 @@
-# Vendored client libraries are held byte for byte to the sha256 in
-# VENDOR.json, so git must never rewrite their line endings.
 ddsim/api/static/vendor/** -text

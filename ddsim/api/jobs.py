@@ -180,7 +180,7 @@ class JobRegistry:
             produced = work(lambda frame: self._send(job, frame))
         except CancelledError:
             job.status = JobStatus.CANCELLED
-        except Exception as error:  # noqa: BLE001
+        except Exception as error:
             job.status = JobStatus.FAILED
             job.message = f"{type(error).__name__}: {error}"
         else:
@@ -224,7 +224,7 @@ class JobRegistry:
             try:
                 job.frames.get_nowait()
                 job.dropped += 1
-            except queue.Empty:  # pragma: no cover - the reader just drained it
+            except queue.Empty:
                 pass
         job.frames.put_nowait(frame)
 

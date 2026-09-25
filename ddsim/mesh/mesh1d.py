@@ -206,7 +206,7 @@ def _solve_ratios(
     below = _geometric_sums(h_min, high, counts) < side_length
     while below.any():
         high[below] *= 2.0
-        if np.any(high > 1e6):  # pragma: no cover
+        if np.any(high > 1e6):
             return ratio
         below = _geometric_sums(h_min, high, counts) < side_length
 
@@ -381,7 +381,7 @@ def graded_mesh_1d(
         np.flatnonzero(bound <= best_bound * (1.0 + _SCORE_SLACK))
     )
 
-    if best_score > best_bound * (1.0 + _SCORE_SLACK):  # pragma: no cover
+    if best_score > best_bound * (1.0 + _SCORE_SLACK):
         best_spacings, best_score = score_splits(np.flatnonzero(feasible))
 
     assert best_spacings is not None
@@ -491,7 +491,7 @@ def graded_mesh_1d_at(
         moved = int(np.clip(counts[end] + short, 1, room[end])) - int(counts[end])
         counts[end] += moved
         short -= moved
-    if short:  # pragma: no cover
+    if short:
         raise ValueError(
             f"could not share {n_nodes} nodes between the sides of this mesh. "
             "Change n_nodes by one or two."

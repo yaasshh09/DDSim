@@ -234,7 +234,7 @@ def test_singular_jacobian_is_reported_not_raised() -> None:
 def test_result_is_immutable() -> None:
     result = newton_solve(square_root_problem(np.array([4.0])), np.array([2.0]))
     with pytest.raises(AttributeError):
-        result.converged = False  # type: ignore[misc]
+        result.converged = False
 
 
 def test_result_repr_mentions_convergence_and_iterations() -> None:
@@ -921,7 +921,7 @@ def test_the_frame_is_frozen_so_a_client_cannot_edit_the_record() -> None:
     newton_solve(linear_problem(8.0), np.zeros(1), on_iteration=watch)
 
     with pytest.raises(FrozenInstanceError):
-        frames[0].residual = 0.0  # type: ignore[misc]
+        frames[0].residual = 0.0
 
 
 def test_damping_reports_a_rule_that_only_damps_part_of_the_vector() -> None:

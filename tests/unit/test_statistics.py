@@ -88,15 +88,15 @@ def test_derivatives_match_complex_step() -> None:
 
 
 def test_physical_form_reduces_to_n_i_at_zero_potential() -> None:
-    assert n_boltzmann(0.0, 0.0, C.n_i(), C.V_T()) == C.n_i()  # [cm^-3]
-    assert p_boltzmann(0.0, 0.0, C.n_i(), C.V_T()) == C.n_i()  # [cm^-3]
+    assert n_boltzmann(0.0, 0.0, C.n_i(), C.V_T()) == C.n_i()
+    assert p_boltzmann(0.0, 0.0, C.n_i(), C.V_T()) == C.n_i()
 
 
 def test_physical_and_scaled_forms_agree() -> None:
     """A scaled potential of 38.7 is 1.0 V, and both must give the same density."""
     V_T = C.V_T()
     n_i = C.n_i()
-    psi_physical = 0.4  # [V]
+    psi_physical = 0.4
     psi_scaled = psi_physical / V_T
 
     physical = n_boltzmann(psi_physical, 0.0, n_i, V_T)
@@ -176,7 +176,7 @@ def test_minority_carrier_does_not_lose_precision_at_heavy_doping() -> None:
     Both terms are 1e6 and the answer is 1e-6, so twelve digits cancel and
     almost nothing survives in double precision.
     """
-    net = 1e6  # 1e16 cm^-3 donors, scaled by n_i
+    net = 1e6
     n, p = equilibrium_densities_scaled(net)
     assert p == pytest.approx(1e-6, rel=1e-12)
 
@@ -463,15 +463,6 @@ def test_degeneracy_factor_refuses_a_negative_density() -> None:
         degeneracy_factor(-1.0)
 
 
-# ------------------------------------------- Fermi-Dirac, as the solver holds it
-#
-# Everything above tests the arithmetic on u = n/Nc. This section tests the
-# object a solver holds: the same series in scaled units, answering the four
-# questions transport asks. The sharpest test here is the round trip, because
-# the forward direction and the inverse cap the density by two different
-# routes, and the two caps have to land on the same number rather than nearly
-# the same number. See test_the_inversion_is_exact_past_the_validated_density.
-
 DEGENERACY = Degeneracy.for_silicon(C.n_i())
 """Silicon at 300 K, scaled by C_0 = n_i, which is what a device would build."""
 
@@ -531,7 +522,7 @@ def test_the_effective_potential_carries_the_joyce_dixon_correction() -> None:
 def test_the_correction_is_thirty_millivolts_at_1e20() -> None:
     """Row 119 of docs/07-decisions.md, in the units the solver works in."""
     n = 1e20 / C.n_i()
-    shift = DEGENERACY.electron_potential(0.0, n) * C.V_T() * 1e3  # [mV]
+    shift = DEGENERACY.electron_potential(0.0, n) * C.V_T() * 1e3
     assert shift == pytest.approx(-30.5, rel=1e-2)
 
 
@@ -706,7 +697,7 @@ def test_the_degenerate_contact_sits_thirty_millivolts_above_boltzmann() -> None
     N = 1e20 / C.n_i()
     shift = (
         (DEGENERACY.equilibrium_psi(N) - psi_equilibrium_scaled(N)) * C.V_T() * 1e3
-    )  # [mV]
+    )
     assert shift == pytest.approx(30.5, rel=1e-2)
 
 

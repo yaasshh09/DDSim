@@ -122,9 +122,6 @@ def test_the_gate_charge_is_the_silicon_charge_turned_round(v_gate):
     body = terminal_charge(device, state, BODY)
     silicon = semiconductor_charge(device, state)
 
-    # The floor is the depletion charge, which is what one unit of charge on
-    # this device is. At flatband every term above is genuinely zero and a
-    # tolerance relative to them alone would be a tolerance relative to noise.
     scale = C.q * NA * max_depletion_width(-NA)
     total = gate + body + silicon
     assert abs(total) < 1e-13 * (abs(gate) + abs(silicon) + scale)

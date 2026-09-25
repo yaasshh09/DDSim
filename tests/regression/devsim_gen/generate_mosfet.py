@@ -56,7 +56,7 @@ import os
 import sys
 from typing import Any
 
-from devsim import (  # noqa: E402
+from devsim import (
     add_2d_contact,
     add_2d_interface,
     add_2d_mesh_line,
@@ -81,7 +81,7 @@ from devsim import (  # noqa: E402
     solve,
     vector_gradient,
 )
-from devsim.python_packages.model_create import (  # noqa: E402
+from devsim.python_packages.model_create import (
     CreateContactNodeModel,
     CreateEdgeModel,
     CreateEdgeModelDerivatives,
@@ -89,7 +89,7 @@ from devsim.python_packages.model_create import (  # noqa: E402
     CreateNodeModelDerivative,
     CreateSolution,
 )
-from devsim.python_packages.simple_physics import (  # noqa: E402
+from devsim.python_packages.simple_physics import (
     CreateOxideContact,
     CreateOxidePotentialOnly,
     CreateSiliconDriftDiffusion,
@@ -109,7 +109,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))
 ))))
 
-from tests.regression.devsim_gen import parameters as P  # noqa: E402
+from tests.regression.devsim_gen import parameters as P
 
 BULK = "bulk"
 OXIDE = "oxide"

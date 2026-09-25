@@ -73,15 +73,15 @@ import numpy as np
 import pytest
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
-from ddsim.extract.params import threshold_constant_current  # noqa: E402
-from ddsim.extract.rolloff import (  # noqa: E402
+from ddsim.extract.params import threshold_constant_current
+from ddsim.extract.rolloff import (
     REFERENCE_CURRENT,
     SHORT_CHANNEL_PROCESS,
     gate_length_sweep,
 )
-from tests.regression.devsim_gen import parameters as P  # noqa: E402
+from tests.regression.devsim_gen import parameters as P
 
 GOLDEN = pathlib.Path(__file__).resolve().parents[2] / "data" / "golden"
 """Where benchmark 10's DEVSIM curves live."""

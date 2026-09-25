@@ -49,7 +49,6 @@ background: var(--signal);
 box-shadow: 0 0 0 3px var(--signal-wash);
 }
 
-/* DO NOT TOUCH: header is 46px, change both or the page scrolls */
 main {
   display: flex;
   align-items: stretch;
@@ -62,7 +61,6 @@ main {
   background: var(--rail);
 }
 
-/* chrome kept squashing the sidebar when the plots got wide */
 #controls {
   flex: 0 0 340px !important;
   padding:  16px ;

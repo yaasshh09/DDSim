@@ -363,14 +363,6 @@ def newton_solve(
                 was_limited = True
             delta = limited
 
-        # The strongest factor the damping rule applied to any component
-        # Newton asked to move. Measured rather than read off the rule,
-        # because a caller supplied limiter is free to damp one unknown and
-        # not another and has no single factor to read. Measured per component
-        # rather than on max |dx|, because the coupled limiter caps psi and
-        # takes the density updates in full, the densities are six decades
-        # larger in scaled units, and so a ratio of the two maxima would read
-        # exactly 1.0 on every limited step of every MOSFET solve.
         moving = requested != 0.0
         damping = (
             float(np.min(np.abs(delta[moving]) / np.abs(requested[moving])))

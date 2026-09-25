@@ -15,11 +15,11 @@ import numpy as np
 import pytest
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
-from ddsim.core import constants as C  # noqa: E402
-from ddsim.device.equilibrium import solve_equilibrium  # noqa: E402
-from ddsim.device.pn_diode import pn_diode  # noqa: E402
+from ddsim.core import constants as C
+from ddsim.device.equilibrium import solve_equilibrium
+from ddsim.device.pn_diode import pn_diode
 
 OUTPUT = pathlib.Path(__file__).parents[2] / "docs" / "images"
 
@@ -29,18 +29,18 @@ def test_band_diagram_is_generated() -> None:
     device = pn_diode(Na=1e16, Nd=1e16, length=4e-4, junction=2e-4, n_nodes=801)
     state = solve_equilibrium(device)
 
-    x = device.mesh.x * 1e4  # [um]
-    psi = state.psi.to_physical(device.scale).data  # [V]
-    n = state.n.to_physical(device.scale).data  # [cm^-3]
-    p = state.p.to_physical(device.scale).data  # [cm^-3]
+    x = device.mesh.x * 1e4
+    psi = state.psi.to_physical(device.scale).data
+    n = state.n.to_physical(device.scale).data
+    p = state.p.to_physical(device.scale).data
 
-    half_gap = 0.5 * C.Eg()  # [eV]
+    half_gap = 0.5 * C.Eg()
     E_i = -psi
     E_c = E_i + half_gap
     E_v = E_i - half_gap
     E_f = np.zeros_like(x)
 
-    field = -np.diff(psi) / device.mesh.h  # [V/cm]
+    field = -np.diff(psi) / device.mesh.h
     centres = 0.5 * (x[:-1] + x[1:])
 
     figure, axes = plt.subplots(3, 1, figsize=(7.5, 9), sharex=True)

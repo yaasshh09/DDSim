@@ -82,7 +82,7 @@ def test_a_stalled_block_carries_the_state_that_failed() -> None:
         poisson_block(device)(far_away)
     except TransportError as failure:
         assert failure.state is far_away
-    else:  # pragma: no cover
+    else:
         pytest.fail("the block should not have converged")
 
 

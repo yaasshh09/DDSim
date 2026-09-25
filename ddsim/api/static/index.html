@@ -5,20 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DDSim</title>
 <meta name="description" content="Build a diode, MOS capacitor or MOSFET from geometry and doping, press solve, and watch the drift-diffusion equations converge live. Short-channel effects emerge from the physics, with no fitting.">
-<!--
-  The client. No build step. Its libraries, marked and KaTeX, and the two
-  fonts it is set in are vendored under /static/vendor, so nothing loads from
-  the network.
-
-  It computes no physical quantity. Every number it draws arrived from the
-  solver over the socket or over HTTP, and the only arithmetic here maps a
-  number to a pixel. That includes the log axis: a decade is a position on a
-  screen and not a physical model. See docs/07-decisions.md.
-
-  The layout is a bench: knobs on the left, the live solve in the middle, the
-  runs kept on the right. Every id below is a contract with static/js and with
-  tests/unit/test_browser_smoke.py. Restyle them freely, rename none of them.
--->
 <link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/static/css/tokens.css">

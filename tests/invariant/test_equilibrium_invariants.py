@@ -57,8 +57,8 @@ def test_np_equals_n_i_squared_everywhere(solved) -> None:
 def test_np_equals_n_i_squared_in_physical_units(solved) -> None:
     """The same statement after converting out of scaled units."""
     device, state = solved
-    n = state.n.to_physical(device.scale).data  # [cm^-3]
-    p = state.p.to_physical(device.scale).data  # [cm^-3]
+    n = state.n.to_physical(device.scale).data
+    p = state.p.to_physical(device.scale).data
     np.testing.assert_allclose(n * p, device.material.n_i**2, rtol=1e-8)
 
 
@@ -90,14 +90,9 @@ def test_bulk_is_charge_neutral(solved) -> None:
     doping = device.net_doping_scaled.data
     net_charge = state.p.data - state.n.data + doping
 
-    # The binding constraint is the lightly doped side, which has the longest
-    # Debye length and therefore the slowest approach to neutrality. Measured
-    # across four decades of doping, the deviation falls off cleanly in units
-    # of that length: 15 L_D gives 1e-5, 20 gives 1e-6, 25 gives 1e-8 or
-    # better. 25 is used here so the margin does not depend on the device.
     physical = np.abs(device.net_doping.data)
-    lightest = float(np.min(physical[physical > 0.0]))  # [cm^-3]
-    local_debye = math.sqrt(C.eps_Si() * C.V_T() / (C.q * lightest))  # [cm]
+    lightest = float(np.min(physical[physical > 0.0]))
+    local_debye = math.sqrt(C.eps_Si() * C.V_T() / (C.q * lightest))
 
     junction = device.mesh.x[int(np.argmax(np.abs(np.diff(np.sign(doping)))))]
     far = np.abs(device.mesh.x - junction) > 25.0 * local_debye

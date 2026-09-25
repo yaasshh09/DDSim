@@ -71,7 +71,7 @@ def test_built_in_potential_matches_the_analytic_form(Na: float, Nd: float) -> N
     state = solve_equilibrium(device)
 
     psi = state.psi.to_physical(device.scale).data
-    simulated = psi[-1] - psi[0]  # [V]
+    simulated = psi[-1] - psi[0]
     expected = analytic_V_bi(Na, Nd)
 
     assert simulated == pytest.approx(expected, rel=5e-3)
@@ -143,8 +143,8 @@ def depletion_edges(device, state) -> tuple[float, float]:
     The fitting window is the 20 to 80 percent band of the peak field, which
     is inside the triangle and outside both the rounded apex and the tails.
     """
-    psi = state.psi.to_physical(device.scale).data  # [V]
-    field = np.abs(-np.diff(psi) / device.mesh.h)  # [V/cm] on edges
+    psi = state.psi.to_physical(device.scale).data
+    field = np.abs(-np.diff(psi) / device.mesh.h)
     centres = 0.5 * (device.mesh.x[:-1] + device.mesh.x[1:])
 
     peak_value = field.max()
@@ -255,17 +255,17 @@ def test_potential_decays_into_the_bulk_with_the_local_debye_length() -> None:
         ),
     )
     state = solve_equilibrium(device)
-    psi = state.psi.to_physical(device.scale).data  # [V]
+    psi = state.psi.to_physical(device.scale).data
 
     psi_bulk = psi[0]
-    L_D = math.sqrt(C.eps_Si() * C.V_T() / (C.q * low))  # [cm]
+    L_D = math.sqrt(C.eps_Si() * C.V_T() / (C.q * low))
 
     x = device.mesh.x
     window = (x > step_position - 8.0 * L_D) & (x < step_position - 2.0 * L_D)
     deviation = np.abs(psi[window] - psi_bulk)
 
     slope, _ = np.polyfit(x[window], np.log(deviation), 1)
-    fitted = 1.0 / slope  # [cm]
+    fitted = 1.0 / slope
 
     assert fitted == pytest.approx(L_D, rel=1e-2)
 

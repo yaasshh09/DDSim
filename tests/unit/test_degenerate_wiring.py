@@ -231,7 +231,7 @@ def test_the_degenerate_contact_moves_the_potential_by_thirty_millivolts() -> No
     doping = HEAVY / C.n_i()
     shift = (
         ohmic_psi_scaled(doping, 0.0, degeneracy) - ohmic_psi_scaled(doping, 0.0)
-    ) * C.V_T() * 1e3  # [mV]
+    ) * C.V_T() * 1e3
     assert shift == pytest.approx(30.5, rel=1e-2)
 
 
@@ -595,7 +595,7 @@ def test_the_quasi_fermi_level_is_read_under_the_states_own_statistics() -> None
     assert float(np.max(np.abs(state.phi_p.data))) < 1e-12
 
     boltzmann = replace(state, degeneracy=None)
-    shift = float(np.max(np.abs(boltzmann.phi_n.data))) * C.V_T() * 1e3  # [mV]
+    shift = float(np.max(np.abs(boltzmann.phi_n.data))) * C.V_T() * 1e3
     assert shift == pytest.approx(30.5, rel=1e-2)
 
 
@@ -915,7 +915,7 @@ def test_the_built_in_potential_rises_by_the_predicted_correction() -> None:
     }
     built_in = {
         key: (psi[-1] - psi[0]) * C.V_T() for key, psi in contacts.items()
-    }  # [V]
+    }
     assert (built_in[True] - built_in[False]) * 1e3 == pytest.approx(
         30.5, rel=1e-2
     )
@@ -941,6 +941,6 @@ def test_a_lightly_doped_device_barely_notices_the_statistics() -> None:
             degenerate=degenerate,
         )
         psi = solve_equilibrium(device).psi.data
-        built_in[degenerate] = (psi[-1] - psi[0]) * C.V_T()  # [V]
+        built_in[degenerate] = (psi[-1] - psi[0]) * C.V_T()
 
-    assert abs(built_in[True] - built_in[False]) * 1e3 < 0.2  # [mV]
+    assert abs(built_in[True] - built_in[False]) * 1e3 < 0.2

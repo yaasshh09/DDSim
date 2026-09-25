@@ -203,7 +203,6 @@ def _poisson_residual(
 
     face_flux = geometry.weight * (psi[left] - psi[right]) / h
 
-    # Each face contributes with opposite sign to the two cells it separates.
     np.add.at(residual, left, face_flux)
     np.add.at(residual, right, -face_flux)
 
@@ -255,18 +254,6 @@ def _poisson_jacobian(
     left, right = geometry.ends(h.size)
     conductance = geometry.weight / h
 
-    # Diagonal: both adjacent face conductances, plus the charge derivative.
-    # d/dpsi of -(p - n) is dn/dpsi - dp/dpsi, and both parts are handed over
-    # positive, so the charge term can only strengthen the diagonal. Under
-    # Boltzmann these are n and p themselves and this is the Phase 1 matrix
-    # unchanged. Under Fermi-Dirac each is smaller by its Einstein ratio,
-    # which weakens the diagonal without changing its sign, so the matrix
-    # stays the positive definite one that made Phase 1 converge.
-    # Every node picks up the conductance of each face it touches. Scattered
-    # rather than sliced: in 1D the edges touching a node are contiguous and a
-    # pair of slice additions would do, but in 2D a node has four of them and
-    # they are not adjacent in the ordering. See geometry.py on why this is
-    # add.at and not bincount.
     diagonal = (dn + dp) * volume
     np.add.at(diagonal, left, conductance)
     np.add.at(diagonal, right, conductance)

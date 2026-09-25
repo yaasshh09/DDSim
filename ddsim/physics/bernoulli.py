@@ -250,15 +250,6 @@ def B(x: Argument) -> Argument:
     values = np.atleast_1d(values)
     out = np.empty_like(values)
 
-    # Masked assignment rather than np.where. np.where evaluates both arms, so
-    # it would compute 0/0 at x = 0 and raise an invalid value warning even
-    # though the result is discarded.
-    #
-    # Each branch is skipped when nothing falls in it. On a device most edges
-    # sit in one branch: the potential is flat through the quasi-neutral
-    # regions and rises steadily through the depletion region, so the sign of
-    # X rarely changes. Asking is one comparison, and the gather, the
-    # evaluation and the scatter it avoids are three passes.
     near_zero = np.abs(values) <= SERIES_CUTOFF_B
     negative = values < -SERIES_CUTOFF_B
     positive = values > SERIES_CUTOFF_B

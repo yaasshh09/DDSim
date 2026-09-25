@@ -10,19 +10,19 @@ const state = {
   schema: null,
   job: null,
   socket: null,
-  residual: [],   // {value, colour, families}, one per iteration or cycle
-  newton: null,   // the last Newton split, {residual, update} by family
-  stalled: null,  // that split as it was when a step was last rejected
-  rejected: [],   // positions in residual where a step was rejected
-  points: [],     // {voltage, value}
+  residual: [],
+  newton: null,
+  stalled: null,
+  rejected: [],
+  points: [],
   curve: null,
   fields: null,
-  cutline: null,  // {from, to} in fractional mesh indices, on a 2D image
+  cutline: null,
   valueName: "current",
-  runs: [],       // finished runs kept as overlays: {points, request, label}
-  request: null,  // what the run on screen was asked for
-  pending: null,  // the timer a moving knob keeps resetting
-  turn: 0,        // which knob move is the newest, so an older one stands down
+  runs: [],
+  request: null,
+  pending: null,
+  turn: 0,
 };
 
 function fit(canvas) {
@@ -582,7 +582,7 @@ function offerContacts() {
     const drawn = collectDrawing();
     if (drawn) names = drawn.electrodes.map((electrode) => electrode.name);
   } catch (problem) {
-    return;  // a half typed row keeps the list it had
+    return;
   }
   for (const [id, blank] of [["contact", null], ["measure-at", "default"]]) {
     const select = el(id);

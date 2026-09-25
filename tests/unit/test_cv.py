@@ -62,9 +62,6 @@ def test_a_sweep_checks_the_contact_before_solving_anything(cap):
         cv_sweep(device, "drain", [0.0])
 
 
-# ------------------------------------------------------------ per unit what
-
-
 def test_a_1d_device_needs_no_width():
     """A 1D device is a slab, so its charge is already per unit area and the
     junction capacitance of a diode comes out in F/cm^2 with nothing to divide

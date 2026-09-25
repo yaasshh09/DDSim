@@ -307,6 +307,5 @@ def test_richardson_refuses_moves_that_do_not_shrink() -> None:
 
 
 def test_richardson_refuses_an_order_scharfetter_gummel_cannot_have() -> None:
-    # Two nearly equal moves fit an order near zero and an absurd limit.
     levels = [(1.0, 100, 6.0), (1.5, 225, 6.1), (2.25, 506, 6.198)]
     assert tool.richardson(levels, 2).order is None

@@ -82,7 +82,7 @@ FONTS_HEADER = """/* Poppins, subset to the characters this page draws.
 
 
 def fetch(url: str) -> bytes:
-    with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310
+    with urllib.request.urlopen(url, timeout=60) as response:
         return bytes(response.read())
 
 

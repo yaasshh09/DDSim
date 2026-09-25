@@ -28,8 +28,8 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-import parameters as P  # noqa: E402
-from devsim import (  # noqa: E402
+import parameters as P
+from devsim import (
     add_1d_contact,
     add_1d_mesh_line,
     add_1d_region,
@@ -44,11 +44,11 @@ from devsim import (  # noqa: E402
     set_parameter,
     solve,
 )
-from devsim.python_packages.model_create import (  # noqa: E402
+from devsim.python_packages.model_create import (
     CreateNodeModel,
     CreateSolution,
 )
-from devsim.python_packages.simple_physics import (  # noqa: E402
+from devsim.python_packages.simple_physics import (
     CreateSiliconDriftDiffusion,
     CreateSiliconDriftDiffusionAtContact,
     CreateSiliconPotentialOnly,
@@ -73,7 +73,7 @@ def devsim_version() -> str:
         from importlib.metadata import version
 
         return version("devsim")
-    except Exception:  # pragma: no cover - only if metadata is missing
+    except Exception:
         return "unknown"
 
 

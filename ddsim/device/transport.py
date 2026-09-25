@@ -549,9 +549,6 @@ def _wrapped_in_saturation(
     temperature = device.material.T
     electrons = carrier is Carrier.ELECTRON
 
-    # A velocity is scaled by D_0 / x_0, which is what makes the scaled
-    # saturation velocity the number of Debye lengths a saturated carrier
-    # crosses per dielectric relaxation time.
     v_sat = C.v_sat_n(temperature) if electrons else C.v_sat_p(temperature)
     return CaugheyThomas(
         low_field=np.broadcast_to(
@@ -610,7 +607,7 @@ def poisson_block(device: Device) -> BlockStep[DeviceState]:
             n = state.n.data * np.exp(shift)
             p = state.p.data * np.exp(-shift)
 
-        if not (np.all(np.isfinite(n)) and np.all(np.isfinite(p))):  # pragma: no cover
+        if not (np.all(np.isfinite(n)) and np.all(np.isfinite(p))):
             raise TransportError(
                 f"the potential moved by {np.max(np.abs(shift)):.3g} V_T in one "
                 "cycle and overflowed the Boltzmann densities. Ramp the bias in "

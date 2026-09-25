@@ -37,25 +37,25 @@ MICRON = 1e-4
 def test_uniform_is_constant_everywhere() -> None:
     profile = Uniform(1e16)
     x = np.linspace(0.0, MICRON, 11)
-    np.testing.assert_allclose(profile(x), 1e16)  # [cm^-3]
+    np.testing.assert_allclose(profile(x), 1e16)
 
 
 def test_uniform_accepts_a_scalar_position() -> None:
-    assert Uniform(1e16)(0.5 * MICRON) == 1e16  # [cm^-3]
+    assert Uniform(1e16)(0.5 * MICRON) == 1e16
 
 
 def test_negative_uniform_represents_acceptors() -> None:
-    assert Uniform(-1e16)(0.0) == -1e16  # [cm^-3]
+    assert Uniform(-1e16)(0.0) == -1e16
 
 
 def test_step_takes_the_left_value_before_the_position() -> None:
     profile = Step(left=-1e16, right=1e16, position=0.5 * MICRON)
-    assert profile(0.25 * MICRON) == -1e16  # [cm^-3]
+    assert profile(0.25 * MICRON) == -1e16
 
 
 def test_step_takes_the_right_value_after_the_position() -> None:
     profile = Step(left=-1e16, right=1e16, position=0.5 * MICRON)
-    assert profile(0.75 * MICRON) == 1e16  # [cm^-3]
+    assert profile(0.75 * MICRON) == 1e16
 
 
 def test_step_is_right_continuous_at_the_junction() -> None:
@@ -65,7 +65,7 @@ def test_step_is_right_continuous_at_the_junction() -> None:
     modelling idealisation anyway. Recorded so nobody is surprised.
     """
     profile = Step(left=-1e16, right=1e16, position=0.5 * MICRON)
-    assert profile(0.5 * MICRON) == 1e16  # [cm^-3]
+    assert profile(0.5 * MICRON) == 1e16
 
 
 def test_step_changes_sign_across_the_junction() -> None:
@@ -78,7 +78,7 @@ def test_step_changes_sign_across_the_junction() -> None:
 
 def test_gaussian_peaks_at_its_centre() -> None:
     profile = Gaussian(peak=1e18, centre=0.3 * MICRON, sigma=0.05 * MICRON)
-    assert profile(0.3 * MICRON) == pytest.approx(1e18, rel=1e-15)  # [cm^-3]
+    assert profile(0.3 * MICRON) == pytest.approx(1e18, rel=1e-15)
 
 
 def test_gaussian_matches_the_analytic_form() -> None:
@@ -110,10 +110,10 @@ def test_erfc_matches_the_analytic_form() -> None:
 def test_erfc_is_half_the_peak_at_the_position() -> None:
     """erfc(0) = 1, so the surface value is the peak itself."""
     profile = Erfc(peak=1e19, position=0.0, length=0.02 * MICRON)
-    assert profile(0.0) == pytest.approx(1e19, rel=1e-14)  # [cm^-3]
+    assert profile(0.0) == pytest.approx(1e19, rel=1e-14)
 
 
-def test_erfc_decays_monotonically(  # noqa: D103
+def test_erfc_decays_monotonically(
 ) -> None:
     profile = Erfc(peak=1e19, position=0.0, length=0.02 * MICRON)
     x = np.linspace(0.0, 0.2 * MICRON, 51)
@@ -143,29 +143,29 @@ def test_composition_is_associative() -> None:
 
 def test_three_way_composition_sums_all_terms() -> None:
     profile = Uniform(1e15) + Uniform(2e15) + Uniform(3e15)
-    assert profile(0.0) == pytest.approx(6e15, rel=1e-15)  # [cm^-3]
+    assert profile(0.0) == pytest.approx(6e15, rel=1e-15)
 
 
 def test_profiles_negate() -> None:
     """Turning a donor profile into an acceptor one."""
     profile = -Uniform(1e16)
-    assert profile(0.0) == pytest.approx(-1e16, rel=1e-15)  # [cm^-3]
+    assert profile(0.0) == pytest.approx(-1e16, rel=1e-15)
 
 
 def test_profiles_subtract() -> None:
     profile = Uniform(1e16) - Uniform(4e15)
-    assert profile(0.0) == pytest.approx(6e15, rel=1e-15)  # [cm^-3]
+    assert profile(0.0) == pytest.approx(6e15, rel=1e-15)
 
 
 def test_composed_profile_compensates_to_zero_where_terms_cancel() -> None:
     """Compensated material, where the asinh form earns its keep."""
     profile = Uniform(1e16) + Uniform(-1e16)
-    assert profile(0.0) == 0.0  # [cm^-3]
+    assert profile(0.0) == 0.0
 
 
 def test_adding_a_non_profile_raises() -> None:
     with pytest.raises(TypeError):
-        Uniform(1e16) + 5.0  # type: ignore[operator]
+        Uniform(1e16) + 5.0
 
 
 def test_a_profile_gives_the_same_values_on_any_mesh() -> None:
@@ -189,12 +189,12 @@ def test_a_profile_gives_the_same_values_on_any_mesh() -> None:
 
 def test_abrupt_junction_is_p_type_on_the_left() -> None:
     profile = abrupt_junction(Na=1e16, Nd=1e16, position=0.5 * MICRON)
-    assert profile(0.25 * MICRON) == pytest.approx(-1e16, rel=1e-15)  # [cm^-3]
+    assert profile(0.25 * MICRON) == pytest.approx(-1e16, rel=1e-15)
 
 
 def test_abrupt_junction_is_n_type_on_the_right() -> None:
     profile = abrupt_junction(Na=1e16, Nd=1e16, position=0.5 * MICRON)
-    assert profile(0.75 * MICRON) == pytest.approx(1e16, rel=1e-15)  # [cm^-3]
+    assert profile(0.75 * MICRON) == pytest.approx(1e16, rel=1e-15)
 
 
 def test_abrupt_junction_takes_magnitudes_not_signed_values() -> None:
@@ -255,7 +255,7 @@ def test_coordinates_refuse_an_axis_that_is_not_x_or_y() -> None:
     at = Coordinates.of(np.linspace(0.0, MICRON, 5))
 
     with pytest.raises(ValueError, match="x or y"):
-        at.axis("z")  # type: ignore[arg-type]
+        at.axis("z")
 
 
 def test_along_y_reads_the_depth_coordinate() -> None:
@@ -287,7 +287,7 @@ def test_along_refuses_an_axis_it_does_not_have() -> None:
     at = Coordinates(np.zeros(3), np.zeros(3))
 
     with pytest.raises(ValueError, match="x or y"):
-        Along(Uniform(1e16), "z")(at)  # type: ignore[arg-type]
+        Along(Uniform(1e16), "z")(at)
 
 
 def test_a_product_is_separable() -> None:
@@ -342,7 +342,7 @@ def test_multiplying_by_a_number_scales_the_profile() -> None:
 
 def test_multiplying_by_something_that_is_neither_raises() -> None:
     with pytest.raises(TypeError, match="DopingProfile or a number"):
-        Uniform(1e16) * "half"  # type: ignore[operator]
+        Uniform(1e16) * "half"
 
 
 def test_mirroring_reflects_about_a_position() -> None:
@@ -406,7 +406,7 @@ def test_mirroring_a_bare_position_reflects_it() -> None:
 def test_layers_takes_each_region_value_inside_it() -> None:
     profile = Layers(boundaries=(MICRON, 2.0 * MICRON), values=(-1e18, 1e14, 1e18))
     x = np.array([0.5, 1.5, 2.5]) * MICRON
-    np.testing.assert_array_equal(profile(x), [-1e18, 1e14, 1e18])  # [cm^-3]
+    np.testing.assert_array_equal(profile(x), [-1e18, 1e14, 1e18])
 
 
 def test_layers_is_right_continuous_at_every_boundary() -> None:
@@ -539,4 +539,4 @@ def test_a_soft_window_needs_a_length() -> None:
 
 def test_a_window_edge_is_one_of_three() -> None:
     with pytest.raises(ValueError, match="abrupt, gaussian or erfc"):
-        Window(low=0.2 * MICRON, high=0.6 * MICRON, edge="linear", length=1e-6)  # type: ignore[arg-type]
+        Window(low=0.2 * MICRON, high=0.6 * MICRON, edge="linear", length=1e-6)

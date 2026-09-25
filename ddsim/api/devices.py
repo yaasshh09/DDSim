@@ -537,10 +537,6 @@ def build_from_spec(kind: str, parameters: dict[str, Any]) -> Device:
                 raise ValueError(f"{kind} is not built from {name}")
             structured[name] = records_from_json(name, knobs.pop(name))
     accepted = checked_arguments(kind, offered, knobs)
-    # Every integer knob is a node count. One over the budget cannot make a
-    # mesh under it, so it is refused before a typo gets to allocate one.
-    # ponytail: several knobs each under the budget can still multiply into
-    # a mesh too big to build; bound the product per device if that happens.
     for name, value in accepted.items():
         if type(value) is int and value > NODE_BUDGET:
             raise ValueError(

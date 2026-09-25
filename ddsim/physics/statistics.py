@@ -130,35 +130,6 @@ def equilibrium_densities_scaled(
     return n.reshape(original.shape), p.reshape(original.shape)
 
 
-# ------------------------------------------------------------------ Fermi-Dirac
-#
-# Everything below is written in terms of u = n/Nc, dimensionless, with Nc the
-# conduction band effective density of states. The hole side is the same
-# functions with p and Nv, which is why nothing here says "electron".
-#
-# The normalisation is fixed by wanting u -> exp(eta) in the nondegenerate
-# limit, so
-#
-#     u = n / Nc = F_{1/2}(eta) / Gamma(3/2),      eta = (E_F - E_c) / kT
-#
-# and F_{1/2} is the plain integral that the tables carry. docs/01-physics.md
-# writes the same relation with an explicit 2/sqrt(pi), which is 1/Gamma(3/2).
-#
-# Why this file does not simply replace n = n_i exp(psi - phi_n) everywhere
-# -------------------------------------------------------------------------
-# It could not. Writing n = Nc * F_{1/2} directly makes the intrinsic density
-# come out as sqrt(Nc Nv) exp(-Eg/2V_T) = 1.0757e10, and this project anchors
-# n_i at 1.0e10 instead. Row 97 of docs/07-decisions.md records that the two
-# are 7.6 percent apart and cannot both be primary. So Fermi-Dirac enters as a
-# correction to the Boltzmann form rather than as a replacement for it:
-#
-#     n = n_i * exp(psi - phi_n) * gamma_n
-#
-# with gamma_n = degeneracy_factor(u), which is exactly 1 at u = 0. Nothing
-# nondegenerate moves, the n_i inconsistency stays where it was, and the
-# degenerate correction is the only new physics. See the decisions log.
-
-
 EXP_LIMIT = 700.0
 """Largest exponent evaluated inside the Fermi occupancy [1].
 
@@ -394,33 +365,6 @@ def einstein_ratio(u: Scalar) -> npt.NDArray[np.float64]:
     for power, coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS, start=1):
         total = total + power * coefficient * ratio**power
     return np.asarray(total)
-
-
-# ------------------------------------------------- Fermi-Dirac, wired for use
-#
-# Everything above is arithmetic on u = n/Nc. What follows is the object a
-# solver holds: the same series, in the scaled units the assemblies work in,
-# with the four questions transport actually asks of it.
-#
-# The four questions
-# ------------------
-# 1. What potential makes this density exactly Boltzmann? That is the
-#    effective potential of docs/07-decisions.md, psi_eff = psi + ln(gamma),
-#    and it is the only thing the Scharfetter-Gummel argument changes.
-# 2. How does that potential move when the density does? The Bernoulli
-#    argument now depends on n as well as psi, so dF_n/dn grows the same
-#    stencil dF_n/dpsi already has.
-# 3. What density belongs to this potential? The inverse of the series, which
-#    the equilibrium Poisson solve needs, because there n and p are not
-#    unknowns but functions of psi.
-# 4. What does an ohmic contact hold? Neutrality and mass action again, with
-#    the mass action product no longer 1.
-#
-# The sign, once, so it is not re-derived at four call sites. gamma < 1, so
-# ln(gamma) < 0, so the effective potential is below psi where electrons are
-# degenerate and above psi where holes are. Both statements say the same
-# thing: a filled band pushes its own carriers out, which is the enhanced
-# diffusion the generalized Einstein ratio describes.
 
 
 INVERSION_STEPS = 6

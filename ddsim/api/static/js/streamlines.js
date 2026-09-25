@@ -1,18 +1,10 @@
 "use strict";
 
-// Current density streamlines over the 2D image. The vectors (Jx, Jy) at every
-// node were computed on the server from the solver's edge currents. What this
-// file does is geometry on that field: it converts each vector into index
-// space using the node positions the server also sent, and follows it with
-// midpoint steps. No physical quantity is computed. See docs/07-decisions.md.
-
 function spacing(axis, index) {
   const a = Math.max(0, Math.min(axis.length - 2, Math.floor(index)));
   return axis[a + 1] - axis[a];
 }
 
-// The field at fractional (i, j) as a unit step in index space, plus its size,
-// so every step covers the same distance in the image.
 function directionAt(fields, i, j) {
   const jx = interpolate(fields, "Jx", i, j);
   const jy = interpolate(fields, "Jy", i, j);

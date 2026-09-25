@@ -8,7 +8,6 @@
   grid-template-columns: 210px 1fr;
   align-items: start;
   gap: 14px;
-  /* border: 1px solid red; */
 }
 
 #build-top > div { }
@@ -57,7 +56,6 @@
 
 .part.headings { margin-bottom: 0; padding-bottom: 2px; border-bottom: 0; }
 
-/* 86 = text input width, 88 = select. keep in sync w/ actions.css */
 .part.headings span {
   flex: none;
   width: 86px;

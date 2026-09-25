@@ -57,11 +57,11 @@ OUT = os.path.join(ROOT, "data", "scoreboard")
 sys.path.insert(0, HERE)
 sys.path.insert(0, ROOT)
 
-import generate_diodes as GD  # noqa: E402
-import generate_mos_cv as GC  # noqa: E402
-import generate_mosfet as GM  # noqa: E402
-import parameters as P  # noqa: E402
-from devsim.python_packages.ramp import rampbias  # noqa: E402
+import generate_diodes as GD
+import generate_mos_cv as GC
+import generate_mosfet as GM
+import parameters as P
+from devsim.python_packages.ramp import rampbias
 
 
 def _choices(doc: str | None, argument: str) -> list[str]:
@@ -245,8 +245,6 @@ def _mos_cap(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
                 )
             )
     capacitance = (charges[1] - charges[0]) / (2.0 * CV_STEP)
-    # A C-V point has no current to balance, and the body contact's charge is
-    # not the silicon's, so both columns are zero as they are in ddsim's file.
     return capacitance, 0.0, 0.0
 
 
@@ -282,9 +280,6 @@ def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
             GM.build_mesh(bench, device, process=process)
             GM.set_material_parameters(device)
             GM.set_doping(bench, device, process=process)
-            # The golden transfer curves start every device at zero gate, put
-            # the drain on, then walk the gate. All three drivers keep that
-            # order, so the only thing that differs is the walk itself.
             if driver == "devsim_expert":
                 GM.build_physics(device, 0.0, drain, P.FULL_MODELS, wf)
                 GM.ramp_to(device, GM.GATE, gate)
@@ -343,7 +338,7 @@ def run(names: list[str] | None, path: str, resume: bool = False) -> str:
                 try:
                     value, imbalance, largest = SOLVERS[case["device"]](case, driver)
                     converged, message = True, ""
-                except Exception as failure:  # noqa: BLE001 - a failure is a result
+                except Exception as failure:
                     value = imbalance = largest = math.nan
                     converged = False
                     message = str(failure).replace("\n", " ").replace('"', "'")[:200]
@@ -424,7 +419,6 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
         return _silicon_nodes(device, GC.SILICON), capacitance
     import dataclasses
 
-    # From zero gate up, the way the golden curves are walked.
     bench = dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=(0.0, 1.0))
     rows, nodes = GM.transfer_curve(bench, 0.05, refine=r)
     return nodes, rows[-1]["drain"]

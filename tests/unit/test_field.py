@@ -117,12 +117,12 @@ def test_subtract_different_unit_raises() -> None:
 def test_add_a_bare_scalar_raises() -> None:
     """A bare float has no unit, so it cannot be added to a Field."""
     with pytest.raises(TypeError):
-        psi_physical() + 1.0  # type: ignore[operator]
+        psi_physical() + 1.0
 
 
 def test_add_a_bare_array_raises() -> None:
     with pytest.raises(TypeError):
-        psi_physical() + np.array([1.0, 2.0, 3.0])  # type: ignore[operator]
+        psi_physical() + np.array([1.0, 2.0, 3.0])
 
 
 def test_add_mismatched_length_raises() -> None:
@@ -259,13 +259,13 @@ def test_conversion_preserves_unit_and_location(scale: ScaleFactors) -> None:
 def test_scaling_state_cannot_be_reassigned() -> None:
     f = psi_physical()
     with pytest.raises(AttributeError):
-        f.scaling = ScalingState.SCALED  # type: ignore[misc]
+        f.scaling = ScalingState.SCALED
 
 
 def test_unit_cannot_be_reassigned() -> None:
     f = psi_physical()
     with pytest.raises(AttributeError):
-        f.unit = "cm^-3"  # type: ignore[misc]
+        f.unit = "cm^-3"
 
 
 def test_field_does_not_expose_array_protocol() -> None:

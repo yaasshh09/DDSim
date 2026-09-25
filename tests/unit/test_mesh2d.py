@@ -216,8 +216,6 @@ def test_an_interior_node_averages_the_edges_either_side():
     )
     mesh = tensor_mesh_2d(uniform_mesh_1d(length=1e-5, n_nodes=2), y_axis)
 
-    # A potential that is 0, 1, 3 down the three rows, so the two differences
-    # are 1 and 2 across edges of length h[0] and h[1].
     psi = np.array([0.0, 0.0, 1.0, 1.0, 3.0, 3.0])
     h = y_axis.h
 

@@ -6,7 +6,6 @@ label {
   padding: 4px 0;
 }
 
-/* DO NOT TOUCH the order values, it's what keeps the inputs on one right edge */
 label > span:first-child { flex: 1 1 auto; }
 label > .explain { order: 1; }
 
@@ -96,7 +95,6 @@ input[type="range"]::-webkit-slider-thumb {
 
 input[type="range"]:disabled::-webkit-slider-thumb { background: var(--faint); }
 
-/* don't display:none this, the smoke test measures #bands */
 input[type="checkbox"] {
   position: relative;
   flex: none;

@@ -18,11 +18,11 @@ import matplotlib
 import numpy as np
 
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.pyplot as plt
 
-from ddsim.device.pn_diode import pn_diode  # noqa: E402
-from ddsim.extract.iv import iv_sweep  # noqa: E402
-from ddsim.extract.params import ideality_factor, saturation_current  # noqa: E402
+from ddsim.device.pn_diode import pn_diode
+from ddsim.extract.iv import iv_sweep
+from ddsim.extract.params import ideality_factor, saturation_current
 
 OUTPUT = pathlib.Path(__file__).parents[2] / "docs" / "images"
 

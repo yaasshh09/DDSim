@@ -24,21 +24,21 @@ def scale() -> ScaleFactors:
 
 
 def test_psi_0_equals_thermal_voltage(scale: ScaleFactors) -> None:
-    assert scale.psi_0 == C.V_T(300.0)  # [V]
+    assert scale.psi_0 == C.V_T(300.0)
 
 
 def test_c_0_defaults_to_n_i(scale: ScaleFactors) -> None:
-    assert scale.C_0 == C.n_i(300.0)  # [cm^-3]
+    assert scale.C_0 == C.n_i(300.0)
 
 
 def test_c_0_is_a_constructor_parameter() -> None:
     """Phase 5 may switch to max|net doping|. It has to be one place."""
     scale = ScaleFactors.for_silicon(C_0=1e18)
-    assert scale.C_0 == 1e18  # [cm^-3]
+    assert scale.C_0 == 1e18
 
 
 def test_x_0_is_the_debye_length_at_c_0(scale: ScaleFactors) -> None:
-    expected = math.sqrt(C.eps_Si() * C.V_T(300.0) / (C.q * C.n_i(300.0)))  # [cm]
+    expected = math.sqrt(C.eps_Si() * C.V_T(300.0) / (C.q * C.n_i(300.0)))
     assert scale.x_0 == pytest.approx(expected, rel=1e-15)
 
 
@@ -54,7 +54,7 @@ def test_debye_length_matches_doc_table(doping: float, debye_nm: float) -> None:
     than agreement with the doc.
     """
     scale = ScaleFactors.for_silicon(C_0=doping)
-    assert scale.x_0 * 1e7 == pytest.approx(debye_nm, rel=3e-2)  # [nm]
+    assert scale.x_0 * 1e7 == pytest.approx(debye_nm, rel=3e-2)
 
 
 def test_intrinsic_debye_length_follows_the_doc_formula(scale: ScaleFactors) -> None:
@@ -67,11 +67,11 @@ def test_intrinsic_debye_length_follows_the_doc_formula(scale: ScaleFactors) -> 
     doc cannot quietly take the code with it. See the known deviations table in
     docs/07-decisions.md.
     """
-    assert scale.x_0 * 1e4 == pytest.approx(40.885, rel=1e-4)  # [um]
+    assert scale.x_0 * 1e4 == pytest.approx(40.885, rel=1e-4)
 
 
 def test_d_0_is_the_larger_carrier_diffusivity(scale: ScaleFactors) -> None:
-    assert scale.D_0 == max(C.D_n(300.0), C.D_p(300.0))  # [cm^2/s]
+    assert scale.D_0 == max(C.D_n(300.0), C.D_p(300.0))
 
 
 def test_mu_0_equals_d_0_over_psi_0(scale: ScaleFactors) -> None:
@@ -83,12 +83,12 @@ def test_t_0_equals_x_0_squared_over_d_0(scale: ScaleFactors) -> None:
 
 
 def test_j_0_equals_q_d_0_c_0_over_x_0(scale: ScaleFactors) -> None:
-    expected = C.q * scale.D_0 * scale.C_0 / scale.x_0  # [A/cm^2]
+    expected = C.q * scale.D_0 * scale.C_0 / scale.x_0
     assert scale.J_0 == pytest.approx(expected, rel=1e-15)
 
 
 def test_r_0_equals_d_0_c_0_over_x_0_squared(scale: ScaleFactors) -> None:
-    expected = scale.D_0 * scale.C_0 / scale.x_0**2  # [cm^-3 s^-1]
+    expected = scale.D_0 * scale.C_0 / scale.x_0**2
     assert scale.R_0 == pytest.approx(expected, rel=1e-15)
 
 
@@ -174,7 +174,7 @@ def test_unknown_unit_raises_on_to_scaled(scale: ScaleFactors) -> None:
 
 def test_scale_factors_are_immutable(scale: ScaleFactors) -> None:
     with pytest.raises((AttributeError, TypeError)):
-        scale.psi_0 = 1.0  # type: ignore[misc]
+        scale.psi_0 = 1.0
 
 
 def test_negative_c_0_raises() -> None:

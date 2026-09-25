@@ -155,7 +155,7 @@ def test_lifetimes_follow_the_doping() -> None:
     models = TransportModels.for_device(device)
 
     expected = (C.TAU_N_MAX / 1.2) / device.scale.t_0
-    tau_n = np.asarray(models.recombination.tau_n)  # type: ignore[attr-defined]
+    tau_n = np.asarray(models.recombination.tau_n)
     np.testing.assert_allclose(tau_n[0], expected, rtol=1e-12)
 
 
@@ -181,7 +181,7 @@ def test_the_intrinsic_density_survives_a_different_C_0() -> None:
     device = pn_diode(Na=1e16, Nd=1e16, n_nodes=101)
     models = TransportModels.for_device(device)
 
-    ni2 = models.recombination.ni2  # type: ignore[attr-defined]
+    ni2 = models.recombination.ni2
     np.testing.assert_allclose(ni2, (device.material.n_i / device.scale.C_0) ** 2)
 
 

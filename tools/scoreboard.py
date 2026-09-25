@@ -106,7 +106,6 @@ class Case:
 
 def _draw(rng: np.random.Generator, low: float, high: float, axis: str) -> float:
     if axis == "log":
-        # A negative log range is an acceptor doping: draw the size, keep the sign.
         sign = -1.0 if high < 0 else 1.0
         a, b = sorted((abs(low), abs(high)))
         value = sign * math.exp(rng.uniform(math.log(a), math.log(b)))
@@ -201,7 +200,6 @@ def read_cases() -> list[Case]:
 
 def _models(device: Device, kind: str) -> TransportModels:
     if kind == "nmos":
-        # The Phase 5 stack benchmark 10 runs, not the constant mobility default.
         return TransportModels.for_device(
             device, mobility="arora", field_dependent=True, surface=True
         )
@@ -224,8 +222,6 @@ def solve_case(case: Case, fine: bool) -> Result:
     started = time.perf_counter()
     try:
         if case.device == "mos_cap":
-            # Equilibrium Poisson has one solution, so there is no path to get
-            # wrong and the reference is the solve itself.
             cv = cv_sweep(device, "gate", [case.knobs["gate_voltage"]])
             seconds = time.perf_counter() - started
             value = cv.points[-1].capacitance if cv.complete else math.nan
@@ -240,7 +236,7 @@ def solve_case(case: Case, fine: bool) -> Result:
         else:
             state = _public(device, case, models)
         seconds = time.perf_counter() - started
-    except Exception as failure:  # noqa: BLE001 - every failure is a result here
+    except Exception as failure:
         seconds = time.perf_counter() - started
         return Result(
             case.name,
@@ -527,9 +523,7 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
             work_function=m.work_function,
         )
         cv = cv_sweep(device, "gate", [ACCURACY_BIAS["mos_cap"]])
-        # mos_cap solves a 1D stack on a few identical columns. Count one
-        # column, the same way DEVSIM's 1D mesh counts it.
-        columns = device.mesh.nx  # type: ignore[union-attr]
+        columns = device.mesh.nx
         return silicon_nodes(device) // columns, float(cv.points[-1].capacitance)
     f = P.MOSFET_BY_NAME[name]
     full = f.models == P.FULL_MODELS
@@ -873,8 +867,6 @@ def details(board: Board) -> str:
 
 
 def summary(board: Board) -> str:
-    # The repository README leaves the scoreboard out until Phase 8's runs finish,
-    # so the headline table lives at the top of this folder's README instead.
     return details(board).replace(
         "## Robustness", "## Headline\n\n" + headline(board) + "\n\n## Robustness", 1
     )

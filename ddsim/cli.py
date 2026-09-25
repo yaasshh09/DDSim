@@ -81,7 +81,7 @@ def main(
     from ddsim.api.app import create_app
     from ddsim.api.jobs import JobRegistry
 
-    if run is None:  # pragma: no cover - the real server, never run in a test
+    if run is None:
         import uvicorn
 
         run = uvicorn.run
@@ -106,5 +106,5 @@ def main(
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover - the console script entry point
+if __name__ == "__main__":
     raise SystemExit(main())

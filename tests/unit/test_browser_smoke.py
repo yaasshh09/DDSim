@@ -67,7 +67,7 @@ def served() -> Iterator[Served]:
     running = uvicorn.Server(config)
     server_errors: list[logging.LogRecord] = []
     catcher = logging.Handler(level=logging.ERROR)
-    catcher.emit = server_errors.append  # type: ignore[method-assign]
+    catcher.emit = server_errors.append
     logging.getLogger("uvicorn.error").addHandler(catcher)
     thread = threading.Thread(target=running.run, daemon=True)
     thread.start()
