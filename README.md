@@ -4,13 +4,15 @@
 
 I built a semiconductor device simulator from scratch. You give it a device's
 shape and doping, and it solves the drift-diffusion equations to get the I-V
-and C-V curves. Nothing is fitted along the way.
+and C-V curves.
 
 **Try it in the browser: [ddsim.fly.dev](https://ddsim.fly.dev)**
 
-![A PN diode solved in the browser: residual, I-V curve and band diagram](docs/images/site/diode.png)
+<p align="center">
+  <img src="docs/images/site/diode.png" alt="A PN diode solved in the browser: residual, I-V curve and band diagram" width="800">
+</p>
 
-## At a glance
+## What it does
 
 | | |
 |---|---|
@@ -22,17 +24,9 @@ and C-V curves. Nothing is fitted along the way.
 | Tests | 2,680 |
 | Built with | Python, NumPy, SciPy sparse. FastAPI and plain JavaScript for the web app, with no build step |
 
-## The main result: short-channel effects that nobody put in
-
-The goal I set for this project: sweep a MOSFET's gate length from 1 um down to
-50 nm and have threshold roll-off, DIBL and velocity saturation show up from
-the physics alone. If any of them had been hardcoded or fitted, the project
-would have failed.
-
-All five devices come from one fixed process (2 nm oxide, 1e18 channel). Gate
-length is the only thing that changes.
-
-![NMOS gate length sweep, with DEVSIM overlaid](docs/images/mosfet_rolloff.png)
+<p align="center">
+  <img src="docs/images/mosfet_rolloff.png" alt="NMOS gate length sweep, with DEVSIM overlaid" width="800">
+</p>
 
 | Gate length | Threshold at 50 mV | Threshold at 1 V | Subthreshold slope | DIBL | Saturation exponent |
 |---|---|---|---|---|---|
@@ -42,18 +36,18 @@ length is the only thing that changes.
 | 70 nm | 0.1805 V | 0.1212 V | 78.3 mV/dec | 62.5 mV/V | 1.28 |
 | 50 nm | 0.0952 V | -0.0252 V | 87.8 mV/dec | 126.7 mV/V | 1.11 |
 
-- **Threshold roll-off (182 mV).** Near the ends of a short channel, the source
-  and drain junctions have already depleted some of the charge the gate would
-  otherwise have to. That's a 2D Poisson effect and nothing else.
-- **DIBL (8.5 to 127 mV/V).** Raising the drain pulls the source barrier down,
-  which matters more the closer the drain gets.
-- **Velocity saturation (exponent 1.85 down to 1.11).** A long channel follows
-  the square law. Once the channel field passes the critical field, the carrier
-  velocity stops rising and the exponent drops toward 1. I checked this directly:
-  switching off field-dependent mobility changes the 50 nm current by 40
-  percent and the 1 um current by under 1 percent.
-- **The subthreshold slope never beats 59.5 mV/dec**, the thermal limit at
-  300 K. A test fails if it does.
+- The threshold rolls off by 182 mV. Near the ends of a short channel, the
+  source and drain junctions have already depleted some of the charge the gate
+  would otherwise have to. That's a 2D Poisson effect and nothing else.
+- DIBL goes from 8.5 to 127 mV/V. Raising the drain pulls the source barrier
+  down, and that matters more the closer the drain gets.
+- The saturation exponent drops from 1.85 to 1.11. A long channel follows the
+  square law. Once the channel field passes the critical field, the carriers
+  stop speeding up and the exponent heads toward 1. I checked this directly:
+  turning off field-dependent mobility changes the 50 nm current by 40 percent
+  and the 1 um current by under 1 percent.
+- The subthreshold slope never goes below 59.5 mV/dec, the thermal limit at
+  300 K. I have a test that fails if it does.
 
 The open markers are DEVSIM running the same five devices with the same
 models. The two codes share parameter values and nothing else, and they agree
@@ -62,8 +56,8 @@ to within 2.67 percent.
 ## How I know it's right
 
 A drift-diffusion code with a sign error won't crash. It converges cleanly to a
-wrong answer that looks believable. So every result gets checked against
-something that doesn't depend on my code.
+wrong answer that looks believable. So I check every result against something
+that doesn't depend on my code.
 
 | Check | DDSim | Reference | Error |
 |---|---|---|---|
@@ -75,21 +69,14 @@ something that doesn't depend on my code.
 | MOSFET roll-off, matched models | 5 gate lengths | DEVSIM 2.11 | 0.06 % |
 | Newton Jacobian, all 9 blocks | analytic | complex-step derivative | 3.5e-14 |
 
-| MOS capacitor C-V against DEVSIM | Diode I-V, ideality factor crossover |
-|---|---|
-| ![MOS capacitor C-V](docs/images/mos_cap_cv.png) | ![PN diode I-V](docs/images/pn_diode_iv.png) |
+<p align="center">
+  <img src="docs/images/mos_cap_cv.png" alt="MOS capacitor C-V against DEVSIM" width="400">
+  <img src="docs/images/pn_diode_iv.png" alt="PN diode I-V, with the ideality factor crossover" width="400">
+</p>
 
-Each of these plots is drawn by a test, and that test asserts the claims on
-the plot before it draws anything.
-
-A few other things that keep it honest:
-
-- **Scaled and physical units can't mix.** Every array carries its unit and
-  scaling state, and adding the wrong two raises an error.
-- **Tests come first.** A test written after the code tends to assert whatever
-  the code already does.
-- **Newton beats Gummel, and I measured by how much.** At 2 V forward bias,
-  Gummel iteration takes 466 cycles and Newton takes 4.
+On the left is the MOS capacitor C-V against DEVSIM, and on the right is the
+diode I-V with its ideality factor crossover. A test draws each of these
+plots, and it checks the claims on the plot before it draws anything.
 
 ## The web app
 
@@ -97,31 +84,40 @@ The browser front end runs the real solver on the server and streams progress
 back over a WebSocket, so you watch the residual fall and the curve draw itself
 point by point.
 
-![An NMOS transfer curve solving live in the browser](docs/images/mosfet_live.gif)
+You can pick one of four starting devices, or follow a guided lesson.
 
-| Pick a device to start | Or follow a guided lesson |
-|---|---|
-| ![Welcome screen with four starting devices](docs/images/site/welcome.png) | ![A guided lesson on the pn junction](docs/images/site/lesson.png) |
+<p align="center">
+  <img src="docs/images/site/welcome.png" alt="Welcome screen with four starting devices" width="400">
+  <img src="docs/images/site/lesson.png" alt="A guided lesson on the pn junction" width="400">
+</p>
 
-| See the current flow and draw a cutline | C-V of a MOS capacitor |
-|---|---|
-| ![NMOS current streamlines and bands along a cutline](docs/images/site/nmos.png) | ![MOS capacitor C-V in the browser](docs/images/site/mos-cap.png) |
+You can see where the current flows and draw a cutline through the device, or
+sweep a MOS capacitor's C-V.
 
-**Every knob, plot and legend has an explainer.** Each one starts with a plain
+<p align="center">
+  <img src="docs/images/site/nmos.png" alt="NMOS current streamlines and bands along a cutline" width="400">
+  <img src="docs/images/site/mos-cap.png" alt="MOS capacitor C-V in the browser" width="400">
+</p>
+
+Every knob, plot and legend has an explainer. Each one starts with a plain
 explanation, then goes into the equations and points to the docs it came from.
 
-![The band diagram explainer](docs/images/site/explainer.png)
+<p align="center">
+  <img src="docs/images/site/explainer.png" alt="The band diagram explainer" width="800">
+</p>
 
-**You can draw your own device** out of silicon, oxide, implants and contacts,
-then solve it like any other.
+You can also draw your own device out of silicon, oxide, implants and
+contacts, then solve it like any other.
 
-![The device editor](docs/images/site/editor.png)
+<p align="center">
+  <img src="docs/images/site/editor.png" alt="The device editor" width="800">
+</p>
 
-The form isn't written by hand. It's generated from the signatures of the
+I don't write the form by hand. It's generated from the signatures of the
 solver functions, so the browser always offers exactly what the code has. The
 page never computes a physical quantity itself, and a test enforces that.
 
-## Running it
+## Running it locally
 
 ```bash
 python -m venv .venv
@@ -143,63 +139,6 @@ for point in curve.points:
 ```
 
 The browser smoke test needs Chromium once: `.venv/Scripts/python -m playwright install chromium`.
-
-## Limits
-
-- **The sweep stops at 50 nm because the model does.** Drift-diffusion assumes
-  the local field sets the local velocity. Below about 50 nm, carriers go
-  quasi-ballistic, so velocity overshoot can't appear here by construction.
-- **No quantum confinement** in the inversion layer, and **no gate tunneling**
-  through the 2 nm oxide.
-- **The web app is an instrument, not a service.** There's no authentication.
-  The public copy runs at most 2 solves at once and stops any solve after 5
-  minutes. A 50 nm transistor takes close to a minute, and the page shows
-  what it's doing instead of pretending to be instant.
-- **The browser shows the solver's answer but can't check it.** The DEVSIM
-  regressions in CI are what check it.
-
-## Where it fits
-
-DDSim is layer 2 of a four-layer stack I'm building. Each layer should get its
-inputs from the one below it:
-
-| Layer | Project | Solves | Status |
-|---|---|---|---|
-| 0 | AtomSIM | Schrodinger equation for an isolated atom | done |
-| 1 | band module | band structure and effective masses | later |
-| 2 | **DDSim** | carrier transport in devices | done except Phase 6 |
-| 3 | SPICE | circuits | next |
-
-Phases 0 to 5 and 7 are done. Phase 6 extracts compact models for SPICE, so it
-waits until the SPICE project exists.
-
-What comes next is in [phases/ROADMAP.md](phases/ROADMAP.md). DDSim already
-agrees with DEVSIM, and my next goal is to beat it on numbers I can measure.
-The plan starts with a scoreboard, then adds AC and noise, transient, error
-estimates, the bipolar transistor, breakdown, unstructured and 3D meshes,
-quantum correction and other materials.
-
-## Going deeper
-
-| File | What's in it |
-|---|---|
-| [docs/01-physics.md](docs/01-physics.md) | The equations and every approximation |
-| [docs/02-numerics.md](docs/02-numerics.md) | Scharfetter-Gummel, Newton, scaling, continuation |
-| [docs/04-validation.md](docs/04-validation.md) | Every analytic test case and DEVSIM benchmark |
-| [docs/07-decisions.md](docs/07-decisions.md) | Every decision that changes a result, and every known deviation from a reference |
-| [phases/](phases/) | Scope and acceptance criteria for each phase |
-| [phases/ROADMAP.md](phases/ROADMAP.md) | Phases 8 to 18, and what beating DEVSIM means in numbers |
-
-```
-ddsim/core/        constants, scaling, the Field type
-ddsim/mesh/        1D and 2D meshes
-ddsim/physics/     Bernoulli, carrier statistics, recombination, mobility
-ddsim/discretize/  residual and Jacobian assembly
-ddsim/solve/       Newton, Gummel, continuation
-ddsim/device/      geometry and doping in, a Device out
-ddsim/extract/     terminal currents, I-V, C-V, threshold and roll-off
-ddsim/api/         the web server and the browser page
-```
 
 ## License
 
