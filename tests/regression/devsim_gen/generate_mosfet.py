@@ -1063,20 +1063,21 @@ device that hands back a transfer curve with the drain current going negative.
 
 EQUILIBRIUM_ITERATIONS= 1000
 
-"""Newton iterations one equilibrium Poisson solve may take, against 100 for
-everything else. On some scoreboard MOSFETs (m010: a 1.9 um gate on 18 nm of
-oxide) devsim's Poisson closes in linearly, about 1 percent a step, and was
-still at RelError 6e-3 when 100 ran out, so all three drivers failed before
-any bias was applied. Given 1000 it converges in 4 passes and the drift
-diffusion settle after it takes 2. The equilibrium has no ramp to fall back
-on, which is why only it gets the bigger budget: a bias step that fails is
-halved and retried, and ten times the iterations there would only make a
-hopeless step ten times slower to give up on."""
+"""Newton iterations the equilibrium Poisson solve gets as a last try, once
+every tolerance on the ladder has failed at 100. On some scoreboard MOSFETs
+(m010: a 1.9 um gate on 18 nm of oxide) devsim's Poisson closes in linearly,
+about 1 percent a step, and was still at RelError 6e-3 when 100 ran out, so
+all three drivers failed before any bias was applied. Given 1000 it gets there.
+It's only a rescue because handing every rung 1000 made the tight rungs grind
+instead of falling through: nmos_1um's equilibrium went to 1094 s. A device
+that converged before takes the identical path now. The equilibrium has no
+ramp to fall back on, which is why only it gets this; a bias step that fails
+is halved and retried anyway."""
 
 
 
 
-def solve_once(maximum_iterations: int=100) -> None:
+def solve_once(rescue: int | None=None) -> None:
     '''One devsim solve, on the tightest tolerance it will accept.'''
 
 
@@ -1087,14 +1088,16 @@ def solve_once(maximum_iterations: int=100) -> None:
                 type =  'dc',
                 absolute_error  =  1e30 ,
                 relative_error = tol ,
-                maximum_iterations =  maximum_iterations,
+                maximum_iterations =  100,
                 maximum_error =   1e40,
             )
             return
         except Exception  :
             if  Index   +   1  == len(  SOLVE_TOLERANCES  ) :
 
-                raise
+                if rescue is None :
+                    raise
+                solve(type='dc',absolute_error=1e30, relative_error =tol, maximum_iterations=rescue ,maximum_error= 1e40)
 
 
 def settle(device:  str, poisson_only :  bool = False, passes: int = 400, tol:float  =  1e-9, balance_tol  : float |None= None, stall : int=25,) ->  int :
@@ -1160,7 +1163,7 @@ def settle(device:  str, poisson_only :  bool = False, passes: int = 400, tol:fl
                         f"{hmm:.3e} after {sur} "
                         "refreshes, frozen there"
                     )
-        solve_once(EQUILIBRIUM_ITERATIONS if poisson_only else 100)
+        solve_once(EQUILIBRIUM_ITERATIONS if poisson_only else None)
         dat  = snapshot(device, poisson_only)
         k2=potential_move(bef,
                dat)
