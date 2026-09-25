@@ -35,10 +35,8 @@ PROGRESS.md
 docs/superpowers/
 .superpowers/
 
-# deploying the public copy, not needed to run it locally
 Dockerfile
 .dockerignore
 fly.toml
 
-# re-records the README gif
 tools/record_live_solve.py
