@@ -881,7 +881,8 @@ def summary(board: Board) -> str:
 
 
 def write_summary() -> None:
-    (OUT / "README.md").write_text(summary(load_board()), encoding="utf-8", newline="\n")
+    text = summary(load_board())
+    (OUT / "README.md").write_text(text, encoding="utf-8", newline="\n")
 
 
 def main() -> int:
