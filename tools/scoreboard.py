@@ -872,14 +872,16 @@ def details(board: Board) -> str:
     return "\n".join(lines)
 
 
-def write_summary() -> None:
+def summary(board: Board) -> str:
     # The repository README leaves the scoreboard out until Phase 8's runs finish,
     # so the headline table lives at the top of this folder's README instead.
-    board = load_board()
-    text = details(board).replace(
+    return details(board).replace(
         "## Robustness", "## Headline\n\n" + headline(board) + "\n\n## Robustness", 1
     )
-    (OUT / "README.md").write_text(text, encoding="utf-8", newline="\n")
+
+
+def write_summary() -> None:
+    (OUT / "README.md").write_text(summary(load_board()), encoding="utf-8", newline="\n")
 
 
 def main() -> int:
