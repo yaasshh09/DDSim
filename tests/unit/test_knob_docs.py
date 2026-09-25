@@ -75,20 +75,14 @@ def  test_every_numeric_knob_has_a_unit( owner, parameter )   ->  None  :
         )
 
 
-def  test_the_parser_reads_continuation_lines_and_the_unit() ->   None  :
+def  test_argument_docs_reads_the_knob_file_and_the_unit() ->   None  :
+    from ddsim.device.pn_diode import pn_diode
+    thing=argument_docs(pn_diode)
+    assert "acceptor" in thing['Na'] and '[cm^-3]' in thing["Na"]
     def sample(  depth   :  float =  1.0,  flag  : bool  =  False )  ->  None  :
-        """Nothing.
-
-        Args:
-            depth: how far down [cm], measured from
-                the top surface.
-            flag: a switch.
-        """
-
-    assert argument_docs(sample) == {
-        'depth' : "how far down [cm], measured from the top surface.",
-        "flag" : 'a switch.',
-    }
+        ...
+    assert argument_docs(sample) == {}
+    assert parameters_of(sample, docs={'depth': "how far down [cm], measured from the top surface."})[0].unit == "cm"
 
 
 
@@ -126,14 +120,9 @@ def test_every_slider_knob_declares_a_range(kind, parameter)  ->  None  :
 def test_the_parser_reads_a_declared_range ( )  ->   None  :
     """The range rides on the Args: line, where the unit already is."""
     def  sample(depth  :   float =  1.0,   doping : float  =   1e16 ) ->  None :
-        """Nothing.
+        ...
 
-        Args:
-            depth: how far down [cm]. Range 1e-5 to 1e-3.
-            doping: how much [cm^-3]. Range 1e14 to 1e19, log.
-        """
-
-    next = { p.name  : p  for  p  in parameters_of ( sample )}
+    next = { p.name  : p  for  p  in parameters_of ( sample, docs={"depth": "how far down [cm]. Range 1e-5 to 1e-3.", 'doping':'how much [cm^-3]. Range 1e14 to 1e19, log.'} )}
 
     assert(next['depth'].low,next["depth"].high)==(1e-5,1e-3)
     assert  next["depth" ].axis  ==   'linear'
@@ -149,12 +138,8 @@ def test_a_knob_with_no_declared_range_offers_none() ->None:
 
 
     def sample(depth:float =1.0) ->None :
-        """Nothing.
-
-        Args:
-            depth: how far down [cm].
-        """
-    onl   =   parameters_of(  sample )   [  0]
+        ...
+    onl   =   parameters_of(  sample, docs = {'depth':"how far down [cm]."} )   [  0]
 
     assert onl.low is None
 

@@ -14,7 +14,8 @@ browser invented is not a device this project ever validated.
 """
 
 from __future__ import annotations
-import inspect;  import re
+import inspect;  import re, json
+from pathlib import Path
 
 
 from collections.abc import Callable
@@ -199,7 +200,7 @@ def _builder(kind : str)-> Callable[..., Device]:
         kno =', '.join(sorted(DEVICE_KINDS))
         raise ValueError(f"unknown device kind {kind!r}. Known kinds: {kno}")
     return DEVICE_KINDS[kind]
-_ARG_LINE =re.compile(r"^    (\w+): (.*)$")
+_KNOBS: dict[str, dict[str, str]] = json.loads(Path(__file__).with_name("knobs.json").read_text(encoding='utf-8'))
 
 _UNIT = re.compile(r"\[([^\]]+)\]")
 
@@ -227,28 +228,7 @@ def argument_docs(function  :  Callable [ ...,   Any  ]  ) ->   dict[str,   str]
     lines indented eight. The block ends at the first line that is not
     indented.
     """
-    Docs :dict[str, str]= {}
-    chr : str  |   None   =   None; ins=False
-    for Line in(inspect.getdoc(function)or "").splitlines():
-        if Line.strip()  ==  'Args:' :
-
-            ins = True
-            continue
-        if  not  ins :
-            continue
-        if Line  and not Line.startswith (" ")   :
-            break
-        etnry = _ARG_LINE.match(Line)
-
-        if etnry :
-            chr=etnry.group(1)
-
-
-            Docs[chr]  =   etnry.group(  2  ).strip(  )
-        elif chr is not None and Line.startswith('        ') :
-
-            Docs[chr]  += " "  +  Line.strip(  )
-    return Docs
+    return dict(_KNOBS.get(f"{getattr(function,'__module__','')}.{getattr(function, '__qualname__', '')}",{}))
 
 
 
@@ -303,7 +283,7 @@ def contact_names(kind: str)-> tuple[str,...]:
     """
     return tuple(contact.name for contact in _builder(kind)().contacts)
 
-def parameters_of(function: Callable[...,Any],choices :dict[str,tuple[str,...]]|None=None)->tuple[Parameter,...]:
+def parameters_of(function: Callable[...,Any],choices :dict[str,tuple[str,...]]|None=None, docs: dict[str, str] | None=None)->tuple[Parameter,...]:
 
     """Every knob a JSON value can set on a function, in declaration order.
 
@@ -318,7 +298,7 @@ def parameters_of(function: Callable[...,Any],choices :dict[str,tuple[str,...]]|
     """
     nmaed  = choices or{  }
 
-    dcos= argument_docs(function)
+    dcos= argument_docs(function) if docs is None else docs
     q:list[Parameter] = []
 
     def described( name  :  str ,   **   rest :  Any)   -> Parameter  :

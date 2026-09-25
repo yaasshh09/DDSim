@@ -1,0 +1,112 @@
+{
+ "ddsim.device.pn_diode.pn_diode": {
+  "Na": "how many acceptors per cubic centimetre on the p side [cm^-3]. Range 1e14 to 1e19, log. Below 1e14 the p side is barely doped at all, and above 1e18 the textbook built in potential it's checked against starts to drift.",
+  "Nd": "how many donors per cubic centimetre on the n side [cm^-3]. Range 1e14 to 1e19, log. Same limits as Na, for the same reasons.",
+  "length": "how long the diode is [cm]. Range 1e-5 to 1e-3, log. That's 0.1 um to 10 um, from just enough room either side of the junction up to a long diode.",
+  "junction": "where the p side ends and the n side starts [cm], measured from the left and inside the length. Range 1e-5 to 9e-5.",
+  "n_nodes": "how many mesh points the diode is cut into [1]. Range 51 to 1001. The low end is deliberately coarse, so you can see what too few points across the depletion region does.",
+  "h_min": "the smallest mesh spacing, right at the junction [cm]. Range 1e-8 to 1e-6, log. The default of 1 nm easily resolves a 1e16 junction.",
+  "anode_voltage": "voltage on the p side contact [V]. Range -5 to 1. Much above 1.3 V forward, the solver can't find a starting guess for this device.",
+  "cathode_voltage": "voltage on the n side contact [V]. Range -5 to 1. Same limits as the anode.",
+  "material": "defaults to silicon at 300 K."
+ },
+ "ddsim.device.mos_cap.mos_cap": {
+  "substrate_doping": "net doping of the silicon [cm^-3]. Negative means p-type, so -1e16 is an ordinary NMOS body. Range -1e19 to -1e14, log. The page only offers p-type, because one log slider can't cross zero.",
+  "t_ox": "oxide thickness [cm]. 1e-6 is 10 nm. Range 1e-7 to 1e-5, log.",
+  "t_si": "how deep the silicon goes [cm]. Keep it several times deeper than the depletion region can reach, or the body contact gets in the way. Range 5e-5 to 1e-3, log.",
+  "width": "how wide the device is drawn [cm]. Nothing depends on it, since capacitance is reported per unit area. Range 1e-6 to 1e-4, log.",
+  "nx": "mesh points across the device, at least 2 [1]. Range 2 to 21.",
+  "n_silicon": "mesh points down through the silicon, counting the surface [1]. Range 21 to 401.",
+  "n_oxide": "mesh points through the oxide, counting the surface [1]. Range 2 to 41.",
+  "h_min": "the smallest mesh spacing, at the silicon surface [cm]. 5e-8 is 0.5 nm, fine enough for an inversion layer. Range 1e-8 to 1e-6, log.",
+  "gate_voltage": "voltage on the gate [V]. Range -2 to 2, the span the lesson sweeps.",
+  "body_voltage": "voltage on the bottom contact [V]. Range -2 to 2.",
+  "work_function": "the gate metal's work function [eV]. Defaults to n+ polysilicon, the usual NMOS gate. Range 4 to 5.3, from n+ to past p+ poly.",
+  "material": "defaults to silicon at 300 K."
+ },
+ "ddsim.device.mosfet.nmos": {
+  "L_gate": "gate length [cm]. 1e-4 is 1 um. Range 5e-6 to 3e-4, log. It has to be more than twice lateral_diffusion or there's no channel left, so on the default device it stops at 2e-5. The short channel lesson goes down to 5e-6.",
+  "sd_length": "length of the source and of the drain [cm], from the outside edge to the edge of the gate. Range 3e-5 to 5.7e-5.",
+  "contact_length": "how much of the source and of the drain the metal contact covers [cm], measured in from the outside edge. Has to be less than sd_length. Range 5e-6 to 3e-5.",
+  "substrate_doping": "net doping of the body [cm^-3]. Negative means p-type. Range -1e19 to -1e14, log.",
+  "sd_peak": "doping at the surface of the source and drain [cm^-3]. Range 1e18 to 1e20, log.",
+  "x_j": "how deep the source and drain go [cm], measured where their doping falls to the body's. Range 2.5e-6 to 5e-5, log.",
+  "lateral_diffusion": "how far the source and drain creep sideways under the gate [cm]. The real channel is L_gate minus twice this. Range 1e-6 to 3e-5, log.",
+  "t_ox": "oxide thickness [cm]. 2e-6 is 20 nm. Range 1e-7 to 1e-5, log.",
+  "t_si": "how deep the silicon goes [cm], several times the depletion width. Range 5e-5 to 5e-4, log.",
+  "n_contact": "mesh columns under each contact [1]. Range 2 to 30.",
+  "n_sd": "mesh columns from a contact's edge to the gate's edge [1]. Range 9 to 55.",
+  "n_channel": "mesh columns in each half of the channel [1]. Range 11 to 59.",
+  "n_silicon": "mesh rows down through the silicon, counting the surface [1]. Range 17 to 285.",
+  "n_oxide": "mesh rows through the oxide, counting the surface [1]. Range 2 to 129.",
+  "h_min_x": "the smallest column spacing, at each junction [cm]. Range 1.2e-7 to 5e-6, log.",
+  "h_min_y": "the smallest row spacing, at the silicon surface [cm]. This is the mesh setting the drain current cares about most, because the thin inversion layer is the one thing on the device a mesh can miss. If you halve it, raise n_oxide too. Range 1e-9 to 1e-6, log.",
+  "gate_voltage": "voltage on the gate [V]. Range -1 to 2.5.",
+  "drain_voltage": "voltage on the drain [V]. Range -0.5 to 2.",
+  "source_voltage": "voltage on the source [V]. Range -0.5 to 0.5.",
+  "body_voltage": "voltage on the bottom contact [V]. Range -2 to 0.5, which stops short of forward biasing the body junctions.",
+  "work_function": "the gate's work function [eV]. Defaults to n+ polysilicon, the usual NMOS gate. Range 4 to 5.3.",
+  "material": "defaults to silicon at 300 K.",
+  "degenerate": "use Fermi-Dirac statistics instead of the simpler Boltzmann ones. On by default, because the source and drain are doped to 1e20 cm^-3, and there Boltzmann puts the Fermi level 30.5 mV off."
+ },
+ "ddsim.device.stack.stack": {
+  "regions": "the regions in order from the left contact, at least two, with the doping changing at one boundary at least.",
+  "n_nodes": "how many mesh points the whole stack is cut into [1]. Range 51 to 1001. They get shared out between the junctions, so a stack with lots of junctions wants more.",
+  "h_min": "the smallest mesh spacing, at every junction [cm]. Range 1e-8 to 1e-6, log. It should be under half the Debye length: 20 nm at 1e16 but only 0.65 nm at 1e19, so the 1 nm default is too coarse for the most heavily doped regions.",
+  "left_voltage": "voltage on the left contact [V]. Range -5 to 1, the same as the diode's contacts.",
+  "right_voltage": "voltage on the right contact [V]. Range -5 to 1, the same as the left contact.",
+  "material": "defaults to silicon at 300 K."
+ },
+ "ddsim.device.drawing.drawing": {
+  "blocks": "rectangles of silicon and oxide, painted in order. Together they cover a rectangle whose lower left corner is the origin.",
+  "implants": "rectangles of doping, added up.",
+  "electrodes": "ohmic contacts on silicon and gates on oxide, each along a straight segment.",
+  "nx": "mesh points across the device [1]. Every edge you draw needs one, so a busy drawing needs more. Range 38 to 200.",
+  "ny": "mesh points up the device [1]. Range 22 to 400.",
+  "h_min_x": "the smallest column spacing, at every doping edge and every vertical silicon to oxide wall [cm]. Two edges closer than this get turned down. Range 4.1e-8 to 4.7e-6, log.",
+  "h_min_y": "the smallest row spacing, at every doping edge and every flat silicon to oxide interface [cm]. On a MOSFET the inversion layer is only a few nanometres thick, and this is what has to catch it. Range 1e-9 to 7.7e-7, log.",
+  "degenerate": "use Fermi-Dirac statistics instead of the simpler Boltzmann ones. On by default, because the starting drawing is the benchmark nmos, doped to 1e20 cm^-3 in its source and drain. With it off, any doping above 1e19 gets turned down.",
+  "material": "defaults to silicon at 300 K."
+ },
+ "ddsim.extract.iv.iv_sweep": {
+  "device": "the device. Its own contact biases are overridden by the sweep.",
+  "contact": "name of the contact to sweep.",
+  "voltages": "the biases wanted [V], in the order they should be walked.",
+  "models": "transport models, built from the device if None.",
+  "step": "the biggest voltage step the solver takes on its way from one point on your list to the next [V].",
+  "min_step": "give up once the continuation step falls below this [V]. None leaves it at the continuation default of a thousandth of step, which is about ten halvings. That is the right default for a sweep that is expected to succeed, and expensive for one that is expected to stall: every one of those ten halvings is a full failed solve at the Gummel budget. A caller who already knows the sweep may stall, or who only wants to know roughly where, should raise this.",
+  "start": "the voltage the sweep starts from [V]. It's solved directly, not ramped up to.",
+  "max_iterations": "how many Gummel cycles each point gets before it counts as failed [1].",
+  "update_tol": "how small a whole Gummel cycle's change has to be before a point counts as solved [1].",
+  "on_frame": "telemetry, or None to report nothing. Carries a GummelIteration per cycle, a ContinuationEvent per attempt and an IVFrame per point that lands. See phases/PHASE-7.md."
+ },
+ "ddsim.extract.iv.gate_sweep": {
+  "device": "the MOSFET, carrying the drain and body biases the curve is taken at. Its gate bias is overridden by the sweep.",
+  "voltages": "the gate biases wanted [V], in the order to walk them.",
+  "contact": "name of the terminal to sweep. The gate.",
+  "measure_at": "name of the terminal to read the current at. The drain.",
+  "models": "transport models, built from the device if None.",
+  "step": "the biggest voltage step the solver takes on its way from one point on your list to the next [V].",
+  "min_step": "give up once the step falls below this [V].",
+  "start": "the gate voltage the sweep starts from [V]. It's solved directly, not ramped up to. The default is zero, which leaves an NMOS switched off.",
+  "max_iterations": "how many Newton steps each point gets before it counts as failed [1].",
+  "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per iteration, a ContinuationEvent per attempt and an IVFrame per point that lands. No GummelIteration ever reaches it, because this path does not run Gummel at all."
+ },
+ "ddsim.extract.cv.cv_sweep": {
+  "device": "the device. Its own bias at the swept contact is overridden.",
+  "contact": "name of the terminal to sweep and to measure.",
+  "voltages": "the biases wanted [V].",
+  "response": "which carriers keep up with the small signal. With low_frequency both do. With high_frequency the minority carrier is held still, the way it is in a fast real measurement.",
+  "width": "extent of the terminal transverse to the field [cm].",
+  "max_iterations": "how many Newton steps each point gets before it counts as failed [1].",
+  "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per Poisson iteration and a CVFrame per point. There is no ContinuationEvent on this path: the points are independent solves rather than a ramp. See phases/PHASE-7.md."
+ },
+ "ddsim.device.transport.TransportModels.for_device": {
+  "device": "the device, for its doping, temperature and scaling.",
+  "recombination": "an explicit model, which overrides both the SRH default and the auger flag.",
+  "mobility": "\"constant\" uses one mobility everywhere, the value for undoped silicon. \"arora\" slows carriers down wherever the doping is heavy, which is what real silicon does.",
+  "auger": "add Auger recombination on top of the usual defect recombination. It only matters at very high carrier densities, so it's off by default.",
+  "field_dependent": "cap how fast carriers can go in a strong field. This is what gives you velocity saturation. Off by default.",
+  "surface": "slow down carriers pressed against the oxide, the way a real MOSFET channel does. Only works on a 2D device with an oxide on it. Off by default."
+ }
+}
