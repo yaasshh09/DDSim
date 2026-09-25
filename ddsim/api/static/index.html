@@ -33,14 +33,14 @@
 <body>
 <header>
   <h1>DDSim</h1>
-  <span class="rule"></span>
+  <span class="hdr_rule"></span>
   <div id="modes" role="tablist">
     <button id="mode-build" class="flat" type="button" role="tab">Build</button>
     <button id="mode-results" class="flat" type="button" role="tab" aria-selected="true">Results</button>
   </div>
   <button id="welcome-open" class="flat" type="button">what is this?</button>
   <span class="gap"></span>
-  <span class="beacon"></span>
+  <span class="statusDot"></span>
   <span id="state">loading</span>
   <button id="cancel" type="button" disabled>cancel</button>
 </header>
@@ -212,7 +212,7 @@
       labelled with whatever changed before the next run. Clearing the plot
       clears this list too.</p>
 
-    <div class="divider"></div>
+    <div class="side_divider"></div>
     <div class="section">device file</div>
     <p class="aside lede">Saving keeps just the device: its shape, doping and
       mesh. The sweep and models aren't saved with it.</p>

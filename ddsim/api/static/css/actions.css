@@ -10,24 +10,38 @@ button {
 
 button:hover:not(:disabled) { color: var(--ink); border-color: var(--line-bright); }
 
-button:disabled { opacity: 0.4; cursor: default; }
+button:disabled { opacity: .4; cursor: default; }
+
+.flat {}
+
+#welcome-open{padding:5px 10px;background:transparent}
 
 #solve {
   width: 100%;
   margin-top: 18px;
-  padding: 10px 0;
+  padding: .8em 0;
   font: 600 12.5px var(--sans);
   letter-spacing: 0.02em;
   color: var(--ground);
   background: var(--signal);
-  border-color: var(--signal);
+  border-color: var(--signal)
 }
 
-/* the id already beats button:hover on colour */
 #solve:hover:not(:disabled) {
   background: var(--signal-lift);
   border-color: var(--signal-lift);
 }
+
+  .region {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 5px 0;
+  }
+
+.region select { width: 52px; padding: 4px 5px; }
+.region input[type="text"] { width: 92px; text-align: left; }
+.region button { padding: 4px 7px; }
 
 #mesh-choice { gap: 0; }
 
@@ -45,17 +59,6 @@ button:disabled { opacity: 0.4; cursor: default; }
   border-radius: 0 var(--r) var(--r) 0;
 }
 
-.region {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin: 5px 0;
-}
-
-.region select { width: 52px; padding: 4px 5px; }
-.region input[type="text"] { width: 92px; text-align: left; }
-.region button { padding: 4px 7px; }
-
 .part {
   flex-wrap: wrap;
   padding-bottom: 6px;
@@ -63,7 +66,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 }
 
 .part select { width: 88px; }
-.part input[type="text"] { width: 86px; }
+.part input[type="text"] { width: 86px }
 
 .explain {
   flex: none;

@@ -126,9 +126,9 @@ function showScale(size, stretched) {
   const bar = el("build-scale");
   if (!bar) return;
   bar.innerHTML =
-    '<span><i class="swatch block-si"></i>silicon</span>' +
-    '<span><i class="swatch block-ox"></i>oxide</span>' +
-    '<span><i class="swatch dope-n"></i>n doping</span>' +
+    '<span><i class="swatch block_si"></i>silicon</span>' +
+    '<span><i class="swatch blockOx"></i>oxide</span>' +
+    '<span><i class="swatch dope_n"></i>n doping</span>' +
     '<span><i class="swatch dope-p"></i>p doping</span>' +
     '<span><i class="swatch gate"></i>gate</span>' +
     '<span><i class="swatch ohmic"></i>ohmic</span>';

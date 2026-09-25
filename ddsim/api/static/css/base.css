@@ -2,54 +2,58 @@
 
 [hidden] { display: none !important; }
 
+.side_divider {height:1px; margin: 15px 0 13px; background: var(--line)}
+
 body {
   margin: 0;
   font: 500 12px/1.5 var(--sans);
   color: var(--ink-2);
   -webkit-font-smoothing: antialiased;
-  background: var(--ground);
+  background: none;
+  background-color: var(--ground);
 }
 
 header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  height: 46px;
-  padding: 0 18px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    height: 46px;
+    padding: 0 1.5em;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
 }
 
-header h1 {
+body > header > h1 {
   margin: 0;
   font: 600 14px var(--sans);
-  letter-spacing: 0.02em;
-  color: var(--ink);
+  letter-spacing: .02em;
+  color: var(--ink)
 }
 
-header .gap { flex: 1; }
+body header span.gap { flex: 1; }
 
-.rule { width: 1px; height: 20px; background: var(--line); }
+.hdr_rule { width: 1px; height: 20px; background: var(--line); }
 
 #state { font: 500 11.5px var(--sans); color: var(--ink-2); }
 
-.beacon {
+.statusDot {
   flex: none;
   width: 7px;
   height: 7px;
-  background: var(--faint);
+  background:var(--faint);
   border-radius: 50%;
 }
 
-header:has(#cancel:not(:disabled)) .beacon {
-  background: var(--signal);
-  box-shadow: 0 0 0 3px var(--signal-wash);
+header:has(#cancel:not(:disabled)) .statusDot {
+background: var(--signal);
+box-shadow: 0 0 0 3px var(--signal-wash);
 }
 
+/* DO NOT TOUCH: header is 46px, change both or the page scrolls */
 main {
   display: flex;
   align-items: stretch;
-  height: calc(100vh - 46px);
+  height: calc(100vh - 46px) !important;
 }
 
 #controls,
@@ -58,9 +62,10 @@ main {
   background: var(--rail);
 }
 
+/* chrome kept squashing the sidebar when the plots got wide */
 #controls {
-  flex: 0 0 340px;
-  padding: 16px 16px 28px;
+  flex: 0 0 340px !important;
+  padding:  16px ;
   border-right: 1px solid var(--line);
 }
 
@@ -69,14 +74,10 @@ main {
   gap: 14px;
   align-content: start;
   overflow-y: auto;
-  padding: 16px 18px 28px;
+  padding: 1rem 1.5em 1.75rem;
 }
 
-#rail {
-  flex: 0 0 268px;
-  padding: 16px 14px 28px;
-  border-left: 1px solid var(--line);
-}
+#rail { flex: 0 0 268px; padding: 16px 14px 28px; border-left: 1px solid var(--line) }
 
 #controls::-webkit-scrollbar,
 #plots::-webkit-scrollbar,
@@ -85,11 +86,11 @@ main {
 #controls::-webkit-scrollbar-thumb,
 #plots::-webkit-scrollbar-thumb,
 #rail::-webkit-scrollbar-thumb {
-  background: var(--line);
-  border-radius: 5px;
+    background: var(--line);
+    border-radius: 5px;
 }
 
-fieldset { margin: 0 0 18px; padding: 0; border: 0; }
+fieldset { margin: 0 0 1.5em; padding: 0; border: 0; }
 
 fieldset + fieldset {
   padding-top: 15px;
@@ -106,15 +107,14 @@ legend,
   color: var(--dim);
 }
 
-.section.voltages { margin: 10px 0 5px; }
+.section.voltages {margin: 10px 0 5px;}
 
-/* count or unit opposite a section header */
 .section-note {
   float: right;
   font: var(--note);
   letter-spacing: 0;
   text-transform: none;
-  color: var(--dim);
+  color: var(--dim)
 }
 
 .aside {
@@ -124,6 +124,8 @@ legend,
 }
 
 .aside.lede { margin-top: 0; margin-bottom: 10px; }
+
+#built-note { color: var(--warn); }
 
 #mesh-note:not(:empty),
 #stack-note,
@@ -153,4 +155,4 @@ legend,
   margin-top: 10px;
 }
 
-.divider { height: 1px; margin: 15px 0 13px; background: var(--line); }
+#controls { padding-bottom: 1.75rem; }

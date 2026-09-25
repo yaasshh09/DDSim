@@ -2,15 +2,14 @@
   position: fixed;
   top: 0;
   right: 0;
-  z-index: 10;
+  z-index: 99999 !important;
   overflow-y: auto;
   width: min(460px, 100%);
   height: 100%;
-  padding: 16px 20px 28px;
+  padding: 1rem 1.25rem 1.75rem;
   background: var(--rail);
   border-left: 1px solid var(--line-strong);
   transform: translateX(100%);
-  transition: transform 0.12s ease-out;
 }
 
 #drawer.open { transform: none; }
@@ -49,7 +48,7 @@
 #drawer-depth {
   margin-top: 9px;
   font: 500 12.5px/1.6 var(--sans);
-  color: var(--ink-3);
+  color: var(--ink-3)
 }
 
 #drawer .katex-display,
@@ -69,15 +68,15 @@
 
 #lesson-panel h2 { margin: 0 0 8px; font: 600 13px var(--sans); color: var(--ink); }
 
-#lesson-summary { max-width: 78ch; margin: 0 0 16px; }
+#lesson-summary {max-width: 78ch; margin: 0 0 16px;}
 
 #lesson-steps {
-  display: grid;
-  gap: 9px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
+    display: grid;
+    gap: 9px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: step;
 }
 
 #lesson-steps li {
@@ -110,7 +109,7 @@
 
 #lesson-steps li:has(> button)::before { color: var(--signal); border-color: var(--signal); }
 
-#lesson-steps li > strong { font: 600 13px var(--sans); color: var(--ink); }
+div#lesson-panel ol#lesson-steps > li > strong { font: 600 13px var(--sans); color: var(--ink); }
 #lesson-steps li > div { order: 1; }
 
 #lesson-steps li > button {
@@ -123,10 +122,9 @@
   border-color: var(--signal);
 }
 
-/* the id keeps the ground colour on hover by itself */
 #lesson-steps li > button:hover {
   background: var(--signal-lift);
-  border-color: var(--signal-lift);
+  border-color: var(--signal-lift)
 }
 
 #lesson-panel details {
@@ -155,3 +153,5 @@
   color: var(--muted);
   border-left: 2px solid var(--line-strong);
 }
+
+#drawer { transition: transform 0.12s ease-out; }

@@ -8,7 +8,10 @@
   grid-template-columns: 210px 1fr;
   align-items: start;
   gap: 14px;
+  /* border: 1px solid red; */
 }
+
+#build-top > div { }
 
 #build-tools,
 #build-canvas {
@@ -38,23 +41,23 @@
 
 #build-parts {
   display: grid;
-  gap: 14px;
-  margin-top: 14px;
+  gap: .875rem;
+  margin-top: .875rem;
 }
 
-.part-group {
+.partGroup {
   padding: 12px 14px 10px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
 }
 
-.part-group .section { margin-bottom: 6px; }
-.part-group .aside.lede { max-width: 88ch; margin-bottom: 11px; }
+.partGroup .section { margin-bottom: 6px; }
+.partGroup .aside.lede { max-width: 88ch; margin-bottom: 11px; }
 
 .part.headings { margin-bottom: 0; padding-bottom: 2px; border-bottom: 0; }
 
-/* column headings line up with the inputs under them: 86px, or 88px over a select */
+/* 86 = text input width, 88 = select. keep in sync w/ actions.css */
 .part.headings span {
   flex: none;
   width: 86px;
@@ -73,7 +76,7 @@
 
 #build-empty { max-width: 64ch; }
 
-#drawing:not([hidden]) ~ #build-empty { display: none; }
+#drawing:not([hidden]) ~ #build-empty { display: none !important; }
 
 #modes {
   display: flex;
@@ -86,20 +89,20 @@
   padding: 5px 13px;
   background: transparent;
   border: 0;
-  border-radius: 0;
 }
 
 #modes button[aria-selected="true"] { color: var(--ground); background: var(--signal); }
 
-/* the id keeps the ground colour on hover by itself */
 #modes button[aria-selected="true"]:hover { background: var(--signal-lift); }
+
+.swatch.rejected { background: var(--ink); }
 
 #build-scale .swatch { width: 10px; height: 10px; border-radius: 2px; }
 
-#build-scale .block-si { background: var(--fill-si); }
-#build-scale .block-ox { background: var(--fill-ox); border: 1px solid var(--line-strong); }
+#build-scale .block_si { background: var(--fill-si); }
+#build-scale .blockOx { background: var(--fill-ox); border: 1px solid var(--line-strong); }
 
-#build-scale .dope-n {
+#build-scale .dope_n {
   background: rgb(227 167 79 / 26%);
   border: 1px dashed var(--warn);
 }
@@ -112,3 +115,5 @@
 #build-scale .gate { background: var(--violet); }
 #build-scale .ohmic { background: var(--ink); }
 #build-scale .extent { margin-left: auto; color: var(--dim); }
+
+#modes button { border-radius: 0 }

@@ -1,42 +1,39 @@
 :root {
   color-scheme: dark;
 
-  --ground: #0b1417;
-  --rail: #0e1a1e;
-  --panel: #111d21;
+  --ground: #0B1417;
+  --rail:#0e1a1e;
+  --panel: #111D21;
   --raised: #16252a;
 
-  --line: #233a41;
-  --line-strong: #2d4a52;
-  --line-bright: #3d616a;
-  --grid: #1b2e34;
+    --line: #233a41;
+    --line-strong: #2D4A52;
+    --line-bright: #3d616a;
+    --grid:#1b2e34;
 
-  --ink: #e8f1f2;
+  --ink: #E8F1F2;
   --ink-2: #b6ccd0;
-  --ink-3: #8fa9ae;
+  --ink-3: #8FA9AE;
   --muted: #7d989e;
   --dim: #6f949c;
-  --faint: #55757d;
+  --faint: #55757D;
 
   --signal: #5fd4d6;
-  --signal-lift: #7ae0e2;
+  --signal-lift: #7AE0E2;
   --signal-wash: rgb(95 212 214 / 16%);
   --warn: #e3a74f;
-  --hot: #ea7a68;
+  --hot: #EA7A68;
   --violet: #a992ef;
 
-  /* keep in step with MATERIAL_FILL in js/preview.js */
+  /* sync w/ MATERIAL_FILL in preview.js!! */
   --fill-si: #2d4a52;
-  --fill-ox: #16252a;
+  --fill-ox: #16252A;
 
-  --r-sm: 3px;
-  --r: 4px;
-  --r-md: 5px;
-  --r-lg: 6px;
+  --r-sm: 3px; --r: 4px; --r-md: 5px; --r-lg: 6px;
   --r-chip: 12px;
 
   --sans: Poppins, system-ui, -apple-system, "Segoe UI", sans-serif;
   --note: 500 11px var(--sans);
 
-  --axis-gutter: 52px;
+  --axis-gutter: 52px
 }

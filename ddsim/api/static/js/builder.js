@@ -68,7 +68,7 @@ function buildEditor() {
   if (!into || into.children.length) return;
   for (const [part, about] of Object.entries(PART_ABOUT)) {
     const group = document.createElement("div");
-    group.className = "part-group";
+    group.className = "partGroup";
 
     const heading = document.createElement("div");
     heading.className = "section";

@@ -8,7 +8,7 @@
 #welcome-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(198px, 1fr));
-  gap: 12px;
+  gap: .75rem;
 }
 
 button.start {
@@ -32,7 +32,7 @@ button.start svg {
   border-radius: var(--r);
 }
 
-button.start b { font: 600 13.5px var(--sans); color: var(--ink); }
+#welcome-cards > button.start > b { font: 600 13.5px var(--sans); color: var(--ink); }
 button.start span { font: 500 11.5px/1.55 var(--sans); color: var(--muted); }
 
 button.start .shows {
@@ -45,6 +45,4 @@ button.start .shows {
 button.start:hover .shows { color: var(--signal); }
 
 #welcome-more { max-width: 72ch; margin-bottom: 0; }
-#welcome-more b { font-weight: 500; color: var(--signal); }
-
-#welcome-open { padding: 5px 10px; background: transparent; }
+#welcome-more b {font-weight: 500; color: var(--signal)}

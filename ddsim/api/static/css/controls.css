@@ -6,20 +6,19 @@ label {
   padding: 4px 0;
 }
 
-/* ordered by role, so the control lands on the same right edge whether
-   the explain button sits in the name span or on the label itself */
+/* DO NOT TOUCH the order values, it's what keeps the inputs on one right edge */
 label > span:first-child { flex: 1 1 auto; }
 label > .explain { order: 1; }
 
 label > .control,
 label > input,
 label > select,
-label > textarea { order: 2; }
+label > textarea { order: 2 }
 
 label > span {
-  min-width: 0;
-  font: 500 11.5px var(--sans);
-  color: var(--ink-3);
+    min-width: 0;
+    font: 500 11.5px var(--sans);
+    color: var(--ink-3);
 }
 
 label > span:first-child .symbol {
@@ -34,7 +33,7 @@ label > span:first-child .symbol {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 4px;
+  gap: 4px
 }
 
 input,
@@ -50,10 +49,7 @@ textarea {
 }
 
 input[type="text"],
-input[type="number"] {
-  width: 118px;
-  text-align: right;
-}
+input[type="number"] { width: 118px; text-align: right; }
 
 select {
   width: 142px;
@@ -80,18 +76,14 @@ button:focus-visible {
 
 input[type="range"] {
   width: 118px;
-  height: 9px;
+  height: .75em;
   padding: 0;
   appearance: none;
   background: transparent;
   border: 0;
 }
 
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 3px;
-  background: var(--raised);
-  border-radius: 2px;
-}
+input[type="range"]::-webkit-slider-runnable-track {height: 3px; background: var(--raised); border-radius: 2px}
 
 input[type="range"]::-webkit-slider-thumb {
   width: 9px;
@@ -104,7 +96,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 input[type="range"]:disabled::-webkit-slider-thumb { background: var(--faint); }
 
-/* restyled in place rather than hidden: the smoke test measures #bands' box */
+/* don't display:none this, the smoke test measures #bands */
 input[type="checkbox"] {
   position: relative;
   flex: none;
@@ -119,14 +111,14 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"]::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 10px;
-  height: 10px;
-  background: var(--dim);
-  border-radius: 50%;
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    background: var(--dim);
+    border-radius: 50%;
 }
 
 input[type="checkbox"]:checked { background: var(--signal); border-color: var(--signal); }
