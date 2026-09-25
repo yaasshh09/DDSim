@@ -1074,7 +1074,19 @@ device that hands back a transfer curve with the drain current going negative.
 """
 
 
-def solve_once() -> None:
+EQUILIBRIUM_ITERATIONS = 1000
+"""Newton iterations one equilibrium Poisson solve may take, against 100 for
+everything else. On some scoreboard MOSFETs (m010: a 1.9 um gate on 18 nm of
+oxide) devsim's Poisson closes in linearly, about 1 percent a step, and was
+still at RelError 6e-3 when 100 ran out, so all three drivers failed before
+any bias was applied. Given 1000 it converges in 4 passes and the drift
+diffusion settle after it takes 2. The equilibrium has no ramp to fall back
+on, which is why only it gets the bigger budget: a bias step that fails is
+halved and retried, and ten times the iterations there would only make a
+hopeless step ten times slower to give up on."""
+
+
+def solve_once(maximum_iterations: int = 100) -> None:
     """One devsim solve, on the tightest tolerance it will accept."""
     for index, tolerance in enumerate(SOLVE_TOLERANCES):
         try:
@@ -1082,7 +1094,7 @@ def solve_once() -> None:
                 type="dc",
                 absolute_error=1e30,
                 relative_error=tolerance,
-                maximum_iterations=100,
+                maximum_iterations=maximum_iterations,
                 maximum_error=1e40,
             )
             return
@@ -1159,7 +1171,7 @@ def settle(
                         f"{surface_moved:.3e} after {surface_sweeps} "
                         "refreshes, frozen there"
                     )
-        solve_once()
+        solve_once(EQUILIBRIUM_ITERATIONS if poisson_only else 100)
         after = snapshot(device, poisson_only)
         moved = potential_move(before, after)
         before = after
