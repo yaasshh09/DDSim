@@ -250,7 +250,7 @@ class Device:
                     'every node of a contact, and a gate sits on an insulator '
                     'where there is no doping to read and no carrier to pin.'
                 )
-        return self.semiconductor_contacts
+        return self.semiconductor_contacts  # same thing, gates already bailed above
 
     @cached_property
     def carrier_free_nodes(self)  -> tuple[int, ...] :

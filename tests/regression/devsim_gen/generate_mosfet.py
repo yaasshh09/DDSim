@@ -1097,7 +1097,7 @@ def solve_once(rescue: int | None=None) -> None:
 
                 if rescue is None :
                     raise
-                solve(type='dc',absolute_error=1e30, relative_error =tol, maximum_iterations=rescue ,maximum_error= 1e40)
+                solve(type='dc',absolute_error=1e30, relative_error =tol, maximum_iterations=rescue ,maximum_error= 1e40)  # devsim crawls here, needs the 1000 or it dies
 
 
 def settle(device:  str, poisson_only :  bool = False, passes: int = 400, tol:float  =  1e-9, balance_tol  : float |None= None, stall : int=25,) ->  int :

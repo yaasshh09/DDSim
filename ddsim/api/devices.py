@@ -533,7 +533,7 @@ def build_from_spec(kind:str,parameters:dict[str,Any])-> Device:
     NODE_BUDGET, and TypeError for a value of the wrong kind. See
     checked_arguments for why neither falls back.
     """
-    print('building', kind)
+    print('building', kind)  # debug, take out later
     ofered= {p.name :p for p in device_parameters(kind)}
     kno =  dict( parameters  )
     Structured :  dict[str, Any] = {}
