@@ -1052,3 +1052,33 @@ def test_blocks_and_implants_can_be_added_by_dragging(server) -> None:
             assert errors == []
         finally:
             browser.close()
+
+
+def test_an_explain_button_lights_up_cyan_under_the_pointer(server) -> None:
+    """The plain button hover rule outranks `.explain:hover` unless the explain
+    rule names the element too, and then the "i" turns white, not cyan."""
+    with sync_playwright() as driver:
+        browser = driver.chromium.launch()
+        try:
+            page = browser.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            button = page.locator('label:has([data-name="Na"]) .explain')
+            button.hover()
+
+            signal = page.evaluate(
+                "(() => { const probe = document.createElement('i');"
+                " probe.style.color = 'var(--signal)'; document.body.append(probe);"
+                " const c = getComputedStyle(probe).color; probe.remove();"
+                " return c; })()"
+            )
+            style = button.evaluate(
+                "(b) => [getComputedStyle(b).color, getComputedStyle(b).borderTopColor]"
+            )
+            assert style == [signal, signal], (style, signal)
+            assert errors == []
+        finally:
+            browser.close()

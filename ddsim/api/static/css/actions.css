@@ -82,4 +82,4 @@ button:disabled { opacity: .4; cursor: default; }
   border-radius: 50%;
 }
 
-.explain:hover { color: var(--signal); border-color: var(--signal); }
+button.explain:hover { color: var(--signal); border-color: var(--signal) } /* plain .explain:hover lost to button:hover */
