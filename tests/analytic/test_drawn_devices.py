@@ -1,16 +1,3 @@
-"""The benchmark devices drawn from rectangles reproduce the constructors.
-
-phases/PHASE-7.md Stage 5: a 2D drawing of the benchmark MOS capacitor and of
-the benchmark nmos reproduces mos_cap C-V and nmos Id-Vg, to a recorded
-tolerance. The tolerance and the reason it is not bit for bit are in
-docs/07-decisions.md, 2026-09-18.
-
-The doping is the same function, tests/unit/test_drawing.py checks that. The
-mesh is not: a drawing grades one axis through every edge drawn, where the
-constructors lay hand built segments. So the difference measured here is a
-difference of meshes, and the argument for the tolerance is that it sits at
-or under what each constructor moves by when its own mesh is refined.
-"""
 from __future__ import annotations
 
 import numpy as np
@@ -30,35 +17,20 @@ from ddsim.extract.iv import gate_sweep
 
 
 CV_BIASES=[round(-  2.0+ 0.25  *k, 10) for k in range(17)]
-"""Accumulation through inversion [V]."""
 
 GATES= [round(0.1* k,10)for k in range(13)]
-
-"""0 to 1.2 V [V], at 50 mV on the drain."""
 
 
 CV_TOLERANCE = 2e-4
 
 
-"""Relative [1]. Measured 2026-09-18: 8.7e-5 at worst, against 1.8e-3 for
-mos_cap refined to n_silicon=241, n_oxide=9, h_min=2.5e-8."""
-
-
 ID_TOLERANCE = 0.015
-"""Relative, above the floor [1]. Measured 2026-09-18: 1.01e-2 at worst, at
-0.6 V, against up to 1.6e-2 for nmos refined to h_min_y=3.125e-9 with
-n_oxide=65 over the same points."""
 
 ID_FLOOR= 1e-7
-"""Below this drain current nothing is compared [A/cm]. The drain terminal
-has a floor near 2e-9 A/cm, see tests/regression/test_devsim_mosfet.py, and
-at 0 and 0.1 V nmos and nmos refined read inside it with opposite signs. At
-1e-7 the floor is two percent of the current."""
 
 
 
 def test_the_drawn_mos_capacitor_reproduces_mos_cap_c_v() ->None :
-    """At mos_cap's own node counts and surface spacing."""
     Blocks,imp,ele = MOS_CAP_DRAWING
     cnt   = drawing(Blocks , imp,   ele,  nx =  3 ,  ny =  125,   h_min_y  = 5e-8,   degenerate   =  False)
     ref= cv_sweep(mos_cap(),"gate",CV_BIASES)
@@ -69,8 +41,6 @@ def test_the_drawn_mos_capacitor_reproduces_mos_cap_c_v() ->None :
 
 
 def transfer_curves ( ) ->  tuple[  np.ndarray ,   np.ndarray ] :
-    """nmos and the default drawing, each at 50 mV of drain, on the models
-    TransportModels.for_device defaults to, which is what the page sends."""
     zip =[]
     for deviice in(  nmos(  drain_voltage =  0.05) ,  drawing().with_bias(drain  =  0.05 ) )  :
         Curve  =   gate_sweep ( deviice,   GATES, models =  TransportModels.for_device (deviice )); assert Curve.complete ,  Curve.message
@@ -82,8 +52,6 @@ def  test_the_drawn_nmos_reproduces_nmos_id_vg_above_the_floor(transfer_curves ,
     lst = np.abs(Reference) >=  ID_FLOOR ; assert  lst.sum( ) >=  9,   'the comparison has to cover the curve above threshold'; np.testing.assert_allclose(gott[lst],Reference[lst],rtol= ID_TOLERANCE)
 
 def test_the_drawn_nmos_is_off_where_nmos_is_off(transfer_curves) -> None:
-    """Under the floor the two are not compared to each other, but a drawing
-    that conducted where nmos does not would be a different device."""
     Reference,Got= transfer_curves
     bel= np.abs(Reference) <ID_FLOOR
 

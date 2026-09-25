@@ -1,37 +1,3 @@
-"""The DEVSIM side of the Phase 8 scoreboard.
-
-Runs under `.venv-devsim`, like the other generators here, and writes into
-`data/scoreboard/`. See phases/PHASE-8.md.
-
-    .venv-devsim/Scripts/python.exe tests/regression/devsim_gen/scoreboard.py api
-
-`api` writes `devsim_api.txt`: every public name devsim exports, the solve
-types and linear solvers its docstring lists as `solve:<type>` and
-`solver:<type>`, the element types its Gmsh import accepts as
-`create_gmsh_mesh:<element>`, and every function in its bundled
-`python_packages` as `python_packages.<module>.<function>`. The capability
-matrix cites these names, and test_scoreboard.py checks each citation against
-this file, so a claim about what DEVSIM can do is a claim about this snapshot
-rather than about my memory of its manual.
-
-`run` solves the robustness cases in `cases.csv` three ways and writes
-`devsim_robustness.csv`, in the same columns as ddsim's file:
-
-- `devsim_stock`: DEVSIM's own `python_packages/ramp.py` walks the bias, one
-  solve per step, halving on failure and never growing back.
-- `devsim_expert`: the driver that produced the golden data for that device
-  family, which is the best I know how to write for DEVSIM.
-- `devsim_fine`: the expert driver with its step held ten times smaller, as
-  the reference.
-
-All three share the physics, the mesh, the equilibrium start and the solver
-tolerances, so what differs between them is only how the bias gets walked.
-Every device is deleted after its case, since devsim solves every live device
-at once (see README.md here).
-
-    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \\
-        .venv-devsim/Scripts/python.exe tests/regression/devsim_gen/scoreboard.py run
-"""
 from __future__ import annotations
 
 import argparse
@@ -63,26 +29,22 @@ from devsim.python_packages.ramp import rampbias
 
 def _choices(doc : str| None,
       argument : str)-> list[str] :
-    '''The {a, b, c} choices a devsim docstring lists for one argument.'''
     iter   =  re.search(rf"\b{argument} : \{{([^}}]*)\}}",   doc or ""  )
     if  iter is  None  :
         raise RuntimeError(  f"devsim's docstring no longer lists choices for {argument}"  )
     return[T.strip().strip("'") for T in iter.group(1).split(",")]
 def solve_types() ->list[str] :
-    """solve's `type` and `solver_type` choices, e.g. solve:ac, solver:iterative."""
     Doc  = devsim.solve.__doc__
     return[f"solve:{vals}" for vals in _choices(Doc, "type")]  +  [
         f"solver:{vals}" for vals in _choices(Doc, 'solver_type')
     ]
 def gmsh_elements()-> list[str] :
-    """The element types create_gmsh_mesh's docstring accepts, e.g. tetrahedron."""
 
     Found=re.findall(r"- \d+ (\w+)",devsim.create_gmsh_mesh.__doc__ or "")
     if 'triangle' not in Found:
         raise  RuntimeError("create_gmsh_mesh's docstring no longer lists element types")
     return[f"create_gmsh_mesh:{cnt}" for cnt in Found]
 def package_functions()->  list[str] :
-    """Top level functions in devsim/python_packages, read from source."""
     import devsim.python_packages as packages
 
 
@@ -128,13 +90,9 @@ THREAD_VARIABLES=('MKL_NUM_THREADS','OMP_NUM_THREADS','OPENBLAS_NUM_THREADS')
 DRIVERS = ("devsim_stock", 'devsim_expert', 'devsim_fine')
 
 FINE  =  10.0
-"""How much smaller the reference's step is than the expert's [1]."""
 
 
 CV_STEP =  0.005
-'''Half the gate span of DEVSIM's central difference capacitance [V]. ddsim
-takes the derivative exactly, so this is kept small enough that its
-truncation error sits far under the 2 percent the comparison allows.'''
 
 
 def read_cases( )   ->  list[ dict [str , Any  ] ] :
@@ -151,11 +109,9 @@ def _noop(device : str)->None:
 
 
 def _stock_ramp ( device  :  str, contact   : str, target   :  float,   step :   float)   ->   None  :
-    """DEVSIM's shipped ramp, at the expert driver's tolerances and budget."""
     rampbias(device,contact,target,step,1e-4,100,1e-8,1e30,_noop)
 
 def  _cleanup(  ) -> None :
-    """Delete every device and mesh. devsim solves every live device at once."""
     for Name in list(devsim.get_device_list()) :
         devsim.delete_device(  device  =  Name  )
     for Name in list(devsim.get_mesh_list()) :
@@ -306,7 +262,6 @@ SOLVERS = {"pn_diode" :_diode, "mos_cap" : _mos_cap, "nmos"  :  _nmos}
 
 
 def  _done (  path  : str ) ->  set[ tuple[str ,   str]  ] :
-    """The (case, driver) pairs a previous run already wrote to path."""
 
     if not os.path.exists(path):
         return set ( )
@@ -362,7 +317,6 @@ def run(names:list[str] |None,path:str,resume: bool = False) ->str:
 
     return path
 REFINEMENTS= (1.0,1.5,2.25)
-"""The accuracy axis's refinements, the same three tools/scoreboard.py uses."""
 ACCURACY= (
     (1, "diode_1e16_1e16"),
     (2, 'diode_1e18_1e16'),
@@ -376,16 +330,11 @@ ACCURACY= (
     (10, 'fullstack_100nm'),
 )
 
-"""The same benchmark devices, quantities and biases as tools/scoreboard.py:
-diode anode current at 0.6 V, MOS capacitor capacitance at 0 V, MOSFET drain
-current at 1.0 V of gate and 50 mV of drain."""
-
 
 def _silicon_nodes(device :str,region :str)-> int:
     return  len(  devsim.get_node_model_values ( device   =  device , region = region ,  name   =  "x"  ) )
 
 def accuracy_point(name  :  str, r  :  float)-> tuple[int, float] :
-    """One benchmark's quantity on DEVSIM's reference mesh refined by r."""
     if name.startswith("diode") :
         Bench=P.BY_NAME[name]
         ret = f"{name}_acc"
@@ -487,12 +436,8 @@ SPEED=(
     (8,'nmos_65nm'),
 )
 
-"""Benchmark sweeps 1 to 8, exactly as the golden generators run them, with
-no mesh convergence check."""
-
 
 def speed_sweep(name :  str)  -> int  :
-    """Run one benchmark's golden sweep and return the points reached."""
     if name.startswith("diode"):
         with GM.quiet() :
             return len(GD.sweep(P.BY_NAME[name]))

@@ -1,14 +1,3 @@
-"""Mesh refinement and Newton convergence studies.
-
-Two of the Phase 1 acceptance criteria live here:
-
-- error against the analytic V_bi decreases with h
-- Newton converges in under 10 iterations from the charge neutral guess, and
-  quadratically over the last few
-
-The refinement study is the one that would catch a discretization that is
-consistent but not convergent, which no single mesh can.
-"""
 from __future__ import annotations
 import  math
 
@@ -25,10 +14,8 @@ from ddsim.device.pn_diode import pn_diode
 
 
 MICRON=1e-4
-"""One micron [cm]."""
 def diode_on(n_nodes  : int, Na : float= 1e16, Nd : float =1e16) :
 
-    """A uniformly refined diode, so that h halves as n_nodes doubles."""
     return pn_diode(
         Na=Na,
         Nd=Nd,
@@ -41,20 +28,12 @@ def diode_on(n_nodes  : int, Na : float= 1e16, Nd : float =1e16) :
 
 
 def peak_field(device, state) ->float:
-    """Largest field magnitude in the device [V/cm]."""
     psi  =   state.psi.to_physical(device.scale  ).data
 
     return  float(np.max(  np.abs( -   np.diff (psi )  / device.mesh.h )  ) )
 
 
 def  test_peak_field_converges_under_mesh_refinement()   ->  None  :
-    """The field is where discretization error shows up first.
-
-    V_bi itself is pinned by the contacts, so it cannot be used to measure
-    convergence of the interior scheme. The peak field is genuinely computed
-    and it is the quantity a coarse mesh gets worst, since it lives at the
-    junction where the curvature is highest.
-    """
     couunts = [101, 201, 401, 801, 1601]
     Fields=[]
     for NNodes in couunts :
@@ -69,11 +48,6 @@ def  test_peak_field_converges_under_mesh_refinement()   ->  None  :
     ), f"errors must shrink monotonically, got {Errors}"
 
 def test_peak_field_converges_at_second_order ()  ->   None  :
-    """Box integration of the Laplacian is second order on a uniform mesh.
-
-    Halving h should quarter the error. Anything close to first order would
-    mean the dual cell volumes or the face fluxes are subtly wrong.
-    """
 
     filter= [201,401,801,1601]
     Fields  =   []
@@ -92,7 +66,6 @@ def test_peak_field_converges_at_second_order ()  ->   None  :
 
 
 def test_built_in_potential_is_mesh_independent()->  None :
-    """It is set by the contacts, so refinement must not move it at all."""
     buff=[]
     for nnodes in(51,201,801) :
         dev  =diode_on(nnodes)
@@ -112,7 +85,6 @@ def test_refinement_does_not_change_the_invariants() ->None :
         assert np.all(min.n.data> 0.0)
 
 def test_newton_converges_in_under_ten_iterations_across_doping() ->  None :
-    """The acceptance criterion, over the full doping range Phase 5 will need."""
     for Doping in(1e14,
            1e15,
       1e16,
@@ -131,22 +103,6 @@ def test_newton_converges_in_under_ten_iterations_across_doping() ->  None :
 
 def test_newton_residual_tail_is_quadratic() ->None:
 
-
-    """Each step squares the residual once inside the basin of attraction.
-
-    A typical history for this device is
-
-        1.13e6, 7.16e5, 3.06e5, 46.3, 4.18, 2.93e-2, 1.27e-6, 2.09e-11
-
-    The first three steps are step limited and only linear. The tail is the
-    last three above the roundoff floor, where the residual falls by five
-    orders of magnitude per step.
-
-    Quadratic is checked without having to guess the constant: if
-    r_{k+1} = C * r_k^2 then C is the same at every step, so the test asserts
-    that the measured ratio stays put rather than that it hits some value.
-    Linear convergence would make the ratio grow by orders of magnitude.
-    """
 
     dev =pn_diode(Na  =  1e16, Nd  =  1e16, length= 4.0  * MICRON, junction =2.0 *MICRON)
 
@@ -173,11 +129,6 @@ def test_newton_residual_tail_is_quadratic() ->None:
 
 
 def test_newton_ends_with_unlimited_steps()->  None:
-    """A converged solve must finish with real Newton steps, not clamped ones.
-
-    If the step limiter were still active at the end, the tail would be linear
-    and the quadratic claim would be false.
-    """
     dev = pn_diode(Na=1e16, Nd = 1e16, length =4.0  * MICRON, junction= 2.0 *  MICRON)
     sta = solve_equilibrium(dev )
     assert sta.newton.limited_steps  < sta.newton.iterations
@@ -193,11 +144,6 @@ def test_residual_falls_by_many_orders_of_magnitude (  )   ->  None  :
 
 
 def test_the_charge_neutral_guess_is_a_good_starting_point() -> None :
-    """psi = asinh(N/2) should already be right everywhere except the junction.
-
-    If the initial residual were large across the whole device rather than
-    concentrated near the junction, the guess would not be doing its job.
-    """
     deviice=pn_diode(Na = 1e16,Nd=1e16,length=4.0 * MICRON,junction = 2.0*MICRON)
     sttae   =   solve_equilibrium(  deviice )
 
@@ -220,26 +166,6 @@ def test_the_charge_neutral_guess_is_a_good_starting_point() -> None :
     assert temp2> 0.0
 
 def test_newton_converges_on_lightly_doped_material() ->None:
-    """The doping range above stops at 1e14, and below it the solve used to fail.
-
-    The residual threshold is built from the doping charge in the largest dual
-    cell, because that is the size of the terms the residual is made of and it
-    does not depend on where the iteration started. But the residual has a
-    second half, the difference of the two face fluxes, and that difference
-    cannot be resolved below machine epsilon times the size of the fluxes
-    themselves. The two scale in opposite directions: the charge falls with
-    the doping while psi is only logarithmic in it, so the flux floor stays
-    put.
-
-    Below about 1e13 the charge threshold sinks under the flux floor, and then
-    nothing can meet it. Measured on the 1e12 bar before the fix: the residual
-    reached 6.8e-12 at the third iteration and sat there, unchanged to the last
-    bit, for the remaining forty-seven, with an update of 4.4e-16 the whole
-    time. Newton had solved it at step three and then reported failure.
-
-    High resistivity substrates run at exactly these dopings, so this is a
-    range the project needs rather than a curiosity.
-    """
     for Doping in(1e13, 1e12, 1e11, 1e10) :
         open   = pn_diode (
             Na  =   Doping ,   Nd  =  Doping, length  =  4.0   *  MICRON, junction =  2.0   *  MICRON
@@ -259,12 +185,6 @@ def test_newton_converges_on_lightly_doped_material() ->None:
 
 def test_the_threshold_floor_does_not_loosen_a_normally_doped_solve()->None :
 
-    """The floor is a floor, not an addition.
-
-    Raising the threshold to clear the flux floor must not touch any device
-    where the doping charge already clears it, otherwise every diode in the
-    project silently converges to a looser answer than it used to.
-    """
     for d2 in(1e15, 1e16, 1e18) :
         Device  = pn_diode(Na=  d2, Nd  =d2)
         sttae  =  solve_equilibrium(Device)
@@ -282,13 +202,6 @@ def test_the_threshold_floor_does_not_loosen_a_normally_doped_solve()->None :
 
 
 def test_a_stalled_solve_says_what_it_was_aiming_for() ->None :
-    """The message has to carry the threshold, not just the residual.
-
-    A residual that has stopped moving while the update is already tiny means
-    the threshold is under the arithmetic floor. Without the number to compare
-    against, that reads exactly like a solve that is merely slow, which is a
-    different problem with a different fix.
-    """
     dev =  pn_diode(Na =1e16, Nd = 1e16)
 
 

@@ -1,20 +1,3 @@
-"""The benchmark definitions and the model parameters both codes must share.
-
-This module is deliberately free of any devsim import, and free of any ddsim
-import. The generator runs it under a separate interpreter that has devsim but
-not ddsim; the regression test runs it under the project interpreter, which has
-ddsim but not devsim. It is the one file both sides read, so the device
-geometry, the doping and the physical constants cannot drift apart between
-them.
-
-The constants below are literal copies of `ddsim.core.constants`. That
-duplication is not an accident and it is not allowed to rot:
-`tests/regression/test_devsim_diodes.py` asserts every one of them against the
-ddsim value it mirrors, so a change on the ddsim side fails the suite until the
-golden data is regenerated.
-
-Units follow the project convention: lengths in cm, concentrations in cm^-3.
-"""
 from __future__ import annotations
 
 import math
@@ -27,100 +10,55 @@ Q =  1.602176634e-19
 
 
 
-"""Elementary charge [C]."""
-
-
 K_B= 1.380649e-23
-
-"""Boltzmann constant [J/K]."""
 
 
 
 EPS_0 =8.8541878128e-14
-"""Vacuum permittivity [F/cm]."""
 
 T  = 300.0
-"""Temperature [K]."""
 EPS_R_SI  = 11.7
-
-"""Relative permittivity of silicon [1]."""
 
 
 N_I=1.0e10
-"""Intrinsic carrier density at 300 K [cm^-3]."""
 
 MU_N =  1417.0
-
-"""Electron mobility [cm^2/(V s)], the constant model."""
 
 
 
 MU_P =470.0
-"""Hole mobility [cm^2/(V s)], the constant model."""
 
 TAU_N_MAX= 1e-5
 
-"""Electron lifetime in undoped silicon [s]."""
 TAU_P_MAX =3e-6
 
 
-"""Hole lifetime in undoped silicon [s]."""
-
 TAU_N_MIN=  0.0
-"""Electron lifetime floor at very high doping [s]."""
 
 
 TAU_P_MIN  = 0.0
 
 
-"""Hole lifetime floor at very high doping [s]."""
-
 N_REF_SRH = 5e16
 
-"""Doping at which the Scharfetter lifetime is halfway to its floor [cm^-3]."""
-
 GAMMA_SRH  =  1.0
-"""Sharpness of the Scharfetter lifetime transition [1]."""
 EPS_R_OX :float =3.9
 
 
-"""Relative permittivity of silicon dioxide [1]."""
-
 CHI_SI: float =4.05
-
-"""Electron affinity of silicon [eV], vacuum level to conduction band edge."""
 
 _EG_0 :  float   =   1.1696
 _EG_ALPHA  : float = 4.73e-4 ; _EG_BETA  :  float   =  636.0
 EG :float = _EG_0 -_EG_ALPHA * T*T /(T + _EG_BETA)
-"""Silicon band gap at T [eV], Varshni. 1.124119 eV at 300 K."""
 PHI_M_N_POLY  :  float = CHI_SI
 
-'''Work function of n+ polysilicon [eV]. Fermi level at the conduction edge.'''
 PHI_M_MIDGAP  :   float = CHI_SI   + EG /  2.0
-"""Work function of a midgap metal [eV].
-
-Also the work function of intrinsic silicon, which is why the gate potential
-can be written without reference to the substrate: psi is measured from the
-intrinsic level in both codes, so psi_gate = V_gate + (PHI_M_MIDGAP - Phi_M).
-"""
 
 
 V_T = K_B * T/ Q
 
-"""Thermal voltage [V]. 0.02585199 V at 300 K."""
-
 ARORA_N : tuple[float, float, float, float] =  (88.0, 1252.0, 1.432e17, 0.88)
-"""Arora mobility for electrons at 300 K: mu_min, mu_d, N_ref, exponent.
-
-    mu = mu_min + mu_d / (1 + (N / N_ref)^A)
-
-[cm^2/(V s)], [cm^2/(V s)], [cm^-3], [1]. The temperature exponents each
-parameter carries in ddsim are not mirrored, because every benchmark here is
-at 300 K and a factor that is exactly one is a factor a reader has to check.
-"""
 ARORA_P :  tuple[  float, float ,  float,   float  ]  =  (54.3 ,  407.0,   2.67e17 ,   0.88  )
-'''Arora mobility for holes at 300 K, same four in the same order.'''
 
 LOMBARDI_N  :   dict[  str,  float ]  = {
     "B"   :  3.61e7 ,
@@ -132,18 +70,6 @@ LOMBARDI_N  :   dict[  str,  float ]  = {
     "eta" :   0.0767,
     "kappa"   :  1.7,
 }
-"""Enhanced Lombardi surface mobility for electrons, DEVSIM's own values.
-
-    1/mu = 1/mu_bulk + 1/mu_ac + 1/mu_sr
-    mu_ac = B/E_perp + C N^tau E_perp^(-1/3) / (T/300)^kappa
-    mu_sr = delta E_perp^(-gamma),  gamma = A + alpha (n + p) N^(-eta)
-
-These are not mirrored out of ddsim in the direction the other constants are.
-Both codes take them from the same third place, `Klaassen.py` in devsim's own
-python_packages, which is where ddsim's `LombardiSurface.electrons` says it got
-them. The mirror test still runs, because the two copies agreeing is what makes
-the comparison a comparison.
-"""
 
 LOMBARDI_P  :dict[str, float]  = {
     'B' :  1.51e7,
@@ -156,69 +82,32 @@ LOMBARDI_P  :dict[str, float]  = {
     'kappa':  0.9,
 }
 
-"""The same for holes. delta is three decades below the electron value and
-that is not a transcription slip, it is in the reference."""
 E_PERP_FLOOR = 1.0e2
-"""Smallest normal field the surface model is evaluated at [V/cm].
-
-devsim's Klaassen.py writes this as `max(Enormal, 1e2)` inside both surface
-terms and ddsim carries the same floor for the same reason: both terms divide
-by E_perp, so an unfloored zero is an infinity in mu_ac and a nan as soon as it
-meets the reciprocal sum.
-"""
 
 V_SAT_N  =1.07e7
 
 
 
-'''Electron saturation velocity [cm/s].'''
-
-
-
 V_SAT_P  = 8.3e6
-"""Hole saturation velocity [cm/s]."""
 
 BETA_N =2.0
-
-'''Caughey-Thomas exponent for electrons [1].'''
 
 BETA_P=1.0
 
 
-"""Caughey-Thomas exponent for holes [1]. Not a typo for the electron value."""
 NC_300 = 2.86e19
 
-"""Conduction band effective density of states at 300 K [cm^-3]."""
 NV_300=3.10e19
 
 
-"""Valence band effective density of states at 300 K [cm^-3]."""
 JOYCE_DIXON  =  (
     1.0  /  math.sqrt ( 8.0 ),
     3.0 /  16.0 - math.sqrt(3.0 )  /  9.0 ,
     1.48386e-4 ,
     -  4.42563e-6 ,
 )
-"""A1 to A4 of the Joyce-Dixon series, Joyce and Dixon 1977 [1].
-
-    eta = ln(u) + A1 u + A2 u^2 + A3 u^3 + A4 u^4,  u = n/Nc
-
-Everything past the logarithm is the degeneracy correction, and it is the whole
-of what Fermi-Dirac changes about a Scharfetter-Gummel flux: the carrier is
-still exponential in an effective potential psi - V_t * correction, so the
-exponential fit stays exact and the discretisation does not move.
-"""
 
 JOYCE_DIXON_MAX_U=  8.0
-
-
-"""Largest n/Nc the series is evaluated at [1].
-
-The series is a fit and it turns over eventually. Held constant above the cap
-in both codes, which keeps the density monotone in the potential. At 1e20 in
-the source and drain, u is 3.5 for electrons, so nothing on these devices
-reaches it.
-"""
 
 
 @dataclass(frozen=True)
@@ -226,77 +115,47 @@ reaches it.
 
 
 class DiodeBenchmark  :
-    """One PN diode from the tier 4 benchmark set of docs/04-validation.md."""
 
     name  :  str
-    """Short name, also the golden file stem."""
 
     number : int
-    """Row in the docs/04-validation.md benchmark table."""
 
     Na: float
-    """Acceptor concentration on the p side [cm^-3], positive."""
 
     Nd : float
-    """Donor concentration on the n side [cm^-3], positive."""
 
 
     length: float
-    """Device length [cm]."""
 
 
     junction :float
-    """Junction position [cm]. Doping is right continuous here, so a node
-    sitting exactly on it is n-type. Both codes are told the same thing."""
 
 
 
     voltages : tuple[float, ...]
-    '''Anode biases to record [V], in sweep order.'''
 
     tolerance : float
-    """Agreement required on terminal current [1], as a fraction."""
     n_nodes  :  int  = 201
-    """Node count for the ddsim mesh."""
     h_min  :   float   = 1e-7
 
-    """ddsim mesh spacing at the junction [cm]."""
     devsim_h_junction : float= 2e-7
-    """devsim mesh spacing at the junction [cm]."""
 
 
     devsim_h_bulk  :   float = 2e-6
-    """devsim mesh spacing at the outer contacts [cm]."""
 
 
     notes  :  str =   ""
-    """What this device is for, carried into the golden file header."""
 
 
 CURRENT_FLOOR = 1e-10
-
-"""Below this current magnitude a curve carries no information [A/cm^2].
-
-At zero bias the terminal current is the difference of two drift and diffusion
-fluxes of order 1e4 A/cm^2, so the exact answer, zero, arrives as whatever
-rounding leaves behind: about 2e-12 from devsim and about 9e-24 from ddsim on
-the symmetric diode. Neither number means anything, and a relative comparison
-between them is meaningless rather than strict. Points under the floor are
-checked against the floor instead of against each other.
-
-The floor sits two decades below the smallest current either code produces at a
-bias that is actually biased, which on device 1 is 3.4e-9 A/cm^2 at -0.1 V.
-"""
 
 
 
 
 def _forward(stop :float, step : float =  0.05)-> tuple[float, ...] :
-    """Biases from 0 to stop inclusive [V], on a fixed step."""
     conut  = round(stop  / step)
     return tuple(round(i *step,10)for i in range(conut+ 1))
 REVERSE = (-   1.0, -   0.75 ,   -   0.5 , - 0.25 , -  0.1)
-'''Reverse biases for device 1 [V]. Ascending, so the sweep is monotone.'''
 
 BENCHMARKS  :   tuple[  DiodeBenchmark,   ...]   =   (
     DiodeBenchmark (
@@ -353,13 +212,6 @@ BY_NAME :  dict[  str,  DiodeBenchmark ]  =  {b.name  :   b  for b in BENCHMARKS
 def  scharfetter_lifetime(
     N_total  :   float,   tau_max :  float,   tau_min   :   float  =   0.0
 ) ->  float :
-    """Doping dependent lifetime [s], the scalar form of the ddsim model.
-
-    tau = tau_min + (tau_max - tau_min) / (1 + N_total / N_ref)
-
-    Used only for reporting in the golden file header. The generator hands
-    devsim the same expression symbolically so it is evaluated per node.
-    """
     return tau_min + (tau_max -  tau_min)/ (1.0 + (N_total/ N_REF_SRH)**  GAMMA_SRH)
 
 
@@ -378,16 +230,6 @@ MODEL_SUMMARY :tuple[str, ...]  =(
 )
 
 
-"""The model choices, verbatim into every golden file header.
-
-docs/04-validation.md is blunt that an unmatched model makes the comparison
-meaningless, so the match is written down where the data is rather than in a
-document somewhere else. Each line is `key: value` so that `read_golden` can
-pull the models out and a test can assert on them, rather than the header being
-prose that only a human ever checks.
-"""
-
-
 
 
 @dataclass
@@ -395,39 +237,23 @@ prose that only a human ever checks.
 
 
 class GoldenCurve :
-    """A golden I-V curve read back from disk."""
 
 
     name: str
 
-    """Device name."""
     header : dict[str, str]=field(default_factory = dict)
-    """Key and value pairs from the commented header."""
 
 
 
     voltage :   list[ float] = field (default_factory  = list)
-    """Anode bias [V]."""
 
 
 
     current:list[float]= field(default_factory =list)
-    '''Terminal current into the anode [A/cm^2].'''
 
     cathode_current : list[float]  = field(default_factory=  list)
-    """Terminal current into the cathode [A/cm^2]."""
 
     def imbalance(self,index :int)-> float:
-        """How badly the two terminals fail to cancel at one point [1].
-
-        In steady state the anode and cathode currents sum to zero exactly, so
-        whatever is left is the golden datum's own numerical uncertainty. It is
-        not a solver tolerance: at reverse bias the terminal current is a
-        twelve decade cancellation between the drift and the diffusion term, so
-        a converged solve still leaves about a percent behind. A regression
-        test has no business demanding that ddsim match a number more closely
-        than that number agrees with itself.
-        """
         ano =  self.current[index]
         Cathode =self.cathode_current[index]
         sclae= max(abs(ano), abs(Cathode))
@@ -436,11 +262,6 @@ class GoldenCurve :
         return abs(ano + Cathode)/ sclae
 
 def read_golden(path :str)->GoldenCurve:
-    """Read one golden CSV, header comments and all.
-
-    Kept here rather than in the test so the generator and the reader agree on
-    the format by construction.
-    """
     arr  =   GoldenCurve(  name   = '' )
     with open(path, encoding =  "utf-8")  as q  :
 
@@ -465,88 +286,39 @@ def read_golden(path :str)->GoldenCurve:
 @dataclass(frozen= True)
 
 class MosBenchmark:
-    """One MOS capacitor from the tier 4 benchmark set of docs/04-validation.md.
-
-    An ideal capacitor: no fixed oxide charge, no poly depletion, an ideal metal
-    gate described by a work function alone. Both codes are told the same thing.
-    """
 
     name  : str
-    """Short name, also the golden file stem."""
 
     number:int
 
 
-    """Row in the docs/04-validation.md benchmark table."""
     substrate_doping : float
-    '''Net doping of the substrate [cm^-3], negative for p-type.'''
 
     t_ox: float
-    """Oxide thickness [cm]."""
     t_si : float
-    '''Silicon thickness [cm]. Several times the maximum depletion width, so
-    the body contact sits in neutral material.'''
 
     work_function:float
-    """Gate metal work function [eV]."""
     voltages : tuple[float,...]
-    """Gate biases to record [V], ascending and evenly spaced.
-
-    Evenly spaced on purpose: the capacitance is taken from the charge by a
-    central difference applied identically to both codes, and an uneven grid
-    would make that two different operators.
-    """
 
     tolerance  :  float
-
-    """Agreement required on gate charge and capacitance [1], as a fraction."""
 
 
 
     n_silicon :int=121
-    """ddsim node count through the silicon."""
 
 
 
     n_oxide:int=5
-    """ddsim node count through the oxide."""
 
 
     h_min  : float=5e-8
-    """ddsim mesh spacing at the silicon surface [cm]."""
     devsim_h_surface : float = 5e-9
-    """devsim mesh spacing at the silicon surface [cm].
-
-    0.05 nm. The inversion layer is a nanometre or so thick and is the only
-    structure on this device that a mesh can miss, so this is the one spacing
-    the answer is actually sensitive to. Measured on a refinement ladder at
-    +2 V, where the layer is thinnest: 8e-8 cm is 4.3e-4 off the converged
-    charge, 2e-8 is 9e-5, 5e-9 is 6.8e-5, and 1.25e-9 is where it stops moving.
-    5e-9 is two hundred times under the tolerance being asserted and still
-    coarser than a lattice constant, which is as far as a continuum model has
-    any business being refined.
-    """
     devsim_h_bulk  :  float  =   1e-6
 
-    """devsim mesh spacing at the body contact [cm].
-
-    Resolves the depletion edge, which is the only thing out here that moves.
-    Contributes 3.6e-6 at the next halving, against 1.2e-5 at 2e-6.
-    """
-
     devsim_oxide_cells:int= 8
-    """devsim cells through the oxide.
-
-    With no charge in it the oxide potential is a straight line, which any
-    number of cells resolves exactly. Measured rather than assumed: the gate
-    charge is identical from 2 cells to 32 to within 8e-15, which is round off.
-    Kept at 8 because it costs nothing.
-    """
     notes : str = ''
-    """What this device is for, carried into the golden file header."""
 
 def _gate_sweep(low : float, high : float, step  : float)  ->  tuple[float, ...]  :
-    """Gate biases from low to high inclusive [V], evenly spaced."""
     cou =  round ((high  -  low)  /   step  )
 
 
@@ -601,7 +373,6 @@ MOS_MODEL_SUMMARY :  tuple [str, ... ]   =   (
     f"eps_r(Si) = {EPS_R_SI}, eps_r(ox) = {EPS_R_OX}, n_i = {N_I:.6e} cm^-3, "
     f"T = {T} K, chi = {CHI_SI} eV, Eg = {EG:.6f} eV",
 )
-"""The model choices for the MOS benchmarks, verbatim into the golden header."""
 
 @dataclass
 
@@ -609,7 +380,6 @@ MOS_MODEL_SUMMARY :  tuple [str, ... ]   =   (
 
 
 class MosGoldenCurve  :
-    """A golden C-V curve read back from disk."""
 
     name :  str
     header  :  dict[str, str]= field(default_factory=  dict)
@@ -617,12 +387,10 @@ class MosGoldenCurve  :
     charge : list[float] =  field(default_factory  =list)
     @property
     def  tolerance (  self )   ->  float  :
-        """The agreement the header asks for [1]."""
         return float(self.header['tolerance'])
 
 def read_mos_golden(  path :   str)  ->  MosGoldenCurve  :
 
-    """Read one golden C-V CSV, header comments and all."""
     foo=MosGoldenCurve(name='')
     with open(path, encoding= "utf-8") as Handle :
         for  Line in  Handle   :
@@ -645,12 +413,6 @@ def read_mos_golden(  path :   str)  ->  MosGoldenCurve  :
     return foo
 
 def central_difference(voltage:list[float] |tuple[float,...], charge: list[float]|tuple[float,...],)->tuple[list[float],list[float]] :
-    """dQ/dV at the interior points of an evenly spaced sweep [V, F/cm^2].
-
-    The same operator on both codes, so its truncation error cancels out of the
-    comparison instead of being one more thing to argue about. The endpoints
-    have no centred neighbour and are dropped.
-    """
 
     miidpoints : list[float]= []
     slpes:list[float]= []
@@ -662,16 +424,6 @@ def central_difference(voltage:list[float] |tuple[float,...], charge: list[float
     return miidpoints,slpes
 
 def  erfcinv(  target  :  float )  -> float :
-    """Inverse of `math.erfc` on (0, 2), by bisection [1].
-
-    `scipy.special.erfcinv` is what ddsim's `device/mosfet.py` calls, and the
-    devsim interpreter has no scipy. Bisection on [-30, 30] matches it to
-    machine precision across the whole of (0, 2). The bracket has to reach
-    below zero because erfc passes through 1 at the origin, even though an
-    implant profile only ever asks for twice the ratio of two doping
-    concentrations and so stays well inside (0, 1).
-    `tests/regression/test_devsim_mosfet.py` pins the two against each other.
-    """
     if not 0.0 < target<2.0 :
         raise ValueError(f"erfc maps onto (0, 2), so target must too, got {target}")
     sum, hiigh = - 30.0, 30.0
@@ -695,25 +447,8 @@ MOSFET_PROCESS:dict[str,float]= {
 }
 
 
-"""The vertical process every MOSFET benchmark is drawn on.
-
-A literal mirror of `ddsim.extract.rolloff.SHORT_CHANNEL_PROCESS`, pinned key by
-key by `test_devsim_mosfet.py::test_process_mirrors_ddsim`. Benchmarks 6 to 8
-are that one process drawn at three gate lengths, which is what makes the set a
-roll-off measurement rather than three unrelated devices.
-"""
-
-
 
 def implant_shape(process:dict[str,float]) -> tuple[float,float]:
-    '''The two implant lengths ddsim's `nmos` derives from a process [cm, cm].
-
-    Returns `(sigma, edge)`: the depth standard deviation of the gaussian and
-    the characteristic length of the lateral erfc. Both are closed form in
-    `ddsim/device/mosfet.py` and are reproduced here rather than imported,
-    because the generator runs under an interpreter that has no ddsim. The
-    mirror test compares the pair against the values ddsim computes.
-    '''
 
 
     Na= - process["substrate_doping"]
@@ -725,41 +460,11 @@ def implant_shape(process:dict[str,float]) -> tuple[float,float]:
 H_DEPTH_SIGMAS =0.25
 
 
-"""Row spacing through the implant, as a fraction of the implant sigma [1].
-
-The source and drain profile is a Gaussian of width `implant_shape(...)[0]`,
-and the row spacing that resolves it has to be derived from that width rather
-than picked. The old value was a flat 1e-6 cm, which on this process is 1.21
-sigma: more than one standard deviation per row, which puts the metallurgical
-junction in the wrong place. Measured on the 1 um device at 50 mV, halving
-every spacing from there moved the drain current 4.6 percent at zero gate and
-2.9 percent at 0.1 V, and the split showed the lateral columns contributed
-0.036 percent of it and these rows almost all the rest.
-
-A quarter of a sigma is where it stops mattering. Going from 1.21 to 0.25 sigma
-takes the same halving check to 0.53 percent at zero gate and under 0.08
-percent everywhere else, and going on to 0.125 sigma moves the answer a further
-0.015 percent, so the profile is resolved. ddsim needed no equivalent change:
-it grades its own rows and already samples this implant at 0.21 sigma at the
-junction depth, which is what `test_ddsim_resolves_the_implant` holds it to.
-"""
 H_DEPTH  =implant_shape(MOSFET_PROCESS)[0] *H_DEPTH_SIGMAS
 
-"""Row spacing at the implant depth line [cm]. See `H_DEPTH_SIGMAS`."""
-
 REDUCED_MODELS  =  "reduced"
-"""Boltzmann statistics and constant mobility. Benchmarks 6 to 9."""
 
 FULL_MODELS ='full'
-
-
-'''Fermi-Dirac by Joyce-Dixon, Arora inside Lombardi inside Caughey-Thomas.
-
-The model set the README roll-off figure runs and the one phases/PHASE-5.md
-names as not optional. Benchmark 10 is the only benchmark on it, and it exists
-because nothing else in tier 4 puts either mobility model in front of an
-outside code.
-'''
 
 
 
@@ -768,140 +473,48 @@ outside code.
 
 
 class  MosfetBenchmark :
-    """One NMOS from the tier 4 benchmark set of docs/04-validation.md."""
 
     name:str
-    """Short name, also the golden file stem."""
 
 
 
     number  :int
-    '''Row in the docs/04-validation.md benchmark table.'''
 
 
     L_gate :float
-    """Drawn gate length [cm]. 1e-4 is 1 um."""
     gate_voltages  :  tuple[ float,   ... ]
 
 
-    """Gate biases to record [V], ascending from the off state."""
-
     drain_low  : float
-    """Drain bias of the linear curve [V], the one thresholds are read off."""
     drain_high :float
-    """Drain bias of the saturated curve [V], the one DIBL is read off."""
     tolerance :   float
-    """Agreement required on drain current [1], as a fraction."""
 
     devsim_h_junction: float  = 5e-7
 
-    """devsim column spacing at each metallurgical junction [cm].
-
-    The default is the 1 um value. The two short devices set their own, because
-    a column spacing of half a micron is wider than their whole gate.
-    """
-
 
     devsim_h_channel  : float=2e-6
-    '''devsim column spacing in the middle of the channel [cm].
-
-    The default is the 1 um value, for the same reason `devsim_h_junction` is.
-    '''
 
     devsim_h_contact  : float =  4e-6
-    """devsim column spacing under each contact plate [cm]."""
     devsim_h_surface :float =  6.25e-9
-    """devsim row spacing at the silicon surface [cm].
-
-    The inversion layer is a nanometre or so thick and is the only structure on
-    this device that a mesh can miss, so this is the spacing the drain current
-    is actually sensitive to, and it is the one spacing that is not coarsened.
-    Measured on the 1 um device at zero gate and 50 mV of drain, where the
-    current is drain junction leakage and so at its most mesh sensitive,
-    relaxing it alone from 5e-8 to 2e-7 moved devsim's answer from 1.5612e-6 to
-    2.1849e-6 A/cm, which is 46 percent. No other spacing on this device moves
-    the answer anything like that far.
-
-    It is 6.25e-9 rather than that 5e-8 because at 5e-8 neither code was
-    converged. ddsim's own ladder, in
-    tests/convergence/test_mosfet_mesh_convergence.py, still moved 5.0 percent
-    subthreshold when the vertical mesh was halved from there, and the two
-    codes are matched at the same surface spacing on purpose, so a reference
-    left at 5e-8 would have agreed with ddsim to a fraction of a percent while
-    both sat 7 percent from the limit. This value is three halvings down, where
-    the move is 0.12 percent, inside the tenth of tolerance
-    test_devsim_mosfet.py::test_golden_reference_is_converged demands.
-    """
     devsim_h_depth  :   float  = H_DEPTH
-    """devsim row spacing at the implant depth [cm]."""
 
     devsim_oxide_cells  :  int  = 32
-    """devsim cells through the oxide.
-
-    The oxide holds no charge, so its potential is a straight line and any
-    number of cells resolves a straight line exactly. What fixes this number is
-    the other side of the interface: t_ox / devsim_oxide_cells is the cell the
-    silicon surface spacing meets at the seam, and on this process, 2 nm of
-    oxide, 32 cells makes that 6.25e-9 and the seam ratio exactly 1. Refining
-    devsim_h_surface without following it here reopens the seam, which reads as
-    a converging refinement and is partly a widening discontinuity. See
-    docs/05-pitfalls.md.
-    """
 
     models:str=REDUCED_MODELS
-    """Which model set this benchmark was solved with.
-
-    `REDUCED_MODELS` for benchmarks 6 to 9, which match both codes at Boltzmann
-    statistics and constant mobility so that what they compare is the 2D
-    transport and the electrostatics. `FULL_MODELS` for benchmark 10, the one
-    that puts the Phase 5 stack in front of an outside code.
-    """
 
 
     notes: str =""
-    """What this device is for, carried into the golden file header."""
 
 
 
 CURRENT_FLOOR_MOSFET  = 1e-12
 
-"""Below this current magnitude a transfer curve carries no information [A/cm].
-
-The off state of these devices is reverse drain junction leakage, which both
-codes compute as a difference of much larger fluxes. Points under the floor are
-checked against the floor rather than against each other, which is the rule the
-diode benchmarks already use for the same reason.
-"""
-
 def _gate_range (low   :  float,  high   :  float,   step  :   float  ) ->   tuple[  float ,   ...  ] :
 
-    """Gate biases from low to high inclusive [V], evenly spaced."""
     coount = round((high - low) / step); return tuple(round(low +index*step,10)for index in range(coount+ 1))
 MOSFET_BENCHMARKS   :   tuple[  MosfetBenchmark,   ...] =   (MosfetBenchmark(name =  "nmos_1um", number =  6 , L_gate  =  1e-4, gate_voltages =  _gate_range( 0.0,  1.5 ,  0.1) , drain_low  =  0.05 , drain_high  = 1.0, tolerance   =   0.05, notes  = ('The long device. At 1 um this process has no short channel effect ' "left in it, so it is the reference the shorter ones are measured " 'against and the one place where a disagreement is about the 2D ' "transport rather than about a barrier."),) , MosfetBenchmark (name  =  'nmos_180nm', number  = 7, L_gate   =   1.8e-5, gate_voltages  =  _gate_range(  0.0 , 1.5,  0.1  ) , drain_low  = 0.05, drain_high   =  1.0, tolerance  =   0.05, devsim_h_junction   =   2.25e-7, devsim_h_channel  =   4.5e-7, notes  =   ("The same process drawn at 180 nm. The lateral encroachment leaves " '160 nm of metallurgical channel, so roll-off has started but the ' "device is still comfortably long channel. The lateral spacings " 'are half what they first were, because on this device the columns ' "and not the implant rows carry the mesh error: halving them alone " 'moved the drain current 6.9e-3 of a 7.3e-3 total and halving the ' 'rows alone moved it 5.7e-4. At 4.5e-7 the gate spans 40 columns, ' 'against the 20 it had and the 50 the 1 um device gets.'),), MosfetBenchmark(name  =   'nmos_65nm', number   =  8 , L_gate = 6.5e-6, gate_voltages =  _gate_range( -  0.2 , 1.5, 0.1) , drain_low  = 0.05, drain_high =  1.0, tolerance   = 0.08, devsim_h_junction  = 8.125e-8 , devsim_h_channel =   1.625e-7, notes  =  ("45 nm of metallurgical channel. This is the DIBL row: the point of " 'it is the gap between the two curves, so the gate sweep starts ' 'below zero to hold the off state of both. The lateral spacings are ' 'half what they first were, and the columns carry that alone ' "because the rows cannot take up any slack. Halving one axis at a " 'time from the original mesh: columns alone moved the drain current ' "1.6606e-2 of a 1.964e-2 total, rows alone 2.6789e-3. Halving the " "rows again is not available, since most of their residual is " "devsim_h_surface and that is already 6.25e-9, where the next " 'halving is a third of an angstrom and past where a continuum ' "model means anything. The columns converge at order 2.07, taken " "off the 180 nm device's own before and after pair rather than " "assumed, so one halving takes their 1.6606e-2 to about 3.9e-3 and " "leaves the pair near 6.6e-3. A quartering was tried first and its " 'halved mesh check could not be solved in the memory available, ' "11022 silicon nodes shipping and about four times that to check.") ,) ,)
 
 def _rolloff(name:str,L_gate:float) -> MosfetBenchmark :
-    """One gate length of the benchmark 9 trend.
-
-    Args:
-        name: golden file stem.
-        L_gate: drawn gate length [cm].
-
-    Every length gets the same gate range and the same 40 columns across the
-    gate. The column count is the rule the two short benchmarks arrived at by
-    measurement rather than a guess: on both of them the lateral columns and
-    not the implant rows carried the mesh error, and 40 is what cleared the
-    gate at 180 nm and at 65 nm. It reproduces their spacings exactly, 4.5e-7
-    at 180 nm and 1.625e-7 at 65 nm. See the 2026-09-12 rows in
-    docs/07-decisions.md.
-
-    The gate range stops at +0.6 V because this benchmark reads a threshold and
-    nothing above one. The constant current target is REFERENCE_CURRENT / L, so
-    it rises as the gate shortens while the threshold falls, and both ends have
-    to be bracketed: at 1 um the target is 1e-3 A/cm and is crossed near
-    +0.21 V, and at 50 nm it is 2e-2 A/cm and is crossed near zero, lower again
-    on the saturated curve where DIBL has moved it. -0.4 V is below every one of
-    them and +0.6 V is above every one of them with room to spare.
-    """
     return MosfetBenchmark(
         name=name,
         number= 9,
@@ -930,40 +543,8 @@ ROLLOFF_BENCHMARKS  : tuple[MosfetBenchmark, ...] =(
 
 
 
-"""Benchmark 9's gate lengths that need their own golden file.
-
-The 1 um point is not here because it does not need generating. `nmos_1um`
-already sweeps 0 to 1.5 V at 50 mV of drain and its curve crosses the 1e-3
-A/cm target near +0.21 V, so the threshold can be read straight off the file
-benchmark 6 already ships. Its subthreshold steps are 0.1 V against these
-0.05, which is a larger interpolation error on one of five points and far
-inside a 10 percent target.
-"""
-
-
-
 def _full_stack(name :str, L_gate  : float) -> MosfetBenchmark :
 
-    """One gate length of benchmark 10, the full model stack trend.
-
-    Args:
-        name: golden file stem.
-        L_gate: drawn gate length [cm].
-
-    The same five devices as benchmark 9 and the same gate range, solved with
-    Fermi-Dirac statistics and Arora inside Lombardi inside Caughey-Thomas on
-    both sides instead of Boltzmann and a constant mobility. Benchmark 9 says
-    the two codes agree about the electrostatics and the 2D transport; this one
-    is the only place either mobility model or the statistics meets an outside
-    implementation at all.
-
-    The spacings are benchmark 9's rule, 80 columns across the gate at the
-    junctions and 40 through the channel, held no coarser than the pair the
-    1 um device was measured on. At 1 um the rule alone would give 1.25e-6 and
-    2.5e-6, both coarser than the 5e-7 and 2e-6 benchmark 6 converged at, and
-    a reference mesh that gets coarser as the device gets longer is not a
-    trend, it is two experiments.
-    """
     return MosfetBenchmark (
         name  = name,
         number =  10,
@@ -993,18 +574,13 @@ FULL_STACK_BENCHMARKS  :  tuple [MosfetBenchmark,   ...  ]  =   (
     _full_stack ( "fullstack_50nm",   5e-6  ) ,
 )
 
-"""Benchmark 10, the gate length trend at the Phase 5 model stack."""
-
 FULL_STACK_TREND  :  tuple[str, ...]  = tuple(
     b.name for b in FULL_STACK_BENCHMARKS
 )
-"""Benchmark 10's five gate lengths, longest first, by golden file stem."""
 
 ROLLOFF_TREND: tuple[str,...]=('nmos_1um',) +tuple(
     b.name for b in ROLLOFF_BENCHMARKS
 )
-
-"""Benchmark 9's five gate lengths, longest first, by golden file stem."""
 
 MOSFET_BY_NAME  :  dict[ str ,  MosfetBenchmark  ] = {b.name  :   b for  b in  MOSFET_BENCHMARKS  +  ROLLOFF_BENCHMARKS   + FULL_STACK_BENCHMARKS}
 MOSFET_MODEL_SUMMARY  : tuple [  str ,   ...  ]   =  (
@@ -1025,17 +601,8 @@ MOSFET_MODEL_SUMMARY  : tuple [  str ,   ...  ]   =  (
     f"eps_r(Si) = {EPS_R_SI}, eps_r(ox) = {EPS_R_OX}, n_i = {N_I:.6e} cm^-3, "
     f"T = {T} K, chi = {CHI_SI} eV, Eg = {EG:.6f} eV" ,
 )
-"""The model choices for benchmarks 6 to 9, verbatim into every header.
-
-Constant mobility rather than the Phase 5 stack, and Boltzmann rather than
-Fermi-Dirac. Both codes are run that way, so the comparison is still a
-comparison, but what it measures is the 2D transport, the geometry and the
-electrostatics and not the mobility models. See the dated row in
-docs/07-decisions.md, and see benchmark 10 for the set that does measure them.
-"""
 _FULL_STACK_REPLACED=('statistics:',"transport:","mobility:",'source/drain:')
 
-"""The reduced set's lines that benchmark 10 replaces rather than keeps."""
 FULL_STACK_MODEL_SUMMARY: tuple[str,...]=(
     "statistics:      Fermi-Dirac by the Joyce-Dixon series, "
     f"Nc = {NC_300:.3e} and Nv = {NV_300:.3e} cm^-3, series capped at "
@@ -1056,11 +623,8 @@ FULL_STACK_MODEL_SUMMARY: tuple[str,...]=(
     if not line.startswith(_FULL_STACK_REPLACED)
 )
 
-"""Benchmark 10's header, the reduced one with the model lines replaced."""
-
 def mosfet_model_summary(models:str)->tuple[str,
           ...] :
-    """The header lines describing one model set."""
     if models  ==  FULL_MODELS :
         return FULL_STACK_MODEL_SUMMARY
     return MOSFET_MODEL_SUMMARY
@@ -1069,7 +633,6 @@ def mosfet_model_summary(models:str)->tuple[str,
 
 
 class MosfetGoldenCurve:
-    '''The two transfer curves of one MOSFET, read back from disk.'''
 
     name :str
     header: dict[str,str] =field(default_factory=dict) ; gate_voltage   : list [float]   =  field ( default_factory =  list )
@@ -1082,18 +645,9 @@ class MosfetGoldenCurve:
 
     @property
     def tolerance(self)-> float  :
-        """The agreement the header asks for [1]."""
         return float(self.header["tolerance"])
 
     def imbalance(self,index :int,high:bool)-> float:
-        """How badly drain and source fail to cancel at one point [1].
-
-        The body current is many decades below either of them on a device with
-        no impact ionisation, so in steady state the two surface terminals sum
-        to zero and whatever is left is the golden datum's own numerical
-        uncertainty. A regression test has no business demanding that ddsim
-        match a number more closely than that number agrees with itself.
-        """
 
 
         dain =  (self.drain_high if  high  else self.drain_low)  [ index  ]
@@ -1103,36 +657,6 @@ class MosfetGoldenCurve:
 
 
 def first_resolved_point( current :  Sequence[  float], target :   float  )  ->   int  :
-    """Where a transfer curve stops being the terminal floor [index].
-
-    A constant current threshold needs a curve that rises with the gate bias,
-    and neither code gives one all the way down. Both have a terminal current
-    floor in deep subthreshold, because the terminal current is a difference of
-    much larger Scharfetter-Gummel fluxes and eventually the difference is
-    smaller than the roundoff of the fluxes. ddsim's floor is near 2e-9 A/cm
-    and lands negative, which is what the leading non positive rule caught.
-    DEVSIM's floor at the full model stack is three decades lower and does not
-    land negative: on the 100 nm device at 50 mV it reads +3.52e-11 at -0.4 V
-    and +9.56e-12 at -0.35, falling where a real subthreshold current rises by
-    a factor of about 4.5 per 50 mV step, with drain and source both positive
-    and cancelling to an imbalance of 1.01 rather than to zero.
-
-    So the rule is the sign of the slope rather than the sign of the current,
-    which is the property that actually distinguishes the two: the longest
-    strictly rising, strictly positive tail is kept and the leading run is
-    dropped. What keeps that from swallowing a genuine solver failure is the
-    caller's bound, not this function: every dropped point has to sit a
-    ten thousandth of the extraction target below it, so a break anywhere the
-    threshold could be read from fails loudly instead of being trimmed away.
-
-    Args:
-        current: drain current against gate bias, in sweep order [A/cm].
-        target: the constant current the threshold is read at [A/cm].
-
-    Returns:
-        The first index of the rising tail. Callers slice both the bias and the
-        current from it.
-    """
     j=[float(myvar) for myvar in current]
     sta = 0
     for acc in range(len(j)  - 1, 0, - 1) :
@@ -1154,7 +678,6 @@ def first_resolved_point( current :  Sequence[  float], target :   float  )  -> 
 
     return sta
 def read_mosfet_golden(path:  str)  ->  MosfetGoldenCurve :
-    """Read one golden transfer pair, header comments and all."""
     foo  = MosfetGoldenCurve (  name  =   ''  )
     with open(path, encoding  = 'utf-8')  as han:
         for liine in han:

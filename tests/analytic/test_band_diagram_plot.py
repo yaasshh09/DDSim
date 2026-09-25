@@ -1,12 +1,3 @@
-"""Generates the PN diode band diagram named in the Phase 1 definition of done.
-
-Headless matplotlib. The figure is written into docs/images so the README can
-point at it. It is produced by a test rather than a script so that it cannot
-drift away from the code that makes it.
-"""
-
-
-
 from  __future__  import  annotations
 import math
 
@@ -26,7 +17,6 @@ OUTPUT  = pathlib.Path(__file__).parents[2] / "docs"/  'images'
 
 
 def test_band_diagram_is_generated() -> None:
-    '''A 1e16 / 1e16 diode at equilibrium: bands, carriers and field.'''
     bb  =  pn_diode(Na = 1e16, Nd  = 1e16, length =  4e-4, junction=  2e-4, n_nodes= 801)
     filter  =  solve_equilibrium( bb  )
 

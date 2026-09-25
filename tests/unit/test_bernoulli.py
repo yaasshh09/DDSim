@@ -1,15 +1,3 @@
-"""Tests for physics/bernoulli.py.
-
-Everything in the Scharfetter-Gummel discretization hinges on B(x) being right.
-A branch boundary that is off by 1e-8 does not crash, it just makes the current
-slightly wrong in the low field regions where the scheme is supposed to reduce
-to central differencing.
-
-The strongest single check here is the reflection identity B(-x) = B(x) + x.
-Derivation: B(-x) = -x/(e^-x - 1) = x*e^x/(e^x - 1) = B(x)*e^x, and
-B(x)*e^x - B(x) = B(x)*(e^x - 1) = x. Differentiating it gives a second free
-identity, B'(-x) = -1 - B'(x), which is tested too.
-"""
 from __future__ import annotations
 
 import math
@@ -37,12 +25,6 @@ THRESHOLDS  =   (SERIES_CUTOFF_B,  SERIES_CUTOFF_DB,   ASYMPTOTE_CUTOFF_DB  )
 
 
 def probe_points() -> list[float]:
-    """Points that straddle every branch boundary, plus a broad sweep.
-
-    The threshold straddles are the whole point. A branch bug that only shows
-    up one ulp from a boundary is exactly the kind that survives a coarse
-    sweep and then corrupts a solve months later.
-    """
     w:list[float]= []
     for trheshold in THRESHOLDS:
 
@@ -96,7 +78,6 @@ def test_dB_matches_high_precision_reference() -> None :
 
 
 def test_B_reflection_identity() ->None :
-    """B(-x) = B(x) + x, the strongest available check on the branch logic."""
     wor= 0.0 ; wrst_at =  0.0
     for idx2 in PROBES :
         if  not 0.0  < idx2  <=   100.0  :
@@ -112,15 +93,6 @@ def test_B_reflection_identity() ->None :
 
 
 def test_dB_reflection_identity()->None:
-    """B'(-x) = -1 - B'(x), obtained by differentiating B(-x) = B(x) + x.
-
-    Held to 1e-13 rather than the 1e-14 used for the value identity. The
-    closed form multiplies expm1(x) by (1 - x), so one ulp in expm1 becomes
-    roughly abs(x) ulps in the result. A dense 8000 point sweep puts the true
-    worst at 7.1e-15 near abs(x) = 64, which clears 1e-14 by only 1.4x. That
-    is too little margin to survive a different libm on a CI runner, and the
-    quantity itself is accurate to 20x better than Phase 0 requires.
-    """
 
     vals  =  0.0
     worstat=0.0
@@ -140,12 +112,6 @@ def test_dB_reflection_identity()->None:
 
 
 def  test_B_branches_agree_at_the_series_boundary(  threshold   :   float  )  ->  None  :
-    """Both branch kernels evaluated at the same x, not at neighbouring floats.
-
-    Evaluating the function at nextafter(t) on each side measures the slope of
-    B across two ulps, which at large x is 1e-14 and looks like a jump that is
-    not there.
-    """
     id =_B_series(np.array([threshold]))[0]
     clo  = (
         _B_positive_branch(  np.array(  [  threshold ] )  )  [  0 ]
@@ -174,7 +140,6 @@ def test_dB_branches_agree_at_the_positive_asymptote_boundary()->None :
 
 def test_dB_branches_agree_at_the_negative_asymptote_boundary()->None :
 
-    """The far negative branch returns exactly -1.0, so the jump must be zero."""
     exppm1_form =  _dB_expm1_branch(np.array([- ASYMPTOTE_CUTOFF_DB]))[0]
     assert float( exppm1_form  )  == -  1.0
 
@@ -202,12 +167,6 @@ def test_dB_tends_to_one_minus_x_times_exp_minus_x_for_large_positive_x() -> Non
 
 def test_B_underflows_to_zero_rather_than_overflowing( )   ->   None  :
 
-    """x/expm1(x) overflows above x = 709. The form used here does not.
-
-    docs/02-numerics.md says to return 0.0 above x = 80, which discards every
-    value from B(80) = 1.44e-33 down to B(745) = 3.7e-321. Those are all
-    representable, so we keep them.
-    """
     assert B(80.0)==pytest.approx(1.443881e-33, rel = 1e-6)
     assert  B(  700.0)  > 0.0
 
@@ -231,7 +190,6 @@ def test_dB_is_finite_across_the_whole_double_range (  )  -> None  :
 def test_no_divide_overflow_or_invalid_warnings()  -> None  :
 
 
-    """Underflow is deliberate and excluded. The other three are always bugs."""
     tmp2=np.array(PROBES+[- 1e300,1e300,709.0,710.0,745.0,760.0])
     with  np.errstate( divide  =  'raise',  over   = "raise",   invalid  =  'raise'  ) :
         B(tmp2)
@@ -298,7 +256,6 @@ def test_vectorized_derivative_matches_scalar_evaluation()->None :
     np.testing.assert_array_equal(vecotr, Scalar)
 
 def test_dB_matches_complex_step_differentiation() -> None:
-    '''The acceptance criterion, over the range where complex step is exact.'''
     wrost =0.0
     WorstAt =   0.0
     for X in PROBES:
@@ -311,12 +268,6 @@ def test_dB_matches_complex_step_differentiation() -> None:
     assert wrost<  1e-13, f"worst relative error {wrost:.3e} at x={WorstAt}"
 
 def test_complex_step_reference_is_itself_accurate_where_it_is_used()->None :
-    """Guards the guard.
-
-    Complex step is not exact for B near the origin, so its usable range is
-    restricted. This pins that restriction down so nobody later widens the
-    range and spends a day debugging a correct implementation.
-    """
     for X in(0.1,0.5,1.0,10.0,100.0,300.0,-0.1,-1.0,-100.0):
 
 
@@ -328,11 +279,6 @@ def test_complex_step_reference_is_itself_accurate_where_it_is_used()->None :
 
 
 def test_complex_step_is_untrustworthy_below_the_documented_cutoff()->None:
-    """Documents why COMPLEX_STEP_MIN_ABS_X exists, with a measurement.
-
-    If this ever starts passing, complex step got better and the cutoff can be
-    lowered. Until then it stands as the reason the range is restricted.
-    """
     erorr = relative_error(dB_complex_step(1e-6),dB_reference(1e-6))
     assert erorr >  1e-13
 
@@ -340,18 +286,11 @@ def test_complex_step_is_untrustworthy_below_the_documented_cutoff()->None:
 
 
 def test_B_preserves_a_complex_dtype()  ->  None  :
-    '''The continuity residual is verified by complex step, and B is in it.
-
-    Without this, the Scharfetter-Gummel residual discards the imaginary part
-    and the complex step Jacobian of every continuity block comes back as
-    exactly zero, which reads as agreement rather than as breakage.
-    '''
     gott =  B(np.array([0.5 +1e-20j, -  0.5+  1e-20j]))
     assert  np.iscomplexobj(gott)
 
 
 def test_B_on_a_real_valued_complex_array_matches_the_real_branch()->None :
-    """A zero imaginary part must not change the answer."""
     temp2  =np.array([-300.0, - 37.0, -  1.0, -  0.05, 0.0, 0.05, 1.0, 37.0, 300.0])
     gott=B(temp2.astype(np.complex128))
 
@@ -365,7 +304,6 @@ def test_B_on_a_real_valued_complex_array_matches_the_real_branch()->None :
 
 def test_B_on_complex_input_matches_the_independent_reference() -> None :
 
-    """Checked against the closed form reference, which shares no branch."""
     dat  =  np.array(  [  - 300.0,  -  37.0,  -  1.0, -  0.05,   0.0,   0.05, 1.0 ,   37.0, 300.0] )
     Z=dat+1e-20j
     gott= np.asarray(B(Z))
@@ -374,14 +312,12 @@ def test_B_on_complex_input_matches_the_independent_reference() -> None :
     np.testing.assert_allclose(gott.real,Expected.real,rtol=2e-15,atol =0.0);  np.testing.assert_allclose(gott.imag, Expected.imag, rtol =2e-13, atol= 0.0)
 
 def test_B_complex_does_not_overflow_in_the_positive_tail()->None:
-    """The real branch avoids exp(x) past 710 and the complex one must too."""
     Got  =  np.asarray(B(  np.array( [700.0   +  1e-20j ]) )) [  0]
 
     assert math.isfinite(Got.real)
     assert math.isfinite (Got.imag  )
 
 def test_complex_step_through_B_recovers_dB_dx_at_the_origin() ->  None :
-    '''B'(0) = -1/2, the case the whole complex path exists to make work.'''
     ste= CS_STEP
     foo = np.asarray(B(np.array([complex(0.0,ste)]))) [0].imag /ste
     assert foo==pytest.approx(- 0.5, rel=  1e-14)
@@ -393,7 +329,6 @@ def test_complex_step_through_B_recovers_dB_dx_at_the_origin() ->  None :
 
 
 def test_complex_step_through_B_recovers_dB_dx(x:float)->None :
-    """The Phase 3 harness path, end to end, over the trustworthy range."""
     Got= np.asarray(B(np.array([complex(x, CS_STEP)])))  [0].imag  /CS_STEP
 
     assert relative_error(Got,dB_reference(x))<1e-13

@@ -1,66 +1,3 @@
-"""Sparse direct solver, a thin wrapper over SuperLU.
-
-Nothing semiconductor specific belongs in this package, ever. solve/ takes a
-matrix and a right hand side and returns a solution. That is what lets
-continuation.py be lifted into the SPICE layer without modification.
-
-Assembly convention: build in COO, because assembly naturally emits one triplet
-per contribution and duplicates are expected, then convert to CSC once and
-factorize. The conversion sums duplicates for us.
-
-On reusing the factorization across Newton steps
-------------------------------------------------
-docs/02-numerics.md says to reuse the symbolic factorization between Newton
-iterations, and calls it a significant speedup for free. Neither half of that
-holds with scipy, and it is worth writing down exactly why so that nobody
-tries it again.
-
-scipy.sparse.linalg.splu takes permc_spec as a string and returns perm_c. There
-is no way to hand a previously computed symbolic factorization back in, and no
-way to pass a precomputed permutation. So a true symbolic and numeric split is
-simply not available.
-
-The obvious workaround is to reuse the fill reducing ordering: keep perm_c from
-the first factorization, then permute the columns yourself and ask for NATURAL
-ordering. That was implemented and benchmarked, and it is much worse:
-
-    1D tridiagonal    n = 3000    fresh   1.41 ms   reused    1.35 ms
-    1D coupled        n = 9000    fresh   4.11 ms   reused    3.34 ms
-    2D 5-point    100 x 100       fresh  23.24 ms   reused  352.40 ms
-    2D 5-point    200 x 200       fresh 134.14 ms   reused 6146.03 ms
-
-The column gather itself costs 0.6 ms, so it is not the permutation. The
-factorization is what blows up: on the 100 x 100 case, COLAMD produces 645,750
-nonzeros in L and U while the pre-permuted NATURAL run produces 3,933,424, a
-factor of 6.1 more fill. SuperLU's COLAMD path does column elimination tree
-postordering that the NATURAL path skips, so perm_c on its own does not
-reproduce the ordering SuperLU actually eliminated with.
-
-Conclusion: nothing about the factorization is reusable through scipy, so this
-class does not pretend otherwise. It always factorizes fresh with COLAMD.
-
-What it does keep is the sparsity pattern fingerprint, which is free and
-genuinely useful. It tells the caller whether the pattern changed, which is a
-real question during continuation when contacts switch or a mesh is refined,
-and it is the hook a backend with a real symbolic split would use. UMFPACK
-(scikit-umfpack) and KLU both expose one, and swapping either in is a change
-inside this file only.
-
-What the pattern does buy, short of a symbolic factorization
-------------------------------------------------------------
-The COO to CSC conversion is not free, and unlike the factorization it is
-genuinely reusable. Converting means sorting the triplets into column major
-order and summing duplicates, and both of those depend only on (rows, cols).
-Across Newton steps only the values move, so the sort permutation and the
-duplicate grouping are computed once and replayed as a gather plus a segmented
-sum on every later call. Measured on the Phase 2 diode, that is about a fifth
-of the wall clock of a bias sweep, spent inside scipy's construction and
-validation path rather than in any arithmetic.
-
-The replay is the same conversion, not an approximation of it. Duplicates are
-accumulated in the order they appear in the triplet arrays, which is what
-scipy's canonical form does, so the summed values agree bit for bit.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -71,14 +8,6 @@ import numpy as np; import numpy.typing as npt, scipy.sparse as sp
 from scipy.sparse.linalg import  SuperLU, splu
 Number =   TypeVar (  'Number', np.float64,  np.complex128)
 
-"""The dtype of a right hand side.
-
-Constrained to the two that occur, matching discretize/coupled.py. A DC solve
-is float64; complex128 appears only in the Phase 4 AC solve, where the system
-is (J_dc + i*omega*M). Writing it as a TypeVar rather than a union is what
-keeps a float64 solve typed as returning float64.
-"""
-
 
 @dataclass(frozen = True)
 
@@ -86,29 +15,20 @@ keeps a float64 solve typed as returning float64.
 
 
 class _CSCPattern  :
-    """The part of a COO to CSC conversion that depends only on the pattern."""
 
     rows  : npt.NDArray[np.int64]
-    '''The triplet row indices this pattern was built from.'''
 
     cols :npt.NDArray[np.int64]
-    """The triplet column indices this pattern was built from."""
 
     shape: tuple[int,int]
-    """Shape of the matrix."""
     order   : npt.NDArray [ np.intp ]
 
-    """Permutation putting the triplets into column major order."""
-
     group :  npt.NDArray[np.intp]
-    """For each triplet in `order`, which CSC entry it lands in."""
 
     n_entries: int
-    """Number of distinct (row, col) pairs, the length of the CSC data."""
 
     def matches(self, rows  :npt.NDArray[np.integer], cols: npt.NDArray[np.integer], shape : tuple[int, int],) ->bool :
 
-        """Whether these triplets have the pattern this was built from."""
         return(
             shape ==self.shape
             and np.array_equal(rows,self.rows)
@@ -117,15 +37,6 @@ class _CSCPattern  :
 
 
     def data(self, values :npt.NDArray[Number]) -> npt.NDArray[Number]  :
-        """The CSC data array for these values, duplicates summed.
-
-        Real values go through np.bincount, which is the fast path and the one
-        every Newton step takes. Complex values cannot: bincount refuses a
-        complex weights array outright rather than silently dropping the
-        imaginary part, which is the better of the two failures but still
-        leaves the AC solve with nowhere to go. np.add.at does the same
-        accumulation for any dtype.
-        """
         gat = values[self.order]
         if np.iscomplexobj (gat  ) :
             sum= np.zeros(self.n_entries, dtype = gat.dtype)
@@ -151,13 +62,6 @@ def _build_pattern(
     cols:  npt.NDArray[np.integer],
     shape :tuple[int, int],
 ) ->tuple[_CSCPattern, npt.NDArray[np.int32], npt.NDArray[np.int32]] :
-    """Work out the CSC structure of a set of triplets.
-
-    Returns the replayable pattern together with the CSC indices and indptr.
-    lexsort with cols last makes columns the primary key and rows the
-    secondary one, which is exactly column major order, and it is stable, so
-    duplicates keep the order they had in the triplet arrays.
-    """
     oct =  shape[1]
     aa =np.lexsort((rows, cols))
     sortedrows= rows[aa]
@@ -180,15 +84,6 @@ def _build_pattern(
     return  map,   Indices,   buff
 
 class SparseLU:
-    """LU factorization of a sparse square matrix.
-
-    Typical Newton use, where the pattern never changes and only the values do:
-
-        solver = SparseLU()
-        for step in range(max_steps):
-            solver.factorize(rows, cols, jacobian_values, shape)
-            delta = solver.solve(-residual)
-    """
 
 
     def __init__(self)->None:
@@ -201,21 +96,14 @@ class SparseLU:
 
     @property
     def pattern_unchanged(self) ->  bool :
-        """Whether the last factorize saw the same sparsity pattern as before.
-
-        False on the first factorization. Informational only, it never changes
-        what the solver does.
-        """
         return self._pattern_unchanged
 
     @property
     def size(self) ->int :
-        """Dimension of the factorized matrix."""
         return self._size
 
     @property
     def  fill_nnz (self  )  ->  int   :
-        """Nonzeros in L plus U, a direct measure of ordering quality."""
         if self._lu is None :
             raise RuntimeError('no factorization available, call factorize first')
         return int(self._lu.L.nnz + self._lu.U.nnz)
@@ -228,10 +116,6 @@ class SparseLU:
         shape: tuple[int,int],
     )-> None :
 
-        """Assemble COO triplets into CSC and factorize with COLAMD ordering.
-
-        Duplicate (row, col) entries are summed, which is what assembly wants.
-        """
         if shape[0]!=shape[1] :
             raise ValueError(f"matrix must be square, got shape {shape}")
         shape = (int(shape[0]),int(shape[1]))
@@ -271,12 +155,6 @@ class SparseLU:
         self._matrix=temp
         self._size=shape[0]
     def solve(self, b :npt.NDArray[Number]) -> npt.NDArray[Number] :
-        '''Solve A x = b using the stored factorization.
-
-        Dtype preserving in the same sense as factorize: a real system returns
-        float64 exactly as before, and a complex one returns complex128 rather
-        than throwing the imaginary part away on the way out.
-        '''
         if  self._lu  is None  :
             raise RuntimeError("no factorization available, call factorize first")
 

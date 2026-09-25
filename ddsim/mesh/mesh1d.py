@@ -1,31 +1,3 @@
-"""One dimensional meshes, uniform and graded.
-
-All lengths are in cm, matching the CGS-adjacent convention used throughout.
-A 1 um device is 1e-4 cm and 1 nm spacing is 1e-7 cm.
-
-The mesh carries both the primal grid (nodes and the edges between them) and
-the dual grid (the cell around each node). Scharfetter-Gummel fluxes live on
-edges and densities live on nodes, so both are needed everywhere.
-
-Dual cells in 1D are the intervals between edge midpoints:
-
-    volume[i] = (x[i+1] - x[i-1]) / 2      interior
-    volume[0] = (x[1] - x[0]) / 2          left boundary, a half cell
-    volume[-1] = (x[-1] - x[-2]) / 2       right boundary, a half cell
-
-Those two half cells at the ends are easy to get wrong, and getting them wrong
-makes every integrated charge in the device slightly off in a way that looks
-like a physical effect. The invariant to check is that the volumes sum to the
-domain length exactly.
-
-Grading requirement, from docs/02-numerics.md: the spacing at a junction must
-resolve the local Debye length, h < L_D / 2. At 1e18 cm^-3 that is about 2 nm,
-so a 1 um device with a 1e18 junction needs roughly a 1000 to 1 spacing range.
-The generator here handles that.
-"""
-
-
-
 from __future__ import annotations
 from dataclasses import dataclass
 
@@ -41,19 +13,9 @@ from ddsim.discretize.geometry import UNIFORM_1D,ScaledMesh
 _RATIO_TOLERANCE=  1e-14
 
 
-"""Relative tolerance for the geometric ratio solve [1]."""
-
 _DEGENERATE_TOLERANCE= 1e-12
-"""Below this relative difference, a side is treated as exactly uniform [1]."""
 
 _SCORE_SLACK= 1e-9
-"""How far above the best lower bound a split may still be worth scoring [1].
-
-The worst neighbouring cell ratio of a split is its growth ratio, up to the
-rounding in building the spacing array, which is at the last bit. This is many
-orders of magnitude above that rounding and many orders below the spacing
-between the growth ratios of two different splits.
-"""
 
 
 @dataclass( frozen   =  True  )
@@ -63,50 +25,33 @@ between the growth ratios of two different splits.
 class Mesh1D  :
 
 
-    """A 1D mesh with its primal and dual grids and the index maps between them."""
     x: npt.NDArray[np.float64]
 
 
-    """Node positions [cm], strictly increasing, x[0] = 0."""
-
     h :  npt.NDArray[  np.float64  ]
-    """Edge lengths [cm], length n_nodes - 1. Always equal to diff(x)."""
 
 
     volume  : npt.NDArray[  np.float64 ]
-    """Dual cell widths [cm], length n_nodes. Sums to the domain length."""
     edge_nodes : npt.NDArray[np.int64]
-    """Shape (n_edges, 2). edge_nodes[e] is the (left, right) node of edge e."""
     node_edges: tuple[tuple[int,...],...]
-    """node_edges[i] lists the edges touching node i. One entry at each
-    boundary, two in the interior."""
 
 
     def  scaled (  self,
       scale   :  ScaleFactors)  -> ScaledMesh   :
-        """This mesh in the units the assemblies work in.
-
-        In 1D the dual face is the unit cross section, so it stays exactly
-        1.0 and the geometry is the shared UNIFORM_1D default. That is what
-        keeps every number this project has ever produced where it is.
-        """
         return ScaledMesh(h=self.h / scale.x_0, volume=self.volume / scale.x_0, geometry=UNIFORM_1D,)
 
     @property
 
     def n_nodes(self) ->int :
-        """Number of nodes."""
         return int(self.x.size)
 
     @property
     def n_edges(self)-> int:
-        """Number of edges."""
         return int(self.h.size)
 
 
     @property
     def length( self) -> float  :
-        """Total domain length [cm]."""
         return float(self.x[-1] -self.x[0])
 
     def __repr__(self) ->  str :
@@ -117,11 +62,6 @@ class Mesh1D  :
 
 
 def _assemble(x :npt.NDArray[np.float64])->Mesh1D :
-    """Build the dual grid and index maps from node positions [cm].
-
-    h is recomputed from x rather than carried through, so that h == diff(x)
-    holds exactly no matter how x was constructed.
-    """
 
     hh =np.diff(x)
 
@@ -149,7 +89,6 @@ def _assemble(x :npt.NDArray[np.float64])->Mesh1D :
 
 
 def uniform_mesh_1d(length :float, n_nodes  :int)  ->  Mesh1D :
-    """A uniformly spaced mesh on [0, length] [cm]."""
     if length<= 0.0:
         raise ValueError(  f"length must be positive, got {length}"  )
     if n_nodes  < 2 :
@@ -165,18 +104,6 @@ def _geometric_sums(
     ratio   :  npt.NDArray[ np.float64],
     n_intervals : npt.NDArray[ np.float64 ],
 )  ->  npt.NDArray[np.float64 ]  :
-    """_geometric_sum evaluated on a whole array of (ratio, count) pairs [cm].
-
-    The same expression, evaluated everywhere and repaired afterwards rather
-    than branched around. A ratio of exactly 1 gives 0/0, and a ratio that
-    overshoots the double range gives infinity on its own, which is the answer
-    the scalar version reaches by its explicit log test. Both are what the
-    bisection below wants, since it only ever asks whether the sum has passed
-    the side length.
-
-    Every split of the mesh needs its own ratio solved, and solving them one
-    at a time spends more time in the interpreter than in the arithmetic.
-    """
 
 
     with np.errstate(over= 'ignore', invalid = "ignore", divide = "ignore")  :
@@ -185,14 +112,6 @@ def _geometric_sums(
 
 
 def _solve_ratios(side_length : float, h_min :  float, n_intervals:npt.NDArray[np.int64]) -> npt.NDArray[np.float64]  :
-    """_solve_ratio for many interval counts at once [1].
-
-    NaN marks a count the side cannot be covered with, which is what None
-    means in the scalar version. The bracketing and the bisection follow the
-    same schedule as the scalar version, element by element, with each entry
-    frozen as soon as it meets the same stopping test, so the answers agree
-    to the last bit.
-    """
     cou= np.asarray(n_intervals, dtype= np.float64)
     hmm = np.full(cou.shape, np.nan)
 
@@ -237,12 +156,6 @@ def _solve_ratios(side_length : float, h_min :  float, n_intervals:npt.NDArray[n
     hmm[soolving] = 0.5*(loww+ high)
     return  hmm
 def _side_spacings(side_length :float,h_min:float,n_intervals: int,ratio : float) ->npt.NDArray[np.float64]:
-    """Spacings for one side, ordered outward from the refinement point [cm].
-
-    Rescaled so the side sums to exactly side_length. The bisection above
-    lands within 1e-14 relative, and rescaling by a single positive factor
-    removes the remainder without disturbing the monotone ordering.
-    """
     spacngs= h_min* ratio **np.arange(n_intervals,dtype = np.float64)
     return spacngs  *(side_length/  spacngs.sum())
 
@@ -254,31 +167,6 @@ def graded_mesh_1d(
     h_min: float,
     max_ratio :float = 1.5,
 )  -> Mesh1D :
-    '''A mesh refined to h_min at refine_at, growing geometrically away from it.
-
-    Args:
-        length: domain length [cm].
-        n_nodes: total node count, at least 2.
-        refine_at: position of the finest spacing [cm], anywhere in [0, length].
-        h_min: spacing at the refinement point [cm].
-        max_ratio: largest allowed ratio between neighbouring cells [1].
-
-    The node count, the total length and the minimum spacing are all honoured
-    exactly. What gives is the growth ratio, which is solved for. If the
-    resulting mesh would be harsher than max_ratio, that is reported rather
-    than returned quietly, because a mesh with a 3x jump between neighbouring
-    cells produces truncation error that looks like a physical effect.
-
-    Spacing is monotone on each side of the refinement point. Monotone across
-    the whole mesh is not possible for an interior refinement, since the
-    spacing has to fall to h_min and rise again.
-
-    The split of nodes between the two sides is chosen to minimise the worst
-    neighbouring cell ratio. Every split's growth ratios are solved for, which
-    is enough to know its score without building its spacing array, so only the
-    splits that can actually win are built and measured. See the comment on the
-    bound below for why that is the same answer as scoring all of them.
-    '''
     if length <=  0.0 :
         raise ValueError(f"length must be positive, got {length}")
 
@@ -343,7 +231,6 @@ def graded_mesh_1d(
 
 
     def score_splits(indices :npt.NDArray[np.intp],)  ->tuple[npt.NDArray[np.float64]  |  None, float]:
-        """Worst neighbouring cell ratio of each split, best one kept."""
 
         chosen: npt.NDArray[np.float64] |None=None
         best = np.inf
@@ -394,36 +281,6 @@ def graded_mesh_1d(
 
 
 def graded_mesh_1d_at(length :   float , n_nodes  : int , points  :  tuple[ float,  ...], h_min  :   float, max_ratio :  float   = 1.5,)  ->   Mesh1D   :
-    """A mesh refined to h_min at every one of several points.
-
-    Args:
-        length: domain length [cm].
-        n_nodes: total node count.
-        points: where the finest spacing goes [cm], increasing, each strictly
-            inside the domain. A stack of doped regions passes its junctions.
-        h_min: spacing either side of every point [cm].
-        max_ratio: largest allowed ratio between neighbouring cells [1].
-
-    One point is graded_mesh_1d exactly, which is what keeps a two region
-    stack the Phase 2 diode to the last bit.
-
-    Several points are graded together, with one growth rate for the whole
-    mesh. Grading each point on its own over its share of the domain and
-    joining the shares halfway does not work: each share's growth is set by
-    its own longest side, so two shares meet at different spacings, and a
-    thin region between two junctions joined its neighbours with jumps of up
-    to 2.7.
-
-    The spacing the mesh aims for grows linearly with the distance d to the
-    nearest point, h = h_min + g d, which is what geometric growth by 1 + g
-    per cell looks like as a function of position. A side of length D then
-    wants ln(1 + g D / h_min) / g cells, and g is solved so that the sides
-    add up to the node count. Each side is then laid exactly as
-    graded_mesh_1d lays one, geometric from h_min, so every point is a node
-    with h_min either side of it. The two halves between neighbouring points
-    are the same length and get the same count, so they are mirror images
-    and meet at equal cells.
-    """
     if len(points)==1:
 
         if  not 0.0   < points[  0 ]  <   length  :
@@ -458,7 +315,6 @@ def graded_mesh_1d_at(length :   float , n_nodes  : int , points  :  tuple[ floa
         )
 
     def wanted(g : float)->npt.NDArray[np.float64]:
-        """Cells each side wants at growth rate g [1]."""
         return np.asarray(np.log1p(g *spaans /h_min)/g)
 
     loww,high=1e-12,1e6
@@ -512,35 +368,6 @@ def graded_mesh_1d_at(length :   float , n_nodes  : int , points  :  tuple[ floa
     xx[- 1  ] =  length
     return _assemble( xx)
 def graded_mesh_1d_through(length :  float , n_nodes  :   int, lines :  tuple [ float,   ...], points :  tuple[float, ... ], h_min   :   float, max_ratio   : float  =  1.5,) -> Mesh1D   :
-    '''A mesh with a node on every line, refined to h_min at every point.
-
-    Args:
-        length: domain length [cm].
-        n_nodes: total node count [1].
-        lines: positions that must be nodes [cm], anywhere in [0, length]. A
-            drawn 2D device passes the edges of everything drawn on it, since
-            a cell that is half oxide has no single permittivity.
-        points: positions the spacing is graded towards [cm], also nodes. A
-            drawn device passes its doping edges and its Si/SiO2 interfaces.
-            Empty for an axis with nothing to resolve, which then spaces its
-            nodes as evenly as the lines allow.
-        h_min: spacing aimed for at every point [cm].
-        max_ratio: largest allowed ratio between neighbouring cells [1].
-
-    The spacing aimed for is graded_mesh_1d_at's, h = h_min + g d with d the
-    distance to the nearest point, which is geometric growth written as a
-    function of position. Its node density 1/h integrates in closed form, and
-    g is solved so that the integral over the axis is the cell count. Each
-    span between neighbouring lines then takes a whole number of cells, the
-    integral over it rounded, and lays them at equal steps of the integral.
-    The density is continuous across a line, so a line lands where the
-    grading already was rather than where two gradings meet, which is what
-    kept Stage 4's thin base from jumping by 2.7.
-
-    The price of pinning the lines is the rounding: a span's spacing is
-    stretched by up to half a cell's worth, so h_min at a point is near
-    rather than exact.
-    '''
     if h_min  <=0.0 :
         raise ValueError(f"h_min must be positive, got {h_min}")
     for nam, Positions in(("line", lines), ('point', points))  :
@@ -571,17 +398,14 @@ def graded_mesh_1d_through(length :  float , n_nodes  :   int, lines :  tuple [ 
     )
 
     def  distance(at : npt.NDArray[np.float64]) ->  npt.NDArray[  np.float64  ]   :
-        """Distance to the nearest point [cm]."""
         return np.asarray(np.min(np.abs(at[:, None]  - k2[None, :]), axis= 1))
 
     def piece(
         d_a  :  npt.NDArray[np.float64], d_b  : npt.NDArray[np.float64], g:  float
     )  ->  npt.NDArray[np.float64]:
-        """Cells between two distances on one straight piece of d [1]."""
         return  np.asarray(np.abs(np.log1p(g  *  d_b   /   h_min  )  -  np.log1p(  g   * d_a  /  h_min ) )   /   g)
 
     def integral(x:  npt.NDArray[np.float64], g :  float)-> npt.NDArray[np.float64] :
-        """Cells from 0 to x at growth rate g, the integral of 1/h [1]."""
         if k2.size==0:
 
             return np.asarray(x  /h_min)
@@ -641,27 +465,6 @@ def graded_mesh_1d_through(length :  float , n_nodes  :   int, lines :  tuple [ 
 
 
 def stacked_mesh_1d(* layers  : Mesh1D) ->  Mesh1D :
-    """Several meshes laid end to end, sharing one node at every join.
-
-    Args:
-        layers: the meshes to stack, in order, each on [0, its own length].
-
-    A material stack is what this is for. A MOS capacitor is silicon with
-    oxide on top, and the two layers want different meshes: the silicon is
-    graded hard to the surface, where the inversion layer sits inside a few
-    nanometres, while the oxide holds no charge at all, so its potential is
-    exactly linear and a handful of uniform cells resolves it exactly. One
-    graded axis over the whole height cannot say that.
-
-    The join is a node by construction, which is the other half of the reason.
-    device/regions.py refuses an interface that does not lie on a line of mesh
-    nodes, because a cell that is half oxide and half silicon has no single
-    permittivity. Stacking makes that a property of how the mesh was built
-    rather than something to check afterwards.
-
-    The shared node is stored once. Storing it twice would make a cell of zero
-    width, and every flux across it carries 1/h.
-    """
     if not  layers  :
         raise ValueError("a stack needs at least one layer, got none")
     for  Index,  lay  in  enumerate(layers  ) :

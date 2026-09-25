@@ -1,13 +1,3 @@
-"""Tests for device/doping.py.
-
-Profiles are callables of position, never arrays. docs/03-architecture.md is
-explicit about why: Phase 5 refines the mesh adaptively, so the profile has to
-stay re-evaluable on a mesh that does not exist yet.
-
-Sign convention follows the notation table in docs/01-physics.md, where
-net_doping is Nd - Na. Donors positive, acceptors negative.
-"""
-
 from __future__  import annotations
 import math
 import numpy as np, pytest
@@ -29,7 +19,6 @@ from ddsim.device.doping import(
 )
 
 MICRON  =  1e-4
-"""One micron [cm]."""
 
 
 
@@ -56,11 +45,6 @@ def test_step_takes_the_right_value_after_the_position()  ->  None   :
 
 
 def test_step_is_right_continuous_at_the_junction()->  None:
-    """A node exactly on the junction belongs to the right side.
-
-    Arbitrary but it has to be decided somewhere, and an abrupt junction is a
-    modelling idealisation anyway. Recorded so nobody is surprised.
-    """
     pro=Step(left =-1e16,right= 1e16,position=0.5 *MICRON)
     assert pro(0.5 *  MICRON) ==1e16
 
@@ -102,7 +86,6 @@ def test_erfc_matches_the_analytic_form() ->None :
     np.testing.assert_allclose(proofile(  xx  ),  peeak   *   erfc((  xx   -  sum  )  / hmm  ))
 
 def test_erfc_is_half_the_peak_at_the_position() ->  None :
-    '''erfc(0) = 1, so the surface value is the peak itself.'''
     Profile= Erfc(peak= 1e19,position= 0.0,length=0.02 *MICRON)
     assert Profile(0.0) == pytest.approx(1e19, rel =1e-14)
 
@@ -120,7 +103,6 @@ def test_erfc_rejects_non_positive_length() -> None :
         Erfc(peak   =   1e19,  position  =  0.0,   length   = 0.0  )
 
 def test_profiles_compose_by_addition()-> None:
-    """A diffused n well on a p substrate, the standard construction."""
     len = Uniform(- 1e16)
     wll =  Gaussian(peak  = 1e18, centre=  0.0, sigma =  0.05* MICRON)
     Profile  =len +  wll
@@ -138,7 +120,6 @@ def  test_three_way_composition_sums_all_terms(  )  ->   None   :
     stuff2  = Uniform(1e15) + Uniform(2e15) +Uniform(3e15)
     assert  stuff2 (0.0  ) ==  pytest.approx(6e15,   rel   =  1e-15  )
 def test_profiles_negate()-> None  :
-    """Turning a donor profile into an acceptor one."""
     prfile = -Uniform(1e16)
     assert prfile(0.0)==pytest.approx(-1e16,rel= 1e-15)
 
@@ -150,18 +131,12 @@ def test_profiles_subtract()->None:
 
 
 def test_composed_profile_compensates_to_zero_where_terms_cancel()->None:
-    """Compensated material, where the asinh form earns its keep."""
     Profile =  Uniform(1e16) +Uniform(-  1e16)
     assert Profile(0.0) ==0.0
 def  test_adding_a_non_profile_raises ( ) ->   None  :
     with  pytest.raises(  TypeError  ) :
         Uniform(1e16) + 5.0
 def test_a_profile_gives_the_same_values_on_any_mesh()  ->None :
-    """The reason profiles are callables and not arrays.
-
-    Phase 5 refines adaptively, so the same profile has to be re-evaluable on
-    a mesh that did not exist when it was defined.
-    """
 
 
     profle=  Uniform(- 1e16)+ Gaussian(peak = 1e18, centre = 0.5 *MICRON, sigma =  1e-6)
@@ -192,7 +167,6 @@ def test_abrupt_junction_is_n_type_on_the_right()-> None:
 
 def test_abrupt_junction_takes_magnitudes_not_signed_values() -> None:
 
-    '''Na and Nd are concentrations, so both are given positive.'''
     pro  =  abrupt_junction(Na= 2e16, Nd = 5e17, position =  0.5  * MICRON)
     assert pro(0.0)== pytest.approx(-2e16,rel=1e-15)
     assert pro(MICRON)== pytest.approx(5e17, rel =  1e-15)
@@ -206,7 +180,6 @@ def  test_abrupt_junction_rejects_a_negative_donor_concentration(  )   ->  None 
         abrupt_junction(Na  = 1e16, Nd =-1e16, position =0.5 *  MICRON)
 
 def test_a_bare_position_is_still_the_x_axis()->None :
-    """The 1D calling convention survives, and it means what it always meant."""
 
     buf = np.linspace(0.0,MICRON,5)
 
@@ -224,7 +197,6 @@ def test_coordinates_pass_through_unchanged() ->None:
 
 
 def test_a_scalar_position_still_works() -> None   :
-    '''Uniform(1e16)(0.5e-4) is how half the tests above call a profile.'''
     assert Coordinates.of(0.5 *MICRON).x==pytest.approx(0.5* MICRON)
 
 
@@ -232,16 +204,12 @@ def test_a_scalar_position_still_works() -> None   :
 
 def test_coordinates_refuse_axes_of_different_lengths() -> None:
 
-    """x and y are two coordinates of the same set of nodes, so a mismatch is
-    two different meshes being mixed and not something to broadcast around."""
     with pytest.raises(ValueError, match = 'same number of positions') :
 
         Coordinates(np.zeros(5), np.zeros(4))
 
 
 def test_asking_for_depth_on_a_line_says_what_is_missing()  ->None :
-    """A 1D mesh has no depth, so a depth dependent profile on one is a
-    modelling mistake rather than something to fill in with zeros."""
     att = Coordinates.of(np.linspace(0.0,
           MICRON,
                5))
@@ -257,7 +225,6 @@ def test_coordinates_refuse_an_axis_that_is_not_x_or_y()-> None:
         At.axis('z')
 def test_along_y_reads_the_depth_coordinate() ->None :
 
-    """The whole point of the wrapper: a 1D shape evaluated down the depth."""
     Depth  =  np.linspace ( 0.0 ,   MICRON,   7 )
     att = Coordinates(np.zeros_like(Depth), Depth)
     sha  =  Gaussian(  peak  =  1e19,
@@ -269,8 +236,6 @@ def test_along_y_reads_the_depth_coordinate() ->None :
 
 
 def test_along_x_is_what_a_profile_already_did()->None:
-    """Wrapping in the axis a profile reads by default changes nothing, which
-    is the check that Along re-labels an axis and does nothing else."""
 
     r2=Coordinates(np.linspace(0.0,MICRON,7),np.linspace(0.0,MICRON,7))
     foo  =   Gaussian(peak   =   1e19, centre =   0.5  *  MICRON, sigma   =  0.05  *  MICRON)
@@ -294,9 +259,6 @@ def test_along_refuses_an_axis_it_does_not_have()->None :
 
 def test_a_product_is_separable()->None :
 
-    """A source implant is a lateral window times a vertical Gaussian, and the
-    value at a node is the product of the two one dimensional shapes there.
-    """
     blah=np.array([0.0,0.5*MICRON,MICRON,1.5*MICRON])
     yy=np.array([0.0,0.1 * MICRON,0.2*MICRON,0.3 * MICRON]);  att  =  Coordinates(blah ,  yy )
 
@@ -320,11 +282,6 @@ def test_a_product_multiplies_every_factor()  -> None  :
 
 
 def test_a_lateral_bound_is_two_steps_multiplied()->None:
-    """The combinators are enough on their own: a window needs no new class.
-
-    Worth asserting rather than assuming, because the alternative is inventing
-    a Window profile that Step and Product already express.
-    """
     xx  = np.linspace(0.0, 2.0 * MICRON, 21)
     win = Step(left = 0.0, right  = 1.0, position=  0.5 *  MICRON) *Step(left= 1.0, right =  0.0, position= 1.5 * MICRON)
     vaules = win(xx)
@@ -334,7 +291,6 @@ def test_a_lateral_bound_is_two_steps_multiplied()->None:
 
 
 def  test_multiplying_by_a_number_scales_the_profile() ->  None  :
-    """A shape and its peak concentration, which is how an implant is written."""
     sape = Gaussian(peak=1.0, centre  =  0.0, sigma =0.05 * MICRON);xx=np.linspace(0.0,MICRON,11)
 
     np.testing.assert_allclose((sape  * 1e20)  (  xx ),  1e20 *  sape(xx  ) ,   rtol  =  1e-15)
@@ -346,7 +302,6 @@ def test_multiplying_by_something_that_is_neither_raises() -> None :
         Uniform( 1e16  )  *   'half'
 
 def  test_mirroring_reflects_about_a_position ()   ->  None :
-    """A drain is a source mirrored, which is the only reason this exists."""
     sape = Erfc(peak= 0.5,position=0.4*MICRON,length= 0.05* MICRON)
 
     xx  = np.linspace(0.0, 2.0 * MICRON, 21)
@@ -355,14 +310,6 @@ def  test_mirroring_reflects_about_a_position ()   ->  None :
 
     np.testing.assert_array_equal(Mirrored(sape,about= res) (xx),sape(2.0*res- xx))
 def test_mirroring_twice_is_the_original() -> None:
-    """To rounding on the position rather than exactly.
-
-    Reflecting is a subtraction, so 2c - (2c - x) comes back one ulp of c away
-    from x, and an erfc edge is exponentially sensitive to position: an
-    absolute 2e-20 cm on a 0.05 um edge shows up as 3e-14 relative in the
-    value. That is the shape amplifying a rounding error, not the reflection
-    losing anything, and 3e-14 of a doping concentration is nothing.
-    """
     sahpe  =   Erfc(peak   =   0.5 , position = 0.4  * MICRON, length  =   0.05   * MICRON  )
     X=np.linspace(0.0,2.0 *MICRON,21)
 
@@ -375,8 +322,6 @@ def test_mirroring_twice_is_the_original() -> None:
 
 
 def test_mirroring_leaves_the_depth_alone()-> None :
-    '''A device is reflected across its centre, not turned upside down. So a
-    mirrored implant is at the same depth and the other end of the channel.'''
     X =   np.linspace(  0.0,   2.0  *  MICRON,  5  )
     res =np.linspace(0.0,0.2 *MICRON,5)
     min  =   Coordinates(  X,  res  )
@@ -389,7 +334,6 @@ def test_mirroring_leaves_the_depth_alone()-> None :
     )
 
 def test_mirroring_a_bare_position_reflects_it()   ->   None   :
-    """A bare array is x everywhere else in this module, and here too."""
     stuff2= np.linspace(0.0, MICRON, 5)
 
     Shape =Erfc(peak  =  1.0, position =  0.3  * MICRON, length = 0.1* MICRON)
@@ -412,13 +356,9 @@ def  test_layers_takes_each_region_value_inside_it()   ->   None  :
 
 
 def test_layers_is_right_continuous_at_every_boundary() -> None :
-    """The same choice Step makes, so a node sitting on a junction reads the
-    region to its right whichever of the two built the device."""
     pro=Layers(boundaries =(MICRON,2.0 *MICRON),values=(- 1.0,2.0,3.0))
     np.testing.assert_array_equal (pro(np.array([  MICRON ,   2.0  *  MICRON] )), [ 2.0,  3.0]  )
 def test_one_boundary_layers_is_the_abrupt_junction_bit_for_bit()->None:
-    """A two region stack is the Phase 2 diode, and it has to be that diode
-    exactly, not to a tolerance."""
     X  =   np.linspace(  0.0,  MICRON, 201)
     np.testing.assert_array_equal(Layers( boundaries  =   (  0.5  *  MICRON, ) ,  values = (-  1e16 , 1e16  ) ) (  X  ), abrupt_junction(  Na  =   1e16,  Nd  =  1e16, position =  0.5  *   MICRON)  (  X),)
 
@@ -448,7 +388,6 @@ def test_an_abrupt_window_is_one_inside_and_zero_outside()-> None:
                     0.0))
 
 def test_an_abrupt_window_holds_both_of_its_edges() ->None:
-    """Closed, so a node on a drawn edge is inside the rectangle drawn."""
     widnow  = Window ( low   = 0.2  * MICRON,  high  = 0.6 * MICRON  )
     np.testing.assert_array_equal(widnow(np.array([0.2, 0.6]) * MICRON), [1.0, 1.0])
 
@@ -469,9 +408,6 @@ def test_a_gaussian_window_holds_its_peak_inside_and_falls_off_outside() -> None
     np.testing.assert_allclose(vlaues[aboove],epected,rtol=1e-15)
 
 def test_a_gaussian_window_below_an_open_top_is_the_nmos_depth_profile()  ->  None:
-    """The nmos source in depth: a Gaussian centred on the silicon surface.
-    Drawn as a window from the surface up through the top of the device, the
-    part below the surface is that Gaussian to the last bit."""
     tSi,t2 = 1.0*MICRON,0.05*MICRON
     foo=  np.linspace(0.0, tSi, 301)
 
@@ -480,7 +416,6 @@ def test_a_gaussian_window_below_an_open_top_is_the_nmos_depth_profile()  ->  No
         win(foo  ),  Gaussian(peak  =  1.0,  centre   = tSi ,   sigma  =  t2)  (  foo )
     )
 def test_an_erfc_window_open_on_the_left_is_the_nmos_lateral_edge() -> None:
-    """Bit for bit: the drawn source's lateral factor is nmos's own."""
     ege =0.046  *  MICRON;  wiindow  = Window(low=-  math.inf, high  = 0.4  * MICRON, edge  = "erfc", length = ege)
     np.testing.assert_array_equal(
         wiindow(ACROSS), Erfc(peak= 0.5, position =0.4  *MICRON, length= ege)  (ACROSS)
@@ -490,8 +425,6 @@ def test_an_erfc_window_open_on_the_left_is_the_nmos_lateral_edge() -> None:
 
 def test_an_erfc_window_open_on_the_right_is_the_mirrored_edge()  -> None:
 
-    """The nmos drain is its source mirrored. Equal to rounding rather than
-    to the bit, because the mirror adds the reflection in another order."""
     edg,Width= 0.046*MICRON,1.8*MICRON
     hmm   =  Window ( low  =  1.4  * MICRON, high  =  math.inf,  edge  =  'erfc' ,  length   =   edg)
     cnt =Erfc(peak=0.5,position= 0.4 *MICRON,length=edg)
@@ -510,8 +443,6 @@ def  test_an_erfc_window_is_half_its_peak_at_a_mask_edge(  ) ->   None   :
 
 
 def test_a_narrow_erfc_window_never_reaches_its_peak() ->   None :
-    """The mask opening is narrower than the spread, so the middle is short
-    of full: what an implant through a slit actually does."""
     win = Window(
         low   =  0.5  *  MICRON,  high   = 0.51  *   MICRON , edge  =  "erfc", length  =   0.05  * MICRON
     )

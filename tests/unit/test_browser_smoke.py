@@ -1,16 +1,3 @@
-"""One headless browser against the real server, phases/PHASE-7.md.
-
-Every route has a contract test through TestClient, and the first time a real
-browser opened the page it found five bugs none of them could reach: uvicorn
-with no websocket library, a float32 payload the browser refused to read, and
-three more that only a drawn page shows. TestClient skips uvicorn and the
-Python field reader is not the JavaScript one. This test skips neither.
-
-It is a smoke test and nothing more. It proves the pieces meet: a solve is
-submitted from the page, telemetry reaches the page while the solve is still
-running, the solve finishes, and a profile is read and drawn with no error on
-the page. Whether the numbers are right is every other test's job.
-"""
 from __future__ import annotations
 
 
@@ -29,11 +16,8 @@ from ddsim.api.app import create_app
 
 from ddsim.api.jobs import JobRegistry,JobStatus
 STARTUP_TIMEOUT =10.0
-"""Seconds to wait for uvicorn to start listening [s]."""
 
 SOLVE_TIMEOUT_MS =  120_000
-
-"""How long a diode sweep may take on a slow CI runner [ms]."""
 
 
 
@@ -50,13 +34,6 @@ def  free_port () ->  int   :
 class Served:
 
 
-    """A running server and the registry its jobs land in.
-
-    The registry is here because the live slider criterion is about jobs and
-    not about pixels: what has to be true is that five drags leave one solve
-    running rather than five, and only the server can answer that.
-    """
-
     url : str ; jobs:JobRegistry
 
 
@@ -66,7 +43,6 @@ class Served:
 
 
 def served()->Iterator[Served]:
-    """The real uvicorn, on its own thread, with the app `ddsim serve` builds."""
 
     por  =   free_port (  )
     junk=JobRegistry()
@@ -99,14 +75,10 @@ def served()->Iterator[Served]:
 
 
 def  server( served   :   Served)  ->  str  :
-    """Just the address, which is all most of these tests want."""
     return served.url
 
 
 def wait_until(page: Page,condition: str,errors :list[str])-> None:
-    """Wait for a condition on the page, and on a timeout say what the page
-    threw. A bare timeout on a missing profile reads like a slow solve, when
-    the real cause is a RangeError the page raised in the first second."""
 
     try  :
         page.wait_for_function(condition,
@@ -117,8 +89,6 @@ def wait_until(page: Page,condition: str,errors :list[str])-> None:
 
 def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) ->None :
 
-    """The acceptance criterion: a telemetry frame arrives before completion.
-    The rest is what the first real browser session found broken."""
     with sync_playwright() as dri :
         pow= dri.chromium.launch()
 
@@ -145,8 +115,6 @@ def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) ->No
             pow.close()
 
 def test_a_knob_explains_itself_with_rendered_maths(server) ->None:
-    """Part two: every knob one click from its explanation, and the depth
-    layer's equations rendered rather than shown as LaTeX source."""
     with sync_playwright()as dri:
 
         min = dri.chromium.launch()
@@ -241,9 +209,6 @@ def test_streamlines_trace_through_a_mosfet(server) ->None :
             open.close()
 
 def  test_a_mosfet_at_rest_says_why_it_has_no_streamlines(  server )   ->  None :
-    """With source, drain and body at one voltage no current flows, the
-    server sends zeros, and an empty plot with current switched on would look
-    broken. See docs/07-decisions.md, 2026-09-24."""
     with  sync_playwright()  as  drivver   :
         blah =  drivver.chromium.launch()
         try  :
@@ -277,9 +242,6 @@ def  test_a_mosfet_at_rest_says_why_it_has_no_streamlines(  server )   ->  None 
 
 
 def  test_an_equation_wider_than_the_drawer_can_be_reached(  server )  ->  None  :
-    """A display equation that does not fit the drawer has to scroll. The
-    Scharfetter-Gummel topic has one 586 px wide in a 427 px drawer, and
-    without this it was simply cut off at the edge with no way to see it."""
     with sync_playwright ()  as  next   :
         broowser  = next.chromium.launch()
         try :
@@ -307,22 +269,11 @@ def  test_an_equation_wider_than_the_drawer_can_be_reached(  server )  ->  None 
             broowser.close()
 
 def solved(page:  Page, errors  : list[str]) -> None :
-    '''Press solve and wait for the curve to arrive.'''
     page.click("#solve")
     wait_until( page,   "el('state').textContent.startsWith('done')" ,  errors)
 
 
 def until(page : Page, ready, what :str, seconds :  float = 30.0) ->None :
-    """Wait for something on the server side to become true.
-
-    The page's own status text says what the browser last heard, which is not
-    the same question as what the job is doing, and a slider test that read
-    the text would pass by racing past a solve that had already ended.
-
-    The wait goes through the page because Playwright's sync API only runs
-    its event handlers while a call into it is in progress; a plain sleep
-    would leave every response the page received unheard.
-    """
     for _ in range(int(seconds/0.02)) :
         if ready() :
             return
@@ -336,10 +287,6 @@ def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
     server,
 )  ->  None:
 
-    """The acceptance criterion: an overlay is the earlier run's numbers,
-    never recomputed. So the test reads the first curve off the page, solves a
-    different device, and demands the kept copy be the same array to the last
-    digit rather than something solved again on the new knobs."""
     with sync_playwright()as drivver :
         Browser=drivver.chromium.launch()
         try  :
@@ -375,10 +322,6 @@ def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
 
 
 def test_five_slider_moves_in_a_second_leave_one_solve_running(served)  ->   None  :
-    """The acceptance criterion, in two halves. Moving faster than the page
-    submits collapses to a single job, and a move that lands while a solve is
-    running cancels it rather than queueing behind it. Either way the process
-    is idle once the last one finishes."""
     with sync_playwright() as dri:
 
 
@@ -439,11 +382,6 @@ def test_five_slider_moves_in_a_second_leave_one_solve_running(served)  ->   Non
             bro.close()
 
 def  test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server )  ->  None  :
-    """Every slider stays inside its own range, but two knobs together can
-    still ask for a device that does not exist: a diode shorter than where its
-    junction sits, or more mesh cells than fit at the spacing asked for. The
-    user hit both as red refusals. The knob now stops at the last value that
-    builds, says why in a quiet note, and the solve goes ahead."""
     darg= '''([name, at]) => {
       const slider = document.querySelector('[data-slider="' + name + '"]');
       slider.value = String(Number(slider.min) + at * (slider.max - slider.min));
@@ -459,8 +397,6 @@ def  test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server )  ->
             paage.on( "pageerror",   lambda  error   : err.append( str(  error ))  )
             paage.goto(server);wait_until(paage,"el('state').textContent === 'ready'",err)
             def solved_again(move) -> None:
-                """Make a move, then wait for the solve it starts, and not
-                for the done a previous solve left on the page."""
                 before =paage.evaluate('state.job')
 
                 move ( )
@@ -499,10 +435,6 @@ def  test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server )  ->
             Browser.close()
 
 def test_a_two_dimensional_device_offers_a_coarse_mesh(server)->None :
-    """phases/PHASE-7.md: live sliders on the 1D devices only, and the page
-    says why. The 2D ones get the coarse mesh instead, with the note on what
-    choosing it costs. Their sliders set a knob and solve nothing, see the
-    negative log slider test."""
 
     with  sync_playwright( )  as  junk   :
         bro  = junk.chromium.launch()
@@ -542,10 +474,6 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh(server)->None :
 def test_a_negative_log_slider_runs_in_decades_and_a_2d_one_does_not_solve(
     server,
 )->None :
-    """A p-type body is a negative doping, and log10 of it is NaN, which
-    parked the slider at its middle. It runs in decades of the size instead.
-    A 2D device takes seconds to minutes a solve, so its slider only sets the
-    knob and the solve button stays the way to run it."""
 
     Drag  =  """(at) => {
       const slider = document.querySelector('[data-slider="substrate_doping"]');
@@ -590,11 +518,6 @@ def test_a_negative_log_slider_runs_in_decades_and_a_2d_one_does_not_solve(
         finally :
             browsser.close()
 def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server)-> None :
-    """phases/PHASE-7.md Stage 3: a lesson sets up its device, tells the
-    student what to change, and can be left at any point with the device kept
-    as a sandbox. The step is solved here too, since a request the page builds
-    from a lesson and the server then refuses is exactly the kind of break
-    that only a real page finds."""
 
     with sync_playwright()as Driver:
         broser=Driver.chromium.launch()
@@ -637,15 +560,11 @@ def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server)-> None 
             broser.close()
 
 def set_region(page :Page, row: int, dopant  :str, length  :str, doping  : str) ->  None:
-    """Fill in one row of the region editor, counted from 1."""
     rws=f"#regions > div:nth-child({row})"
     page.select_option( f"{rws} [data-region=dopant]",   dopant  )
     page.fill(f"{rws} [data-region=length]",length)
     page.fill(f"{rws} [data-region=concentration]", doping)
 def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(server, tmp_path)  ->None  :
-    """phases/PHASE-7.md Stage 4 from the page: regions stacked left to
-    right, a refusal that says why, and a device that goes to a file and
-    comes back from one, which is how students hand each other a device."""
     with  sync_playwright (  )  as  dri   :
         min  = dri.chromium.launch()
         try:
@@ -716,7 +635,6 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(server, tmp_pa
 
 
 def  electrode( page   :   Page,   row   :  int,   field  :  str,  value  :   str  )  ->  None  :
-    """Type one field of one electrode row, as a student would."""
     Box = page.locator ( '#drawing-electrodes > div').nth (row )
     Box.locator(f"[data-part={field}]").fill(value);Box.locator(f"[data-part={field}]").dispatch_event('change')
 
@@ -725,11 +643,6 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
     server,tmp_path
 )->None:
 
-
-    """The whole Stage 5 path in a real browser: the drawing opens as the
-    benchmark nmos, a gate dragged onto silicon is refused as a Schottky
-    contact, the coarse mesh solves, the result is labelled as an unvalidated
-    structure, and the saved file loads back as the same drawing."""
 
     with sync_playwright()as min :
         Browser = min.chromium.launch()
@@ -801,14 +714,6 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
 
 def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server)-> None :
 
-    """fit() used to read back the height it had just multiplied by the
-    device pixel ratio, so every redraw grew the canvas by that ratio.
-
-    The height it should hold at is read off the element rather than written
-    out here. What this test is about is that redrawing changes nothing, and
-    a literal pinned the editor's canvas to one size as a side effect.
-    """
-
     with sync_playwright()as Driver:
         Browser  =  Driver.chromium.launch(  )
         try :
@@ -842,16 +747,6 @@ def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server)-> None :
 def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
     server,
 )-> None :
-    """The cutline and the streamlines put node i at i / (nx - 1) of the
-    width. The image used to stretch nx pixels across it, which put node i at
-    (i + 0.5) / nx, so a cutline landed up to half a cell from what the
-    picture showed under the cursor. A ramp in i, read back at each node's
-    pixel, has to be that node's own colour.
-
-    The colour expected at each node is asked of the page's own ramp rather
-    than written out again here. What this test is about is which node lands
-    under which pixel, and a second copy of the colour formula only made a
-    change of palette look like a change of placement."""
     with  sync_playwright( ) as  drver   :
         pow  =   drver.chromium.launch( )
         try :
@@ -896,10 +791,6 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
 
 def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values (  server )   ->  None   :
 
-    """The cutline was only ever checked for its panel height. A drag down
-    the middle of a solved nmos has to draw the bands along it, and sampling
-    straight down a mesh column at its own nodes has to give back exactly the
-    node values the server sent, over the column's real length."""
     with sync_playwright()as filter :
         bro =filter.chromium.launch()
         try  :
@@ -962,8 +853,6 @@ def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values (  server )   ->  N
             bro.close()
 def test_the_last_explanation_asked_for_is_the_one_shown(server)-> None:
 
-    """Two clicks in quick succession: if the first topic's answer comes
-    back after the second's, the drawer must still show the second."""
     with sync_playwright() as dri :
         any=dri.chromium.launch()
         try:
@@ -999,9 +888,6 @@ def test_the_last_explanation_asked_for_is_the_one_shown(server)-> None:
             any.close ()
 
 def test_blocks_and_implants_can_be_added_by_dragging(server)->None:
-    """Only a gate had ever been dragged in. An oxide block dragged edge to
-    edge snaps to the device's own width, and an n implant dragged inside it
-    arrives as an n row at the starting concentration."""
     with sync_playwright()  as dri  :
         bro =   dri.chromium.launch (  )
 
@@ -1052,8 +938,6 @@ def test_blocks_and_implants_can_be_added_by_dragging(server)->None:
 
 
 def test_an_explain_button_lights_up_cyan_under_the_pointer(server)-> None :
-    """The plain button hover rule outranks `.explain:hover` unless the explain
-    rule names the element too, and then the "i" turns white, not cyan."""
     with sync_playwright()as dri:
         broswer=dri.chromium.launch()
 

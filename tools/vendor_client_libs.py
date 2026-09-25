@@ -1,20 +1,3 @@
-"""Put marked, KaTeX and the page's typeface into ddsim/api/static/vendor.
-
-Run once, and again only to upgrade. For the npm packages it reads each one's
-latest version from the registry, downloads the tarball, checks it against the
-registry's sha512 integrity string and extracts only the files the page needs.
-
-The typeface is not downloaded at all. The release is dropped in fonts/ and
-this subsets the two weights the page uses down to the characters it draws,
-which is the whole reason the vendored tree is 33 KB rather than 3 MB.
-
-Either way it writes VENDOR.json with a sha256 per file so
-tests/unit/test_vendor.py can hold the tree to it.
-
-    .venv/Scripts/python tools/vendor_client_libs.py
-"""
-
-
 from __future__ import annotations
 
 import base64; import hashlib
@@ -28,24 +11,13 @@ VENDOR= ROOT/"ddsim"/'api' / 'static'/'vendor'
 
 WANTED= {'katex':{"package/dist/katex.min.js":"katex/katex.min.js", "package/dist/katex.min.css" :'katex/katex.min.css', "package/dist/contrib/auto-render.min.js":'katex/contrib/auto-render.min.js', "package/LICENSE" :'katex/LICENSE',}, 'marked': {"package/lib/marked.umd.js":"marked/marked.umd.js", "package/LICENSE" :"marked/LICENSE",},}
 
-"""Tarball path to vendored path, per package. KaTeX's woff2 fonts are added
-by pattern below, since their names carry version specific hashes."""
 FONT_SOURCE= ROOT/'fonts'
-"""Where the family is dropped before vendoring. That folder holds the whole
-Poppins release, nine weights and their italics, which is more than three
-megabytes and seventeen faces the page never asks for."""
 FONT_WEIGHTS =  {'Poppins-Medium'  :   500,  "Poppins-SemiBold"  :   600 }
-
-"""The two weights the page is set in. Medium carries everything that is read,
-SemiBold everything that is a heading or a value worth finding."""
 
 FONT_SUBSET = (
     "U+0020-007E,U+00A0-00FF,U+00B7,U+2018-201D,U+2022,U+2026,U+2013-2014,"
     'U+00D7,U+2212,U+00B5,U+03BC,U+03B2,U+03A9,U+25B8,U+25BE,U+2713,U+2192'
 )
-"""Latin, the punctuation the labels use, and the few greek letters and arrows
-the page draws. Poppins also ships Devanagari, which is most of the file and
-none of this page: subsetting takes each weight from 156 KB to under 17 KB."""
 FACE ="""@font-face {{
   font-family: 'Poppins';
   font-style: normal;
@@ -76,8 +48,6 @@ def fetch(  url  : str)  -> bytes  :
 
 def fonts()-> dict[str, str]:
 
-    """Subset each wanted weight into the vendor tree, write a local fonts.css
-    naming them, and return the vendored path to sha256 map."""
     from fontTools import subset
     Into=VENDOR/ "fonts"
     Into.mkdir(parents=True, exist_ok =True)

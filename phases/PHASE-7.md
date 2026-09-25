@@ -132,10 +132,11 @@ docs/02-numerics.md it condenses.
 
 Explanations sit next to the thing they explain, and tests keep them there.
 
-- **Knobs** are explained by the docstrings of the Python constructors and
-  sweeps they come from. `/api/schema` already reads those signatures; it
-  grows a plain explanation and the unit for each knob, read from the `Args:`
-  block. A knob can't reach the page without one, because a test refuses it.
+- **Knobs** are explained per argument of the Python constructors and sweeps
+  they come from, in `ddsim/api/knobs.json` (until 2026-09-26 this lived in
+  their docstrings' `Args:` blocks). `/api/schema` already reads those
+  signatures; it grows a plain explanation and the unit for each knob. A knob
+  can't reach the page without one, because a test refuses it.
 - **Plots, physics and numerics** are short markdown files under
   `ddsim/api/static/learn/`, one per topic, each in the two layers above.
 - **Guided experiments** are files under `ddsim/api/lessons/`, one per lesson:

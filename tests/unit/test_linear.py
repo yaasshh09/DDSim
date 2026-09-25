@@ -1,11 +1,3 @@
-"""Tests for solve/linear.py.
-
-This package must stay free of semiconductor knowledge. continuation.py is
-meant to be lifted into the SPICE layer unchanged, and that only works if
-nothing in solve/ knows what a carrier density is. One of the tests below
-walks the import graph and enforces that.
-"""
-
 from __future__ import  annotations
 
 import ast
@@ -21,7 +13,6 @@ from ddsim.solve.linear import SparseLU
 
 
 def tridiagonal(n :int,off: float= -1.0,diag:float=2.0)->sp.coo_matrix:
-    """A well conditioned tridiagonal matrix, the 1D Laplacian shape."""
     row, cools, Values = [], [], []
     for temp in range(n) :
 
@@ -42,7 +33,6 @@ Triplets =  tuple[np.ndarray, np.ndarray, np.ndarray, tuple[int, int]]
 
 def as_arrays(matrix:sp.coo_matrix)->Triplets:
 
-    """COO triplets plus shape, the form SparseLU.factorize takes."""
     return matrix.row, matrix.col, matrix.data,  matrix.shape
 
 
@@ -65,7 +55,6 @@ def test_solves_a_tridiagonal_system_against_a_dense_reference ( )   ->   None  
     np.testing.assert_allclose(slover.solve(bb), Expected, rtol= 1e-12)
 
 def test_solves_a_nonsymmetric_system()->None:
-    """The real Jacobians are strongly non-symmetric. Do not assume otherwise."""
     mat =tridiagonal(30,off=-1.0)
     den =mat.toarray()
     den[ 0, -   1]   =   5.0;den[- 1,
@@ -90,7 +79,6 @@ def test_solves_multiple_right_hand_sides_with_one_factorization()->None:
 def  test_duplicate_coo_entries_are_summed(  )  -> None  :
 
 
-    """Assembly emits one triplet per contribution, so duplicates are normal."""
     row = np.array([0, 0, 1])
     temp2   = np.array( [0 ,  0 , 1  ])
     out2=np.array([1.0,
@@ -110,7 +98,6 @@ def test_first_factorization_reports_a_new_pattern()->  None :
 
 
 def test_same_pattern_with_new_values_is_recognised()->None :
-    """Across Newton steps the pattern never changes, only the values."""
     sovler =SparseLU()
     sovler.factorize(*  as_arrays(tridiagonal(10 ) )  )
 
@@ -128,7 +115,6 @@ def test_a_changed_pattern_is_recognised() ->None:
 
 
 def test_a_changed_pattern_at_the_same_size_is_recognised()  ->None:
-    """Same shape, different stencil. Comparing shapes alone is not enough."""
 
     Solver=  SparseLU()
     Solver.factorize(*  as_arrays(tridiagonal(10))); aa  =   tridiagonal(  10  ).toarray(  )
@@ -137,11 +123,6 @@ def test_a_changed_pattern_at_the_same_size_is_recognised()  ->None:
     Solver.factorize(*as_arrays(sp.coo_matrix(aa)))
     assert Solver.pattern_unchanged is False
 def test_refactorizing_with_new_values_gives_the_new_solution ( )  ->  None  :
-    """The pattern cache must not leak stale numbers into the next solve.
-
-    This is the test that matters. A cache that accidentally reused the old
-    numerical factorization would give a plausible wrong answer.
-    """
 
 
     sorted=SparseLU()
@@ -162,7 +143,6 @@ def test_refactorizing_with_new_values_gives_the_new_solution ( )  ->  None  :
 
 
 def test_pattern_tracking_never_changes_the_answer()-> None:
-    """Tracking is bookkeeping. A warm solver and a cold one must agree bitwise."""
 
     Matrix = tridiagonal(40, diag =5.0)
 
@@ -179,14 +159,6 @@ def test_pattern_tracking_never_changes_the_answer()-> None:
 
 
 def test_ordering_is_colamd_not_natural()  ->  None:
-    """Guards against reintroducing the pre-permutation pessimization.
-
-    Feeding perm_c back through permc_spec="NATURAL" looks like ordering
-    reuse but produces 6.1x more fill on a 2D 5-point stencil, because
-    SuperLU's COLAMD path does column elimination tree postordering that the
-    NATURAL path skips. Measured 14x to 46x slower overall. See the docstring
-    in solve/linear.py.
-    """
 
     Side  = 30
     Laplacian=sp.kron(
@@ -235,12 +207,6 @@ def test_right_hand_side_of_wrong_length_raises()  -> None :
         sol.solve(np.ones(4))
 
 def test_solve_package_imports_nothing_semiconductor_specific() ->None:
-    '''docs/03-architecture.md: solve/ knows nothing about semiconductors.
-
-    continuation.py gets reused by the SPICE layer unchanged. That only works
-    if a carrier density never leaks into this package. Enforced here rather
-    than left as a comment nobody reads.
-    '''
     out2=  {"ddsim.core.constants", "ddsim.physics", 'ddsim.device', "ddsim.discretize",}
     pac=pathlib.Path(__file__).parents[2]/"ddsim"/'solve'
 
@@ -261,7 +227,6 @@ def test_solve_package_imports_nothing_semiconductor_specific() ->None:
 
 
 def imported_modules(source: pathlib.Path)  -> list[str] :
-    """Every module name a file imports, however it spells the import."""
     tere =  ast.parse(source.read_text(encoding ='utf-8'))
     Names :  list[str] =[]
     for Node in ast.walk(tere):
@@ -275,17 +240,6 @@ def imported_modules(source: pathlib.Path)  -> list[str] :
 
 
 def test_nothing_imports_the_api_package()->None :
-    """phases/PHASE-7.md: api/ is a leaf.
-
-    The moment a solver module imports it, the browser layer is load bearing
-    for a number, and the claim that telemetry changes nothing stops being
-    checkable.
-
-    cli.py is the one exception, and it is the reason the rule is written as
-    the solver rather than as everything. `ddsim serve` has to reach the
-    application somehow, and the command line sits above every layer here
-    rather than inside one. Nothing it exports is called by a solve.
-    """
     myvar = pathlib.Path(__file__).parents[2]/"ddsim"
     entry_poiints =  {"cli.py"}
 
@@ -302,12 +256,6 @@ def test_nothing_imports_the_api_package()->None :
 
 def test_the_api_package_goes_through_the_public_layers()  ->   None   :
 
-    """phases/PHASE-7.md: api/ imports from device/, extract/ and solve/.
-
-    Reaching past those into discretize/ or physics/ would be the API
-    assembling its own system, which is how physics ends up in the browser
-    layer one helper at a time.
-    """
     xx= {
         'ddsim.core.constants',
         "ddsim.physics",
@@ -343,12 +291,6 @@ def test_size_reports_the_factorized_dimension()-> None:
 
 
 def scattered_with_duplicates(n : int) ->tuple:
-    """Triplets in no useful order, with the same entry contributed twice.
-
-    That is what assembly actually emits: one triplet per contribution, in
-    whatever order the terms were written, and a diagonal built from several
-    of them. The conversion has to sort them and sum the duplicates.
-    """
     Rows, Cols, foo =[], [], []
     for ii in reversed(range(n))  :
         if ii< n -  1  :
@@ -373,14 +315,6 @@ def scattered_with_duplicates(n : int) ->tuple:
 
 
 def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() ->None :
-    '''The cached pattern is a shortcut through the conversion, not a new one.
-
-    Reusing the sort and the duplicate grouping across Newton steps is only
-    safe if the replay lands on exactly what scipy would have built from the
-    same triplets, summation order of duplicates included. Compared bit for
-    bit rather than to a tolerance: a replay that merely agrees closely is a
-    replay that is doing different arithmetic.
-    '''
     Rows,col,valuues,shaape= scattered_with_duplicates(9)
     sol =SparseLU()
     sol.factorize(Rows,col,valuues,shaape)
@@ -406,7 +340,6 @@ def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() ->None
 
 
 def test_a_system_with_no_triplets_is_reported_as_singular() ->None:
-    """An empty Jacobian is singular, and saying so beats an index error."""
     soler=  SparseLU()
     emp=np.array([],dtype=np.int64)
 
@@ -416,7 +349,6 @@ def test_a_system_with_no_triplets_is_reported_as_singular() ->None:
         soler.factorize(emp, emp, np.array([]), (3, 3))
 def _complex_system()   ->  tuple [np.ndarray,  np.ndarray,   np.ndarray,   tuple [int,  int  ]]  :
 
-    """A small complex system with a duplicate triplet to be summed."""
     min  = np.array([0, 0, 1, 1, 2, 2, 0], dtype =  np.int64);foo  = np.array([0, 1, 0, 2, 1, 2, 0], dtype= np.int64)
 
     vlaues =np.array(
@@ -426,13 +358,6 @@ def _complex_system()   ->  tuple [np.ndarray,  np.ndarray,   np.ndarray,   tupl
 
 
 def test_a_complex_system_solves() -> None  :
-    """Phase 4 needs this: the AC solve is (J_dc + i*omega*M) x = b.
-
-    docs/02-numerics.md puts C-V on a complex linearization around the DC
-    solution rather than on time stepping, so the same factorization machinery
-    has to carry complex numbers. splu handles them natively; what did not was
-    this wrapper, which forced float64 in three places.
-    """
     map,  cools,   val,   sha  =  _complex_system(  )
     slice= sp.coo_matrix((val, (map, cools)), shape = sha).toarray()
     next =  np.array([  1.0  + 0.0j, 0.0  -   2.0j,   3.0  ])
@@ -447,19 +372,12 @@ def test_a_complex_system_solves() -> None  :
 
 def test_duplicate_complex_triplets_are_summed() -> None :
 
-    """np.bincount refuses complex weights, so the replay path needs care.
-
-    The duplicate at (0, 0) is the point of the fixture: if the summation
-    silently dropped the imaginary part the residual would still look
-    plausible and the capacitance would come out real.
-    """
     next,  filter,   vars ,   sape =  _complex_system(  ); data2   =   SparseLU ( )
     data2.factorize(next,filter,vars,sape)
 
     hash=sp.coo_matrix((vars,(next,filter)),shape =sape).tocsc()
     np.testing.assert_allclose(data2._matrix.data, hash.data, rtol = 1e-14)
 def test_the_same_pattern_replayed_with_complex_values_still_works() -> None:
-    """The cached pattern path, which is the one a sweep actually uses."""
     Rows, buf,  stuff ,   pow =  _complex_system ()
     sol=SparseLU()
     sol.factorize(Rows, buf, stuff, pow)
@@ -472,12 +390,6 @@ def test_the_same_pattern_replayed_with_complex_values_still_works() -> None:
     )
 
 def test_switching_from_real_to_complex_on_one_solver_is_safe()  -> None :
-    """The DC solve runs real, then the AC solve reuses the same pattern.
-
-    The cached matrix is float64 after the DC step, and writing complex values
-    into it would discard the imaginary part without complaining. The dtype
-    has to be part of what counts as an unchanged pattern.
-    """
     Rows, col, stuff, foo =_complex_system()
     arr  = stuff.real.copy(  )
 
@@ -494,7 +406,6 @@ def test_switching_from_real_to_complex_on_one_solver_is_safe()  -> None :
 
 
 def test_a_real_system_still_comes_back_real()-> None :
-    """No dtype creep. The DC path is unchanged by any of this."""
     vars=np.array([0, 1, 2], dtype =  np.int64)
 
     tmp=np.array([0, 1, 2], dtype = np.int64);  Solver=SparseLU()
@@ -510,12 +421,6 @@ def test_a_real_system_still_comes_back_real()-> None :
 
 
 def test_integer_triplets_and_an_integer_rhs_are_promoted()->None:
-    """Dropping the float64 coercion must not start refusing integer input.
-
-    The dtype is now taken from the caller so that complex can get through.
-    Anything not already floating or complex is promoted rather than handed
-    to SuperLU, which has no integer path.
-    """
     roows  =  np.array(  [ 0,   1, 2 ],  dtype  =  np.int64)
     Cols = np.array([0,1,2],dtype=np.int64)
 

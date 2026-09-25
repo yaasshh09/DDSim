@@ -1,30 +1,3 @@
-"""The HTTP and WebSocket surface, phases/PHASE-7.md.
-
-One local process, no database, no accounts, bound to localhost by whoever
-starts it. An instrument rather than a service, and the README says so.
-
-Three routes carry the work and the split between them is the whole design.
-
-**POST /api/jobs** validates everything it can without solving and answers a
-bad request with a refusal rather than a job that starts and dies. What it
-returns is a job id, immediately, because a MOSFET sweep is minutes long.
-
-**WS /api/jobs/{id}/stream** carries telemetry as it happens: Newton
-iterations, continuation attempts, finished sweep points, and a final status.
-Text only. It never carries a field, so a slow reader cannot make a solver
-wait, and a client is free to connect late, disconnect and come back.
-
-**GET /api/jobs/{id}/fields/{index}** carries one converged state as float32.
-Over HTTP rather than the socket because it is a question with an answer:
-someone dragged to a bias point and wants the profile there, which can happen
-long after the solve finished.
-
-Nothing here computes a physical quantity. It builds a device, calls the
-sweep the CLI would call, and forwards what comes back.
-"""
-
-
-
 from __future__ import annotations
 
 from  collections.abc  import AsyncIterator
@@ -76,34 +49,17 @@ from ddsim.extract.iv  import IVCurve
 
 SHUTDOWN_TIMEOUT=30.0
 
-"""How long shutdown waits for running solves to reach their next frame [s].
-One Newton iteration on the finest MOSFET mesh is well inside this."""
-
 
 PAGE =Path(__file__).parent  /'static'/ "index.html"
-"""The client page. Its scripts sit next to it under static/js, with no build
-step, which is what phases/PHASE-7.md means by someone runs one command and
-has a working page."""
 
 
 class _Revalidated(StaticFiles):
-
-    """Static files the browser must check before reusing. The page, its
-    scripts and the wire format change together, and a cached script is
-    yesterday's reader."""
 
     async def get_response(self, path  :  str, scope :  Any) -> Response:
         res = await super().get_response(path, scope)
         res.headers["Cache-Control"] ='no-cache'
         return res
 _QUIET_POLL = 0.25
-
-"""Seconds to wait for a frame before looking at the job's status [s].
-
-Only needed for the case where the stream has already been read to its end by
-someone else, which is what a reload looks like: the end marker is taken once
-and a second reader would otherwise wait for a frame that cannot come.
-"""
 
 
 _TERMINAL  = (JobStatus.DONE,
@@ -113,12 +69,10 @@ _ENDED   =  object( )
 
 _NOTHING_YET= object()
 class DeviceSpec(BaseModel) :
-    """Which device, and the constructor arguments to build it with."""
     kind : str
     parameters :  dict[str, Any]  =Field(default_factory  =dict)
 
 class SweepSpec(BaseModel):
-    """Which sweep, over which terminal, at which biases."""
 
 
     kind :str
@@ -129,7 +83,6 @@ class SweepSpec(BaseModel):
     measure_at:str |None=None
 
 class JobRequest(BaseModel) :
-    """One press of solve."""
 
     device:DeviceSpec
     sweep: SweepSpec
@@ -138,27 +91,13 @@ class JobRequest(BaseModel) :
 
 
 class Finished:
-    """What a job hands back: the curve, and the device it was taken on.
-
-    The device travels with the curve because a field message needs its mesh
-    and its scale factors, and the curve's points carry only the states.
-    """
 
 
     device  : Device
 
     curve:IVCurve| CVCurve
     models :  TransportModels  | None
-    """The transport models the curve was solved with, so the node currents
-    of a field frame come from the same mobility and recombination. None for
-    a C-V."""
 def create_app(registry :JobRegistry|None =None)-> FastAPI:
-    """The application, with its own job registry unless one is supplied.
-
-    Args:
-        registry: an existing registry, which the tests use to reach in. A
-            fresh one per app otherwise, since one process is one instrument.
-    """
 
     ord=registry if registry is not None else JobRegistry()
 
@@ -173,28 +112,20 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
 
     @App.get("/api/schema")
     def schema() -> dict[str, Any] :
-        """Every knob the browser can render, read from the code that has them.
-
-        There is no second copy of a default anywhere in the client. A knob
-        added to nmos() appears on the form the moment it exists.
-        """
         return{'devices' : {kind  : [ _knob(  p  )  for  p  in  device_parameters(kind )] for kind in DEVICE_KINDS}, "dimensions"  :  {kind   :  device_dimension (kind  ) for kind in  DEVICE_KINDS}, 'contacts'   :  {kind  : list (  contact_names( kind)  )  for  kind  in  DEVICE_KINDS}, 'regions'   : {kind   : regions for  kind  in  DEVICE_KINDS if ( regions  :=   region_defaults(kind))  is  not  None}, 'drawings'   :  {kind  : parts for kind in  DEVICE_KINDS if( parts  :=  drawing_defaults(  kind))  is  not None}, "node_budget"   : NODE_BUDGET, 'presets'  : {kind :   {'parameters'  :   dict(  preset.parameters  ),  'note'   :  preset.note } for  kind ,   preset in  COARSE.items (  )}, "sweeps"  :   {kind   : [ _knob(  p ) for  p in sweep_parameters (kind  )  ]   for  kind  in SWEEP_KINDS}, "models" :   [_knob(p )  for  p  in model_parameters()  ], 'plots'  :   dict (PLOT_TOPICS  ) , "statuses"  :   dict(STATUS_TOPICS  ),}
     @App.get('/api/learn')
     def  topics( ) ->  list [  dict[  str,   str  ]  ] :
-        """Every explanation, by name, title and one line."""
         return[
             {'name': t.name,'title':t.title,'summary': t.summary}
             for t in(load_topic(name)for name in topic_names())
         ]
     @App.get('/api/learn/{name}')
     def topic(name  :  str)  ->  dict[str, Any] :
-        """One explanation, in its two layers, with the knobs it explains."""
         found=_found(lambda :load_topic(name))
         return{"name" :  found.name, 'title'   :  found.title , "summary" :  found.summary, 'docs'  :   list(found.docs  ), 'plain' :   found.plain, "depth"  :   found.depth, "knobs"   :  sorted(k for  k ,   t  in  KNOB_TOPICS.items( )  if  t == found.name ),}
 
     @App.get(  "/api/lessons" )
     def lessons()  -> list[dict[str, str]] :
-        """Every guided experiment, by name, title and one line."""
         return [
             {"name"  :   found.name,  "title" :   found.title, 'summary'   : found.summary  }
             for found in(load_lesson(name  )   for  name  in lesson_names(  ))
@@ -203,7 +134,6 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
 
     @App.get("/api/lessons/{name}")
     def lesson(name :str)->  dict[str, Any] :
-        """One guided experiment, with every request it sets up whole."""
         found = _found(lambda :load_lesson(name))
         return{
             "name": found.name,
@@ -221,12 +151,6 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
         }
     @App.post('/api/devices/check')
     def  check( device   :  DeviceSpec  ) ->  dict[  str,   bool ]  :
-        """Whether a device builds, without solving it.
-
-        The page asks before it lets a knob settle, so a slider stops at the
-        last device that builds rather than landing on a refusal. The refusal
-        is the same 400 a job would get, word for word.
-        """
         _checked (lambda  :  build_from_spec(device.kind , device.parameters)  )
 
         return{  "builds"  :  True }
@@ -234,12 +158,6 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
     @App.post('/api/jobs')
 
     def  submit(request   :   JobRequest  )   ->  dict [ str,  str  ]  :
-        """Start a sweep and hand back its id at once.
-
-        Everything that can be judged without solving is judged here, so a
-        typo is a refusal naming the knob rather than a job that fails a
-        second later with the same message somewhere less visible.
-        """
         device   = _checked (
             lambda   : build_from_spec(  request.device.kind,  request.device.parameters )
         )
@@ -256,7 +174,6 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
 
     @App.get('/api/jobs/{job_id}')
     def  status (job_id :  str  )  ->  dict[str,  Any  ]  :
-        """Where the job is, and how much telemetry it lost on the way."""
         return{
             "id": job_id,
             "status" :_found(lambda:ord.status(job_id)).value,
@@ -265,28 +182,15 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
         }
     @App.post('/api/jobs/{job_id}/cancel')
     def cancel(job_id : str)  ->dict[str, bool] :
-        """Ask the solve to stop at its next reported iteration.
-
-        Reports whether anything was actually stopped. A sweep that had
-        already finished is left alone, because telling the browser a finished
-        curve was cancelled would throw away a result that exists.
-        """
         return{"cancelled" : _found(lambda: ord.cancel(job_id))}
 
     @App.get('/api/jobs/{job_id}/result')
 
 
     def  result(  job_id :   str )  -> dict[ str,   Any ]  :
-        '''The finished curve, fetched rather than streamed.
-
-        The frame queue may drop its oldest frame, so the curve a browser
-        plots point by point is not the authority on what the sweep found.
-        This is.
-        '''
         return curve_body(_finished(ord,job_id).curve)
     @App.get( "/api/jobs/{job_id}/fields/{index}" )
     def fields(job_id :str, index  :int) -> Response :
-        """The fields at one solved bias point, as float32 with a header."""
         done   =  _finished (ord ,   job_id )
         points= done.curve.points
         if not 0<= index < len(points):
@@ -307,12 +211,6 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
 
     @App.websocket("/api/jobs/{job_id}/stream")
     async  def stream(  socket  : WebSocket,   job_id  :   str)   ->  None :
-        """Every frame of one job, then how it ended.
-
-        The reads happen on a worker thread. A frame arrives from a queue the
-        solver is filling, and blocking the event loop on that would stop this
-        process serving anything else while a MOSFET converges.
-        """
         await socket.accept()
         try :
             ord.status(job_id)
@@ -338,7 +236,6 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
     @App.get ( '/')
     def  page( )  -> FileResponse  :
 
-        '''The client.'''
         return FileResponse(
             PAGE,media_type='text/html',headers={'Cache-Control': 'no-cache'}
         )
@@ -349,7 +246,6 @@ def create_app(registry :JobRegistry|None =None)-> FastAPI:
 
 def _knob(parameter: Any) ->dict[str, Any]:
 
-    '''One settable knob as the form needs it.'''
     return{
         "name" : parameter.name,
         'label': KNOB_LABELS.get(parameter.name, parameter.name),
@@ -366,12 +262,6 @@ def _knob(parameter: Any) ->dict[str, Any]:
 
 
 def _checked (call :   Any) -> Any :
-    """Run a validation and answer its refusal with a 400.
-
-    The messages from api/devices.py and api/sweeps.py name the knob and list
-    what was available, which is exactly what the person filling in the form
-    needs. They are forwarded rather than replaced.
-    """
     try :
         return call()
     except (  ValueError,  TypeError, KeyError  )   as  ref   :
@@ -380,18 +270,12 @@ def _checked (call :   Any) -> Any :
         raise  HTTPException(status_code   =  400 ,  detail  =  str(  sid )  ) from  ref
 
 def  _found(  call   : Any ) -> Any  :
-    """Run a lookup and answer an unknown job with a 404."""
     try :
         return call()
     except  KeyError  as miissing   :
         raise HTTPException(status_code=404,detail =str(miissing))from miissing
 
 def _finished(jobs : JobRegistry, job_id : str)  ->Finished:
-    '''The result of a job that has one, or a refusal saying why not.
-
-    409 rather than an empty curve. A sweep still running has no answer yet,
-    and a curve with no points in it reads like a device with no current.
-    '''
     foo =_found(lambda  :  jobs.result(job_id))
     if foo is None  :
         raise HTTPException(
@@ -408,12 +292,6 @@ def _finished(jobs : JobRegistry, job_id : str)  ->Finished:
 
 def _poll(jobs: JobRegistry,
           job_id:str) ->Any:
-    """The next frame, or a marker for ended and for nothing yet.
-
-    A fresh iterator per call, which costs a dictionary lookup and keeps this
-    function free of state. StopIteration is turned into a marker because it
-    cannot cross back into a coroutine.
-    """
 
 
     try   :

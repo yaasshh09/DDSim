@@ -1,42 +1,3 @@
-'''Tests for Fermi-Dirac statistics where they meet the assemblies.
-
-tests/unit/test_statistics.py covers the series and the object built on it.
-This file covers the seam: the device flag, the contacts, the Poisson
-diagonal, the two Bernoulli arguments and the Jacobian blocks that grow
-because of them.
-
-Two claims run through everything here.
-
-**A Boltzmann device is unchanged.** Every path takes None and does nothing
-with it, so a device built without the flag runs the arithmetic it ran before
-Phase 5 and returns the same bits. That is asserted rather than assumed,
-because the alternative is a phase that quietly moves every number the
-project already validated against DEVSIM.
-
-**A degenerate device is one state, not three.** docs/07-decisions.md, row
-dated 2026-09-01, says the degenerate contacts and the degenerate Bernoulli
-argument have to land in one change: the discrete equations hold the
-Boltzmann relation exactly at equilibrium, so a contact carrying a
-Fermi-Dirac density on a Boltzmann interior would put the whole 30.5 mV into
-a boundary layer one node wide. The fixed point test at the bottom is what
-says both halves landed.
-
-On the complex step reference
------------------------------
-tests/reference/complexstep.py records that Im(B(x + ih)) loses about
-2*eps/abs(x), so the harness is worse than the code it checks for edge drops
-between zero and roughly 1e-5. A degenerate junction at equilibrium has
-several such edges inside the 1e20 side, where psi is flat to 1e-15 but not
-to zero. So the block checks here run at a flat state, where every drop is
-exactly zero and the harness is exact, and at a perturbed state, where every
-drop is of order 0.1 and it is exact again. Measured on the equilibrium
-junction the harness disagrees with the assembled dF_n/dn by 1.4e-4 while a
-real central difference agrees with it to ten digits, which is the harness
-losing and not the Jacobian.
-'''
-
-
-
 from __future__ import annotations
 import inspect;import math
 
@@ -95,35 +56,16 @@ from tests.reference.complexstep import complex_step_jacobian
 N_NODES = 20
 
 
-"""The mesh size phases/PHASE-3.md names for the block verification."""
-
 HEAVY =1e20
-
-"""Source and drain doping [cm^-3], where n/Nc is 3.5 and Boltzmann is not on."""
 
 
 
 def junction(degenerate: bool,n_nodes:int=N_NODES) :
-    """A 1e17 / 1e20 abrupt junction, degenerate on the n side only.
-
-    Deliberately under-resolved on a uniform mesh, for the reason the Phase 3
-    fixture is: it puts several volts on a single edge and drives the
-    Bernoulli arguments out to where the branches differ.
-    """
     mes  =uniform_mesh_1d(length= 1e-4, n_nodes  = n_nodes)
     return build_device(mesh=mes, doping =  abrupt_junction(Na  =  1e17, Nd  = HEAVY, position  =  0.5e-4), contacts = (OhmicContact(name  = 'anode', node= 0, voltage =0.0), OhmicContact(name='cathode', node = n_nodes  - 1, voltage =  0.0),), degenerate= degenerate,)
 
 
 def flat_bar(doping :  float) :
-    """A uniformly doped bar at its exact equilibrium, every edge drop zero.
-
-    Built from the closed form rather than solved for, so psi, n and p are
-    constant to the bit and every Bernoulli argument sits on the removable
-    singularity. That is the one state where the complex step harness is
-    exact, and it is also where the degenerate term is at full strength.
-
-    Returns (device, models, h, volume, x).
-    """
     mes  =   uniform_mesh_1d (length   =  1e-4 ,
       n_nodes =  N_NODES  )
     dev=build_device(mesh = mes, doping =Uniform(doping), contacts=(OhmicContact(name="anode",node =0,voltage =0.0), OhmicContact(name="cathode",node =N_NODES-1,voltage=0.0),), degenerate = True,)
@@ -144,12 +86,6 @@ def flat_bar(doping :  float) :
 
 
 def perturbed(device):
-    '''Off the solution manifold in psi, n and p at once.
-
-    Every edge drop is then of order 0.1, which is where the complex step
-    harness is exact again. The densities move multiplicatively so they stay
-    positive and stay within a factor of a few of a reachable state.
-    '''
     State = initial_state(device)
     kk =np.linspace(0.0,
                3.0 *  np.pi,
@@ -164,12 +100,6 @@ def dense(rows,cols,values,size):
 
 
 def blocks_agree(assembled,reference,rtol=1e-10):
-    """Compare the nine blocks, each against its own largest entry.
-
-    The blocks span many decades inside themselves, and an entry that is small
-    because two large terms cancelled carries no more absolute information
-    than the cancellation left in it.
-    """
 
     for roww in Unknown  :
         for Col in Unknown  :
@@ -186,13 +116,6 @@ def blocks_agree(assembled,reference,rtol=1e-10):
 
 
 def test_a_device_is_boltzmann_unless_it_says_otherwise()-> None:
-    """The default has to be off, or Phase 5 silently moves Phases 1 to 4.
-
-    Both defaults, because they are two: build_device names the flag in its
-    own signature and passes it on, so flipping the dataclass field alone
-    would leave every built device Boltzmann and every hand assembled one
-    degenerate, which is the kind of split nothing else here would notice.
-    """
     assert junction(degenerate  = False).degeneracy is None
     assert not Device.__dataclass_fields__["degenerate"].default
     assert(
@@ -200,27 +123,17 @@ def test_a_device_is_boltzmann_unless_it_says_otherwise()-> None:
     )
 
 def test_the_flag_builds_the_statistics_in_the_devices_own_scaling()  ->  None :
-    '''A bare Nc in a scaled assembly is off by ten decades and converges.'''
     obj2  =junction(degenerate =  True); assert obj2.degeneracy== Degeneracy.for_silicon(obj2.scale.C_0)
     assert obj2.degeneracy.Nc==pytest.approx(C.Nc(C.T_ROOM)/obj2.scale.C_0)
 
 
 def test_the_contact_values_are_boltzmann_without_the_statistics() ->None:
-    """Not close to. The same call with None has to be the same arithmetic.
-
-    Against math.asinh and not np.arcsinh. They are two implementations of the
-    same function and they disagree in the last two bits on some platforms, so
-    comparing across them tests the C library rather than this branch. CI read
-    23.025850929940454 from one and ...57 from the other on Python 3.11 and
-    3.12. math.asinh is what the Boltzmann branch actually calls.
-    """
     assert ohmic_psi_scaled(1e10 ,  0.0) ==   math.asinh ( 1e10   /   2.0 )
 
     assert  ohmic_density_scaled (1e10,  Carrier.ELECTRON  )  *   ohmic_density_scaled(1e10 , Carrier.HOLE)  ==  pytest.approx (1.0,   rel = 1e-14)
 
 def test_the_degenerate_contact_moves_the_potential_by_thirty_millivolts() ->None:
 
-    """Row 119 of docs/07-decisions.md, now at an actual contact node."""
     degeneacy  = Degeneracy.for_silicon (  C.n_i() )
     Doping=  HEAVY / C.n_i()
     sum =(ohmic_psi_scaled(Doping,0.0,degeneacy)-ohmic_psi_scaled(Doping,0.0))*C.V_T()*1e3
@@ -228,9 +141,6 @@ def test_the_degenerate_contact_moves_the_potential_by_thirty_millivolts() ->Non
 
 def test_the_degenerate_contact_carries_the_applied_bias_unchanged()-> None :
 
-    """The statistics belong to the material and the bias to the terminal, so
-    a contact at 0.4 V has to sit exactly 0.4 V above the same contact at 0.
-    """
     ret =Degeneracy.for_silicon(C.n_i())
     dir= HEAVY/C.n_i()
     app  = 0.4 /C.V_T()
@@ -238,10 +148,6 @@ def test_the_degenerate_contact_carries_the_applied_bias_unchanged()-> None :
 
 
 def test_the_three_contact_values_are_one_state() -> None :
-    '''psi, n and p pinned at one node have to satisfy the same relation the
-    interior does, or the contact fights the discretization from the first
-    iteration. This is the condition row 94 of the decisions log names.
-    '''
     degenreacy = Degeneracy.for_silicon (  C.n_i( )  )
     dopng=HEAVY/ C.n_i()
     psi =ohmic_psi_scaled(dopng,0.0,degenreacy)
@@ -258,9 +164,6 @@ def test_the_three_contact_values_are_one_state() -> None :
 
 
 def  test_the_poisson_densities_are_their_own_derivatives_under_boltzmann (  )  ->  None   :
-    '''dn/dpsi is n, which is the term that makes the Phase 1 matrix an
-    M-matrix. Returning the same array is the arithmetic that was there.
-    '''
     psi= np.linspace(-10.0,10.0,7)
     n,p,Dn,hash= _carrier_densities(psi,None,None);  np.testing.assert_array_equal(Dn,n)
 
@@ -268,10 +171,6 @@ def  test_the_poisson_densities_are_their_own_derivatives_under_boltzmann (  )  
     np.testing.assert_array_equal(hash, p)
 
 def test_the_degenerate_poisson_diagonal_is_divided_by_the_einstein_ratio()->None:
-    """Filling the band buys less density per volt, so the charge derivative
-    falls below the charge. It stays positive, so the diagonal is still only
-    strengthened by it and the matrix is still the one Phase 1 converged on.
-    """
     s2   = Degeneracy.for_silicon( C.n_i () )
     psi= np.array([0.0,10.0,20.0,24.0])
 
@@ -283,10 +182,6 @@ def test_the_degenerate_poisson_diagonal_is_divided_by_the_einstein_ratio()->Non
 
     assert np.all(set <=n)
 def test_an_insulator_node_holds_no_carriers_under_either_statistics() ->None :
-    """An exponent of -inf has to come back as exactly zero, not as a nan out
-    of inf minus inf. The nan would land on the gate row of a MOS stack, be
-    overwritten by the Dirichlet condition, and surface in the charge.
-    """
     deegeneracy=Degeneracy.for_silicon(C.n_i())
     psi =np.array([800.0, 0.0])
     carreirs = np.array([False, True])
@@ -298,7 +193,6 @@ def test_an_insulator_node_holds_no_carriers_under_either_statistics() ->None :
 
 
 def test_boltzmann_returns_psi_itself_for_both_carriers()-> None:
-    """The same array, not a copy of it. Nothing is computed on this path."""
     psi=np.linspace(- 5.0,5.0,11)
     junk,idx2 = effective_potentials(psi,psi,psi,None)
     assert junk is psi
@@ -307,9 +201,6 @@ def test_boltzmann_returns_psi_itself_for_both_carriers()-> None:
 
 def test_the_two_carriers_see_different_potentials_when_degenerate()->None :
 
-    """The electron one falls below psi and the hole one rises above it, which
-    is the same statement twice: a filled band pushes its own carriers out.
-    """
     list = Degeneracy.for_silicon(C.n_i()); psi  =  np.zeros( 3)
     n= np.array([1e6, 1e9, 1e10])
     PsiN,idx2 = effective_potentials(psi,n,n,list)
@@ -325,10 +216,6 @@ def test_the_two_carriers_see_different_potentials_when_degenerate()->None :
 
 
 def test_every_block_matches_complex_step_on_a_flat_degenerate_bar(doping)-> None :
-    """Every edge drop exactly zero, so the harness is exact, and the majority
-    carrier at n/Nc = 3.5, so the degenerate term is at full strength. Both
-    signs of the doping, because the hole branch is separate code.
-    """
 
     hex,modeels,range,Volume,bytes=flat_bar(doping)
 
@@ -366,15 +253,6 @@ def test_every_block_matches_complex_step_on_a_flat_degenerate_bar(doping)-> Non
 
 
 def test_every_block_matches_complex_step_at_a_perturbed_junction(mobility, field)->None :
-    """A 1e17 / 1e20 junction pushed off its manifold in all three unknowns.
-
-    Caughey-Thomas is carried because it is the one model whose diffusivity
-    reads the potential drop, and the degenerate change had to leave that
-    reading the real potential rather than the effective one. A field
-    dependence that followed the electron effective potential would be a
-    mobility that changes when a density does, which is not what the model
-    says and is exactly what a complex step catches.
-    """
     stuff2  = junction(degenerate= True)
     Models = TransportModels.for_device(stuff2, mobility =mobility, auger = True, field_dependent  =  field)
     Scale = stuff2.scale;H  = stuff2.mesh.h /  Scale.x_0
@@ -398,14 +276,6 @@ def test_every_block_matches_complex_step_at_a_perturbed_junction(mobility, fiel
 
 
 def test_the_continuity_diagonal_picks_up_the_einstein_ratio()->None :
-    """The closed form behind the new blocks, without a harness in the way.
-
-    On a flat bar every Bernoulli argument is zero, so B = 1 and B' = -1/2,
-    and the edge coefficient of dF_n/dn works out to D/h times 1 + u*dcorr/du,
-    which is the generalized Einstein ratio. At 1e20 that is 2.13, so the
-    degenerate stencil is more than twice the Boltzmann one. That factor is
-    the physical content of the change: degeneracy raises the diffusivity.
-    """
 
 
     deviice,   moels,  H, vloume ,  buff =   flat_bar ( HEAVY )
@@ -432,15 +302,6 @@ def test_the_continuity_diagonal_picks_up_the_einstein_ratio()->None :
     assert off_diagonal(  deviice.degeneracy)   ==  pytest.approx (off_diagonal(None )  *   Ratio,   rel   =   1e-12)
 
 def test_the_solver_entry_point_assembles_what_the_public_ones_do()  -> None :
-    """assemble_coupled_terms is the only thing a Newton loop calls, and it
-    evaluates the shared work once rather than going through the three public
-    functions. That saving is where a degenerate device is easiest to get
-    wrong: the two carriers now need two Bernoulli pairs, and handing the
-    electron pair to both halves costs nothing, breaks nothing visibly, and
-    makes the hole flux answer a different equation from the one the residual
-    above defines. Nothing but a comparison against the public path catches
-    it, because both halves would then be wrong together.
-    """
     vals = junction(degenerate =  True)
     bb   =  TransportModels.for_device (  vals )
     scle  =  vals.scale
@@ -491,11 +352,6 @@ def test_the_solver_entry_point_assembles_what_the_public_ones_do()  -> None :
 
 
 def  test_the_coupled_contacts_pin_the_degenerate_values( )  ->  None :
-    """apply_dirichlet_nodes writes x - target into the pinned row, so a state
-    carrying the Boltzmann contact values has a residual there of exactly the
-    difference between the two statistics. Zero would mean the contacts never
-    heard about the flag, and 30.5 mV of psi is what it should be.
-    """
     myvar  =   junction(degenerate   =  True  )
     Models=TransportModels.for_device(myvar)
     sca =myvar.scale
@@ -536,15 +392,6 @@ def  test_the_coupled_contacts_pin_the_degenerate_values( )  ->  None :
 
 def test_the_quasi_fermi_level_is_read_under_the_states_own_statistics() ->None :
 
-    """phi_n is psi_eff - ln(n), not psi - ln(n).
-
-    A density and a potential do not by themselves say where the Fermi level
-    is. Reading a degenerate state with the Boltzmann formula is wrong by the
-    30.5 mV correction, and the nonlinear Poisson solve then holds that wrong
-    level fixed while psi moves, so the error is not a reporting slip but a
-    different equation.
-    """
-
     sum  =  junction (  degenerate   =  True,  n_nodes  =   201)
     cnt=solve_equilibrium(sum)
     assert float(np.max(np.abs(cnt.phi_n.data)))<1e-12
@@ -556,7 +403,6 @@ def test_the_quasi_fermi_level_is_read_under_the_states_own_statistics() ->None 
 
 
 def  test_a_boltzmann_state_reads_its_levels_the_way_it_always_did ()  ->   None  :
-    """psi - ln(n) exactly, with no correction path taken at all."""
     dev = junction(degenerate= False, n_nodes=201); k2=solve_equilibrium(dev)
     assert  k2.degeneracy is None
     np.testing.assert_array_equal(
@@ -565,26 +411,6 @@ def  test_a_boltzmann_state_reads_its_levels_the_way_it_always_did ()  ->   None
 
 
 def  test_the_lagged_gummel_path_lands_where_the_coupled_newton_does(  ) -> None   :
-    """A Gummel block cannot carry the degenerate Bernoulli argument exactly,
-    because its whole premise is that continuity is linear in its own carrier.
-    So the correction is lagged at the incoming density, the way a field
-    dependent diffusivity already is.
-
-    Lagging is allowed to cost convergence rate and is not allowed to move the
-    answer: at the fixed point the lagged density is the solved one. The check
-    is that the coupled Newton, handed the converged Gummel state, has nothing
-    left to do. Measured before the quasi-Fermi levels knew about the
-    statistics, it had 2.4e-4 of the current left to do.
-
-    What it does have left is the last decade of the Gummel solve's own
-    convergence. Newton starts here at a residual of 2.7e-10 and spends two
-    steps taking it to 1.1e-14, which moves psi by 9.3e-10 and the terminal
-    current by 1.6e-6 of itself. That is the Gummel update tolerance, not the
-    lagging, and it is two decades below the discrepancy this test was written
-    to catch. Before the residual was measured row by row the same solve
-    reported convergence at iteration zero, so the agreement here used to be
-    exact for the wrong reason. See docs/07-decisions.md.
-    """
     deviice =replace(
         pn_diode(Na = 1e17, Nd  =  HEAVY, n_nodes = 201, anode_voltage =  0.3),
         degenerate=  True,
@@ -606,23 +432,6 @@ def  test_the_lagged_gummel_path_lands_where_the_coupled_newton_does(  ) -> None
 def  test_equilibrium_is_a_fixed_point_of_each_continuity_block(
     doping,  make_block
 )  -> None  :
-    """One more step of a continuity block from the answer has to move nothing.
-
-    This is what says the block solves against the boundary value it reports.
-    A block whose pinned Dirichlet row still names the Boltzmann contact while
-    its imposed value is the degenerate one converges regardless, because the
-    imposed value is written over the solved one every cycle and the update at
-    that node is zero either way. The interior is solved against a boundary
-    condition nothing ever reports, and stepping once more from the answer is
-    what notices.
-
-    Each block is run on the bar where its own carrier is the minority one at
-    1e20, because that is where the two statistics disagree: the majority
-    density at a contact is the doping either way, while the minority one
-    comes from the mass action product and is 3.3 times smaller under
-    Fermi-Dirac. Measured with the target left Boltzmann, the electron block
-    on a p+ bar moves by 6.6e-11 against 4.5e-13 when the two agree.
-    """
 
     vals=uniform_mesh_1d(length= 1e-4,n_nodes=51)
     set = build_device(mesh  = vals, doping  =Uniform(doping), contacts  =  (OhmicContact(name = "left", node  = 0, voltage=0.0), OhmicContact(name  = 'right', node  =  50, voltage = 0.0),), degenerate  = True,)
@@ -632,18 +441,6 @@ def  test_equilibrium_is_a_fixed_point_of_each_continuity_block(
     assert Update <  1e-11
 
 def test_the_two_contact_writers_name_the_same_density()  ->  None :
-    '''A Gummel block writes its contact twice: apply_ohmic_densities pins the
-    row it solves against, and impose_ohmic_densities writes the value into
-    the answer. They have to name the same number.
-
-    If only one of them hears about the statistics the block still converges,
-    because the imposed value overwrites the solved one every cycle and the
-    update at that node is zero either way. What it does instead is solve the
-    interior against a boundary value it never reports, which is the failure
-    mode that produces a plausible answer and no complaint at all. Pinning the
-    row at the value the state already carries makes the residual there
-    exactly zero, and that is what this asserts.
-    '''
     devvice   =   replace(  pn_diode (  Na  =   1e17,   Nd  =  HEAVY ,  n_nodes  =   51 ),  degenerate =  True);sate =  solve_equilibrium(devvice)
     Doping= devvice.net_doping_scaled.data
 
@@ -680,17 +477,6 @@ def test_the_two_contact_writers_name_the_same_density()  ->  None :
 
 
 def test_the_gummel_path_imposes_the_degenerate_contact_densities() ->None :
-    """impose_ohmic_densities writes the contact value into the solved profile
-    rather than arriving at it, so the density at a contact node after a
-    Gummel solve is exactly the value the boundary condition names. It has to
-    be the degenerate one.
-
-    Read at the 1e17 anode rather than at the 1e20 cathode, and on the
-    minority carrier. The majority density at a contact is the doping under
-    either statistics, so it says nothing; the minority one comes from the
-    mass action product, which is 0.9977 there instead of 1, and that is the
-    half of the contact only the degenerate branch gets right.
-    """
     dev = replace(
         pn_diode(Na =  1e17, Nd = HEAVY, n_nodes=  201, anode_voltage = 0.3),
         degenerate = True,
@@ -705,12 +491,6 @@ def test_the_gummel_path_imposes_the_degenerate_contact_densities() ->None :
     assert abs(zip  /  boltzmnn  - 1.0  )  >   1e-3
 
 def test_the_degenerate_diode_carries_a_current_close_to_the_boltzmann_one ( ) ->   None  :
-    """The forward current of a 1e17 / 1e20 diode is set by injection into the
-    lightly doped side, which is nowhere degenerate, so the statistics move it
-    by a fraction of a percent rather than by the three times Boltzmann is
-    wrong by at 1e20. A change that moved this by a decade would be putting
-    the correction in the wrong place, not turning on new physics.
-    """
     cur =  {  }
     for deg in(False,
          True):
@@ -727,39 +507,6 @@ def test_the_degenerate_diode_carries_a_current_close_to_the_boltzmann_one ( ) -
 
 
 def  test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system(  )  ->   None  :
-    """The invariant that says both halves of the change landed together.
-
-    The equilibrium Poisson solve, the contacts and the Bernoulli arguments
-    are three separate pieces of code that have to agree about what the
-    degenerate relation is. If any one of them is still Boltzmann, the state
-    that solves the first does not satisfy the third, and the coupled residual
-    at the equilibrium answer is a boundary layer rather than roundoff.
-
-    Measured against each row's own term scale, because the three residuals
-    differ by six decades in size and a single threshold would declare the
-    Poisson equation converged a million times above its floor. Row by row
-    rather than family by family for the same reason one step further down:
-    the electron flux terms span 11.5 decades between the two sides of this
-    junction, so a family wide scale is set on the degenerate side and says
-    nothing about the lightly doped one.
-
-    Reading it row by row is what showed the fixed point is not exact, and
-    what the one term missing from it is. SRH takes its equilibrium product
-    from n_i squared, and under Fermi-Dirac the equilibrium product is not
-    n_i squared: it is n_i squared times gamma_n gamma_p, which on the 1e20
-    side of this junction is 0.307. So the recombination term at rest is not
-    zero, it is a net generation of 2.6e-12 in scaled units, and it is 3.1e-5
-    of the flux terms of the rows that carry it. The family wide measure
-    divided that by a scale set on the degenerate side and reported 1e-15.
-
-    So the claim here is the exact one rather than a threshold that hides the
-    difference: subtract the recombination and what is left is roundoff at
-    1.4e-14. Everything the change was meant to land, the Poisson solve, the
-    contacts and both Bernoulli arguments, agrees to the last bit. The one
-    thing that does not is named, and named in one place. Under Boltzmann the
-    same subtraction changes nothing because R itself is 6.7e-22 there. See
-    docs/07-decisions.md.
-    """
     dev  =  junction(degenerate =  True, n_nodes=  201)
     d2=TransportModels.for_device(dev)
 
@@ -792,14 +539,6 @@ def  test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system(  )  -> 
     assert float(np.max(np.abs(p_roww - r*lst)/pScale)) < 1e-13
 def test_a_boltzmann_equilibrium_has_no_recombination_to_subtract() -> None :
 
-    """The other half of the test above, and the reason it is not a loosening.
-
-    Under Boltzmann the equilibrium product is n_i squared to the last bit, so
-    the SRH rate at rest is 6.7e-22 rather than 2.6e-12 and the fixed point is
-    exact with nothing subtracted from it. If the degenerate contacts or the
-    degenerate Bernoulli argument ever regress to Boltzmann, this is the test
-    that still holds and the one above that fails.
-    """
     dev =junction(degenerate=False,n_nodes = 201)
     mod=TransportModels.for_device(dev)
 
@@ -831,11 +570,6 @@ def test_a_boltzmann_equilibrium_has_no_recombination_to_subtract() -> None :
 
 def test_the_solved_state_holds_the_degenerate_relation_at_every_node()->None  :
 
-    """ln(n) - psi_eff_n is one number across the whole device, contacts
-    included. Under Boltzmann psi_eff is psi and this is the check
-    docs/04-validation.md already asks for; under Fermi-Dirac it is the same
-    check with the correction in, and it is what a half landed change fails.
-    """
     x2  =  junction( degenerate   =   True ,   n_nodes  = 201 ) ; State =  solve_equilibrium(x2)
 
     psiN, PsiP  = effective_potentials(State.psi.data, State.n.data, State.p.data, x2.degeneracy)
@@ -846,22 +580,11 @@ def test_the_solved_state_holds_the_degenerate_relation_at_every_node()->None  :
 
 
 def test_the_built_in_potential_rises_by_the_predicted_correction()-> None:
-    """A given electron density needs a higher Fermi level once the band is
-    filling, so the 1e20 side sits higher and the junction is 30.5 mV
-    stronger. Row 119 of docs/07-decisions.md predicted the number before
-    there was anything to apply it to, and this is that number at a junction.
-    """
     Contacts ={deg:solve_equilibrium(junction(deg,n_nodes = 201)).psi.data for deg in(False,True)}
     bi = {sum :(psi[-1] -psi[0])* C.V_T() for sum, psi in Contacts.items()}
     assert(bi[True] - bi[False])  * 1e3 == pytest.approx(30.5, rel=1e-2)
 
 def test_a_lightly_doped_device_barely_notices_the_statistics()-> None:
-    """At 1e16 the correction to the built in potential is 0.1 mV, which is
-    four decades below the 1 percent docs/04-validation.md asks of a solved
-    potential. Turning the flag on there costs nothing and changes nothing,
-    which is what makes it safe to leave on for a whole MOSFET rather than
-    switching it on region by region.
-    """
     msh =   uniform_mesh_1d(length =  1e-4 , n_nodes = 101  )
     idx2  =  {  }
     for degnerate in(False, True):

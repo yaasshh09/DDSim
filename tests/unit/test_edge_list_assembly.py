@@ -1,21 +1,3 @@
-"""The assemblies must depend on the edge list, not on the array order.
-
-Passing the existing 1D suite only proves the refactor did not break anything.
-It does not prove the assemblies actually read the edge list, because the 1D
-default happens to agree with the slicing they used to do. These are the tests
-that prove it, and they are the ones that will still mean something in 2D:
-
-- spelling the 1D edge list out by hand must reproduce the default exactly,
-- shuffling the order the edges are listed in must not change the answer,
-- flipping which end of an edge is called left must not change the answer.
-
-The last one is the sharpest. Reversing an edge flips the sign of
-X = psi_right - psi_left, swaps B(X) with B(-X), swaps which node each factor
-multiplies, and flips the sign of the scatter. All four have to be right for
-the residual to come back unchanged. Get any one of them wrong and this test
-fails while every 1D test in the suite still passes, because the 1D default
-never reverses an edge.
-"""
 from __future__ import annotations
 
 import numpy as np
@@ -53,11 +35,6 @@ N_NODES =20
 
 
 def problem():
-    '''A 1e18 / 1e15 diode, perturbed off the solution manifold.
-
-    Asymmetric on purpose, so that Arora gives a genuinely varying per edge
-    diffusivity and a reversed or reordered edge cannot hide behind a constant.
-    '''
     Mesh=uniform_mesh_1d(length =1e-4,n_nodes = N_NODES)
     item2 =build_device(
         mesh = Mesh,
@@ -91,7 +68,6 @@ def problem():
 
 
 def residual_of(problem,geometry,order=None):
-    """The coupled residual under one edge geometry. None means the default."""
     geometry= UNIFORM_1D if geometry is None else geometry
     mod  =   problem["models"]
     dn =np.asarray(mod.Dn)
@@ -100,7 +76,6 @@ def residual_of(problem,geometry,order=None):
         dn,pow=dn[order],pow[order]
     return  coupled_residual (h   =  problem[  "h"  ]  if  order  is None  else problem [ "h" ]   [  order], volume  =  problem[  'volume'  ], x  =  problem[  'x' ], net_doping  = problem [  "net_doping" ], Dn = dn , Dp  =  pow , recombination   = mod.recombination, geometry =   geometry,)
 def matrix_of(problem, geometry, order =  None) :
-    """The coupled Jacobian as a dense array, under one edge geometry."""
     geometry=  UNIFORM_1D if geometry is None else geometry
     mod =problem['models']
     Dnn = np.asarray(mod.Dn)
@@ -122,16 +97,8 @@ def matrix_of(problem, geometry, order =  None) :
 
 
 def  chain (n_edges) :
-    """The 1D edge list written out by hand."""
     return np.array([[ee,ee+ 1] for ee in range(n_edges)],dtype= np.int64)
 def test_the_explicit_1d_edge_list_reproduces_the_default_bit_for_bit(problem) :
-    """Not close to. Identical.
-
-    The default and the spelled out list describe the same mesh, gather the
-    same values in the same order and scatter them in the same order, so there
-    is no reordering for the floating point sum to notice. Anything less than
-    exact equality here would mean the two paths are not the same arithmetic.
-    """
     speled_out  = EdgeGeometry( edge_nodes  = chain(problem["n_edges"  ]) )
 
 
@@ -143,12 +110,6 @@ def test_the_explicit_1d_edge_list_reproduces_the_default_bit_for_bit(problem) :
     )
 
 def test_the_answer_does_not_depend_on_the_order_the_edges_are_listed_in(problem):
-    """Shuffle the edge list. The physics cannot care.
-
-    Not bit exact, and it should not be: the scatter adds each node's incoming
-    fluxes in whatever order the edges appear, and floating point addition is
-    not associative. The tolerance is there for that and nothing else.
-    """
     rngg =  np.random.default_rng(20260825)
     Order  =  rngg.permutation(problem['n_edges'])
     cnt =EdgeGeometry(edge_nodes=chain(problem['n_edges'])[Order])
@@ -161,13 +122,6 @@ def test_the_answer_does_not_depend_on_the_order_the_edges_are_listed_in(problem
     np.testing.assert_allclose(matrix_of(problem,cnt,Order), matrix_of(problem,None), rtol=1e-13, atol=0.0,)
 
 def test_the_answer_does_not_depend_on_which_end_of_an_edge_is_called_left(problem)  :
-    """Reverse every edge. The device is unchanged, so the residual must be.
-
-    This is the one that catches a half finished generalization. Four separate
-    things flip when an edge is reversed and they have to cancel exactly:
-    the sign of X, which Bernoulli factor is which, which node each factor
-    multiplies, and the sign of the scatter into the two nodes.
-    """
 
     re = chain(problem['n_edges'])[:,::-1].copy()
     geo=  EdgeGeometry(edge_nodes =re)
@@ -182,7 +136,6 @@ def test_the_answer_does_not_depend_on_which_end_of_an_edge_is_called_left(probl
 
 def test_the_term_scales_do_not_depend_on_the_edge_order_either(problem):
 
-    """Row scaling reads the same fluxes, so it inherits the same invariance."""
     mod= problem['models']
     Rng=np.random.default_rng(11)
     order  =  Rng.permutation ( problem[ 'n_edges']  )

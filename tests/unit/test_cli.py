@@ -1,12 +1,3 @@
-'''The command line, ddsim/cli.py.
-
-phases/PHASE-7.md asks that someone who cloned the repo runs one command and
-has a working page. This is that command. What is tested here is the argument
-handling and the binding, not uvicorn: the server is injected so that a test
-never opens a socket, which keeps this file fast and keeps a failure here
-unambiguous.
-'''
-
 from __future__ import annotations
 import pytest
 from ddsim.cli import main
@@ -14,7 +5,6 @@ from ddsim.cli import main
 
 
 def captured()  :
-    """A stand in for uvicorn.run that records what it was asked to serve."""
     tmp :list[dict]=[]
     def run(app, **  options) :
         tmp.append({'app':app,
@@ -24,8 +14,6 @@ def captured()  :
 
 def test_serve_binds_to_loopback_by_default() ->None:
 
-    """phases/PHASE-7.md: single user, local, no authentication. A default of
-    0.0.0.0 would put an unauthenticated solver on the network."""
     cal,pow= captured()
 
 
@@ -42,8 +30,6 @@ def test_serve_takes_the_host_and_port_it_is_given()-> None :
     assert buff[0] ['port'] ==9123
 
 def test_serving_off_loopback_says_what_it_is_doing(capsys) ->None:
-    """Not refused, because there are reasons to do it deliberately, but
-    never silent. There is no authentication in front of this."""
     tmp2, vars =captured()
 
     main(['serve',"--host",'0.0.0.0'],run=vars)
@@ -52,8 +38,6 @@ def test_serving_off_loopback_says_what_it_is_doing(capsys) ->None:
 
 
 def test_serve_hands_over_an_application()-> None:
-    """Built here rather than named as an import string, so that the command
-    works from a clone with nothing else configured."""
     clls,Run=captured()
 
 
@@ -72,7 +56,6 @@ def test_a_command_that_does_not_exist_is_refused() -> None:
     assert Raised.value.code==2
 
 def test_no_command_at_all_is_refused()->None:
-    """A bare `ddsim` should say what it can do rather than do nothing."""
     with pytest.raises(SystemExit )  as  rai   :
         main([])
 
@@ -80,12 +63,6 @@ def test_no_command_at_all_is_refused()->None:
     assert rai.value.code ==  2
 def test_the_real_server_can_upgrade_to_a_websocket()->None:
 
-
-    """The residual reaches the page over a websocket, and bare uvicorn has no
-    websocket library of its own. Without one it answers every upgrade with a
-    404 and the page sits at "solving" forever. TestClient never goes through
-    uvicorn, so every route test passed while the first real browser failed.
-    This asks uvicorn directly which protocol it would serve."""
 
     import uvicorn
 
@@ -96,8 +73,6 @@ def test_the_real_server_can_upgrade_to_a_websocket()->None:
     assert coonfig.ws_protocol_class is not None
 
 def test_serving_off_loopback_limits_the_jobs()  -> None :
-    """Off loopback, anyone can submit, so the registry caps how many solves
-    run at once. On loopback it is one person's instrument and stays open."""
     import threading
 
     from ddsim.api.jobs import BusyError

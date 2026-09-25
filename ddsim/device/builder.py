@@ -1,15 +1,3 @@
-"""Device composition. Geometry and doping in, a Device out.
-
-A Device is a specification, not a solution. It knows its mesh, its material,
-its contacts, and how to evaluate its doping anywhere. It holds no solver
-state, which is why solving returns a DeviceState rather than mutating it.
-
-The doping profile is kept as a callable rather than collapsed into an array,
-per docs/03-architecture.md. Phase 5 refines the mesh adaptively, so the
-profile has to stay re-evaluable on a mesh that does not exist yet.
-"""
-
-
 from __future__  import  annotations
 
 
@@ -37,33 +25,23 @@ from  ddsim.physics.statistics  import Degeneracy
 AnyMesh  =  Mesh1D   |  Mesh2D
 
 
-"""A mesh of either dimension. Everything below works on both."""
-
 @dataclass(frozen =True)
 
 
 
 
 class Material :
-    """Material parameters at a fixed temperature."""
 
     name :str
 
-    """Material name, for reporting."""
-
     T : float
 
-    """Temperature [K]."""
-
     eps :  float
-    """Permittivity [F/cm]."""
     n_i  : float
-    """Intrinsic carrier density [cm^-3]."""
 
 
     @classmethod
     def silicon(cls, T : float  =  C.T_ROOM) ->Material:
-        """Silicon at temperature T [K], from docs/06-constants.md."""
 
         return  cls( name = 'silicon' ,  T =  T , eps  = C.eps_Si(  ),  n_i  =  C.n_i(T ))
 
@@ -71,67 +49,21 @@ class Material :
 @dataclass(frozen =True)
 
 class Device:
-    """A device specification, in one dimension or two."""
 
 
     mesh :  AnyMesh
-    """The mesh, positions in cm."""
 
     doping : DopingProfile
-    """Net doping as a callable of position [cm], returning [cm^-3].
-
-    Evaluated at the coordinates of every node, which on a grid is two arrays
-    and on a line is one. A profile that reads x alone is handed exactly the
-    array it used to be handed, so every device built before Phase 5 produces
-    the same doping to the last bit. A source implant reads both, because it
-    is Gaussian in depth and bounded laterally.
-    """
     material : Material
-    """Material parameters."""
 
     contacts  :  tuple [Contact , ...]
-    """The device terminals: ohmic points, ohmic plates and gates."""
     scale :  ScaleFactors
-    """The de Mari scale factors this device is solved in."""
     regions: RegionMap | None =None
-    """Which cell is which material, on a device made of more than one.
-
-    None means the whole device is the one semiconductor, which is every 1D
-    device built so far and every single material 2D one. A MOS stack passes
-    the map, and both things that follow from it, the per edge permittivity
-    and the semiconductor volume, are read from here.
-    """
 
     degenerate  : bool  = False
 
-    """Whether the carriers obey Fermi-Dirac statistics rather than Boltzmann.
-
-    False keeps n = exp(psi - phi_n) everywhere, which is what every device
-    before Phase 5 was solved with and what every result before it was
-    measured against. True routes the same relation through the Joyce-Dixon
-    series, which changes nothing below about 1e18 and moves the 1e20 source
-    and drain of a MOSFET by 30.5 mV. See docs/07-decisions.md.
-
-    A flag rather than a material property because it is a modelling choice,
-    not a number silicon has. The same silicon is degenerate or not depending
-    on how heavily this particular device is doped.
-    """
-
     @cached_property
     def  net_doping( self )   ->   Field   :
-        """Net doping on the mesh nodes [cm^-3], physical units.
-
-        Zero wherever there is no semiconductor. The zero charge volume there
-        already makes that true in the equations, so this is for everything
-        that reads the doping for some other reason: a plot, a lifetime, a
-        contact potential. An array reading 1e16 in the middle of an insulator
-        is a trap laid for all of them.
-
-        Cached, because a Device is frozen: the mesh and the profile that this
-        is evaluated from cannot change under it. with_bias returns a new
-        Device, which starts with an empty cache, so a rebiased device never
-        inherits a doping array from the one it was copied from.
-        """
         Values= self.doping(self.node_coordinates)
         if self.regions is not None:
             Values  =  np.where(  self.regions.semiconductor_volume >   0.0 ,  Values,   0.0)
@@ -139,24 +71,11 @@ class Device:
 
     @property
     def node_coordinates(self) ->Coordinates:
-        """Where every node is [cm], as the doping profile is asked for it.
-
-        A 1D mesh is a line along x and gets no y at all rather than a column
-        of zeros, so a depth dependent profile on one fails loudly instead of
-        reading its peak everywhere.
-        """
         dep=None if isinstance(self.mesh,Mesh1D)else self.mesh.node_y
         return Coordinates(self.node_x, dep)
 
     @property
     def node_x(  self )   ->  npt.NDArray [ np.float64  ] :
-        '''x position of every node [cm].
-
-        The two meshes name it differently, `x` on a line and `node_x` on a
-        grid, because on a grid it is one of two coordinates and calling it x
-        alone would read as the axis. The doping profile wants one array of
-        positions either way, so the difference stops here.
-        '''
 
         if  isinstance(  self.mesh ,   Mesh1D ) :
             return self.mesh.x
@@ -164,22 +83,9 @@ class Device:
 
     @property
     def dimension(self)->int :
-        """How many dimensions the device is solved in, 1 or 2.
-
-        Every power of x_0 in a unit conversion is a power of this, so it is
-        worth having one spelling of it rather than an isinstance check at each
-        site. See mesh2d's module docstring for the rule: a dual volume scales
-        as x_0^d and a face as x_0^(d-1).
-        """
         return  1 if isinstance ( self.mesh,  Mesh1D)   else 2
     @cached_property
     def scaled_mesh(self)->  ScaledMesh  :
-        '''The mesh in the units the assemblies work in.
-
-        The mesh scales itself, because the power of x_0 on the dual volume is
-        the dimension and no call site should have to know which one it is in.
-        See ScaledMesh in discretize/geometry.py.
-        '''
         if isinstance(self.mesh,Mesh1D):
             return self.mesh.scaled(self.scale)
         if self.regions is None:
@@ -192,13 +98,6 @@ class Device:
     @cached_property
     def charge_volume_scaled(self) ->  npt.NDArray[np.float64] :
 
-        """The part of each dual cell that carries charge [1], scaled.
-
-        The whole dual cell in a single material device. In a MOS stack it is
-        zero in the oxide, which turns those Poisson rows into the bare
-        Laplacian an insulator wants, and half a cell at the interface, where
-        half the cell is silicon and holds the inversion layer.
-        """
         if self.regions is None :
             return self.scaled_mesh.volume
         return np.asarray(
@@ -208,14 +107,6 @@ class Device:
 
     @cached_property
     def semiconductor_contacts(self) ->  tuple[SemiconductorContact, ...] :
-        """The contacts that touch semiconductor, gates left out.
-
-        The same question ohmic_contacts asks, without the refusal, because
-        the callers differ. A block that has to pin a density at every
-        terminal cannot leave one out and has to be told; anything that only
-        wants to know which terminals carry current can simply be handed them,
-        since a gate on an ideal insulator carries none.
-        """
         return tuple(
             contact
             for contact in self.contacts
@@ -225,22 +116,6 @@ class Device:
     @cached_property
     def ohmic_contacts(self)->tuple[SemiconductorContact,
                ...]:
-        """The contacts, if every one of them touches semiconductor.
-
-        A point and a plate are the same thing to the uncoupled Gummel
-        blocks: each pins a density at every node the contact covers, and a
-        point contact covers one node. A gate is not, and never can be. It
-        sits on an insulator, so there is no doping under it to read and no
-        carrier density to pin, and a block that silently left a terminal out
-        would converge and mean nothing. Those blocks ask through here and get
-        a refusal they can read.
-
-        The coupled path does not come through here any more. It applies every
-        contact in one pass through discretize.coupled.apply_contacts_coupled,
-        which pins three unknowns at an ohmic node and one at a gate. This
-        property is what is left for the parts that genuinely cannot take a
-        gate, which is electron_block and hole_block in device/transport.py.
-        """
         for buf in  self.contacts   :
             if isinstance(buf,GateContact):
                 raise TypeError(
@@ -254,13 +129,6 @@ class Device:
 
     @cached_property
     def carrier_free_nodes(self)  -> tuple[int, ...] :
-        """Nodes holding no semiconductor, whose n and p rows have to be pinned.
-
-        Empty on a device made of one semiconductor. On a MOS stack these are
-        the nodes strictly inside the oxide: their charge volume is zero and
-        their carrier face is zero, which leaves both continuity rows reading
-        0 = 0. See apply_contacts_coupled.
-        """
 
         if self.regions is None :
 
@@ -270,13 +138,6 @@ class Device:
 
     @property
     def mesh_1d(self)  ->  Mesh1D :
-        """The mesh, if it is a line.
-
-        The transport and current extraction paths slice edges contiguously and
-        assume every node has at most two neighbours, which is a 1D mesh and
-        nothing else. They ask through here so that handing them a grid is a
-        refusal rather than an index error somewhere deep in an assembly.
-        """
         if  not isinstance(self.mesh,   Mesh1D  )  :
 
 
@@ -289,18 +150,9 @@ class Device:
         return self.mesh
     @cached_property
     def net_doping_scaled(self)  -> Field :
-        """Net doping on the mesh nodes [cm^-3], scaled by C_0."""
         return self.net_doping.to_scaled(self.scale)
     @cached_property
     def degeneracy(self) -> Degeneracy|None:
-        """The statistics this device is solved with, or None for Boltzmann.
-
-        Every assembly takes this and does nothing at all with a None, so the
-        Boltzmann path stays the path it was rather than becoming a special
-        case of the degenerate one. The band densities are scaled by the same
-        C_0 the rest of the device is, because a bare Nc in a scaled assembly
-        is off by ten decades and would still converge.
-        """
 
         if not self.degenerate:
 
@@ -311,15 +163,6 @@ class Device:
 
 
     def with_bias(self,**voltages :float) ->Device:
-        """A copy of this device with new contact voltages [V].
-
-            device.with_bias(anode=0.5)
-
-        Contacts not named keep the bias they had. A Device is frozen, so a
-        bias sweep is a sequence of devices rather than one device being
-        mutated, which means a converged solution can never be left attached to
-        a bias it was not solved at.
-        """
         konwn  = {con.name for con in self.contacts}
 
         Unknown= sorted(set(voltages)-konwn)
@@ -353,22 +196,6 @@ class Device:
         )
 
 def build_device(mesh :AnyMesh, doping: DopingProfile, contacts:tuple[Contact,...], material : Material | None=None, C_0 : float|None =None, regions:RegionMap|None = None, degenerate: bool =False,)->Device:
-    """Assemble a Device and check that it is self consistent.
-
-    Args:
-        mesh: the mesh, 1D or 2D.
-        doping: net doping profile, a callable of position.
-        contacts: at least one contact.
-        material: defaults to silicon at 300 K.
-        C_0: reference concentration for scaling [cm^-3], defaults to n_i.
-        regions: the material map, on a device made of more than one material.
-            None means the whole mesh is the one semiconductor.
-        degenerate: solve with Fermi-Dirac statistics rather than Boltzmann.
-            Off by default, so every device built before Phase 5 is unchanged.
-
-    C_0 is exposed here so that Phase 5 can switch to max|net doping| in one
-    place if conditioning demands it, per docs/02-numerics.md.
-    """
     if material is None :
         material = Material.silicon()
 

@@ -1,41 +1,3 @@
-"""Terminal current and I-V sweeps. Post processing only, no solving.
-
-Sign convention, fixed here and inherited by everything downstream: a terminal
-current is positive when conventional current flows from the contact into the
-device. A forward biased diode has a positive anode current.
-
-Where a terminal current comes from
------------------------------------
-Not from the edge flux next to the contact, but from the continuity residual at
-the contact node before its row is replaced. The discrete balance at a contact
-node c is
-
-    (sum of interior fluxes out of c) - In_c = R_c * volume_c
-
-because the contact face carries a current In_c into the cell that no interior
-edge accounts for. The electron residual is written as
-F_n = R*volume - div(Jn), so In_c is exactly -F_n[c]. The same argument on the
-hole equation, where div(Jp) = -R, gives Ip_c = +F_p[c]. So
-
-    I_c = -F_n[c] + F_p[c]
-
-Two things fall out of writing it this way. The recombination in the contact
-half cell cancels between the two carriers, which it must, since an electron
-and a hole recombine as a pair and carry no net charge away. And the terminal
-currents sum to zero identically: summing either residual over every node
-telescopes the divergence to nothing and leaves the integrated recombination,
-which then cancels between the two carriers.
-
-Accuracy
---------
-Jn is the difference of two edge terms of size (Dn/h)*n, and near equilibrium
-they cancel almost completely, which costs digits. The contact is the best
-place in the device to pay that cost: the mesh is coarsest there and the
-majority carrier flux terms sit around 1e8 in scaled units against a forward
-current of 1e3, so about eleven digits survive. Next to the junction, where h
-is a hundred times smaller, far fewer would.
-"""
-
 from __future__ import annotations
 
 
@@ -66,22 +28,6 @@ from  ddsim.solve.continuation import continue_to
 
 
 def _models_at(device : Device,state: DeviceState,models:TransportModels |None)-> TransportModels :
-    """The transport models resolved at the state a current is read from.
-
-    A current has to be computed with the diffusivity the solve converged
-    with, and for a surface corrected mobility that is a function of the
-    state rather than something built once with the device. Reading it off
-    the models as they were built uses the uncorrected bulk mobility, which
-    is wrong by the whole size of the correction and shows up as a terminal
-    current sum an order of magnitude further from zero than it should be.
-
-    Field dependence is not handled here. That one is resolved edge by edge
-    where it is used, because it needs the potential drop across each edge and
-    this function has no reason to know about edges.
-
-    Returns the models untouched where there is no surface model, which is
-    every device before Phase 5, so nothing recorded earlier moves.
-    """
     if models is  None   :
         models = TransportModels.for_device(device)
     return models.at_state(device,state.psi.data,state.n.data,state.p.data)
@@ -89,30 +35,6 @@ def _models_at(device : Device,state: DeviceState,models:TransportModels |None)-
 
 
 def  current_densities (device  : Device, state :  DeviceState, models  : TransportModels  | None   =  None,)  ->   tuple[Field,   Field]   :
-    '''(Jn, Jp) on every edge [A/cm^2], physical units.
-
-    Args:
-        device: the device the state was solved on.
-        state: a solved state.
-        models: the transport models used for the solve. Built from the device
-            if None, which matches what solve_bias does by default.
-
-    The pair is what the current continuity invariant is measured on. In 1D,
-    with recombination off, Jn + Jp is the same number on every edge. In 2D it
-    is not, and it should not be: the current spreads out, so what is constant
-    is the total crossing every cut through the device rather than the density
-    on any one edge. See tests/invariant/test_current_continuity_2d.py.
-
-    A density and not a flux, in every dimension. The flux kernels multiply by
-    the face the carrier crosses, because that is what a continuity equation
-    wants, and it is divided back out here so that the number carries the unit
-    its name claims. In 1D that face is exactly 1.0 and the division is exact,
-    so nothing measured before this existed moves.
-
-    An edge with no semiconductor face reports exactly zero rather than a
-    quotient of two zeros. There is no current density in an insulator to
-    report, and zero is the answer every sum over edges wants.
-    '''
     models =_models_at(device,state,models)
 
     next =device.scale
@@ -148,10 +70,6 @@ def  current_densities (device  : Device, state :  DeviceState, models  : Transp
     )
 
 def _per_unit_face(flux  : npt.NDArray[np.float64], geometry  : EdgeGeometry) ->npt.NDArray[np.float64]  :
-    """Turn an edge flux back into a current density [1], scaled.
-
-    Zero where the face is zero, which is every edge an insulator touches.
-    """
     fac  =  np.asarray( geometry.carrier_face , dtype  =   np.float64  )
 
     return np.divide(
@@ -161,34 +79,11 @@ def _per_unit_face(flux  : npt.NDArray[np.float64], geometry  : EdgeGeometry) ->
 
 
 def edge_current_face(device: Device)->npt.NDArray[np.float64] :
-    '''The face each edge offers a carrier [cm], physical units.
-
-    What a current density has to be multiplied by to give the current through
-    that edge per unit depth. The whole dual face in the bulk, half of it on an
-    edge lying along a Si/SiO2 interface, and zero on an edge inside an
-    insulator. Summing J times this over the edges crossing a plane is the
-    discrete surface integral that current continuity is a statement about.
-    '''
     fac= np.asarray(device.scaled_mesh.geometry.carrier_face,dtype=np.float64)
     Power= 0 if isinstance(device.mesh,Mesh1D)else 1
     return np.asarray(fac* device.scale.x_0 **Power)
 
 def node_current_density (device  : Device , state  :  DeviceState, models  :  TransportModels   |  None  =  None,) ->  tuple[npt.NDArray [  np.float64 ], npt.NDArray[np.float64  ]  ]  :
-    """Total current density (Jx, Jy) at every node [A/cm^2], for streamlines.
-
-    Args:
-        device: the device the state was solved on.
-        state: a solved state.
-        models: the transport models of the solve, as for current_densities.
-
-    Each component is the face weighted mean of Jn + Jp on the edges along
-    that axis that touch the node: horizontal edges for Jx, vertical edges for
-    Jy. An edge density is a current over the face it offers a carrier, so the
-    face weighted mean is the current through those edges over their face.
-    That also keeps a node at an interface from being diluted by an oxide edge
-    that carries nothing, and a node with no carrying edge reports zero. On a
-    1D device Jy is zero. Post processing only, no solved number moves.
-    """
     Jnn, jp =current_densities(device, state, models) ; ttal = Jnn.data  + jp.data
     stuff= np.broadcast_to(edge_current_face(device),ttal.shape)
     buff= device.mesh
@@ -196,8 +91,6 @@ def node_current_density (device  : Device , state  :  DeviceState, models  :  T
     nnodes = buff.n_nodes
     def spread(edges: slice) ->  npt.NDArray[np.float64] :
 
-
-        """Face weighted mean onto nodes of the edges in one family [A/cm^2]."""
 
         tail= buff.edge_nodes[edges,0]
 
@@ -229,18 +122,6 @@ def  continuity_residuals(
     state  :  DeviceState ,
     models  :   TransportModels   |   None   =  None,
 )  -> tuple[  npt.NDArray [ np.float64  ] ,   npt.NDArray[  np.float64 ]  ]  :
-    """The two continuity residuals with no boundary rows applied [1], scaled.
-
-    Interior entries are zero for a converged solution. Contact entries are the
-    terminal currents, which is the whole reason to look at them.
-
-    Taken from the coupled residual, which is where the two continuity
-    equations are written in a form that does not care how many dimensions it
-    is in. They are the same two rows the uncoupled assemblies produce, to the
-    bit: the same fluxes, the same recombination rate, accumulated in the same
-    order. What differs between the coupled and uncoupled paths is the
-    Jacobian, and no Jacobian is wanted here.
-    """
 
     models =_models_at(device,state,models)
     Mesh = device.scaled_mesh
@@ -260,28 +141,6 @@ def  continuity_residuals(
     return np.asarray(Electrons), np.asarray(holles)
 
 def terminal_currents(device :Device, state :DeviceState, models : TransportModels| None  =None,)  -> dict[str, float]  :
-    """Current into the device at each contact, by contact name.
-
-    In 1D the value is a current density [A/cm^2]. In 2D the residual is
-    integrated over a dual cell that is an area per unit depth, so it is a
-    current per unit depth [A/cm], which for a MOSFET is current per unit gate
-    width and is how a drain current is quoted.
-
-    Positive means conventional current flowing from the contact into the
-    device, so a forward biased diode has a positive anode current. The values
-    sum to zero for a converged solution.
-
-    A plate contact is the sum over every node it covers, because the terminal
-    is one piece of metal and the current into it is the current into all of
-    it. A point contact is that sum over one node, so the two are the same
-    statement and there is no 1D branch here.
-
-    A gate reports exactly zero, and that is a statement rather than a
-    placeholder: an ideal insulator passes no DC current, so there is nothing
-    to compute. Reading it off the residual would be worse than useless, since
-    a gate node sits in the oxide and its two continuity rows are pinned, so
-    the number there is whatever the pinning says and not a current.
-    """
     ElectronResidual, divmod  =  continuity_residuals(device, state, models)
     PerResidual= device.scale.J_0  *  device.scale.x_0  **(device.dimension  - 1)
 
@@ -299,13 +158,6 @@ def total_current(
     models: TransportModels |None =None,
     contact:str| None=None,
 )->float :
-    """The current through the device at one contact, units as above.
-
-    Defaults to the first contact that carries current, which for a diode
-    built by pn_diode is the anode. In steady state the total current is
-    divergence free, so on a two terminal device every contact reports the
-    same magnitude with opposite signs.
-    """
     x2=terminal_currents(device,state,models)
     if contact is None :
         contact =device.semiconductor_contacts[0].name
@@ -316,51 +168,31 @@ def total_current(
 
 
 class  IVPoint   :
-    """One bias point of a sweep."""
     voltage:float
-    """Applied bias at the swept contact [V]."""
 
     current:float
-    """Current into that contact [A/cm^2]."""
 
 
     state : DeviceState
-    """The converged solution, kept for band diagrams and profile plots."""
 @dataclass( frozen  = True)
 
 class  IVCurve   :
-    """A bias sweep, complete or as far as it got."""
 
     contact :str
-    """Name of the swept contact."""
 
     points  :  tuple[IVPoint,  ...]
 
-    """The converged bias points, in the order they were requested."""
-
     complete :bool
-    """Whether every requested voltage was reached."""
 
     measured_at  :   str =  ""
-    """Name of the terminal the current was read at.
-
-    The swept one on a two terminal sweep, which is what an I-V curve means.
-    A transfer curve is the case where the two differ: the gate is swept and
-    the drain is measured, and a curve that did not record which was which
-    would be ambiguous exactly where it matters, since the source, drain and
-    body currents of a MOSFET are three different curves.
-    """
 
     message :str =''
-    """Why the sweep stopped, when it did not finish."""
 
     @property
     def voltage(self) ->npt.NDArray[np.float64]:
-        """Applied bias at each point [V]."""
         return np.array([Point.voltage for Point in self.points])
     @property
     def current(self)->  npt.NDArray[np.float64] :
-        '''Terminal current at each point [A/cm^2].'''
         return np.array([Point.current for Point in self.points])
     def __repr__(self) ->str:
         State= 'complete' if self.complete else "stopped early"
@@ -382,34 +214,13 @@ class  IVCurve   :
 
 class IVFrame :
 
-    """One finished sweep point, reported while the sweep is still running.
-
-    Scalars only, the same argument NewtonIteration makes for itself. Here it
-    matters twice over: the state on an IVPoint is the guess the next point
-    continues from, so a frame carrying it would hand a reader the ability to
-    change a solve that has not happened yet.
-    """
-
     index: int
-    """Position in the requested voltage list, from zero."""
 
     voltage  :  float
-    """Applied bias at the swept contact [V]."""
 
     current   :  float
-    """Terminal current at the measured contact [A/cm^2]."""
 
 def  _walk_sweep(device :  Device, contact  :   str, measured_at  : str, voltages  :   list [ float ], models  :  TransportModels , at_bias  : Callable [ [ float,   DeviceState   |  None], DeviceState  |   None  ], start  :   float , step :  float, min_step  :  float |  None, on_frame   : Callable[ [ object],  None]   |  None   =   None ,)  ->  IVCurve  :
-    """Walk a list of biases, continuing between them, and record the current.
-
-    The loop both public sweeps share. What differs between them is only how
-    one bias point is solved, which arrives as `at_bias`, so the continuation
-    policy and the bookkeeping are written once.
-
-    `on_frame` gets the ContinuationEvent of every attempt and an IVFrame for
-    every point that lands. The solver frames underneath arrive through the
-    same callback, which each public sweep closes its own `at_bias` over.
-    """
     try:
         First = at_bias(start,None)
     except RuntimeError as errror :
@@ -470,42 +281,6 @@ def  _walk_sweep(device :  Device, contact  :   str, measured_at  : str, voltage
     )
 
 def iv_sweep(device: Device, contact: str, voltages: list[float], models: TransportModels | None=None, step:float=0.05, min_step :float| None =None, start :float =0.0, max_iterations:int=200, update_tol: float= 1e-8, on_frame:Callable[[object],None] |None =None,)-> IVCurve :
-    """Sweep one contact through a list of biases, continuing between them.
-
-    Args:
-        device: the device. Its own contact biases are overridden by the sweep.
-        contact: name of the contact to sweep.
-        voltages: the biases wanted [V], in the order they should be walked.
-        models: transport models, built from the device if None.
-        step: the biggest voltage step the solver takes on its way from one
-            point on your list to the next [V].
-        min_step: give up once the continuation step falls below this [V].
-            None leaves it at the continuation default of a thousandth of
-            step, which is about ten halvings. That is the right default for a
-            sweep that is expected to succeed, and expensive for one that is
-            expected to stall: every one of those ten halvings is a full
-            failed solve at the Gummel budget. A caller who already knows the
-            sweep may stall, or who only wants to know roughly where, should
-            raise this.
-        start: the voltage the sweep starts from [V]. It's solved directly,
-            not ramped up to.
-        max_iterations: how many Gummel cycles each point gets before it
-            counts as failed [1].
-        update_tol: how small a whole Gummel cycle's change has to be before
-            a point counts as solved [1].
-        on_frame: telemetry, or None to report nothing. Carries a
-            GummelIteration per cycle, a ContinuationEvent per attempt and an
-            IVFrame per point that lands. See phases/PHASE-7.md.
-
-    The list is walked in the order given, each point continued from the last,
-    so it should be monotone or nearly so. A sweep from -1 V to 0.5 V is a
-    single ascending list: the first leg ramps down from the starting bias and
-    the rest walk back up, and every leg reuses the solution before it.
-
-    Returns everything it reached. A sweep that stalls is a measurement rather
-    than an accident: phases/PHASE-2.md asks for the bias at which Gummel gives
-    up, and that number is the last voltage in a curve marked incomplete.
-    """
     if not any(existing.name ==contact for existing in device.ohmic_contacts):
         raise KeyError(
             f"no contact named {contact!r} on this device, which has "
@@ -554,40 +329,6 @@ def iv_sweep(device: Device, contact: str, voltages: list[float], models: Transp
     return _walk_sweep(device=device, contact=contact, measured_at=contact, voltages=voltages, models=models, at_bias= at_bias, start=start, step= step, min_step =min_step, on_frame=on_frame,)
 
 def gate_sweep(device: Device, voltages:list[float], contact:str ="gate", measure_at: str='drain', models : TransportModels |None=None, step: float=0.1, min_step: float|None=None, start:float =0.0, max_iterations: int=30, on_frame : Callable[[object],None]|None= None,)->IVCurve :
-    """Sweep the gate and record the drain current: a transfer curve.
-
-    Args:
-        device: the MOSFET, carrying the drain and body biases the curve is
-            taken at. Its gate bias is overridden by the sweep.
-        voltages: the gate biases wanted [V], in the order to walk them.
-        contact: name of the terminal to sweep. The gate.
-        measure_at: name of the terminal to read the current at. The drain.
-        models: transport models, built from the device if None.
-        step: the biggest voltage step the solver takes on its way from one
-            point on your list to the next [V].
-        min_step: give up once the step falls below this [V].
-        start: the gate voltage the sweep starts from [V]. It's solved
-            directly, not ramped up to. The default is zero, which leaves an
-            NMOS switched off.
-        max_iterations: how many Newton steps each point gets before it
-            counts as failed [1].
-        on_frame: telemetry, or None to report nothing. Carries a
-            NewtonIteration per iteration, a ContinuationEvent per attempt and
-            an IVFrame per point that lands. No GummelIteration ever reaches
-            it, because this path does not run Gummel at all.
-
-    Two things separate this from iv_sweep, and both of them are why it is a
-    separate function rather than a flag on that one.
-
-    **It solves the coupled system.** iv_sweep runs the hybrid Gummel path,
-    whose two uncoupled blocks pin a density at every terminal and so cannot
-    take a gate at all. The coupled Newton applies every contact in one pass,
-    pinning three unknowns at an ohmic node and one at a gate.
-
-    **What is swept and what is measured are different terminals.** No current
-    flows in a gate, so a curve of gate bias against gate current is flat at
-    zero. The measurement wanted is the drain.
-    """
     knwn={Existing.name for Existing in device.contacts}
 
     for Name in(contact, measure_at)  :

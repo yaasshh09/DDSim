@@ -1,19 +1,3 @@
-"""The Field type, the defence against silently mixing scaled and physical data.
-
-Every array of physical numbers in this codebase carries three pieces of
-metadata: a unit string, a scaling state, and a mesh location. Arithmetic that
-mixes any of them raises rather than coercing.
-
-Why this matters more here than anywhere else: de Mari scaling means every
-quantity exists in two numerically plausible forms. A scaled potential of 38.7
-and a physical potential of 1.0 V are the same thing. Adding them produces no
-exception, no NaN and no crash. It produces a wrong answer that converges
-cleanly. Runtime type checking is the only thing that catches it.
-
-There are deliberately no convenience coercions. No __array__, no in place
-operators, no implicit float promotion. Every one of those would be a hole
-through which an unlabelled array re-enters the system.
-"""
 from __future__ import annotations
 from dataclasses import dataclass
 from dataclasses import field as dataclass_field
@@ -26,17 +10,10 @@ if  TYPE_CHECKING  :
     from ddsim.core.scaling import ScaleFactors
 
 class ScalingState(Enum):
-    """Whether the numbers are in physical units or de Mari scaled units."""
     PHYSICAL  = "physical"
     SCALED ='scaled'
 
 class Location( Enum  )  :
-    """Where on the mesh the quantity lives.
-
-    Node quantities (psi, n, p) and edge quantities (current density, field)
-    are not interchangeable, and a length coincidence must never let them be
-    combined by accident.
-    """
 
     NODE = 'node'
     EDGE  =  "edge"
@@ -44,7 +21,6 @@ class Location( Enum  )  :
     CELL = 'cell'
 
 def _combine_multiply(left :str,right: str)-> str:
-    """Unit string for a product. Not dimensional analysis, just bookkeeping."""
     if left== "1":
         return  right
     if right== "1":
@@ -53,7 +29,6 @@ def _combine_multiply(left :str,right: str)-> str:
 
 
 def  _combine_divide( numerator  :  str ,   denominator :  str ) -> str  :
-    """Unit string for a quotient. Not dimensional analysis, just bookkeeping."""
     if numerator ==denominator:
         return "1"
     if  denominator   ==   '1'  :
@@ -63,41 +38,25 @@ def  _combine_divide( numerator  :  str ,   denominator :  str ) -> str  :
     return f"{numerator}/{denominator}"
 @dataclass(frozen=True,eq = False)
 class Field:
-    """A numpy array that knows its unit, its scaling state and where it lives.
-
-    Attributes are frozen. A field whose scaling state can be reassigned in
-    place is no protection at all.
-
-    Equality is identity. Generated structural equality would compare the
-    underlying arrays and return an array, which is worse than useless in an
-    assertion.
-    """
     data :  np.ndarray
-    """The raw values. Units are given by `unit`, interpretation by `scaling`."""
     unit : str
-    """Symbolic unit string, for example "cm^-3", "V", "A/cm^2", or "1"."""
     scaling :ScalingState
-    """PHYSICAL or SCALED. Never mixed, never coerced."""
 
 
     location :  Location
-    """NODE, EDGE or CELL."""
 
     name:str| None=dataclass_field(default=None)
-    """Optional label, for error messages and plots."""
     __array_ufunc__=  None
     def __post_init__(self)->None:
         object.__setattr__(self,"data",np.asarray(self.data,dtype=np.float64))
     @property
     def shape(self)  -> tuple[int, ...]:
 
-        """Shape of the underlying array."""
         return self.data.shape
 
 
     @property
     def size(self) -> int  :
-        """Number of entries."""
         return int(self.data.size)
 
     def __len__(self)  ->  int  :
@@ -121,7 +80,6 @@ class Field:
             )
         return other
     def _check_same_state(self, other :Field, operation: str)  -> None :
-        """Scaling and location must match for every binary operation."""
         if self.scaling is not other.scaling  :
             raise  ValueError(
                 f"cannot {operation} fields with different scaling states: "
@@ -136,7 +94,6 @@ class Field:
             )
 
     def _check_additive(self, other :  Field, operation  : str)  -> None :
-        """Addition and subtraction additionally require matching units."""
         self._check_same_state(other ,
                         operation )
         if self.unit  !=   other.unit  :
@@ -152,7 +109,6 @@ class Field:
                 f"{self.shape} and {other.shape}."
             )
     def _like(self,data: np.ndarray,unit:str |None =None)->Field:
-        """A new Field with the same metadata and new values."""
 
         return  Field(
             data,
@@ -193,12 +149,6 @@ class Field:
 
     def to_scaled(self, scale :  ScaleFactors) -> Field  :
 
-        """Convert to de Mari scaled units.
-
-        Raises if the field is already scaled. This is not a no-op, because
-        calling it on a scaled field means the caller has lost track of state,
-        and that is the bug worth surfacing.
-        """
         if self.scaling  is ScalingState.SCALED   :
             raise ValueError(
                 f"field [{self.unit}] is already SCALED. Calling to_scaled "
@@ -209,7 +159,6 @@ class Field:
     def to_physical(self,scale :ScaleFactors) -> Field:
 
 
-        """Convert to physical units. Raises if the field is already physical."""
         if self.scaling is ScalingState.PHYSICAL  :
             raise ValueError(
                 f"field [{self.unit}] is already PHYSICAL. Calling to_physical "

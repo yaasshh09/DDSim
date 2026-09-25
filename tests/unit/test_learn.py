@@ -1,11 +1,3 @@
-"""The explanations behind every part of the page, phases/PHASE-7.md part two.
-
-A topic is a markdown file in two layers: a plain paragraph a first course in
-semiconductors can follow, then the equations. Everything here keeps them
-honest and complete: every knob, plot and status points at a topic that exists,
-every reference into docs/ names a heading that exists, and no topic ships
-half written.
-"""
 from __future__ import annotations
 import pathlib, re
 

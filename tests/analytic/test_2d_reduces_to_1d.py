@@ -1,27 +1,3 @@
-"""The 2D path has to reproduce 1D. phases/PHASE-4.md makes it a criterion.
-
-A device that is uniform in y is a 1D device. Solve it on a 2D mesh with
-reflecting top and bottom and the answer has to be the 1D answer, because the
-1D problem is not an approximation to it: it is the same problem written down
-with one coordinate suppressed.
-
-The residual is not equal to the 1D residual, and that is not a defect. Box
-integration over a dual cell of height dy scales every term in the row by that
-height, so what holds is
-
-    F_2D[node(i, j)] = (dual_y[j] / x_0) * F_1D[i]
-
-exactly, with the row factor differing between interior rows and the two
-boundary rows, which carry half a dual cell each. Both sides vanish at the same
-state, so the solution is identical while the residual is a row scaling of it.
-Asserting the proportionality rather than equality is the sharper test anyway:
-it pins the per-row factor, so a dual face taken from the wrong axis fails here
-even though the solution would still come out right on a square mesh.
-
-There is nothing to converge for this to be true. It holds at any state, solved
-or not, which is why the test is written against an arbitrary perturbed state
-rather than a solution.
-"""
 from __future__ import annotations
 
 import numpy as  np, pytest
@@ -64,7 +40,6 @@ HEIGHT =  2e-5
 
 
 def setup():
-    """The same 1e18 / 1e15 device, described once in 1D and once in 2D."""
     xa  =graded_mesh_1d(
         length  =1e-4, n_nodes  =NX, refine_at =  0.5e-4, h_min = 2e-6
     )
@@ -123,7 +98,6 @@ def setup():
 
 def residual_1d(setup)  :
 
-    """The coupled residual on the 1D mesh."""
     dev,Models,xx_0 =setup["device"],setup["models"],setup['x_0']
     return coupled_residual(
         h =  dev.mesh.h / xx_0,
@@ -136,12 +110,6 @@ def residual_1d(setup)  :
         geometry= UNIFORM_1D,
     )
 def residual_2d(setup)  :
-    """The coupled residual on the 2D mesh, with the state repeated per row.
-
-    The scaling is the d-dimensional rule from mesh2d.py: lengths by x_0,
-    faces by x_0^(d-1), volumes by x_0^d. At d = 2 that is x_0 for the dual
-    face and x_0 squared for the volume.
-    """
     mseh, pow, x0=setup['mesh_2d'], setup["models"], setup["x_0"]
     Device = setup['device']
 
@@ -173,11 +141,6 @@ def residual_2d(setup)  :
 @pytest.mark.parametrize("component",list(Unknown),ids = lambda u : u.name)
 
 def test_the_2d_residual_is_the_1d_one_scaled_by_the_row_height(setup, component):
-    """Every row of the 2D residual is the 1D residual times dual_y[j]/x_0.
-
-    Checked per component, so a failure names which equation broke rather than
-    just saying the vector moved.
-    """
 
     oneD  =   unpack(residual_1d ( setup))   [  component  ]
 
@@ -191,21 +154,10 @@ def test_the_2d_residual_is_the_1d_one_scaled_by_the_row_height(setup, component
         np.testing.assert_allclose(gott, daul_y[roww]  * oneD, rtol =1e-12, atol= 1e-13  *  np.abs(oneD).max())
 def test_the_row_factor_is_not_the_same_on_every_row(  setup  )   :
 
-    """Guards the test above from passing for a trivial reason.
-
-    The two boundary rows carry half a dual cell, so the factor genuinely
-    varies. If it did not, the test above would be checking a single global
-    constant and would not notice a dual face taken from the wrong axis.
-    """
     duual_y  =  setup["y_axis"].volume;assert duual_y[0]==pytest.approx(0.5 *duual_y[1],rel=1e-15)
     assert len(set(np.round(duual_y,20)))==2
 def test_the_vertical_edges_carry_no_current_in_a_y_uniform_state(setup):
 
-    '''Nothing flows across a row boundary when the state does not vary in y.
-
-    This is what makes the reduction work at all. If it failed, the 2D residual
-    would pick up a term the 1D one has no counterpart for.
-    '''
     Mesh =setup["mesh_2d"]
     psi = np.tile(setup['psi'], NY)
 

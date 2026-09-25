@@ -1,10 +1,3 @@
-"""Band edges from a solved state, ddsim/extract/bands.py.
-
-The band diagram the page draws. Energies in eV with the equilibrium Fermi
-level at zero, so the intrinsic level sits at -psi. Every test is an analytic
-limit the edges have to meet.
-"""
-
 from __future__ import annotations
 
 import math
@@ -34,8 +27,6 @@ def equilibrium() :
 
 def test_the_gap_is_the_same_everywhere(equilibrium)-> None :
 
-    """Ec - Ev = kT ln(Nc Nv / n_i^2), the gap the anchored n_i implies. It
-    differs from Eg(300) by a few meV, recorded in docs/07-decisions.md."""
     dev,sta=equilibrium
     bnads =  band_edges(dev,
                       sta)
@@ -60,7 +51,6 @@ def test_in_equilibrium_both_quasi_fermi_levels_are_flat_at_zero(equilibrium)  -
 
 
 def test_at_the_p_contact_the_valence_band_sits_where_boltzmann_puts_it(equilibrium,) ->None:
-    """Ef - Ev = kT ln(Nv / Na), non degenerate, at the ohmic anode."""
     dev, State =  equilibrium
     baands=band_edges(dev,State)
 

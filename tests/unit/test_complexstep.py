@@ -1,22 +1,3 @@
-"""The complex step Jacobian harness, checked before anything trusts it.
-
-phases/PHASE-3.md makes complex step differentiation the acceptance criterion
-for every Jacobian block, which puts the harness itself on the critical path.
-A harness that is quietly wrong reports a wrong Jacobian as correct, and that
-failure is invisible: Newton then stagnates and the stagnation gets blamed on
-conditioning. So the harness is validated against the 80 digit decimal
-reference from Phase 0 before it is pointed at anything.
-
-The load bearing case is x = 0. The Phase 0 scalar reference in
-tests/reference/highprec.py assumes cos(h) rounds to exactly 1.0 for the tiny
-imaginary step, which is true, and then drops the resulting cos(h) - 1 term as
-negligible, which is true everywhere except at the origin. At x = 0 that term
-is the entire real part of expm1(ih) and dropping it returns 0.0 instead of
--0.5. A device at equilibrium in a uniformly doped region has X = 0 on every
-edge there, so this is the common case and not a corner.
-"""
-
-
 from __future__  import  annotations
 
 import math
@@ -33,7 +14,6 @@ from tests.reference.highprec import dB_reference, relative_error
 
 
 def test_complex_expm1_matches_expm1_on_the_real_axis() -> None:
-    '''A zero imaginary part has to reproduce the real function exactly.'''
     xx=  np.array([-  40.0, - 1.0, - 1e-8, 0.0, 1e-8, 1.0, 40.0])
     gott=complex_expm1(xx.astype(np.complex128))
     assert np.all(gott.imag == 0.0);np.testing.assert_allclose(gott.real,np.expm1(xx),rtol=1e-15,atol=0.0)
@@ -41,13 +21,6 @@ def test_complex_expm1_matches_expm1_on_the_real_axis() -> None:
 
 
 def test_complex_expm1_keeps_the_second_order_term_at_the_origin() -> None :
-    """expm1(ih) has real part -h^2/2, and it is the whole answer at x = 0.
-
-    Written as cos(h) - 1 this underflows to exactly 0.0 for h = 1e-20, which
-    is what makes the Phase 0 scalar reference return 0 for B'(0). Written as
-    -2*sin(h/2)^2 it survives, because the squaring happens after the sine
-    rather than inside a subtraction against 1.
-    """
     hh=1e-20
     stuff  =complex_expm1(np.array([complex(0.0, hh)])) [0]
 
@@ -57,7 +30,6 @@ def test_complex_expm1_keeps_the_second_order_term_at_the_origin() -> None :
 
 
 def test_B_complex_reproduces_B_on_the_real_axis() -> None:
-    """The complex path is different algebra, so it is checked against B."""
     idx2  = np.array(  [ -  300.0 , - 37.0, -  1.0,   -  0.05 ,   0.0,   0.05 ,   1.0,   37.0, 300.0  ] )
     hex = B_complex(idx2.astype(np.complex128))
     assert np.all(hex.imag==0.0)
@@ -67,7 +39,6 @@ def test_B_complex_reproduces_B_on_the_real_axis() -> None:
 
 def test_B_complex_does_not_overflow_in_the_positive_tail( )  ->   None :
 
-    """exp(x) overflows past 710. The positive branch never evaluates it."""
     bar  =  B_complex (  np.array( [  complex( 700.0,   1e-20)  ] )  )  [0  ]
 
     assert math.isfinite(bar.real)
@@ -81,14 +52,12 @@ def test_B_complex_does_not_overflow_in_the_positive_tail( )  ->   None :
 def test_complex_step_matches_the_decimal_reference_where_it_is_exact(
     x  :  float,
 )   -> None  :
-    """The range Phase 0 established complex step as trustworthy over."""
     sum= B_complex(np.array([complex(x,DEFAULT_STEP)])) [0].imag/ DEFAULT_STEP
 
     assert relative_error(sum,dB_reference(x)) < 1e-13
 
 def test_complex_step_is_exact_at_the_origin()-> None:
 
-    """B'(0) = -1/2 exactly. This is what the cos(h) - 1 form loses."""
     gott=B_complex(np.array([complex(0.0,DEFAULT_STEP)]))[0].imag/ DEFAULT_STEP
 
 
@@ -96,7 +65,6 @@ def test_complex_step_is_exact_at_the_origin()-> None:
     assert gott ==pytest.approx(-0.5,rel =1e-14)
 def  test_complex_step_recovers_dB_dx_at_the_origin(  )  ->  None  :
 
-    """The harness and the implementation agree at the case that matters."""
     gott=B_complex(np.array([complex(0.0,DEFAULT_STEP)]))[0].imag/ DEFAULT_STEP
 
 
@@ -104,11 +72,6 @@ def  test_complex_step_recovers_dB_dx_at_the_origin(  )  ->  None  :
 
 
 def test_complex_step_jacobian_is_exact_for_a_linear_function()->None:
-    """No truncation, no cancellation, and a power of two step: bit for bit.
-
-    Exactness here is the whole reason DEFAULT_STEP is 2**-70 rather than a
-    round decimal. With 1e-20 the -7 entry comes back one ulp low.
-    """
     q= np.array([[2.0, -  1.0, 0.0], [0.5, 3.0, - 7.0]])
 
     def f(x:np.ndarray) -> np.ndarray :
@@ -119,7 +82,6 @@ def test_complex_step_jacobian_is_exact_for_a_linear_function()->None:
 
 
 def test_complex_step_jacobian_matches_an_analytic_jacobian() -> None:
-    """A nonlinear case with a hand derived Jacobian."""
 
     def f(x : np.ndarray)->np.ndarray:
         return np.array([  x[0  ]  **   2  *  x[ 1],  np.sin( x[0] )  +  x [ 1  ]  **  3  ]  )
@@ -131,12 +93,6 @@ def test_complex_step_jacobian_matches_an_analytic_jacobian() -> None:
     np.testing.assert_allclose(Got,thing,rtol =1e-15,atol =0.0)
 
 def test_complex_step_jacobian_rejects_a_residual_that_drops_the_dtype()->None :
-    """A residual that casts to float silently returns a zero Jacobian.
-
-    That is the harness failure mode with the worst consequences, because a
-    zero column looks like a correct derivative for any term that happens to
-    be absent. Caught rather than reported.
-    """
 
 
 

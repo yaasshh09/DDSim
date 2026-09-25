@@ -1,13 +1,3 @@
-"""Tests for mesh/mesh1d.py.
-
-All lengths are in cm, per the CGS-adjacent convention in
-docs/06-constants.md. A 1 um device is 1e-4 cm and 1 nm spacing is 1e-7 cm.
-
-The invariant that catches the most mistakes is that the dual cell widths sum
-to the domain length. Get the boundary half cells wrong and every integrated
-charge in the device is off by a sliver that looks like a physics effect.
-"""
-
 from __future__ import annotations
 
 import numpy as np ; import pytest
@@ -18,11 +8,8 @@ from ddsim.mesh.mesh1d import(Mesh1D, graded_mesh_1d, graded_mesh_1d_at, graded_
 from tests.reference.grading import solve_ratio as reference_solve_ratio
 MICRON =1e-4
 
-"""One micron [cm]."""
-
 NANOMETRE= 1e-7
 
-"""One nanometre [cm]."""
 def test_uniform_mesh_has_the_requested_node_count()->None:
     mseh  = uniform_mesh_1d(MICRON, 101)
     assert mseh.n_nodes==101 ; assert mseh.n_edges  == 100
@@ -37,12 +24,6 @@ def test_uniform_mesh_spans_the_requested_length()-> None:
 def  test_uniform_mesh_edge_lengths_are_all_equal ( )   -> None  :
 
 
-    """Equal to a few ulp, not bitwise.
-
-    linspace guarantees both endpoints exactly, which matters more here than
-    identical spacings, and the price is that consecutive differences wobble
-    by about one ulp. Measured spread is 1.1e-14 relative over 100 cells.
-    """
     mes=uniform_mesh_1d(MICRON,
                      101)
     np.testing.assert_allclose(mes.h, MICRON / 100.0, rtol =  1e-13)
@@ -62,7 +43,6 @@ def test_uniform_mesh_rejects_non_positive_length() -> None  :
 
 @pytest.mark.parametrize("mesh", [uniform_mesh_1d(MICRON,101), uniform_mesh_1d(MICRON,2), graded_mesh_1d(MICRON,200,refine_at =0.5 *MICRON,h_min =NANOMETRE), graded_mesh_1d(MICRON,51,refine_at = 0.0,h_min=NANOMETRE),], ids=['uniform-101',"uniform-2","graded-centre","graded-left"],)
 class TestMeshInvariants:
-    """Properties every mesh must satisfy, whatever generated it."""
     def test_node_positions_are_strictly_increasing( self,   mesh  :  Mesh1D)  -> None :
         assert np.all(np.diff(mesh.x)> 0.0)
 
@@ -73,7 +53,6 @@ class TestMeshInvariants:
 
 
     def test_cell_volumes_sum_to_the_domain_length(self,mesh:Mesh1D)->None:
-        """The single best structural check on a finite volume mesh."""
         assert  mesh.volume.sum()   ==  pytest.approx(  mesh.length, rel   = 1e-14)
 
     def test_cell_volumes_are_positive(self,mesh:Mesh1D) ->None:
@@ -147,11 +126,6 @@ def test_graded_mesh_places_a_node_at_the_refinement_point()->None :
     assert np.min(np.abs(res.x -RefineAt)) <1e-16
 
 def test_graded_mesh_spacing_is_monotonic_on_each_side() -> None :
-    """Spacing falls to h_min at the refinement point and rises after it.
-
-    Monotonic across the whole mesh is impossible for an interior refinement,
-    so the requirement can only mean monotone on each side.
-    """
     ref= 0.5 *MICRON
     mes=  graded_mesh_1d(MICRON, 200, refine_at= ref, h_min  = NANOMETRE)
     piv  =int(np.argmin(np.abs(mes.x- ref)))
@@ -163,7 +137,6 @@ def test_graded_mesh_spacing_is_monotonic_on_each_side() -> None :
 
 def test_graded_mesh_growth_ratio_is_gentle() -> None  :
 
-    '''Neighbouring cells within 10 percent keeps the truncation error sane.'''
     buff= graded_mesh_1d(MICRON,200,refine_at= 0.5*MICRON,h_min= NANOMETRE)
     rtios =buff.h[1:] / buff.h[:- 1]
     assert np.all(rtios < 1.10)
@@ -199,7 +172,6 @@ def test_graded_mesh_refined_off_centre() ->  None :
 
 
 def test_graded_mesh_supports_a_spacing_ratio_of_1000() ->None :
-    """Phase 5 needs 1 nm at a junction inside a much larger device."""
     foo = graded_mesh_1d(
         100.0  *MICRON, 400, refine_at  =50.0 * MICRON, h_min = NANOMETRE
     )
@@ -213,7 +185,6 @@ def test_graded_mesh_rejects_a_refinement_point_outside_the_domain() -> None:
 
 def test_graded_mesh_rejects_an_infeasible_minimum_spacing() -> None:
 
-    """200 nodes cannot cover 1 um if every cell must be at least 1 um."""
     with pytest.raises(ValueError, match =  "infeasible|h_min") :
         graded_mesh_1d (  MICRON,   200 , refine_at   =  0.5  *  MICRON , h_min  = MICRON)
 
@@ -221,7 +192,6 @@ def test_graded_mesh_rejects_an_infeasible_minimum_spacing() -> None:
 
 
 def  test_graded_mesh_reduces_to_uniform_when_h_min_is_the_uniform_spacing ()  ->  None  :
-    """A consistency check on the ratio solve: r must come out as 1."""
     nn = 101
     t2 =  MICRON   /   (  nn   -   1 )
     mes= graded_mesh_1d(MICRON,nn,refine_at=0.5 *MICRON,h_min =t2);  np.testing.assert_allclose( mes.h,   t2, rtol  =  1e-9)
@@ -230,7 +200,6 @@ def  test_graded_mesh_reduces_to_uniform_when_h_min_is_the_uniform_spacing ()  -
 
 
 def test_phase0_acceptance_200_nodes_1nm_at_half_a_micron() ->None:
-    """The case named in phases/PHASE-0.md, asserted end to end."""
     lst =  graded_mesh_1d(MICRON, 200, refine_at =0.5 *MICRON, h_min  = NANOMETRE)
     assert  lst.n_nodes  == 200
 
@@ -263,13 +232,11 @@ def test_graded_mesh_rejects_non_positive_h_min() ->   None :
 
 
 def test_graded_mesh_rejects_a_refinement_point_that_starves_one_side()->None:
-    """Total budget fits, but no split can reach h_min on the short side."""
     with pytest.raises(ValueError, match  = 'infeasible') :
         graded_mesh_1d(1.0, 3, refine_at = 0.1, h_min=  0.4)
 
 
 def test_graded_mesh_rejects_a_mesh_harsher_than_max_ratio() -> None:
-    """Three cells cannot go from 1e-3 to 0.5 gently, and it says so."""
     with pytest.raises(ValueError, match= "max_ratio"):
         graded_mesh_1d(1.0,4,refine_at=0.5,h_min=1e-3)
 
@@ -293,7 +260,6 @@ def test_repr_reports_size_and_spacing_range()-> None:
 
 
 def test_geometric_sum_handles_a_ratio_of_exactly_one() -> None:
-    '''Guards the r = 1 singularity, where (r^m - 1)/(r - 1) is 0/0.'''
     from ddsim.mesh.mesh1d import _geometric_sums
 
     idx2= _geometric_sums(
@@ -304,20 +270,12 @@ def test_geometric_sum_handles_a_ratio_of_exactly_one() -> None:
 
 
 def test_graded_mesh_handles_many_cells_with_a_very_small_h_min()->None:
-    """The bracketing search must not overflow while looking for the ratio.
-
-    The search starts at ratio 2 and doubles, and the geometric sum is
-    h_min*(r^m - 1)/(r - 1). With 1200 cells, 2^1199 is far past the double
-    range, so the probe overflows before the bisection ever starts. Phase 0
-    never hit it because 200 cells and 1 nm spacing keep r^m small.
-    """
     mes=  graded_mesh_1d(4.0 * MICRON, 1201, refine_at =  2.0 * MICRON, h_min = 2e-8)
     assert  mes.n_nodes  ==  1201
     assert  mes.h.min(  )  ==  pytest.approx ( 2e-8,  rel   = 1e-6)
     assert  mes.volume.sum ()  ==   pytest.approx(4.0  * MICRON,  rel =  1e-12 )
 
 def test_geometric_sum_saturates_instead_of_overflowing()->None:
-    """An enormous sum is still an answer the bisection can use."""
     from ddsim.mesh.mesh1d import _geometric_sums
 
 
@@ -329,15 +287,6 @@ def test_geometric_sum_saturates_instead_of_overflowing()->None:
 
 
 class TestRatioSolveMatchesTheScalarReference  :
-    """The vectorised bisection has to be the scalar one, element for element.
-
-    tests/reference/grading.py holds the obvious scalar version. A vectorised
-    bisection goes wrong in ways that do not look wrong afterwards: an element
-    that keeps iterating past its own stopping test, or a mask applied a step
-    late, moves the growth ratio in the last few bits and produces a mesh that
-    is still perfectly plausible. So these compare exactly rather than to a
-    tolerance. The two are meant to be the same arithmetic in the same order.
-    """
 
 
     @pytest.mark.parametrize(
@@ -377,31 +326,17 @@ class TestRatioSolveMatchesTheScalarReference  :
 
 
     def test_an_infeasible_side_is_all_nan(self) -> None :
-        """Even h_min repeated m times overshoots, so no ratio exists."""
 
         from ddsim.mesh.mesh1d import _solve_ratios
 
         cou =np.array([5,10,20],dtype =np.int64)
         assert np.all(np.isnan(_solve_ratios(NANOMETRE, MICRON, cou)))
     def test_a_zero_interval_count_is_infeasible(self)  ->  None  :
-        """A side with no cells has no ratio, which is what a boundary
-        refinement point produces on the empty side."""
 
         from ddsim.mesh.mesh1d import _solve_ratios
         assert  np.isnan(_solve_ratios(MICRON, NANOMETRE , np.array ( [ 0  ])  ) [0])
 
 class TestStackedMesh :
-    """Layers laid end to end, which is what a material stack is.
-
-    A MOS capacitor is silicon with oxide on top of it, and the two want
-    different meshes: the silicon is graded hard to the surface where the
-    inversion layer sits, the oxide holds no charge at all and its potential is
-    exactly linear, so a handful of uniform cells resolves it exactly. One
-    graded axis over the whole height cannot express that, and it also has to
-    be argued rather than guaranteed that a node lands on the interface.
-    Stacking two axes guarantees it, because the join is a node by
-    construction.
-    """
 
 
 
@@ -413,10 +348,6 @@ class TestStackedMesh :
 
 
     def test_the_join_is_a_node_and_is_not_duplicated(self) -> None :
-        """The shared node belongs to both layers and is stored once.
-
-        Storing it twice makes a zero width cell, whose 1/h is infinite.
-        """
         Stack  =  stacked_mesh_1d(
             uniform_mesh_1d (  2  * MICRON ,   5  ) , uniform_mesh_1d( MICRON,   3 )
         )
@@ -425,8 +356,6 @@ class TestStackedMesh :
         assert  np.all(Stack.h  >  0.0)
 
     def  test_the_join_lands_exactly_on_the_layer_boundary(  self ) ->  None :
-        """Exactly, not nearly. stacked_regions refuses an interface that
-        misses a node line, and half a cell of oxide is a percent of t_ox."""
 
         obj2   =  stacked_mesh_1d (graded_mesh_1d(length =  5  *   MICRON, n_nodes   =   41,   refine_at  =  5   * MICRON, h_min =  NANOMETRE,), uniform_mesh_1d( 10  *  NANOMETRE,  5) ,)
 
@@ -449,16 +378,11 @@ class TestStackedMesh :
         )
         np.testing.assert_array_equal ( stacked_mesh_1d(  onee ).x, onee.x)
     def  test_the_dual_cells_still_sum_to_the_total_length(self  )   ->  None  :
-        """The invariant that catches boundary half cell mistakes, now across
-        a join where two half cells of different sizes meet."""
         lst = stacked_mesh_1d(uniform_mesh_1d(2* MICRON, 5), uniform_mesh_1d(MICRON, 9))
 
         assert lst.volume.sum()  == pytest.approx(3 *  MICRON, rel=1e-14)
 
     def  test_the_cell_across_the_join_is_not_averaged(  self  )   ->   None  :
-        """The two layers meet at a node, so the last cell of one and the first
-        cell of the next stay their own sizes. The node between them gets a
-        dual cell that is half of each, which is what the join means."""
         sack  =stacked_mesh_1d(uniform_mesh_1d(2*MICRON, 3), uniform_mesh_1d(MICRON, 3))
 
 
@@ -476,9 +400,6 @@ class TestStackedMesh :
             stacked_mesh_1d()
 
     def  test_a_layer_that_does_not_start_at_zero_is_refused ( self  )  ->   None  :
-        '''Every constructor here returns a mesh on [0, length]. A layer that
-        does not is one somebody has already translated, and stacking it would
-        translate it twice.'''
         round =  Mesh1D(
             x =  np.array([1.0, 2.0]),
             h  = np.array([1.0]),
@@ -492,10 +413,6 @@ class TestStackedMesh :
 
 
 THIN_BASE = (10  *  MICRON, 10.05 *  MICRON, 10.1  *MICRON)
-
-"""Three junctions, two of them 50 nm apart either side of a thin base, in a
-20.1 um device. Grading each junction on its own and joining halfway broke
-here, with neighbouring cells jumping by up to 2.7."""
 
 
 
@@ -527,8 +444,6 @@ def test_every_point_is_a_node_with_h_min_either_side ( n_nodes  ) ->  None   :
 
 
 def test_several_points_grade_as_gently_as_one(n_nodes)-> None:
-    """One growth rate over the whole mesh, so nowhere is harsher than the
-    limit graded_mesh_1d holds a single junction to."""
     mes  =graded_mesh_1d_at(20.1 *MICRON, n_nodes, THIN_BASE, NANOMETRE)
     assert worst_ratio(mes)<=1.5
 def test_more_nodes_grade_more_gently()->None :
@@ -541,8 +456,6 @@ def test_more_nodes_grade_more_gently()->None :
 
 
 def test_the_spacing_grows_away_from_every_point()  ->None:
-    '''Coarsest halfway between two points and at the far ends, finest at
-    the points, and monotone in between.'''
     Mesh =  graded_mesh_1d_at(20.1 *MICRON, 301, THIN_BASE, NANOMETRE)
     bin=[0]+[int(np.flatnonzero(Mesh.x == p) [0]) for p in THIN_BASE]
     bin.append(Mesh.n_nodes -  1)
@@ -614,10 +527,6 @@ def test_every_line_and_point_is_a_node(n_nodes) ->None:
 
 
 def test_the_spacing_at_every_point_is_near_h_min()   ->  None :
-    """Near, not exact: each span between lines takes a whole number of
-    cells, which stretches its spacing by the rounding. Measured the other
-    way, a mesh that ignored the points would sit at 1.8 um / 120, 75 times
-    h_min, so ten percent is a real test."""
 
     Mesh  = graded_mesh_1d_through(
         1.8  * MICRON, 121, DRAWN_LINES, DRAWN_POINTS, 2*  NANOMETRE
@@ -629,9 +538,6 @@ def test_the_spacing_at_every_point_is_near_h_min()   ->  None :
 
 @pytest.mark.parametrize("n_nodes",[81,121,161])
 def test_lines_do_not_break_the_grading(n_nodes)->None:
-    """A line pinned where the grading did not want a node is where a jump
-    would come from, so the whole mesh is held to the same limit as one
-    junction."""
     meesh =  graded_mesh_1d_through(1.8 * MICRON, n_nodes, DRAWN_LINES, DRAWN_POINTS, 2*  NANOMETRE)
     assert worst_ratio( meesh )  <=  1.5
 
@@ -642,8 +548,6 @@ def test_the_spacing_grows_away_from_a_point() ->  None  :
     assert lst.h[cen] < lst.h[cen  + 10]  < lst.h[-  1]; assert  lst.h [  cen -   1] <  lst.h [ cen -   10]  <  lst.h [ 0  ]
 
 def test_with_no_points_the_lines_share_the_nodes_evenly()->None :
-    """Nothing to grade towards, so the spacing is as even as whole cells
-    between the lines allow."""
 
     mes =graded_mesh_1d_through(MICRON,11,(0.35 *MICRON,),(),NANOMETRE)
     assert 0.35* MICRON in mes.x
@@ -682,8 +586,6 @@ def test_lines_and_points_must_lie_on_the_axis()->None :
         graded_mesh_1d_through( MICRON ,   101,   () , (  -  MICRON,  ),  NANOMETRE)
 
 def test_with_no_points_h_min_limits_nothing()->None:
-    """The MOS capacitor's x axis: 0.1 um across with nothing to grade
-    towards, which takes any number of columns whatever h_min says."""
 
 
     val  =   graded_mesh_1d_through(  0.1 *  MICRON,  63,   (  ) , (),  2   * NANOMETRE)
@@ -696,9 +598,6 @@ def test_with_no_points_h_min_limits_nothing()->None:
 
 
 def test_a_spacing_that_is_not_positive_is_refused_by_name(h_min)->None:
-    """graded_mesh_1d refuses it by name. This one divided by zero, which
-    reached the page as a bare 500 when a drawing's h_min was typed as 0, and
-    a negative one reported room for a negative number of nodes."""
     with pytest.raises(ValueError,
                   match= 'h_min must be positive'):
         graded_mesh_1d_through(1.8 * MICRON, 81, DRAWN_LINES, DRAWN_POINTS, h_min)

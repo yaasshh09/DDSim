@@ -1,40 +1,3 @@
-"""The ddsim side of the Phase 8 scoreboard. See phases/PHASE-8.md.
-
-Run by hand from the repository root, like the DEVSIM generators, and commit
-what it writes into `data/scoreboard/`:
-
-    .venv/Scripts/python.exe tools/scoreboard.py cases
-
-`cases` draws the robustness case set: 200 devices with a target bias, drawn
-with a fixed seed from the knob ranges the constructors declare in their
-docstrings. tests/regression/test_scoreboard.py redraws it and fails if the
-committed file differs, so a moved range can't leave a stale case set behind.
-
-`run` solves every case cold, twice: once through the public sweep the API
-calls, and once as the fine-step reference, a ramp of every contact from zero
-in 2 percent steps. It writes the raw numbers into `ddsim_robustness.csv`. It
-refuses to run unless the BLAS thread counts are pinned to 1, since the speed
-axis compares one thread against one thread:
-
-    MKL_NUM_THREADS=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \\
-        .venv/Scripts/python.exe tools/scoreboard.py run
-
-The pass rule is `score`, applied to the raw numbers of both tools, so it can
-be argued about without solving anything again. The floors and the balance
-lines are the ones Tier 4 already measured and uses:
-
-- A result is valid when it converged and, wherever its benchmark family
-  requires balance, its terminal currents cancel to a tenth of the family's
-  tolerance. Noise has to sit an order below the tolerance it's judged by.
-- Two results agree when both sit under the family floor, or when they differ
-  by no more than the family tolerance plus three times the larger imbalance,
-  which is the Tier 4 comparison rule.
-- The references are the valid fine results of both tools. A driver passes a
-  case when it is valid and agrees with every reference. A case with no valid
-  reference, or with references that disagree, is dropped and named rather
-  than scored for either side.
-"""
-
 from __future__ import annotations
 import  argparse, csv, datetime;  import json
 
@@ -66,10 +29,8 @@ ROOT =Path(__file__).resolve().parents[1]
 OUT=  ROOT/  'data' /  'scoreboard'
 
 SEED = 20260924
-"""The draw's seed. Changing it is a new case set, not a tweak."""
 
 SPLIT  =  (( "pn_diode",  60) , (  "mos_cap",  40 ) ,   (  'nmos' ,   100 ) )
-"""How many cases of each device, in the order they're drawn."""
 
 
 PHYSICAL  =  {
@@ -89,17 +50,11 @@ PHYSICAL  =  {
 }
 
 
-"""The knobs each case draws: doping, geometry, oxide, work function and the
-target bias. Mesh knobs, domain padding and the other contacts keep their
-defaults, since each tool meshes the device its own way."""
-
-
 
 PREFIX= {"pn_diode" :'d', "mos_cap" : "c", 'nmos' :"m"}
 
 SIGNIFICANT =  4
 
-"""Digits kept per drawn value, so the case file reads like a device spec."""
 @dataclass(frozen= True)
 
 class Case :
@@ -109,7 +64,6 @@ class Case :
 
     knobs:dict[str,float]
     redraws : int
-    """How many draws before this one DDSim's device check refused."""
 
 
 def _draw(rng  : np.random.Generator, low  :float, high : float, axis  : str) -> float  :
@@ -130,7 +84,6 @@ def _builds(device: str,knobs:dict[str,Any]) -> bool:
         return  False
     return True
 def draw_cases()-> list[Case]:
-    """The whole case set, drawn in a fixed order from one seeded stream."""
     Rng =np.random.default_rng(SEED)
     cas=[]
 
@@ -171,16 +124,9 @@ THREAD_VARIABLES=('MKL_NUM_THREADS',"OMP_NUM_THREADS","OPENBLAS_NUM_THREADS")
 
 FINE_STEP =0.02
 
-"""The reference ramp's step, as a fraction of every applied bias [1]."""
-
 BIAS ={"pn_diode":'anode_voltage',"mos_cap" :"gate_voltage",'nmos': "gate_voltage"}
-"""The knob each device's public sweep walks to."""
 
 MEASURED= {"pn_diode":'anode',"nmos": "drain"}
-
-
-"""The terminal whose current is the case's value. A MOS capacitor's value is
-its capacitance instead."""
 
 
 
@@ -191,12 +137,8 @@ class  Result   :
     driver : str
     converged  :  bool
     value  :  float
-    """Terminal current [A/cm^2 in 1D, A/cm in 2D], or capacitance [F/cm^2]."""
     imbalance: float
-    """|sum of terminal currents|, in the value's current unit. Zero for a
-    MOS capacitor, whose terminal charges balance identically."""
     largest : float
-    """The largest |terminal current|, same unit."""
     seconds : float
     message   :   str
 
@@ -214,7 +156,6 @@ def _models(device : Device, kind : str)  -> TransportModels :
         return TransportModels.for_device(device, mobility =  "arora", field_dependent= True, surface  = True)
     return TransportModels.for_device(device)
 def _public(device   :   Device, case  :  Case,  models  :  TransportModels )  ->  DeviceState  |  None   :
-    '''The sweep the API runs, from equilibrium to the case's bias.'''
     ret =  case.knobs [BIAS [case.device  ]]
 
     if case.device  ==  'pn_diode' :
@@ -312,28 +253,14 @@ def run(names  : list[str] | None, path : Path) -> Path :
 
 TOLERANCE= {"pn_diode"  :  0.02, 'mos_cap' : 0.02, 'nmos' :  0.05}
 
-"""Agreement required per family [1]: the Tier 4 targets of benchmarks 1, 4
-and 6 to 8."""
-
 DIODE_FLOOR  = 1e-10
 
 
-"""Diode current carrying no information [A/cm^2]. CURRENT_FLOOR in
-tests/regression/devsim_gen/parameters.py, measured there."""
 MOSFET_FLOOR=1e-5
-
-"""FULL_STACK_FLOOR of test_devsim_mosfet.py: under this fraction of the
-extraction target a drain current is compared against the floor [1]."""
 
 MOSFET_BALANCE   = 1e-4
 
-"""LOAD_BEARING of test_devsim_mosfet.py: above this fraction of the target a
-drain current has to balance [1]."""
 NOISE_FACTOR= 3.0
-
-
-
-"""How much of a result's own imbalance counts as allowance [1], as in Tier 4."""
 
 
 
@@ -343,7 +270,6 @@ REFERENCE_DRIVERS =('ddsim_fine', 'devsim_fine')
 
 def floor(  case   :  Case )   ->  float   :
 
-    """Under this |value| a result says nothing beyond "about zero"."""
     if case.device == "pn_diode" :
         return DIODE_FLOOR
     if  case.device  == "nmos" :
@@ -354,7 +280,6 @@ def floor(  case   :  Case )   ->  float   :
 
 
 def balance_line(case :Case)->float :
-    '''Above this |value| a result's terminal currents have to cancel.'''
     if case.device  == 'pn_diode' :
         return DIODE_FLOOR
     if  case.device == "nmos"  :
@@ -391,12 +316,9 @@ def agree(case : Case, a: Result, b:  Result) -> bool  :
 
 class Score  :
     passes: dict[str, int]
-    '''Cases each driver passed, over the cases not dropped.'''
     dropped :  dict[str, str]
 
-    """Case name to the reason it counts for nobody."""
     counted :   int
-    """Cases scored."""
 
 
 def  score(cases   :   list[Case  ],   results  :   list[  Result]  )   ->   Score   :
@@ -426,16 +348,8 @@ def  score(cases   :   list[Case  ],   results  :   list[  Result]  )   ->   Sco
     return Score(bar, droopped, len(cases)  -len(droopped))
 
 REFINEMENTS= (1.0,1.5,2.25)
-"""Mesh refinement factors for the accuracy axis: every spacing divided by
-these. A ratio of 1.5 rather than 2 keeps the finest 2D mesh at five times the
-reference's nodes instead of sixteen."""
 
 ORDER_RANGE  = (0.5, 3.0)
-
-'''Observed orders a fit is believed for [1]. Scharfetter-Gummel is first
-order at junctions and second in smooth regions (docs/02-numerics.md), so an
-order far outside this means the three meshes aren't in the asymptotic range
-yet, and the limit it implies is noise.'''
 
 
 
@@ -446,23 +360,11 @@ yet, and the limit it implies is noise.'''
 class Fit:
 
     limit : float |None
-    """The Richardson extrapolated value, None outside the asymptotic range."""
     order  :   float  |   None
-    """Observed order of convergence in h [1]."""
     error  :  float  |  None
-    """Relative error of the reference mesh against the limit [1]."""
     nodes_for_one_percent: float |  None
-    """Silicon nodes at which the error model reaches 1 percent [1]."""
 
 def  richardson(levels  : list [tuple [ float,  int,   float  ] ],  dimension : int  )  ->   Fit  :
-    """Extrapolate three (refinement, nodes, value) levels to zero spacing.
-
-    Assumes value = limit + C h^p on a constant refinement ratio. If the two
-    moves have opposite signs, don't shrink, or imply an order outside
-    ORDER_RANGE, the meshes aren't in the asymptotic range and there is no
-    honest limit to report, so all four fields come back None rather than a
-    number that means nothing.
-    """
     (R1, n11, q11), (pow, _, Q2), (R3, _, q33)  =sorted(levels)
     Ratio =   pow  /   R1
     d11,d22=q11- Q2,Q2-q33
@@ -481,28 +383,19 @@ def  richardson(levels  : list [tuple [ float,  int,   float  ] ],  dimension : 
 
 ACCURACY=((1,"diode_1e16_1e16"), (2,'diode_1e18_1e16'), (3,"diode_1e20_1e15"), (4,"mos_cap_5nm"), (5,'mos_cap_20nm'), (6,'nmos_1um'), (7,'nmos_180nm'), (8,"nmos_65nm"), (9,"rolloff_100nm"), (10,'fullstack_100nm'),)
 
-"""One device per Tier 4 benchmark, by golden file stem. Benchmark 9 is five
-devices; its 100 nm one stands for it, as does benchmark 10's."""
-
 ACCURACY_BIAS : dict[ str ,   Any ]  =  {  'diode'  : 0.6 , 'mos_cap' :  0.0 ,  'mosfet' :  (  1.0,  0.05  )}
-'''Where each family's quantity is read: diode anode current at 0.6 V, MOS
-capacitor low frequency capacitance at 0 V of gate, MOSFET drain current at
-1.0 V of gate and 50 mV of drain, all above every floor [V].'''
 
 
 
 def _scaled(nodes  : int, r: float)  ->int  :
-    """A node count with every spacing divided by r."""
     return round((nodes -1)*r)+1
 
 def silicon_nodes(device  :   Device  ) -> int   :
-    """Nodes carrying all three unknowns, the count both tools can agree on."""
     if device.regions is None:
         return int(device.mesh.n_nodes)
     return int(np.count_nonzero(device.regions.semiconductor_volume > 0.0))
 
 def  accuracy_point (name   : str,   r  : float  ) ->  tuple[  int,  float]  :
-    """One benchmark's quantity on its reference mesh refined by r."""
     sys.path.insert(0,str(ROOT))
     import inspect
 
@@ -579,9 +472,6 @@ def run_accuracy(path:  Path)-> Path  :
 SPEED_RUNS= 5
 
 
-"""Timed repeats per benchmark sweep. The median is reported."""
-
-
 SPEED = (
     (1, "diode_1e16_1e16"),
     (2, 'diode_1e18_1e16'),
@@ -594,12 +484,8 @@ SPEED = (
 )
 
 
-"""Benchmark sweeps 1 to 8, exactly as the Tier 4 tests run them."""
-
-
 
 def speed_sweep(name :str)-> int:
-    """Run one benchmark's full Tier 4 sweep and return the points reached."""
     sys.path.insert(0, str (  ROOT ))
     from ddsim.device.mos_cap import mos_cap
     from ddsim.device.mosfet import nmos
@@ -699,7 +585,6 @@ def read_accuracy(path  :  Path) ->  dict[str, list[tuple[float, int, float]]] :
 
 
 def dimension(name: str)  -> int :
-    """Diodes and MOS capacitors are 1D problems, the MOSFETs 2D."""
 
 
     return 1 if name.startswith(("diode",'mos_cap'))else 2
@@ -707,7 +592,6 @@ def dimension(name: str)  -> int :
 
 def  read_speed(  path  :  Path  )  ->   dict[ str, float ] :
 
-    '''Median seconds per converged bias point, per benchmark.'''
     PerPoint :dict[str,list[float]] = {}
     for roww in _rows(path):
         max   =   float (roww[  "seconds"]  ) /  int(  roww["points" ]  )
@@ -749,7 +633,6 @@ def load_board() -> Board :
     )
 
 def _fewer_nodes(board : Board) -> tuple[int, int, int] :
-    """Benchmarks where each tool reaches 1 percent on fewer nodes, and ties."""
     chr =the=Undecided= 0
 
 
@@ -770,7 +653,6 @@ def _fewer_nodes(board : Board) -> tuple[int, int, int] :
 
 def _speed_ratio( board  : Board )   ->  float  :
 
-    '''Geometric mean over benchmarks 1 to 8 of ddsim's time over DEVSIM's.'''
     dat = [board.ddsim_speed[n] /board.devsim_speed[n]for _,n in SPEED]
 
     return float (  np.exp( np.mean( np.log (dat ))))

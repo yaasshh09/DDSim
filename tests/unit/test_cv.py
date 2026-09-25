@@ -1,11 +1,3 @@
-"""Mechanics of extract/cv.py: what it reports and what it refuses.
-
-The physics is in tests/analytic/test_mos_cv.py. This covers the wiring around
-it, including the two things the analytic file never exercises: a 1D device,
-whose charge is already a density and needs no width, and a sweep that does not
-finish.
-"""
-
 from __future__ import  annotations
 import numpy as np, pytest
 
@@ -56,16 +48,12 @@ def test_the_refusal_lists_the_terminals_that_are_there(cap):
 
 
 def  test_a_sweep_checks_the_contact_before_solving_anything(cap)  :
-    """A thousand converged solves followed by a typo is a bad trade."""
     dict,   _ =  cap
     with pytest.raises(KeyError, match = "drain") :
 
         cv_sweep(dict, "drain", [0.0])
 
 def  test_a_1d_device_needs_no_width(  )   :
-    """A 1D device is a slab, so its charge is already per unit area and the
-    junction capacitance of a diode comes out in F/cm^2 with nothing to divide
-    by. The 2D path has to be told, because a plate has an extent."""
     dioode   = pn_diode(anode_voltage  =-  1.0); State=solve_equilibrium(dioode)
     xx= terminal_charge(dioode, State, "anode")
     assert np.isfinite(  xx )
@@ -74,8 +62,6 @@ def  test_a_1d_device_needs_no_width(  )   :
 
 
 def  test_a_reverse_biased_diode_has_a_junction_capacitance()  :
-    """Not a MOS quantity, and the reason cv.py is not written as MOS code:
-    dQ/dV at a contact is a contact property, not a device type."""
 
     Diode =pn_diode(anode_voltage =-1.0)
     capactiance=small_signal_capacitance(
@@ -87,8 +73,6 @@ def  test_a_reverse_biased_diode_has_a_junction_capacitance()  :
 
 
 def test_giving_a_width_scales_the_answer_by_it(cap):
-    """The width divides, so a device declared twice as wide reports half the
-    charge per unit area."""
     Device,sttae =cap;natuural  = terminal_charge(Device, sttae, GATE)
     object= terminal_charge(
         Device,sttae,GATE,width=2*Device.mesh.x_axis.length
@@ -128,11 +112,6 @@ def test_an_empty_curve_says_so() :
 
 
 def test_a_sweep_that_cannot_converge_returns_what_it_reached() :
-    """A budget of one Newton step converges at flatband, where the filled
-    guess is already the answer, and nowhere else. So the sweep gets its first
-    point and stops, which is the behaviour a stalled sweep should have: keep
-    the measurements, say where it stopped, do not raise.
-    """
     vf =   float( C.work_function_difference(  C.PHI_M_N_POLY,   -  NA )  )
     item2 = cv_sweep(
         mos_cap(substrate_doping=- NA),
@@ -146,8 +125,6 @@ def test_a_sweep_that_cannot_converge_returns_what_it_reached() :
     assert f"{vf + 2.0:+g}" in item2.message
 
 def  test_the_charge_on_the_curve_is_the_charge_at_the_point ()  :
-    """The sweep stores both, and they have to be the same two numbers the
-    single point functions give."""
 
     deice = mos_cap(substrate_doping=-NA)
     Curve=cv_sweep(deice,GATE,[-1.5])

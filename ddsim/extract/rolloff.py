@@ -1,46 +1,3 @@
-"""The gate length sweep: one process, many gate lengths, and what falls out.
-
-This is the deliverable of phases/PHASE-5.md. Threshold roll-off, drain induced
-barrier lowering and velocity saturation are not modelled anywhere in this
-codebase, and there is no term in any equation that knows what a short channel
-is. They appear here because a two dimensional Poisson solve on a device whose
-two junctions are close together gives a different answer from one where they
-are far apart, and because a carrier in a high field does not go faster when
-the field is raised.
-
-One process, several gate lengths
----------------------------------
-Everything except `L_gate` is held fixed across the sweep: the oxide, the
-channel doping, the implant depth, the lateral encroachment, the contacts. That
-is what roll-off means. A process is fixed once, on a wafer, and gate length is
-the number a designer draws differently from one transistor to the next.
-Scaling the oxide and the junction depth alongside the gate would also produce
-a curve, but it would be a curve of four things moving together, and no part of
-it could be attributed to the channel getting shorter.
-
-`SHORT_CHANNEL_PROCESS` is therefore a process built for the short end of the
-sweep, a 2 nm oxide over a 1e18 channel with 25 nm junctions, and the long
-devices are that same process drawn long. At 1 um it has no short channel
-effect left in it, which is exactly what makes it the reference the short
-devices are measured against.
-
-What the constant current threshold is measured at
---------------------------------------------------
-Id = I_ref * W / L, the usual 100 nA * W / L. The target moves with the gate
-length on purpose: a shorter device drives proportionally more current at the
-same gate overdrive, so a fixed target would read the geometry as a threshold
-shift and hand back roll-off that was put there by the extraction. Dividing by
-L is what removes the trivial part and leaves the part that is a real barrier
-change.
-
-Where the numbers stop meaning anything
----------------------------------------
-Drift-diffusion assumes the local field sets the local velocity. Below roughly
-50 nm that is not true: carriers cross the channel in less time than it takes
-them to reach the steady velocity of the field they are in, so real devices
-overshoot and this model cannot. Nothing below 50 nm is reported here for that
-reason, and the limit is a property of the equations rather than of this file.
-"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -71,104 +28,36 @@ from ddsim.extract.params import(
 
 SHORT_CHANNEL_PROCESS :   Mapping[  str,   Any] =   {"substrate_doping"   : -  1e18, "sd_peak" : 1e20 , "x_j"  :  2.5e-6, 'lateral_diffusion'  :   1.0e-6, 't_ox'   :  2e-7 , 'sd_length'  :   4e-5, "contact_length"  :  2e-5 , "t_si" :   1e-4,}
 
-"""The vertical process every gate length in the sweep is built on.
-
-A 2 nm oxide over a 1e18 cm^-3 channel, with source and drain 25 nm deep and
-reaching 10 nm under each gate edge. The channel doping is what holds the
-50 nm device out of punch-through, and the 10 nm encroachment is what leaves
-30 nm of metallurgical channel under a 50 nm gate.
-
-Nothing in here was chosen to produce a threshold voltage. It is a mapping of
-`nmos` arguments and nothing else, so a reader can see the entire device
-without reading any code.
-"""
-
 
 REFERENCE_CURRENT = 1e-7
-
-"""The numerator of the Id = I_ref * W / L threshold criterion [A].
-
-100 nA, the usual statement. With the current already per unit width and every
-length in cm, the target at a gate length L is REFERENCE_CURRENT / L [A/cm].
-"""
 
 @dataclass(frozen=True)
 
 
 class  RollOffPoint  :
-    """One gate length, and everything read off its two transfer curves."""
 
     L_gate  : float
-    """Gate length this device was drawn at [cm]."""
     threshold_linear: float
-    """Constant current threshold at the low drain bias [V]."""
     threshold_saturated : float
-    """Constant current threshold at the high drain bias [V]."""
     threshold_extrapolated:  float
-    """Threshold by tangent at peak transconductance, low drain bias [V].
-
-    A second opinion rather than a better one. The two methods measure
-    different things and a device where they disagree about the direction of
-    the roll-off is telling you the extraction is wrong, not the device.
-    """
 
     subthreshold_slope:float
-    """Steepest part of the low drain curve [mV/decade].
-
-    Measured over the decades of drain current immediately below the constant
-    current threshold, not over the whole curve, and that is not tidiness. The
-    bottom of a real transfer curve is not channel current at all: it is
-    reverse drain junction leakage, a few times 1e-8 A/cm here, flat in gate
-    bias and the same in every device of the sweep because it is the same
-    junction. The first point that climbs out of that floor climbs out of it
-    steeply, and a slope taken across that step reads 36 mV/decade, which is
-    below the thermal limit and is an artefact of adding a constant to an
-    exponential rather than a device that beats Boltzmann.
-    """
 
 
     dibl  :float
-    """Threshold shift per volt of drain [mV/V]."""
 
     saturation_exponent  : float
-    """The power the high drain current follows the overdrive to.
-
-    2 for a long channel square law, falling toward 1 as velocity saturates.
-
-    Overdrive here is measured from `threshold_extrapolated` and not from
-    either constant current threshold, and that is not a free choice. The
-    square law is a statement about strong inversion, where the tangent at
-    peak transconductance is what defines the threshold. A constant current
-    threshold sits several decades lower, in the knee where the curve is still
-    leaving its subthreshold exponential, so overdrives measured from it are
-    too large by a couple of hundred millivolts and the fitted power comes back
-    near 3.5 on a device that is a clean square law.
-    """
 
     peak_transconductance :float
-    '''Largest dId/dVg on the low drain curve [A/(cm V)].'''
     linear:IVCurve
-    '''The transfer curve at the low drain bias.'''
 
     saturated : IVCurve
-    """The transfer curve at the high drain bias."""
 
 
 
 def usable_span(
     voltage : npt.NDArray[np.float64], current  : npt.NDArray[np.float64]
 )  ->  tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]  :
-    """The longest tail of a transfer curve that is positive and rising.
-
-    The extractors take a logarithm, so they need a curve that is on. The head
-    of a real transfer curve is not: below a few hundred millivolts of gate the
-    drain current of a long channel device is reverse junction leakage, which
-    is small, negative and flat, and the same gate list that reaches deep
-    subthreshold on a 50 nm device is well into that floor on a 1 um one.
-
-    Trimming rather than refusing is what lets one gate list serve every length
-    in a sweep, which is the point of the sweep being config driven.
-    """
     VV , bar  = np.asarray(voltage,   dtype  =  np.float64  ), np.asarray(current,   dtype = np.float64)
     Start   = 0
     for K in range(len(bar)):
@@ -201,52 +90,6 @@ def gate_length_sweep(
 ) ->tuple[RollOffPoint,...]:
 
 
-    """Build one MOSFET per gate length and extract the short channel set.
-
-    Args:
-        gate_lengths: the gate lengths to draw [cm], in the order to report
-            them. 1e-4 is 1 um and 5e-6 is 50 nm.
-        gate_voltages: the gate biases to solve at [V], increasing. One list
-            for every length: the head of it is trimmed per device by
-            `usable_span`, since the off state of a 50 nm device sits well below
-            the off state of a 1 um one.
-        process: `nmos` arguments held fixed across the sweep.
-            `SHORT_CHANNEL_PROCESS` if None. It must not carry `L_gate`,
-            `drain_voltage` or `gate_voltage`, which the sweep sets.
-        drain_low: drain bias of the linear curve [V], the one thresholds and
-            the subthreshold slope are read off.
-        drain_high: drain bias of the saturated curve [V], the one DIBL and the
-            saturation exponent are read off.
-        reference_current: numerator of the Id = I_ref * W / L criterion [A].
-        overdrive_window: the gate overdrive range to fit the saturation
-            exponent over [V], measured above `threshold_extrapolated`. It
-            starts above zero deliberately: just above threshold a transfer
-            curve is still leaving the subthreshold exponential, which is not
-            a power law in overdrive at all and would drag the fit.
-        slope_decades: how far below the constant current threshold to measure
-            the subthreshold slope over [decades of drain current]. Two, which
-            is wide enough to hold several gate steps and low enough to stay
-            clear of the knee, and high enough above the junction leakage floor
-            that the floor cannot enter the fit.
-        mobility: low field mobility model, "arora" or "constant".
-        field_dependent: wrap it in Caughey-Thomas. This is the velocity
-            saturation, and with it off the saturation exponent is measuring
-            something else.
-        surface: add Lombardi scattering off the Si/SiO2 interface. Without it
-            the inversion layer mobility is too high by two to three times and
-            the drain current is wrong by the same factor.
-        step: first continuation step between gate biases [V].
-
-    The three model arguments default to the full Phase 5 stack rather than to
-    `TransportModels.for_device`'s own defaults, which are the Phase 2 constant
-    mobility. Every one of them is named in the scope of phases/PHASE-5.md and
-    a sweep taken without them is not the sweep the phase asks for.
-
-    Returns one `RollOffPoint` per gate length, in the order requested.
-
-    Two curves per device, because DIBL is a difference between them and one
-    curve cannot say anything about it. Both are kept on the result.
-    """
     if  not  gate_lengths  :
         raise ValueError( "a gate length sweep needs at least one gate length"  )
 

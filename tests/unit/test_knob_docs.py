@@ -1,17 +1,3 @@
-"""Every knob the page offers explains itself, phases/PHASE-7.md part two.
-
-The explanation is the Args: line of the function the knob belongs to, so
-there is one place a knob is described and it is next to the code that reads
-it. A knob added without a docstring line never reaches a student unexplained,
-because this file fails first.
-
-Stage 2 adds the same rule for the bounds a slider needs. A slider has to know
-where its ends are, and where they belong is a claim about the device rather
-than about the page: below 1e14 the diode is near intrinsic, and above 1e19
-the closed form built in potential docs/04-validation.md checks against
-degrades. So the range is declared where the knob is, on the same Args: line
-as the unit, and the page reads it rather than inventing one.
-"""
 from  __future__  import  annotations
 
 import pytest
@@ -42,9 +28,6 @@ IDS =   [f"{owner} {parameter.name}"  for owner,   parameter  in  KNOBS ]
 
 SLIDER_KNOBS= [(kind, parameter) for kind in DEVICE_KINDS for parameter in device_parameters(kind) if parameter.type in("float", "int")]
 
-"""Every numeric device knob. The 1D ones solve live as they move; the 2D ones
-only set the knob, but a range is what keeps either from a device that fails
-to solve, so every one declares its checked ends."""
 SLIDER_IDS  = [ f"{kind} {parameter.name}" for kind,   parameter in SLIDER_KNOBS]
 
 
@@ -100,10 +83,6 @@ def test_a_knob_crosses_the_schema_with_its_explanation(client)-> None :
 
 
 def test_every_slider_knob_declares_a_range(kind, parameter)  ->  None  :
-    """A knob on a live device without a declared range gets no slider, and a
-    device whose knobs cannot all be dragged is a half built form. This is the
-    test the units rule already has: the page cannot reach a knob the code has
-    not described."""
     assert parameter.low is not None and parameter.high is not None,(
         f"device {kind} {parameter.name}: no 'Range lo to hi' in "
         f"{parameter.explanation!r}"
@@ -118,7 +97,6 @@ def test_every_slider_knob_declares_a_range(kind, parameter)  ->  None  :
 
 
 def test_the_parser_reads_a_declared_range ( )  ->   None  :
-    """The range rides on the Args: line, where the unit already is."""
     def  sample(depth  :   float =  1.0,   doping : float  =   1e16 ) ->  None :
         ...
 
@@ -132,9 +110,6 @@ def test_the_parser_reads_a_declared_range ( )  ->   None  :
 
 
 def test_a_knob_with_no_declared_range_offers_none() ->None:
-    """None rather than a guessed pair. A range the page invented is a second
-    claim about what the models cover, and it would not be in the docstring
-    where someone changing the device would see it."""
 
 
     def sample(depth:float =1.0) ->None :
@@ -160,9 +135,6 @@ def  test_a_range_crosses_the_schema( client)  ->  None :
 
 
 def test_the_schema_says_which_devices_are_one_dimensional(client)-> None :
-    """Which devices take a slider is decided by the mesh each one actually
-    builds, not by a list in the page. A device that grew a second axis would
-    lose its sliders here rather than solving for minutes on every drag."""
     dmiensions  =  client.get(  "/api/schema").json( ) [ "dimensions" ]
 
     assert dmiensions  == {'pn_diode' :  1, 'mos_cap':  2, 'nmos': 2, 'stack' : 1, "drawing"  : 2,}

@@ -1,47 +1,3 @@
-'''A MOS capacitor, the Phase 4 test device.
-
-Metal on oxide on silicon on a body contact. Two materials, one gate and one
-plate, and the whole thing solves at equilibrium: no current flows through an
-ideal insulator, so the semiconductor stays in equilibrium with its body
-contact at every gate bias. phi_n and phi_p are flat at the body potential and
-Poisson closes on psi alone. That is why this device needs nothing beyond what
-Phase 1 already had, once the mesh has two dimensions and the mesh has two
-materials in it.
-
-The y mesh is a stack, not one graded axis
-------------------------------------------
-The two layers want different meshes, and one axis cannot give them both.
-
-The silicon is graded hard to the surface. In inversion the electrons sit
-within a couple of nanometres of the interface, so the surface spacing has to
-be a fraction of that, while the substrate has to be several times the maximum
-depletion width so the body contact is not holding the depletion region open.
-Those two demands are three orders of magnitude apart, which is what grading is
-for.
-
-The oxide holds no charge, so its potential is exactly linear and a handful of
-uniform cells resolves it to machine precision. Grading it would spend nodes
-resolving a straight line.
-
-Stacking the two also makes the interface a node by construction, which
-device/regions.py requires: a cell that is half oxide and half silicon has no
-single permittivity, and rounding the interface to the nearer node line would
-move the oxide thickness by up to half a cell without saying so. t_ox is what
-the accumulation capacitance is measured against, so that is not a rounding
-error anyone would find later.
-
-The x mesh is as coarse as it can be
-------------------------------------
-Nothing varies across the device, so three columns is enough and the answer
-must not depend on how many there are. That is a test rather than an
-assumption, and it is a real check of the 2D assembly: if the horizontal faces
-carried the wrong area or the wrong permittivity, the columns would disagree.
-
-What is not here
-----------------
-No fixed interface charge Q_f, which would shift flatband by -Q_f/C_ox, and no
-poly depletion. This is the ideal capacitor of docs/01-physics.md.
-'''
 from __future__ import annotations
 
 from ddsim.core import constants as C
@@ -56,53 +12,12 @@ from ddsim.mesh.mesh2d import tensor_mesh_2d
 
 GATE='gate'
 
-"""Terminal name of the gate."""
 BODY  =  "body"
-"""Terminal name of the substrate contact."""
 
 
 
 
 def mos_cap(substrate_doping:float= - 1e16, t_ox :float=1e-6, t_si : float=2e-4, width :float= 1e-5, nx: int= 3, n_silicon : int =121, n_oxide :int= 5, h_min :float=5e-8, gate_voltage:float=0.0, body_voltage: float= 0.0, work_function : float=C.PHI_M_N_POLY, material:Material| None= None,) ->Device:
-    """An ideal MOS capacitor, silicon at the bottom and gate metal on top.
-
-    Args:
-        substrate_doping: net doping of the silicon [cm^-3]. Negative means
-            p-type, so -1e16 is an ordinary NMOS body. Range -1e19 to -1e14,
-            log. The page only offers p-type, because one log slider can't
-            cross zero.
-        t_ox: oxide thickness [cm]. 1e-6 is 10 nm. Range 1e-7 to 1e-5, log.
-        t_si: how deep the silicon goes [cm]. Keep it several times deeper
-            than the depletion region can reach, or the body contact gets in
-            the way. Range 5e-5 to 1e-3, log.
-        width: how wide the device is drawn [cm]. Nothing depends on it,
-            since capacitance is reported per unit area. Range 1e-6 to 1e-4,
-            log.
-        nx: mesh points across the device, at least 2 [1]. Range 2 to 21.
-        n_silicon: mesh points down through the silicon, counting the
-            surface [1]. Range 21 to 401.
-        n_oxide: mesh points through the oxide, counting the surface [1].
-            Range 2 to 41.
-        h_min: the smallest mesh spacing, at the silicon surface [cm].
-            5e-8 is 0.5 nm, fine enough for an inversion layer.
-            Range 1e-8 to 1e-6, log.
-        gate_voltage: voltage on the gate [V]. Range -2 to 2, the span the
-            lesson sweeps.
-        body_voltage: voltage on the bottom contact [V]. Range -2 to 2.
-        work_function: the gate metal's work function [eV]. Defaults to n+
-            polysilicon, the usual NMOS gate. Range 4 to 5.3, from n+ to past
-            p+ poly.
-        material: defaults to silicon at 300 K.
-
-    Every range end above was solved on its own, the other knobs at their
-    defaults, over the -2 V to 2 V low frequency C-V on both the converged
-    and the coarse mesh, 2026-09-23. All 40 sweeps completed.
-
-    The body contact is a plate over the whole bottom edge rather than a point.
-    A point would leave the rest of that boundary reflecting, which is a
-    different device: its bottom edge would impose dpsi/dy = 0 everywhere
-    except at one node, and it does not have the same solution.
-    """
     if t_ox<=0.0 :
         raise ValueError(f"t_ox must be positive, got {t_ox}")
     if  t_si <=  0.0 :

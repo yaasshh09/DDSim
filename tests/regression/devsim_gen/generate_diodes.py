@@ -1,24 +1,3 @@
-"""Generate the tier 4 golden diode curves with DEVSIM.
-
-This is the only file in the repository that imports devsim, and it does not
-run under the project interpreter. See README.md in this directory for the
-environment. Run it from the repository root:
-
-    .venv-devsim/Scripts/python.exe tests/regression/devsim_gen/generate_diodes.py
-
-It writes one CSV per benchmark into `data/golden/`, each carrying a header
-that records the devsim version, the model choices and a mesh refinement self
-check, so a curve can be read years later without having to guess how it was
-made.
-
-The physics is built from devsim's own `simple_physics` helpers, with every
-parameter overridden to the ddsim value. The helpers ship with eps_r = 11.1,
-q = 1.6e-19 and mu_n = 400, none of which are what ddsim uses, so the override
-is the whole point rather than a detail. docs/04-validation.md: match the
-models before comparing numbers.
-"""
-
-
 from __future__ import annotations
 
 
@@ -57,14 +36,10 @@ from devsim.python_packages.model_create import(
 from devsim.python_packages.simple_physics import(CreateSiliconDriftDiffusion, CreateSiliconDriftDiffusionAtContact, CreateSiliconPotentialOnly, CreateSiliconPotentialOnlyContact, ece_name, hce_name,)
 REGION  =  "bulk"
 
-"""The single silicon region. Every device here is one material."""
 ANODE ="anode"
-'''p side contact, the one that gets swept.'''
 CATHODE = "cathode"
-'''n side contact, held at zero.'''
 
 def devsim_version()->str :
-    """The installed devsim version [1], for the golden file header."""
     try:
         from  importlib.metadata import version
         return version('devsim')
@@ -76,18 +51,6 @@ def devsim_version()->str :
 
 
 def build_mesh(benchmark   : P.DiodeBenchmark,   device  :  str,  refine   :  float  =   1.0)  ->  None  :
-    """Create and finalise the 1D mesh for one benchmark.
-
-    Args:
-        benchmark: the device definition.
-        device: devsim device name.
-        refine: divide every mesh spacing by this. 2.0 halves the spacing
-            everywhere, which is how the mesh convergence self check is run.
-
-    The junction sits on a mesh line, so the abrupt doping step lands on a node
-    rather than inside a cell in either code. docs/04-validation.md warns that
-    putting it inside a cell moves the metallurgical junction by half a cell.
-    """
 
     Mesh =device
     hj = benchmark.devsim_h_junction  / refine
@@ -106,12 +69,6 @@ def build_mesh(benchmark   : P.DiodeBenchmark,   device  :  str,  refine   :  fl
 
 
 def set_silicon_parameters(device :str) -> None :
-    """Push every ddsim constant into devsim, overriding its own defaults.
-
-    Nothing here is left at a devsim default. A parameter that is not written
-    down in `parameters.py` is a parameter the two codes are free to disagree
-    about.
-    """
 
     s2 :dict[str, float] = {'Permittivity'  : P.EPS_R_SI *P.EPS_0, 'ElectronCharge'  :P.Q, "n_i": P.N_I, "T" : P.T, "kT" : P.K_B *P.T, 'V_t' : P.V_T, 'mu_n'  :P.MU_N, "mu_p": P.MU_P, 'n1' : P.N_I, "p1"  : P.N_I,}
     for r2, t2 in s2.items() :
@@ -119,7 +76,6 @@ def set_silicon_parameters(device :str) -> None :
 
 def set_doping(benchmark  :  P.DiodeBenchmark,
           device:str)  ->None:
-    """The abrupt junction, right continuous at the junction like ddsim's Step."""
     tmp   =  (
         f"ifelse(x < {benchmark.junction:.16e}, "
         f"{-benchmark.Na:.16e}, {benchmark.Nd:.16e})"
@@ -128,18 +84,6 @@ def set_doping(benchmark  :  P.DiodeBenchmark,
 
 
 def set_lifetimes(device :str) -> None :
-    """Scharfetter doping dependent lifetimes as node models, not parameters.
-
-    devsim's SRH expression names `taun` and `taup`. Creating node models under
-    those names shadows the scalar parameters its helpers would otherwise set,
-    which is how the doping dependence gets in without touching the helper. The
-    lifetimes do not depend on the carrier densities, so the SRH derivatives
-    devsim differentiates symbolically are unaffected.
-
-    ddsim feeds the Scharfetter relation abs(net doping) rather than Na + Nd,
-    because only the net is available on a step profile. Same choice here, for
-    the same reason, so the two agree node for node.
-    """
     for Name,tauMax,tauu_min in(
         ('taun',P.TAU_N_MAX,P.TAU_N_MIN),
         ("taup",P.TAU_P_MAX,P.TAU_P_MIN),
@@ -150,7 +94,6 @@ def set_lifetimes(device :str) -> None :
         )
         CreateNodeModel(device,REGION,Name,equ)
 def build_physics(device :str) ->None :
-    """Equilibrium solve, then the full drift diffusion system."""
     CreateSolution(device, REGION, 'Potential')
     CreateSiliconPotentialOnly(device,REGION)
     for conntact in(ANODE,
@@ -177,18 +120,6 @@ def build_physics(device :str) ->None :
     solve(type="dc",absolute_error=1e10,relative_error = 1e-12,maximum_iterations=60)
 
 def anode_current(device :str)->float :
-    """Terminal current into the anode [A/cm^2].
-
-    devsim reports the electron and hole contact currents separately and their
-    sum already carries ddsim's convention: positive means conventional current
-    flowing from the contact into the device, so a forward biased diode is
-    positive at the anode and the two terminals sum to zero. That was measured
-    against ddsim rather than assumed, on the 1e16 symmetric diode: both codes
-    give about +5.2e2 A/cm^2 at 0.7 V and about -8.3e-9 A/cm^2 at -1 V.
-
-    A 1D devsim device has unit cross section, so the number is already a
-    density and needs no area division.
-    """
     Electrons= get_contact_current(device = device, contact =  ANODE, equation =ece_name)
     Holes=get_contact_current(device =device,contact= ANODE,equation =hce_name)
 
@@ -198,18 +129,11 @@ def anode_current(device :str)->float :
 
 
 def cathode_current (  device   : str  ) ->   float   :
-    """Terminal current into the cathode [A/cm^2]. Sums to zero with the anode."""
     format =get_contact_current(device=device, contact =  CATHODE, equation  = ece_name)
     dict= get_contact_current(device =device, contact = CATHODE, equation = hce_name)
     return format+ dict
 
 def ramp_to(  device : str,  target  :  float,   present   :  float,  step  :  float ) ->   float   :
-    """Walk the anode bias from present to target [V], solving at each step.
-
-    Returns the bias actually reached, which is the target unless a solve
-    raised. Continuation exists because a diode solved cold at 0.7 V does not
-    converge, in devsim any more than in ddsim.
-    """
     if  abs(  target  - present  )  < 1e-15  :
         return present
 
@@ -228,13 +152,6 @@ def ramp_to(  device : str,  target  :  float,   present   :  float,  step  :  f
     return target
 def sweep(benchmark:  P.DiodeBenchmark, refine  : float  = 1.0) -> list[dict[str, Any]]  :
 
-
-    '''Solve one benchmark at every requested bias and return the curve.
-
-    The voltage list is walked outward from zero in each direction, negatives
-    descending and then positives ascending, each leg continued from the
-    equilibrium solution rather than from the far end of the other leg.
-    '''
 
     all=f"{benchmark.name}_r{refine:g}".replace(".",
                   '_')
@@ -274,19 +191,6 @@ def sweep(benchmark:  P.DiodeBenchmark, refine  : float  = 1.0) -> list[dict[str
 def relative_difference(
     coarse: list[dict[str,Any]],fine:list[dict[str,Any]]
 )->tuple[float,float]:
-    """Worst relative current difference between two meshes, and where [1, V].
-
-    Points under P.CURRENT_FLOOR are skipped, since a relative comparison
-    between two roundoff residues says nothing about the mesh.
-
-    Refining does not always improve this number and is not expected to. In
-    reverse bias the terminal current is a cancellation between drift and
-    diffusion terms that scale as 1/h, so halving the spacing doubles the
-    quantity being cancelled and costs about a factor of two in the last digits
-    that survive. That is a property of Scharfetter-Gummel at low current, not
-    of the mesh being too coarse, and it is why the golden mesh is the coarse
-    one rather than the finest that would still run.
-    """
     thing=0.0
     whe = 0.0
 
@@ -307,8 +211,6 @@ def write_csv(
     mesh_check:tuple[float,float]|None,
     path:str,
 )->None:
-
-    """Write one golden curve, header and all."""
 
     Stamp   =  datetime.datetime.now( datetime.UTC ).strftime("%Y-%m-%d" )
     temp2: list[str] = [
@@ -351,7 +253,6 @@ def write_csv(
         Handle.write("\n".join(temp2)+"\n")
 
 def main()->int:
-    '''Generate every benchmark named on the command line, or all of them.'''
     paser= argparse.ArgumentParser(description  =  "Generate the tier 4 golden diode curves with DEVSIM.")
     paser.add_argument(
         "names",

@@ -1,12 +1,3 @@
-"""The guided experiments, phases/PHASE-7.md part two, Stage 3.
-
-A lesson is a file under ddsim/api/lessons: the device and sweep to start
-from, the steps, what to look for and what it all meant. What it teaches is
-held by tests/analytic/test_lesson_claims.py, on the lesson's own device. This
-file holds the rest: every lesson parses, every claim it names has a check,
-and every request it would hand the page is one the API accepts.
-"""
-
 from __future__ import annotations
 
 import  ast, pathlib
@@ -31,7 +22,6 @@ def client():
     with TestClient(create_app()) as Client  :
         yield Client
 def checks() -> set[str] :
-    """Every test function name in the claims file, without the test_."""
 
     tre=ast.parse(CLAIMS.read_text(encoding="utf-8"))
 

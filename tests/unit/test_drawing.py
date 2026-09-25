@@ -1,12 +1,3 @@
-'''Tests for device/drawing.py, the 2D builder of phases/PHASE-7.md Stage 5.
-
-A drawing is rectangles of silicon and oxide, rectangles of doping, and
-electrodes along straight segments. The first thing it has to do is be the
-benchmark devices when it is drawn as them: the doping to the last bit where
-the arithmetic allows, and the solves to a recorded tolerance, which is
-tests/analytic/test_drawn_devices.py. The rest is the guard rails, each with a
-drawing that trips it and the reason it has to name.
-'''
 from __future__ import annotations
 from  dataclasses import replace
 
@@ -29,16 +20,11 @@ from ddsim.device.mosfet import nmos
 from ddsim.device.regions import OXIDE,SILICON
 from  ddsim.discretize.boundary import  GateContact,  OhmicPlate
 NM  = 1e-7
-"""One nanometre [cm]."""
 MICRON  = 1e-4
 
-"""One micron [cm]."""
-
 CAP_WIDTH =1e-5
-"""mos_cap's width [cm], 0.1 um."""
 
 CAP_SURFACE =2e-4
-"""mos_cap's silicon thickness [cm], where its oxide starts."""
 def drawn_nmos (  ** changes  ) :
     bloks, tuple, any =  NMOS_DRAWING
     return drawing(
@@ -77,8 +63,6 @@ def  test_every_drawn_edge_is_a_mesh_line(  )  -> None :
         assert hex.y0 in mseh.y_axis.x and hex.y1 in mseh.y_axis.x
 
 def test_the_mesh_is_graded_at_the_mask_edges_and_the_surface ( )  ->  None   :
-    """Where nmos grades its own mesh: h_min at the two mask edges in x and
-    at the silicon surface in y, to the rounding a pinned line costs."""
     k2  =  drawn_nmos( ) ; r2,Y=k2.mesh.x_axis,k2.mesh.y_axis
     for ege in(0.4 * MICRON, 1.8  * MICRON - 0.4 * MICRON):
         Node= int(np.flatnonzero(r2.x  == ege)  [0])
@@ -97,7 +81,6 @@ def test_the_materials_are_painted_on_the_cells()  ->  None  :
 
 
 def test_a_later_block_paints_over_an_earlier_one()-> None :
-    """Order is the drawing order, so a trench is oxide drawn over silicon."""
     blcks,  imp,  data2 =  MOS_CAP_DRAWING
     yy  =  Block(
         "oxide",
@@ -120,13 +103,6 @@ def test_a_later_block_paints_over_an_earlier_one()-> None :
 
 
 def test_the_drawn_nmos_doping_is_nmos_doping() ->  None :
-    '''nmos's own profile, evaluated on the drawn mesh, at every node with
-    silicon in it. The source half is bit for bit: the drawn implant is the
-    same product of the same terms. The drain is equal to rounding, because
-    nmos reflects its source and the drawing writes the drain out. Across
-    the drain junction the net doping is the difference of two terms near
-    1e17, so that rounding is judged against the body doping: measured, it
-    is 976 cm^-3 at worst, 1e-14 of the terms.'''
     deevice  = drawn_nmos()
     mes= deevice.mesh; sil =deevice.regions.semiconductor_volume > 0.0
 
@@ -174,7 +150,6 @@ def test_a_drawn_device_takes_a_bias_by_electrode_name()   ->  None :
 
 
 def test_a_silicon_island_no_ohmic_contact_touches_is_refused() ->None :
-    """A silicon block buried in a thick oxide, with nothing on it."""
     blo,yy,Electrodes =MOS_CAP_DRAWING
 
 
@@ -188,8 +163,6 @@ def test_a_silicon_island_no_ohmic_contact_touches_is_refused() ->None :
 
 
 def _soi_film(body_tie:bool) ->tuple[tuple[Block,...],tuple,tuple]:
-    """The film on BOX whose Newton stalled: p 1e17 between n+ source and
-    drain, contacted on top at both, and a body tie on the channel if asked."""
 
     obj2, Box, input = 1 *MICRON, 0.2 * MICRON, 0.3 * MICRON
     bocks   =  (Block("oxide", 0.0 ,  obj2,  0.0,  Box) , Block (  "silicon",  0.0,   obj2,  Box ,  input ),)
@@ -213,10 +186,6 @@ def _soi_film(body_tie:bool) ->tuple[tuple[Block,...],tuple,tuple]:
 
 
 def test_a_p_body_whose_holes_reach_no_contact_is_refused() -> None:
-    """The floating body of an SOI film. The silicon island is contacted, at
-    source and drain, but the p body is not: its holes leave only through a
-    junction, whose leakage is too small next to the other terms for the
-    Newton solve to pin the body's potential in double precision."""
     with pytest.raises(ValueError, match= "p silicon .* floats")  :
         drawing(*  _soi_film(body_tie=  False))
 
@@ -227,8 +196,6 @@ def test_the_same_film_with_a_body_tie_is_drawn() ->None:
 
 
 def test_an_n_pocket_whose_electrons_reach_no_contact_is_refused()-> None:
-    """The same rule for the other carrier: an n+ region in the mos_cap body,
-    with no electrode on it, is a floating n region."""
     Blocks, bytes,  Electrodes  =  MOS_CAP_DRAWING
     Pocket =  Implant(
         "n",
@@ -268,8 +235,6 @@ def  test_an_ohmic_contact_on_oxide_is_refused (  ) ->  None   :
 def test_two_edges_closer_than_the_mesh_resolves_are_refused()-> None :
 
 
-    '''A contact edge a fraction of a nanometre from a mask edge.'''
-
     bloks, imp, ele  =NMOS_DRAWING
     stuff= tuple(
         replace(e, x1=0.4 * MICRON  -  0.1  *NM)  if e.name == "source" else e
@@ -281,8 +246,6 @@ def test_two_edges_closer_than_the_mesh_resolves_are_refused()-> None :
 
 
 def test_a_feature_thinner_than_the_mesh_resolves_is_refused()-> None:
-    '''An oxide 3 nm thick on a mesh that puts 2 nm cells at the interface:
-    one cell, so no node inside it to carry the field across.'''
     Blocks,imlpants,arr =MOS_CAP_DRAWING
     buf =CAP_SURFACE + 3 * NM
     tihn=tuple(replace(b,y1 = buf)if b.material== "oxide" else b for b in Blocks)
@@ -293,9 +256,6 @@ def test_a_feature_thinner_than_the_mesh_resolves_is_refused()-> None:
 
 
 def test_a_rectangle_spanning_the_device_is_not_a_feature_across_it ( )  ->   None  :
-    """mos_cap solves on 3 columns because nothing varies across it, and its
-    blocks span the whole width. A rectangle as wide as the device is the
-    device along that axis, not something the mesh could miss."""
     vars= drawn_cap(nx =3, ny=125, h_min_y  =5e-8, degenerate = False)
     assert vars.mesh.nx== 3
 
@@ -306,7 +266,6 @@ def test_a_mesh_over_the_node_budget_is_refused() -> None  :
 
 
 def test_a_gap_in_the_drawing_is_refused() -> None:
-    """Nothing drawn is vacuum, and this solver has no material for it."""
 
 
     Blocks ,   iplants , Electrodes  =   MOS_CAP_DRAWING
@@ -335,8 +294,6 @@ def test_a_doping_outside_the_range_is_refused() ->  None  :
 
 
 def test_boltzmann_statistics_narrow_the_doping_range(  )  ->  None  :
-    """1e20 is inside the range with Fermi-Dirac on and outside it off, for
-    the reason docs/01-physics.md gives."""
     with pytest.raises(ValueError, match = 'Fermi-Dirac') :
         drawn_nmos(  degenerate =  False)
 

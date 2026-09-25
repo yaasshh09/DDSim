@@ -1,24 +1,3 @@
-"""A 1D stack of doped regions, the device builder of phases/PHASE-7.md Stage 4.
-
-Regions are laid left to right, any number of them, each with a length and a
-doping, with an ohmic contact at each end: pn, pin, p+n, npn and whatever a
-student invents. Nothing new is solved here. It is the pn_diode recipe with
-more than one junction: the same graded mesh generator, the same kind of
-doping profile, the same contacts. Drawn as the Phase 2 diode, it is that
-diode to the last bit.
-
-Graded at every junction
-------------------------
-The mesh is graded_mesh_1d_at over the junctions: h_min at every one, one
-growth rate for the whole stack, so a thin base between two junctions meets
-its neighbours at the same spacing. With one junction that is graded_mesh_1d
-itself, which is how the Phase 2 diode drawn as a stack stays that diode.
-
-A boundary between two regions of the same doping is not a junction. Nothing
-changes there, so there is nothing to grade towards, and the stack is the
-same device as the one with those two regions drawn as one.
-"""
-
 from __future__  import  annotations
 from  dataclasses import  dataclass
 import numpy  as np
@@ -34,14 +13,7 @@ DOPING_RANGE  = (1e14,
                 1e19 )
 
 
-"""The doping a region may have [cm^-3], the range docs/01-physics.md states
-for the models a 1D device is solved with."""
-
 NODES_INSIDE=2
-
-"""Fewest mesh nodes a region must hold strictly inside it [1]. Two nodes
-make three cells, the least that shows a slope inside the region rather
-than a straight line from one boundary to the other."""
 
 
 @dataclass(frozen  = True)
@@ -50,41 +22,31 @@ than a straight line from one boundary to the other."""
 
 
 class Region :
-    """One doped slab of a stack."""
 
 
     dopant : str
-    """"n" for donors, "p" for acceptors."""
 
 
     length : float
 
 
-    """Thickness along the stack [cm]."""
-
-
     concentration : float
 
-    """Dopant concentration [cm^-3], given positive."""
     @property
 
 
     def net_doping(self)->float:
-        """Nd - Na [cm^-3], the sign convention of docs/01-physics.md."""
         return self.concentration if self.dopant == "n" else -self.concentration
 
 
     def describe (  self  )  ->   str  :
-        '''The region as a student drew it, for a refusal to name.'''
         return f"{self.dopant}-type {self.concentration:g} cm^-3, {self.length:g} cm"
 
 PHASE_2_DIODE = (Region("p", 0.5e-4, 1e16), Region("n", 0.5e-4, 1e16))
-"""pn_diode's defaults drawn as a stack."""
 
 
 
 def _check_regions(regions : tuple[Region, ...]) -> None :
-    """Refuse a region that is not a slab of doped silicon the models cover."""
 
     if len(regions) < 2 :
         raise ValueError(
@@ -129,30 +91,6 @@ def stack(
     right_voltage  :  float  = 0.0,
     material  :  Material |None = None,
 ) ->Device :
-    """Doped regions laid left to right, an ohmic contact at each end.
-
-    Args:
-        regions: the regions in order from the left contact, at least two,
-            with the doping changing at one boundary at least.
-        n_nodes: how many mesh points the whole stack is cut into [1].
-            Range 51 to 1001. They get shared out between the junctions, so a
-            stack with lots of junctions wants more.
-        h_min: the smallest mesh spacing, at every junction [cm].
-            Range 1e-8 to 1e-6, log. It should be under half the Debye
-            length: 20 nm at 1e16 but only 0.65 nm at 1e19, so the 1 nm
-            default is too coarse for the most heavily doped regions.
-        left_voltage: voltage on the left contact [V]. Range -5 to 1, the
-            same as the diode's contacts.
-        right_voltage: voltage on the right contact [V]. Range -5 to 1, the
-            same as the left contact.
-        material: defaults to silicon at 300 K.
-
-    n_nodes is shared between the junctions by how far each one's grading has
-    to grow. The h_min rule is the half Debye length one in
-    docs/02-numerics.md. The contact ranges copy the diode's, and where a
-    cold solve stops converging was measured on the Phase 2 diode, near 1.3 V
-    forward, and not on other stacks.
-    """
     _check_regions(regions)
     eds = np.cumsum([reg.length for reg in regions])
     jun  = [float(End) for End, ( beore,  thing  ) in zip(eds[  :-   1 ],   zip ( regions[  :-  1 ],  regions[ 1 :], strict   =   True),  strict  =  True) if beore.net_doping   !=  thing.net_doping]

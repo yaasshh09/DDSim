@@ -1,12 +1,3 @@
-"""Tests for device/builder.py, device/pn_diode.py and device/equilibrium.py.
-
-device/ composes: geometry and doping in, a Device out that knows its mesh, its
-material, its contacts and how to evaluate its doping anywhere. It holds no
-solver state of its own, which is why solve_equilibrium returns a DeviceState
-rather than mutating the Device.
-"""
-
-
 from __future__ import annotations
 import numpy as np, pytest
 from ddsim.core.field import Location,ScalingState
@@ -24,8 +15,6 @@ from ddsim.mesh.mesh1d import uniform_mesh_1d
 
 
 MICRON =  1e-4
-
-"""One micron [cm]."""
 
 
 def  test_silicon_material_matches_the_constants_doc()  ->  None :
@@ -90,11 +79,6 @@ def test_device_is_immutable()->  None :
         dev.mesh=None
 
 def test_doping_stays_re_evaluable_after_construction()->None:
-    """The profile is kept, not just its values on this mesh.
-
-    Phase 5 refines adaptively, so the Device has to be able to produce doping
-    on a mesh that did not exist when it was built.
-    """
     dev  = pn_diode(Na  = 1e16, Nd = 1e17, length =MICRON, junction =0.5 * MICRON)
     item2 =np.linspace(0.0,MICRON,1001)
     Values =dev.doping(item2)
@@ -130,7 +114,6 @@ def  test_equilibrium_solve_converges ()   ->  None   :
     assert sttate.newton.converged
 
 def test_equilibrium_solve_converges_in_under_ten_iterations()->None:
-    """The acceptance criterion in phases/PHASE-1.md."""
     State  =   solve_equilibrium(  pn_diode( ) )
     assert State.newton.iterations< 10,State.newton.residual_history
 
@@ -175,7 +158,6 @@ def  test_equilibrium_pins_psi_at_the_contacts(  )  ->   None   :
 
 def test_equilibrium_is_flat_in_uniform_material()->None:
 
-    '''No junction means no field. The initial guess is already the answer.'''
     Mesh = uniform_mesh_1d(MICRON,51)
     devce =build_device(mesh= Mesh, doping  = Uniform(1e16), contacts=  (OhmicContact('left', 0, 0.0), OhmicContact("right", 50, 0.0)),)
     State=solve_equilibrium(devce)
@@ -183,7 +165,6 @@ def test_equilibrium_is_flat_in_uniform_material()->None:
 
 
 def test_equilibrium_reports_the_residual_history() -> None :
-    """phases/PHASE-1.md wants the history logged so the tail can be inspected."""
 
 
     bar = solve_equilibrium(pn_diode())
@@ -193,7 +174,6 @@ def test_equilibrium_reports_the_residual_history() -> None :
 
 
 def test_equilibrium_raises_if_it_fails_to_converge() -> None :
-    """A silently unconverged solve is the worst possible outcome here."""
     with pytest.raises (RuntimeError,
                 match   =  "converge")   :
         solve_equilibrium(pn_diode(),max_iterations=1)
@@ -202,7 +182,6 @@ def test_equilibrium_raises_if_it_fails_to_converge() -> None :
 
 
 def test_equilibrium_accepts_a_device_with_a_bias_applied()->None:
-    """No continuation yet, but a contact voltage must still be honoured."""
     dvice  = pn_diode(anode_voltage  =-  1.0)
     State = solve_equilibrium(dvice)
     assert State.newton.converged

@@ -1,25 +1,3 @@
-"""Tests for discretize/continuity.py, the Scharfetter-Gummel assembly.
-
-Everything is scaled: psi in units of V_T, densities in units of C_0, lengths
-in units of x_0, diffusivities in units of D_0. In those units the edge fluxes
-carry no constants at all, from docs/02-numerics.md:
-
-    Jn = (Dn/h) * (B(X)*n_right - B(-X)*n_left)
-    Jp = (Dp/h) * (B(X)*p_left  - B(-X)*p_right)
-
-with X = psi_right - psi_left.
-
-The asymmetry between those two lines is the single most dangerous detail in
-the project. docs/05-pitfalls.md: reversing it produces a solver that converges
-cleanly to a physically wrong answer with reversed current. It is tested here
-three separate ways: the low field limit, the drift limit, and which node
-dominates at high field.
-
-The strongest test in the file is the conservation one. With recombination off,
-solving the electron equation and then measuring Jn on every edge must give the
-same number everywhere, to machine precision rather than to a tolerance. That
-property is what Scharfetter-Gummel is for.
-"""
 from __future__ import annotations
 import numpy  as np, pytest
 from ddsim.core.field import Field,Location,ScalingState
@@ -38,21 +16,15 @@ from ddsim.physics.recombination import NoRecombination,SRHRecombination
 from ddsim.solve.linear import SparseLU
 MICRON  = 1e-4
 
-"""One micron [cm]."""
 D_N =1.0
-'''Scaled electron diffusivity [1]. D_0 is max(Dn, Dp), which is Dn.'''
 
 D_P = 0.3317
-"""Scaled hole diffusivity [1], 470/1417 by the Einstein relation."""
 
 V_BI=27.6
-
-"""A built-in potential [1], about 0.714 V in units of V_T."""
 
 
 
 def scaled_mesh(n_nodes: int=41, length:float =  MICRON, graded :  bool=  False)  ->  tuple[Mesh1D, np.ndarray, np.ndarray]:
-    """A mesh with its edge lengths and dual volumes in units of x_0."""
     Scale   =   ScaleFactors.for_silicon ( )
     if graded:
         mes=  graded_mesh_1d(length, n_nodes, refine_at = 0.5 *  length, h_min=2e-7)
@@ -65,12 +37,6 @@ def scaled_mesh(n_nodes: int=41, length:float =  MICRON, graded :  bool=  False)
 
 
 def junction_potential(mesh :  Mesh1D)   ->  np.ndarray  :
-    """A junction shaped psi [1], p-type on the left, n-type on the right.
-
-    Not a solution of anything. It only has to be a realistic profile with
-    strong fields in the middle, so that the edge arguments X span the regime
-    where exponential fitting matters.
-    """
 
 
     blah=0.5*mesh.length
@@ -80,12 +46,6 @@ def junction_potential(mesh :  Mesh1D)   ->  np.ndarray  :
 
 
 def solve_block(residual:np.ndarray, triplets:tuple[np.ndarray,np.ndarray,np.ndarray], density:np.ndarray, targets:tuple[float,float],)-> np.ndarray:
-    """One block solve: pin both ends, take the Newton step, return the density.
-
-    The continuity equation is linear in its own carrier once the fluxes and
-    the recombination linearization are fixed, so this single step is the exact
-    solution rather than an iteration towards it.
-    """
     dict,col,min=triplets
     nnodes = density.size
 
@@ -104,15 +64,9 @@ def solve_block(residual:np.ndarray, triplets:tuple[np.ndarray,np.ndarray,np.nda
 
 
 def as_field(values : np.ndarray, unit :  str, name : str) -> Field :
-    """A scaled node Field, the form the assemble functions demand."""
     return Field(values,unit,ScalingState.SCALED,Location.NODE,name=name)
 
 def test_zero_field_reduces_to_plain_diffusion()->  None :
-    """B(0) = 1 on both sides, so the flux is Dn * dn/dx and nothing else.
-
-    This is the limit in which Scharfetter-Gummel must agree with central
-    differencing. If it does not, the scheme is not consistent.
-    """
     r2 =np.array([0.5,0.25])
 
 
@@ -123,8 +77,6 @@ def test_zero_field_reduces_to_plain_diffusion()->  None :
     np.testing.assert_allclose(electron_current(r2,D_N,psi,n),expectted,rtol =1e-15)
 
 def test_zero_field_hole_flux_is_minus_the_gradient()->None:
-    """Jp = -Dp * dp/dx at zero field. The sign flip against Jn is physical:
-    holes diffuse down the gradient carrying positive charge with them."""
 
     next= np.array([0.5, 0.25])
     psi=np.zeros(3)
@@ -133,23 +85,12 @@ def test_zero_field_hole_flux_is_minus_the_gradient()->None:
     np.testing.assert_allclose(hole_current(next, D_P, psi, p), Expected, rtol =  1e-14)
 
 def test_uniform_density_gives_pure_drift(  )   ->  None   :
-    """With n flat, B(X) - B(-X) = -X exactly, so Jn = -Dn * n * dpsi/dx.
-
-    That is q*mu_n*n*E with E = -dpsi/dx and D = mu*V_T, in scaled units. The
-    identity B(-x) = B(x) + x is what makes it exact rather than approximate,
-    which is why docs/02-numerics.md calls it the strongest Bernoulli test.
-    """
     stuff=  np.array([0.4, 0.4]) ; psi =  np.array([0.0, 1.3, 2.9])
     n   = np.full (3 ,  7.0)
 
     gradeint=np.diff(psi) / stuff
     np.testing.assert_allclose(electron_current ( stuff ,  D_N ,  psi , n ) ,   -  D_N   *   7.0   * gradeint,   rtol   =  1e-14)
 def  test_uniform_hole_density_gives_pure_drift_with_the_same_sign ( )  ->  None  :
-    """Jp = -Dp * p * dpsi/dx too.
-
-    Both carriers drift in the same direction as conventional current under a
-    field, which is the whole reason a semiconductor conducts with either.
-    """
     H = np.array([0.4, 0.4])
     psi=np.array([0.0,1.3,2.9])
     p = np.full(3, 7.0)
@@ -161,12 +102,6 @@ def  test_uniform_hole_density_gives_pure_drift_with_the_same_sign ( )  ->  None
 
 
 def test_electron_current_flows_the_right_way_down_a_potential_drop()->  None :
-    """A uniform n-type bar with psi falling to the right.
-
-    E = -dpsi/dx points in +x, so conventional current flows in +x and Jn is
-    positive. This is the sign check docs/05-pitfalls.md puts first in the
-    debugging order, in its smallest possible form.
-    """
 
 
     hh = np.array([1.0,
@@ -189,13 +124,6 @@ def test_hole_current_flows_the_same_way()  -> None:
 
 def test_high_field_upwinds_the_electron_flux_to_the_left_node() ->  None :
 
-    """The Bernoulli asymmetry, stated as directly as it can be stated.
-
-    With X = +10, psi rises to the right, so E points in -x and electrons drift
-    in +x. The upwind node for electrons is then the left one, and the flux
-    must be dominated by n_left. The ratio of the two sensitivities is
-    B(-X)/B(X) = exp(X), which is 22026 here.
-    """
     H =  np.array([1.0])
     psi= np.array([0.0, 10.0])
 
@@ -211,12 +139,6 @@ def test_high_field_upwinds_the_electron_flux_to_the_left_node() ->  None :
 def test_high_field_upwinds_the_hole_flux_to_the_right_node()-> None :
 
 
-    """The other half of the asymmetry, and the reason it is a trap.
-
-    Same field, opposite answer. Holes drift along E, which points in -x, so
-    the upwind node for holes is the right one. An implementation that treats
-    both carriers alike passes every symmetric test and fails this one.
-    """
     hh  = np.array([1.0])
     psi =np.array([0.0, 10.0])
     t2= hole_current(hh, D_P, psi, np.array([1.0, 0.0]))
@@ -225,12 +147,6 @@ def test_high_field_upwinds_the_hole_flux_to_the_right_node()-> None :
     assert  abs( FromRight)  >  abs (t2  )
 
 def test_hole_flux_is_the_electron_flux_with_the_potential_reversed() -> None :
-    """Jp(psi) = -Jn(-psi) with the same density profile.
-
-    A structural identity rather than a physical one. It pins the two
-    implementations to each other, so a later edit to one of them cannot drift
-    away from the other unnoticed.
-    """
     Mesh,res,_= scaled_mesh()
     psi =   junction_potential (Mesh  );  Density = np.exp(np.linspace(- 8.0, 8.0, Mesh.n_nodes))
 
@@ -239,11 +155,6 @@ def test_hole_flux_is_the_electron_flux_with_the_potential_reversed() -> None :
     np.testing.assert_allclose(hole_current(res, D_P, psi, Density), -electron_current(res, D_P, - psi, Density), rtol =  1e-13,)
 
 def test_flux_survives_a_field_large_enough_to_overflow_exp()-> None:
-    """X = 800 is past the point where exp(X) is representable.
-
-    A depletion region on a coarse mesh reaches arguments like this, and the
-    branch structure in physics/bernoulli.py is what keeps the flux finite.
-    """
     hh = np.array([1.0])
     psi = np.array([0.0,800.0])
 
@@ -253,7 +164,6 @@ def test_flux_survives_a_field_large_enough_to_overflow_exp()-> None:
 
     assert np.all(np.isfinite(set));  np.testing.assert_allclose (set , -  D_N  * 1e6  * 800.0, rtol   =   1e-12)
 def test_diffusivity_may_vary_per_edge()   ->  None   :
-    """Phase 3 makes mobility doping dependent, so D lives on edges."""
     H =  np.ones( 2 )
     psi =np.zeros(3)
     n =  np.array([0.0, 1.0, 3.0])
@@ -262,17 +172,6 @@ def test_diffusivity_may_vary_per_edge()   ->  None   :
     np.testing.assert_allclose (electron_current(H,  dn,   psi,  n ),   np.array ( [ 2.0 * 1.0 , 5.0 *   2.0  ]),  rtol  =   1e-15)
 
 def test_electron_residual_is_zero_for_a_constant_current_solution() -> None :
-    """Any n making Jn constant solves div(Jn) = 0 at every interior node.
-
-    Built by walking the flux relation backwards from a chosen current, so the
-    profile is an exact solution of the discrete equation and the residual has
-    to vanish for a reason that does not involve the solver.
-
-    The potential ramps gently here on purpose. Solving the flux relation
-    forwards divides by B(X), which is 5e-11 at X = 27, so a steep profile
-    turns this construction into an error amplifier and tests the recursion
-    rather than the residual.
-    """
     msh, hh, Volume = scaled_mesh(n_nodes = 11)
     psi= np.linspace(0.0,2.0,msh.n_nodes)
 
@@ -292,7 +191,6 @@ def test_electron_residual_is_zero_for_a_constant_current_solution() -> None :
     np.testing.assert_allclose(Residual[1 :- 1], 0.0, atol  = 1e-9 * next)
 
 def test_electron_residual_picks_up_recombination()-> None :
-    """With no current flowing, the residual is exactly R * volume."""
     blah,set,Volume = scaled_mesh(n_nodes=11)
     psi=np.zeros(blah.n_nodes)
 
@@ -308,12 +206,6 @@ def test_electron_residual_picks_up_recombination()-> None :
 
 
 def test_hole_residual_picks_up_recombination_with_the_same_sign() ->None  :
-    """div(Jp) = -R, and the residual is written as div(Jp) + R*volume.
-
-    Both residuals therefore reduce to +R*volume when no current flows. That
-    shared sign is not a coincidence: recombination removes an electron and a
-    hole together, so it enters both equations as a sink.
-    """
     t2,H,vol = scaled_mesh(n_nodes= 11)
     psi = np.zeros(t2.n_nodes)
     p=np.ones(t2.n_nodes)
@@ -327,7 +219,6 @@ def dense(
     triplets :tuple[np.ndarray,np.ndarray,np.ndarray],n_nodes :int
 )->np.ndarray :
 
-    """The Jacobian as a dense array, for structure checks."""
     Rows,ret,round=triplets
     mat  = np.zeros((n_nodes,
                  n_nodes))
@@ -336,12 +227,6 @@ def dense(
 
 
 def test_electron_jacobian_is_the_exact_derivative_of_the_residual()  -> None   :
-    """The residual is linear in n when R is held fixed, so J*n reproduces it.
-
-    Exact rather than approximate, which is a stronger statement than any
-    finite difference check can make. With R = 0 and dR/dn = 0 the residual is
-    exactly -div(Jn), a linear function of n with no constant term.
-    """
     mes, hh, vol = scaled_mesh(graded = True)
     psi =junction_potential(mes)
     n   =  np.exp (  np.linspace ( -  14.0 , 14.0,  mes.n_nodes  ))
@@ -365,7 +250,6 @@ def test_hole_jacobian_is_the_exact_derivative_of_the_residual() ->None:
 
 
 def test_recombination_slope_lands_on_the_diagonal_scaled_by_volume() ->  None :
-    """dR/dn enters as dR_dn * volume and nowhere else."""
     bar, H, Volume = scaled_mesh(n_nodes  =11)
     psi =junction_potential(bar)
     foo  =   np.zeros(bar.n_nodes  )
@@ -387,13 +271,6 @@ def test_recombination_slope_lands_on_the_diagonal_scaled_by_volume() ->  None :
 
 
 def test_electron_jacobian_is_an_m_matrix( graded  :  bool )   ->  None  :
-    '''Positive diagonal, non-positive off diagonals.
-
-    This is what guarantees a non-negative inverse, and with a non-negative
-    right hand side that is what guarantees the solved density is positive.
-    Lose it and carrier densities go negative in regions with no physical
-    reason, which docs/05-pitfalls.md lists as a symptom of a sign error.
-    '''
     mes,yy,Volume=scaled_mesh(graded = graded)
     psi=  junction_potential(mes) ; aa=np.full(mes.n_nodes,0.5)
     Matrix = dense(electron_continuity_jacobian(yy,Volume,D_N,psi,aa),mes.n_nodes)
@@ -425,7 +302,6 @@ def test_hole_jacobian_is_an_m_matrix(graded:bool)->None :
 
 
 def ramp_potential(mesh: Mesh1D)->np.ndarray:
-    """A uniform field across the whole device [1], resistor fashion."""
     return 10.0 *  (1.0- mesh.x/  mesh.length)
 
 
@@ -441,21 +317,6 @@ def ramp_potential(mesh: Mesh1D)->np.ndarray:
     ids =  ['uniform field', 'junction under injection'],
 )
 def test_solved_electron_current_is_constant_across_every_edge(graded:bool, potential, targets  : tuple[float, float])  ->None :
-    """The primary Phase 2 gate, in its smallest form.
-
-    With recombination off, div(Jn) = 0, so the solved profile carries the same
-    current through every edge. Scharfetter-Gummel makes that exact on the mesh
-    rather than approximate, so what limits the number below is arithmetic, not
-    discretization. Twelve decades of density between the two contacts and it
-    still holds.
-
-    Both cases carry a large current on purpose. Jn is the difference of two
-    edge terms of size (Dn/h)*n, and near equilibrium those cancel to nothing,
-    so the ratio of a flux term to the current sets how many digits survive.
-    That is a property of measuring Jn, not of solving for n. The zero current
-    case is checked separately below, against the flux scale rather than
-    against a current that is not there.
-    """
     Mesh, thing, Volume=  scaled_mesh(graded=graded)
 
     psi = potential(Mesh)
@@ -496,18 +357,6 @@ def  test_solved_hole_current_is_constant_across_every_edge (graded  :  bool,  p
 
 def  test_the_equilibrium_profile_is_an_exact_solution_carrying_no_current(  )  ->   None  :
 
-    """n = exp(psi) makes every edge flux vanish identically.
-
-    B(-X)*exp(psi_left) and B(X)*exp(psi_right) are equal term by term, because
-    B(-X) = B(X)*exp(X) and X is exactly the difference of the two exponents.
-    So the current is zero on every edge for any psi whatsoever, on any mesh,
-    with no solve involved. That identity is what makes thermal equilibrium a
-    fixed point of the whole Gummel cycle.
-
-    The residual left over is bounded against the size of the terms being
-    differenced, not against a current, because there is no current here to be
-    relative to.
-    """
     mes, x2, _ =scaled_mesh(graded  = True)
     psi  =  junction_potential (  mes )
 
@@ -519,15 +368,6 @@ def  test_the_equilibrium_profile_is_an_exact_solution_carrying_no_current(  )  
     assert np.max(np.abs(Current)) < 1e-15 *hex
 
 def  test_the_equilibrium_profile_survives_a_block_solve(  )  -> None   :
-    '''Solving from the exact answer must return the exact answer.
-
-    Componentwise, including the minority end where n is 1e-6 while the other
-    contact sits at 1e6. Twelve decades apart in one linear system, and the
-    small end has to keep its digits, because the minority carrier density is
-    precisely what sets the saturation current of a diode. Solving for the
-    Newton correction rather than for the density itself is what buys that:
-    the roundoff is relative to the update, which is zero here.
-    '''
     msh,hh,vol=scaled_mesh(graded=True)
     psi  =   junction_potential(  msh)
     exa  =np.exp(psi)
@@ -545,12 +385,6 @@ def  test_the_equilibrium_profile_survives_a_block_solve(  )  -> None   :
 
 
 def test_solved_electron_density_stays_positive_everywhere()->  None :
-    """Guaranteed by the M-matrix, and worth checking rather than assuming.
-
-    The generation half of the recombination linearization is the only source
-    term, and it is non-negative, so the solution of an M-matrix system with
-    positive contact densities cannot dip below zero.
-    """
     chr ,   H,  vol =   scaled_mesh(graded   =  True) ; psi =junction_potential(chr)
     n= np.full(chr.n_nodes,
               1.0) ; p  =   np.full (  chr.n_nodes,   1.0  )
@@ -574,17 +408,6 @@ def test_solved_electron_density_stays_positive_everywhere()->  None :
 
 
 def test_recombination_bends_the_current_the_way_it_should()-> None:
-    """With a sink present, Jn is no longer constant, and it rises along x.
-
-    div(Jn) = +R, so a positive recombination rate makes Jn increase from left
-    to right. Physically the electrons flow inward from both contacts to be
-    consumed in the middle, and conventional electron current runs against the
-    electron flow, so Jn is negative at the left contact and positive at the
-    right one. Getting that backwards is the sign error this test exists for.
-
-    It also guards the conservation tests above against passing for the trivial
-    reason that the recombination term was dropped in the assembly.
-    """
     x2 , lst ,  Volume  =  scaled_mesh ()
     psi =  np.zeros (x2.n_nodes  )
     n  = np.full(x2.n_nodes, 1.0)
@@ -605,7 +428,6 @@ def test_recombination_bends_the_current_the_way_it_should()-> None:
 
 
 def  continuity_inputs( n_nodes   : int  =  21 )  ->  tuple :
-    '''A mesh, a device state and a model, ready for the assemble functions.'''
     Mesh=  uniform_mesh_1d(MICRON, n_nodes)
     thing  =  ScaleFactors.for_silicon()
     psi  =  as_field(junction_potential( Mesh ),   "V",  "psi"  );  n   =  as_field(  np.full(n_nodes, 1.0  ) ,  "cm^-3" ,  "n" )
@@ -616,7 +438,6 @@ def  continuity_inputs( n_nodes   : int  =  21 )  ->  tuple :
 
 
 def  test_assemble_electron_matches_the_array_level_functions() -> None  :
-    """The Field wrapper adds unit checking and the division by x_0, nothing else."""
     thing,psi,n,p,Scale =continuity_inputs()
     any=  NoRecombination()
     abs =assemble_electron_continuity(thing,psi,n,p,any,Scale,D_N)
@@ -652,7 +473,6 @@ def test_assemble_hole_matches_the_array_level_functions() ->None :
 
 
 def test_assemble_uses_the_recombination_model()->None:
-    """A model with a real rate must move the residual off the no-model answer."""
 
     Mesh,   psi ,   n,  p,   sccale  =  continuity_inputs(  )
     hott  = as_field(np.full(Mesh.n_nodes,
@@ -670,7 +490,6 @@ def test_assemble_uses_the_recombination_model()->None:
 
 def test_assemble_rejects_physical_fields()->None :
 
-    """A physical psi here is wrong by a factor of 1/V_T and still converges."""
     mes,psi,n,p,sca=continuity_inputs()
     physial =Field(psi.data,'V',ScalingState.PHYSICAL,Location.NODE,name='psi')
     with  pytest.raises (  ValueError , match =  'SCALED')  :

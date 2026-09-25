@@ -1,22 +1,3 @@
-"""Tests for solve/continuation.py.
-
-The bias ramp driver, and like everything in solve/ it knows nothing about
-semiconductors. It walks a scalar parameter from where it is to where it needs
-to be, growing the step when a solve succeeds and halving it when one fails,
-reusing the previous solution as the next initial guess.
-
-docs/02-numerics.md gives the algorithm and docs/05-pitfalls.md gives the two
-traps: growing by 2 overshoots into non-convergence repeatedly and wastes more
-time than it saves, so growth is 1.5 and capped, and there is no such thing as
-a good initial guess at 1 V forward bias, so the previous solution is the only
-starting point that works.
-
-The solves here are fakes. A fake that refuses to converge outside a window is
-a better test of the halving logic than any real device, because the window
-edge is exactly where the driver has to behave.
-"""
-
-
 from __future__ import annotations
 
 import  pytest
@@ -24,12 +5,10 @@ import  pytest
 from ddsim.solve.continuation import ContinuationEvent,continue_to
 
 def always(value  :  float) -> float :
-    '''A solve that always converges, returning the parameter as the solution.'''
     return  value
 
 
 def record_calls(calls   :   list[tuple[ float ,   float ] ]  )   :
-    """A solve that records the parameter and the guess it was handed."""
 
     def solve(  parameter  :   float,  guess  :  float  )  ->   float  :
         calls.append((parameter,guess))
@@ -39,11 +18,6 @@ def record_calls(calls   :   list[tuple[ float ,   float ] ]  )   :
     return  solve
 def fails_beyond(limit:float, minimum_step :float)  :
 
-    '''Converges only when the step from the last accepted point is small enough.
-
-    Stands in for a real solver near high injection, where a large bias jump
-    lands outside the basin of attraction and a small one does not.
-    '''
     Accepted =[0.0]
     def solve(parameter :float,
        guess:float)->float |None:
@@ -58,11 +32,6 @@ def fails_beyond(limit:float, minimum_step :float)  :
 
 
 def test_reaches_the_target_exactly()   ->  None   :
-    """The last step is clipped, so the target is hit and not merely passed.
-
-    Float accumulation of 0.05 twenty times does not land on 1.0, and a bias
-    sweep that reports 0.9999999999 V is a nuisance in every plot downstream.
-    """
     r2  = continue_to(
         lambda value, guess : always(value),
         start =  0.0,
@@ -83,7 +52,6 @@ def test_never_overshoots_the_target()->None :
     assert max (  parameter for  parameter, _ in  callls  ) <=  0.3
 
 def test_walks_downward_too() -> None :
-    """Reverse bias ramps run the other way, and the sign is the driver's job."""
     zip  :   list[tuple[  float, float ] ]  =  [  ]
     d2=continue_to(
         record_calls(zip),start=0.0,target=-1.0,initial =0.0,step=0.25
@@ -95,7 +63,6 @@ def test_walks_downward_too() -> None :
     assert all(parameter <= 0.0 for parameter,_ in zip)
 
 def test_hands_each_solve_the_previous_solution() ->None :
-    """The entire reason continuation works, from docs/02-numerics.md."""
     temp:list[tuple[float,float]]=[]
     continue_to(record_calls(temp), start = 0.0, target =1.0, initial=0.0, step =0.25)
     for preious,currnt in zip(temp,temp[1 :],strict= False):
@@ -149,7 +116,6 @@ def test_the_step_is_capped() ->None:
 def test_a_failed_step_is_halved_and_retried ( )  ->   None  :
 
 
-    """The requirement phases/PHASE-2.md states in as many words."""
     lst=continue_to(
         fails_beyond(0.5,0.2),start=0.0,target=1.0,initial= 0.0,step =0.5
     )
@@ -164,7 +130,6 @@ def test_a_failed_step_is_halved_and_retried ( )  ->   None  :
         assert 'halved' in eveent.message
 
 def test_every_attempt_is_logged()-> None  :
-    """A logged event per attempt, accepted or not."""
     reuslt=continue_to(fails_beyond(0.5,0.2),start=0.0,target =1.0,initial= 0.0,step= 0.5)
     assert len(reuslt.events)  > len(  reuslt.accepted )
     assert[Event.parameter for Event in reuslt.events if Event.converged] == list(reuslt.accepted)
@@ -172,7 +137,6 @@ def test_every_attempt_is_logged()-> None  :
 
 
 def test_gives_up_below_the_minimum_step (  ) -> None  :
-    """Failing loudly beats halving forever."""
     res  =continue_to(
         lambda value, guess  :None,
         start = 0.0,
@@ -188,7 +152,6 @@ def test_gives_up_below_the_minimum_step (  ) -> None  :
 
 
 def test_the_partial_solution_survives_a_failure()->None  :
-    """Whatever was reached is returned, because it is worth inspecting."""
     res =  continue_to(
         fails_beyond ( 0.4,  1e-9  ),
         start   =  0.0 ,
@@ -244,7 +207,6 @@ def test_event_repr_reports_the_attempt()->None:
     assert 'ok' in val or "failed" in val
 
 def test_every_attempt_is_reported_as_it_is_made() -> None :
-    """The same events the result carries, handed over one at a time."""
     Seen: list[ContinuationEvent] = []
 
     res =  continue_to(
@@ -262,9 +224,6 @@ def test_every_attempt_is_reported_as_it_is_made() -> None :
 
 
 def test_an_event_arrives_before_the_next_solve_is_attempted() ->  None  :
-    """The whole point is watching a ramp while it runs. A stream that only
-    flushes at the end is a progress bar that fills in one jump, and the
-    assertion that separates the two is the interleaving, not the count."""
     buff:list[str]= []
 
     def solve(value : float, guess: float) -> float :
@@ -278,8 +237,6 @@ def test_an_event_arrives_before_the_next_solve_is_attempted() ->  None  :
 
 def test_a_failed_attempt_is_reported_too() -> None  :
 
-    """A ramp in trouble is exactly when someone is watching. Reporting only
-    the accepted points would show a ramp slowing down for no visible reason."""
     seeen:list[ContinuationEvent]=[]
     continue_to(
         fails_beyond(0.5, 0.1),
@@ -295,7 +252,6 @@ def test_a_failed_attempt_is_reported_too() -> None  :
 
 
 def  test_watching_a_ramp_does_not_change_it (  ) ->   None  :
-    '''Same inertness argument as the Newton callback.'''
     cnt:list[ContinuationEvent]= []
 
     quuiet=continue_to(fails_beyond(0.5,0.1),start= 0.0,target=1.0,initial =0.0,step=0.4)
@@ -310,7 +266,6 @@ def  test_watching_a_ramp_does_not_change_it (  ) ->   None  :
 def test_an_exception_from_the_callback_stops_the_ramp( )  ->   None  :
 
 
-    """Cancellation, the same way the Newton callback does it."""
     def refuse(event :  ContinuationEvent)->None :
         if event.parameter>= 0.5 :
             raise KeyboardInterrupt("cancelled")
@@ -327,8 +282,6 @@ def test_an_exception_from_the_callback_stops_the_ramp( )  ->   None  :
         )
 
 def test_a_ramp_that_is_already_at_the_target_reports_nothing() ->  None:
-    """No attempt was made, so there is nothing to report. An event here would
-    put a point on the plot that no solve produced."""
     see :  list[ContinuationEvent]=[]
 
     dat =   continue_to (lambda  value, guess  :   always ( value), start  =  1.0, target =   1.0, initial =   1.0 , step  =  0.25, on_event   =  see.append,)

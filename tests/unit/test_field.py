@@ -1,13 +1,3 @@
-"""Tests for core/field.py.
-
-Under de Mari scaling every quantity exists in two numerically plausible forms.
-A scaled potential of 40 and a physical potential of 1.034 V are the same thing,
-and adding them produces no exception, no NaN and no crash. It produces a wrong
-answer that converges. Every raise tested here is a bug that would otherwise be
-invisible.
-"""
-
-
 import numpy as np, pytest
 from  ddsim.core.field import Field,  Location,   ScalingState
 from ddsim.core.scaling import ScaleFactors
@@ -26,12 +16,10 @@ def scale( ) ->   ScaleFactors  :
 
 def psi_physical(values :  list[float] |None  =None) -> Field :
 
-    """A physical potential on nodes [V]."""
     return Field(values or[0.0,0.5,1.0],'V',ScalingState.PHYSICAL,Location.NODE)
 
 
 def psi_scaled(values : list[float]|  None =  None)-> Field:
-    """A scaled potential on nodes [1]."""
     return Field(values or[0.0, 19.3, 38.7], "V", ScalingState.SCALED, Location.NODE)
 
 def test_field_carries_data_unit_scaling_and_location()-> None:
@@ -39,7 +27,6 @@ def test_field_carries_data_unit_scaling_and_location()-> None:
     assert F.scaling is ScalingState.PHYSICAL
     assert F.location  is  Location.NODE
 def test_data_is_a_plain_numpy_array_for_hot_loops() -> None:
-    """Hot loops check state once at function entry then work on .data."""
     ff=psi_physical();assert isinstance(ff.data,np.ndarray)
     assert ff.data.dtype  ==np.float64
     np.testing.assert_array_equal (ff.data,  [  0.0,  0.5,  1.0] )
@@ -77,8 +64,6 @@ def test_subtract_with_matching_metadata_succeeds() ->None :
 
 def test_add_different_scaling_state_raises ( )  ->  None  :
 
-    """The headline case. A scaled 38.7 and a physical 1.0 V are the same
-    potential, and nothing but this check will notice."""
     with  pytest.raises(  ValueError ,   match  =   'scaling')   :
         psi_scaled() +psi_physical()
 def test_add_different_location_raises()  -> None :
@@ -111,7 +96,6 @@ def test_subtract_different_unit_raises() -> None  :
 
 
 def test_add_a_bare_scalar_raises()->None:
-    """A bare float has no unit, so it cannot be added to a Field."""
 
     with pytest.raises ( TypeError )  :
         psi_physical()  + 1.0
@@ -192,7 +176,6 @@ def test_divide_different_scaling_state_raises() -> None :
 
 
 def test_multiply_by_a_python_scalar_preserves_the_unit() ->None:
-    """Scaling a field by a pure number is legal. The number has no unit."""
     dir=psi_physical()* 2.0
     np.testing.assert_allclose(dir.data,[0.0,1.0,2.0])
     assert dir.unit== "V"
@@ -223,7 +206,6 @@ def  test_to_physical_uses_the_scale_factors(scale  :  ScaleFactors )  -> None  
     assert item2.scaling is ScalingState.PHYSICAL
     np.testing.assert_allclose( item2.data, [ scale.psi_0 ] )
 def  test_to_scaled_is_not_hardcoded_to_a_single_factor (scale  : ScaleFactors,)   -> None  :
-    '''Changing C_0 has to change how a density scales. Nothing may cache.'''
     den = Field([1e16], "cm^-3", ScalingState.PHYSICAL, Location.NODE)
     oher  =  ScaleFactors.for_silicon(  C_0   = 1e18 )
     assert den.to_scaled(scale).data[0] != den.to_scaled(oher).data[0]
@@ -237,7 +219,6 @@ def test_round_trip_to_scaled_and_back_preserves_data(scale: ScaleFactors)->None
 
 
 def test_to_scaled_on_an_already_scaled_field_raises()-> None :
-    """Not a no-op. Calling it means the caller has lost track of state."""
     with pytest.raises(ValueError,match ='already') :
         psi_scaled( ).to_scaled(  ScaleFactors.for_silicon (  )  )
 
@@ -270,17 +251,11 @@ def test_unit_cannot_be_reassigned()->None :
     with pytest.raises(AttributeError):
         ff.unit=  "cm^-3"
 def test_field_does_not_expose_array_protocol() ->  None :
-    """np.asarray(field) must not silently strip the metadata."""
 
 
     assert not hasattr(Field, '__array__')
 
 def test_refuses_to_add_a_scaled_potential_to_a_physical_one( )  -> None :
-    """The Phase 0 definition of done, written literally.
-
-    38.7 scaled and 1.0 V physical are the same potential. Without this check
-    the sum is 39.7 of nothing in particular, and the solve converges to it.
-    """
     s2  = Field(  [ 38.7 ] ,   'V',   ScalingState.SCALED , Location.NODE)
     bar  =  Field([  1.0 ], 'V',   ScalingState.PHYSICAL ,  Location.NODE )
     with pytest.raises(ValueError) :

@@ -1,83 +1,3 @@
-"""Scharfetter-Gummel discretization of the two continuity equations.
-
-This is the module docs/02-numerics.md says to get right before anything else,
-so the derivation is repeated here rather than referred to.
-
-On the edge between nodes i and i+1, assume Jn and the field are constant and
-integrate the current relation analytically. With X = psi_{i+1} - psi_i in
-scaled units, where psi is already measured in units of V_T:
-
-    Jn_{i+1/2} = (Dn/h) * ( B(X)*n_{i+1} - B(-X)*n_i )
-    Jp_{i+1/2} = (Dp/h) * ( B(X)*p_i     - B(-X)*p_{i+1} )
-
-**The B(X) factor attaches to the right node for electrons and to the left node
-for holes.** That asymmetry is the single most dangerous detail in the project.
-Reversing it gives a solver that converges cleanly to a physically wrong answer
-with the current running backwards, which no convergence diagnostic will ever
-report. It is physical, not arbitrary: for X > 0 the field points in -x, so
-electrons drift in +x and holes drift in -x, and each flux is dominated by its
-own upwind node. Those are opposite ends of the same edge.
-
-Discrete equations, box integrated over the dual cell of each node exactly as
-in poisson.py, so that the two share their conservation structure:
-
-    div(Jn)_i = Jn_{i+1/2} - Jn_{i-1/2}      steady state: div(Jn) = R
-    div(Jp)_i = Jp_{i+1/2} - Jp_{i-1/2}      steady state: div(Jp) = -R
-
-The residuals are written with the sign that makes the diagonal positive and
-the off diagonals negative, matching poisson.py:
-
-    F_n,i = R_i*volume_i - (Jn_{i+1/2} - Jn_{i-1/2})
-    F_p,i = (Jp_{i+1/2} - Jp_{i-1/2}) + R_i*volume_i
-
-Both then reduce to +R*volume when no current flows, which is right: an
-electron and a hole recombine together, so recombination is a sink in both
-equations.
-
-Why the matrix is an M-matrix, and why that matters
---------------------------------------------------
-B(x) > 0 everywhere, so every off diagonal entry is strictly negative and every
-diagonal entry is a sum of positive terms. Adding dR/dn to the diagonal can
-only strengthen it, since dR/dn > 0 at every density. The result is a
-non-singular M-matrix, whose inverse is non-negative. Feed it a non-negative
-right hand side and the solved density is non-negative, with no clamping
-anywhere. docs/05-pitfalls.md is emphatic that clamping a negative density is
-never the repair, and this is what makes clamping unnecessary in 1D.
-
-The recombination arguments
----------------------------
-The array level functions take R and dR_dn as plain arrays rather than a model.
-The caller decides what goes in them, and the two phases want different things:
-
-- Gummel (Phase 2) passes the frozen denominator slope c = p/D from
-  physics/recombination.py, which keeps the right hand side non-negative and so
-  keeps densities positive.
-- Full Newton (Phase 3) will pass the exact tangent dR/dn.
-
-Either way the residual is evaluated with the true R at the current state, so
-the converged answer solves the true equation and not a linearized substitute.
-
-Conservation, and the one thing that limits it
-----------------------------------------------
-Because the scheme is built from edge fluxes, the discrete divergence of the
-discrete current is exactly zero in a source free steady state. With
-recombination off, the solved profile carries the same Jn through every edge to
-machine precision, not to a discretization tolerance. That is the strongest
-single correctness check in the project and it is the primary gate for Phase 2.
-
-What limits it in practice is not the solve but the measurement. Jn is the
-difference of two edge terms each of size (Dn/h)*n, and near equilibrium those
-two cancel to almost nothing: on a 1e16 junction the terms reach 5e9 in scaled
-units while the current is zero, so the answer comes out at the 1e-7 level
-rather than at zero. The relative spread of Jn across the mesh is therefore
-about eps times the ratio of a flux term to the current, and it degrades at low
-bias exactly where the current is small. The current itself is right, and the
-solved densities are right to twelve digits; only the subtraction is lossy.
-
-Where that matters, measure the terminal current from the residual instead. The
-residual form telescopes over the whole device and carries no cancellation, so
-it stays accurate where the edge difference does not.
-"""
 from __future__ import annotations
 import  numpy as np, numpy.typing as npt
 
@@ -93,13 +13,10 @@ from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.physics.bernoulli import B
 from ddsim.physics.recombination import RecombinationModel
 Diffusivity= float  |  npt.NDArray[np.float64]
-"""Scaled diffusivity [1], one value or one per edge."""
 
 
 
 BernoulliPair =tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
-
-"""(B(X), B(-X)) on every edge, with X = psi_right - psi_left [1]."""
 
 
 def _bernoulli_pair(
@@ -107,24 +24,12 @@ def _bernoulli_pair(
 )-> BernoulliPair:
 
 
-    """(B(X), B(-X)) on every edge, with X = psi_right - psi_left [1]."""
     nod, NodeRight =geometry.ends_of(psi.size)
     XX = psi[NodeRight]  -psi[nod]
 
     return  np.asarray(  B(  XX  ),   dtype   = np.float64 ),  np.asarray(B(  -   XX),   dtype  =  np.float64)
 
 def electron_current(h : npt.NDArray[np.float64], Dn: Diffusivity, psi: npt.NDArray[np.float64], n :npt.NDArray[np.float64], geometry : EdgeGeometry  = UNIFORM_1D,) ->  npt.NDArray[np.float64]:
-    """Scharfetter-Gummel electron current on every edge [1].
-
-    Args:
-        h: scaled edge lengths [1], length n_nodes - 1.
-        Dn: scaled electron diffusivity [1], scalar or per edge.
-        psi: scaled potential on nodes [1].
-        n: scaled electron density on nodes [1].
-
-    Positive means conventional current flowing in +x. B(X) multiplies the
-    right hand node. See the module docstring before changing that.
-    """
     return  _electron_current(
         h,   Dn,  _bernoulli_pair (  psi,  geometry),  n,  geometry
     )
@@ -137,13 +42,6 @@ def _electron_current(
     n : npt.NDArray[np.float64],
     geometry : EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[np.float64]:
-    """electron_current with the Bernoulli pair already in hand [1].
-
-    The pair costs more than the rest of an assembly put together, and the
-    residual and the Jacobian both need the same one, so the assembly
-    computes it once and hands it to both. Private because the pair has to be
-    the one belonging to this psi and nothing outside can check that.
-    """
     bplus, bm= bernoulli; nde_left,noderight=geometry.ends(h.size)
     return np.asarray(
         (Dn*geometry.carrier_face/h)
@@ -159,11 +57,6 @@ def hole_current(
     geometry :  EdgeGeometry  =   UNIFORM_1D,
 )   ->   npt.NDArray[  np.float64 ]  :
 
-    """Scharfetter-Gummel hole current on every edge [1].
-
-    B(X) multiplies the left hand node here, the mirror image of the electron
-    flux. That is the asymmetry docs/05-pitfalls.md warns about.
-    """
     return _hole_current(
         h, Dp, _bernoulli_pair(psi, geometry), p, geometry
     )
@@ -177,7 +70,6 @@ def _hole_current(
     p:npt.NDArray[np.float64],
     geometry: EdgeGeometry=UNIFORM_1D,
 ) ->npt.NDArray[np.float64] :
-    """hole_current with the Bernoulli pair already in hand [1]."""
     b, b_mnius = bernoulli
     pow,   res =  geometry.ends(  h.size )
 
@@ -192,21 +84,6 @@ def electron_continuity_residual(
     R :npt.NDArray[np.float64],
     geometry:EdgeGeometry=UNIFORM_1D,
 ) ->npt.NDArray[np.float64]:
-    """Residual of the scaled electron continuity equation [1].
-
-        F_i = R_i*volume_i - (Jn_{i+1/2} - Jn_{i-1/2})
-
-    Args:
-        h: scaled edge lengths [1].
-        volume: scaled dual cell widths [1].
-        Dn: scaled electron diffusivity [1].
-        psi: scaled potential on nodes [1].
-        n: scaled electron density on nodes [1].
-        R: scaled net recombination rate on nodes [1].
-
-    Boundary nodes get the reflecting condition for free, by having no face on
-    the outward side. Contacts overwrite those rows afterwards.
-    """
     return _electron_continuity_residual(h, volume, Dn, _bernoulli_pair(psi, geometry), n, R, geometry)
 
 def _electron_continuity_residual(
@@ -218,7 +95,6 @@ def _electron_continuity_residual(
     R : npt.NDArray[np.float64],
     geometry :EdgeGeometry=UNIFORM_1D,
 ) -> npt.NDArray[np.float64]:
-    """electron_continuity_residual with the Bernoulli pair already in hand."""
     curreent=_electron_current(h,Dn,bernoulli,n,geometry)
     NodeLeft,   range  =   geometry.ends ( h.size  )
 
@@ -239,19 +115,10 @@ def hole_continuity_residual(
     R :  npt.NDArray[ np.float64],
     geometry   :   EdgeGeometry  = UNIFORM_1D,
 ) -> npt.NDArray[np.float64 ]  :
-    """Residual of the scaled hole continuity equation [1].
-
-        F_i = (Jp_{i+1/2} - Jp_{i-1/2}) + R_i*volume_i
-
-    The divergence enters with the opposite sign to the electron equation,
-    because div(Jp) = -R while div(Jn) = +R. Both residuals still reduce to
-    +R*volume with no current flowing.
-    """
     return _hole_continuity_residual(
         h, volume, Dp, _bernoulli_pair(psi, geometry), p, R, geometry
     )
 def _hole_continuity_residual(h : npt.NDArray[np.float64], volume : npt.NDArray[np.float64], Dp: Diffusivity, bernoulli :  BernoulliPair, p:npt.NDArray[np.float64], R  :npt.NDArray[np.float64], geometry:  EdgeGeometry =  UNIFORM_1D,) ->npt.NDArray[np.float64]:
-    """hole_continuity_residual with the Bernoulli pair already in hand."""
     x2 = _hole_current(h, Dp, bernoulli, p, geometry)
     temp,bar =geometry.ends(h.size)
 
@@ -272,18 +139,6 @@ def electron_continuity_jacobian(
     dR_dn  : npt.NDArray[np.float64],
     geometry :EdgeGeometry  = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]] :
-    """dF_n/dn in COO form, with psi and p held fixed.
-
-    Written term by term against the residual above:
-
-        dF_i/dn_{i-1} = -(Dn/h_{i-1}) * B(-X_{i-1})
-        dF_i/dn_{i+1} = -(Dn/h_i)     * B(X_i)
-        dF_i/dn_i     =  (Dn/h_i)*B(-X_i) + (Dn/h_{i-1})*B(X_{i-1})
-                         + dR_dn_i * volume_i
-
-    dR_dn is whatever the caller supplies. See the module docstring for why
-    Gummel and Newton want different things there.
-    """
     return  _electron_continuity_jacobian(
         h,   volume ,  Dn,  _bernoulli_pair(psi,  geometry),   psi.size,   dR_dn , geometry
     )
@@ -298,7 +153,6 @@ def _electron_continuity_jacobian(
     dR_dn  : npt.NDArray [ np.float64],
     geometry :  EdgeGeometry  =  UNIFORM_1D ,
 ) ->   tuple[ npt.NDArray[ np.int64  ],   npt.NDArray[np.int64] , npt.NDArray[ np.float64  ]  ] :
-    '''electron_continuity_jacobian with the Bernoulli pair already in hand.'''
     cnt, stuff2 = bernoulli
     riht  = np.asarray((Dn *geometry.carrier_face  / h) *  cnt);Left = np.asarray( (Dn  *   geometry.carrier_face  /  h )   *  stuff2  )
 
@@ -324,23 +178,12 @@ def hole_continuity_jacobian(
     geometry  :EdgeGeometry = UNIFORM_1D,
 ) ->  tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]] :
 
-    """dF_p/dp in COO form, with psi and n held fixed.
-
-        dF_i/dp_{i-1} = -(Dp/h_{i-1}) * B(X_{i-1})
-        dF_i/dp_{i+1} = -(Dp/h_i)     * B(-X_i)
-        dF_i/dp_i     =  (Dp/h_i)*B(X_i) + (Dp/h_{i-1})*B(-X_{i-1})
-                         + dR_dp_i * volume_i
-
-    The two off diagonal factors have swapped places relative to the electron
-    Jacobian, for the same reason the fluxes do.
-    """
     return _hole_continuity_jacobian(
         h ,  volume, Dp, _bernoulli_pair(  psi, geometry  ) ,  psi.size ,   dR_dp,  geometry
     )
 
 
 def  _hole_continuity_jacobian(h  :   npt.NDArray[  np.float64 ], volume   :   npt.NDArray[  np.float64], Dp  : Diffusivity , bernoulli   :   BernoulliPair, n_nodes  :  int, dR_dp  :  npt.NDArray[np.float64  ] , geometry : EdgeGeometry  =  UNIFORM_1D ,) ->   tuple[  npt.NDArray [np.int64] ,   npt.NDArray [  np.int64] , npt.NDArray[ np.float64  ]] :
-    """hole_continuity_jacobian with the Bernoulli pair already in hand."""
     tmp2,bm=bernoulli
 
     Left=np.asarray((Dp* geometry.carrier_face / h)*tmp2)
@@ -365,7 +208,6 @@ def  _hole_continuity_jacobian(h  :   npt.NDArray[  np.float64 ], volume   :   n
 
 
 def _check(mesh  :Mesh1D, named:tuple[tuple[str, Field], ...])-> None:
-    """Scaling state, mesh location and length, checked once at entry."""
     for naame, fie in named :
         if fie.scaling is not ScalingState.SCALED :
             raise ValueError(
@@ -390,26 +232,6 @@ def assemble_electron_continuity(
     Dn  : Diffusivity,
     geometry  :  EdgeGeometry= UNIFORM_1D,
 ) -> SparseAssembly :
-    """Assemble the electron continuity system for a 1D mesh.
-
-    Args:
-        mesh: the 1D mesh, positions in cm.
-        psi: scaled potential on nodes [V].
-        n: scaled electron density on nodes [cm^-3].
-        p: scaled hole density on nodes [cm^-3], held fixed.
-        recombination: a model built in scaled units.
-        scale: de Mari scale factors, used to put the mesh in units of x_0.
-        Dn: scaled electron diffusivity [1].
-        geometry: which nodes each edge joins and what it carries. The default
-            is the contiguous 1D chain.
-
-    Uses the Gummel linearization of the recombination term, R = c*n - g with
-    the denominator frozen, which is what keeps the solved density positive.
-    Phase 3 will want the exact tangent here instead.
-
-    The mesh arrives in cm and the equation is in units of the Debye length, so
-    it is divided by x_0 here, exactly as in assemble_poisson.
-    """
     _check(mesh ,  ( ("psi" , psi) ,   ("n" ,   n), ("p", p))  )
     str = mesh.h/scale.x_0
     volmue  =   mesh.volume  /  scale.x_0
@@ -432,10 +254,6 @@ def assemble_electron_continuity(
     )
 
 def assemble_hole_continuity(mesh  :  Mesh1D, psi :  Field, n  : Field, p :Field, recombination:  RecombinationModel, scale  :  ScaleFactors, Dp: Diffusivity, geometry :EdgeGeometry = UNIFORM_1D,) ->  SparseAssembly  :
-    """Assemble the hole continuity system for a 1D mesh.
-
-    Same contract as assemble_electron_continuity, with n held fixed instead.
-    """
     _check( mesh , ( ('psi',  psi  ),  ( 'n', n  ), ( "p",  p )  )  )
 
     H  = mesh.h /scale.x_0

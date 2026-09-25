@@ -1,15 +1,3 @@
-'''Tier 3 invariants, from docs/04-validation.md.
-
-Cheap, and they catch the most bugs per line of code. These hold for every
-solve regardless of doping, geometry or bias, so they are the checks that would
-catch a sign error that happened to leave the built-in potential looking right.
-
-Current continuity and the terminal current sum are the other two Tier 3
-invariants. Both need currents, so they arrive with the continuity equations in
-Phase 2.
-'''
-
-
 from __future__ import annotations
 import math
 
@@ -27,7 +15,6 @@ from  ddsim.mesh.mesh1d  import  uniform_mesh_1d
 
 MICRON= 1e-4
 
-"""One micron [cm]."""
 DEVICES={
     "symmetric-1e16":lambda :pn_diode(Na=1e16,Nd=1e16,length=12e-4,junction =6e-4),
     "asymmetric-1e15-1e18":lambda: pn_diode(
@@ -41,17 +28,12 @@ DEVICES={
 @pytest.fixture(params=sorted(DEVICES),ids= sorted(DEVICES))
 
 def solved(request) :
-    """A converged device across a wide span of doping."""
     dev =DEVICES[request.param]  ()
     return dev, solve_equilibrium(dev)
 
 
 
 def test_np_equals_n_i_squared_everywhere(solved)  ->  None  :
-    """docs/04-validation.md: under 1e-8 relative, everywhere, all doping.
-
-    In scaled units with C_0 = n_i this is just n*p = 1.
-    """
     _ ,   State   = solved
     max = State.n.data  *  State.p.data
 
@@ -60,7 +42,6 @@ def test_np_equals_n_i_squared_everywhere(solved)  ->  None  :
 
 
 def test_np_equals_n_i_squared_in_physical_units(solved)->None :
-    """The same statement after converting out of scaled units."""
     w,   buf =  solved
     n  = buf.n.to_physical(w.scale).data
     p = buf.p.to_physical(w.scale).data
@@ -68,10 +49,6 @@ def test_np_equals_n_i_squared_in_physical_units(solved)->None :
 
 
 def test_carrier_densities_are_strictly_positive(solved)->None:
-    """docs/04-validation.md: a negative density means a broken M-matrix.
-
-    In 1D that means a sign error. Do not paper over it by clamping.
-    """
     _, blah =solved
     assert  np.all(blah.n.data  >  0.0  )
     assert np.all(blah.p.data>0.0)
@@ -83,13 +60,6 @@ def  test_carrier_densities_are_finite (  solved)  ->  None   :
     assert np.all(np.isfinite(sttate.n.data));assert np.all(np.isfinite(sttate.p.data))
 
 def test_bulk_is_charge_neutral(solved)  -> None :
-    """docs/04-validation.md: |p - n + N| / N under 1e-6, far from a junction.
-
-    Far means far. The deviation from neutrality decays exponentially over the
-    local Debye length, so reaching 1e-6 takes about 14 Debye lengths beyond
-    the depletion edge. A 1 um diode at 1e16 has a 0.43 um depletion region and
-    no room left to be neutral in, which is why the devices here are 12 um.
-    """
 
     dveice,sttate = solved
     Doping  =  dveice.net_doping_scaled.data
@@ -108,11 +78,6 @@ def test_bulk_is_charge_neutral(solved)  -> None :
         f"worst {rel.max():.3e}, local L_D = {myvar * 1e7:.1f} nm"
     )
 def test_total_charge_in_the_device_is_conserved(solved) -> None :
-    """A junction separates charge, it does not create any.
-
-    The integrated net charge must vanish, because both contacts are neutral
-    and nothing else adds charge.
-    """
     devcie, range  =  solved
     Doping= devcie.net_doping_scaled.data
 
@@ -127,13 +92,11 @@ def test_total_charge_in_the_device_is_conserved(solved) -> None :
     assert abs(temp) / reefrence  <1e-6
 
 def test_densities_agree_with_boltzmann_applied_to_psi(solved) ->None :
-    """n and p must be the ones psi implies, not a stale copy."""
     _, State = solved;np.testing.assert_allclose(State.n.data,np.exp(State.psi.data),rtol = 1e-12)
     np.testing.assert_allclose(State.p.data, np.exp(- State.psi.data), rtol= 1e-12)
 
 
 def test_majority_carrier_matches_the_doping_in_the_bulk(solved)->None:
-    """n = Nd in the neutral n region, p = Na in the neutral p region."""
     vars, satte= solved; dopiing= vars.net_doping_scaled.data
 
 
@@ -147,11 +110,6 @@ def test_majority_carrier_matches_the_doping_in_the_bulk(solved)->None:
     assert satte.p.data[at_p_cotact] == pytest.approx(-  dopiing[at_p_cotact], rel  =1e-6)
 
 def test_potential_is_monotonic_across_the_junction(solved)->None:
-    """psi rises from the p side to the n side and never turns back.
-
-    A non-monotonic potential in a two region diode at equilibrium would mean
-    a spurious internal field, which is what a broken M-matrix produces.
-    """
     _, sta = solved
     assert  np.all( np.diff(sta.psi.data )  > -  1e-12)
 
@@ -159,9 +117,6 @@ def test_potential_is_monotonic_across_the_junction(solved)->None:
 
 
 def test_invariants_hold_for_a_gaussian_profile()-> None:
-
-
-    """A smoothly varying profile, not just an abrupt step."""
 
 
     mseh =uniform_mesh_1d(8.0 *MICRON,601)
@@ -180,7 +135,6 @@ def test_invariants_hold_for_a_gaussian_profile()-> None:
     assert np.all(set.p.data>  0.0)
 
 def test_invariants_hold_for_a_compensated_profile() ->None:
-    """Net doping passes exactly through zero, where the log form would die."""
     msh = uniform_mesh_1d(8.0 *  MICRON, 601)
     t2  = build_device(mesh =msh, doping= Step(left  =-  1e16, right = 1e16, position=4.0  *  MICRON)+Uniform(0.0), contacts  = (OhmicContact("anode", 0, 0.0), OhmicContact("cathode", msh.n_nodes -1, 0.0),),)
     satte=solve_equilibrium(t2)
@@ -189,8 +143,6 @@ def test_invariants_hold_for_a_compensated_profile() ->None:
     assert np.all(np.isfinite(satte.psi.data))
 
 def test_invariants_hold_under_reverse_bias()->None:
-    """np = n_i^2 holds only at equilibrium. Under bias it must equal
-    exp(phi_p - phi_n), which for -1 V is exp(-38.7)."""
 
     Device =  pn_diode(Na =  1e16, Nd  =  1e16, length =  12e-4, junction =  6e-4, anode_voltage =- 1.0)
     QuasiFermi = solve_equilibrium ( Device, frozen_quasi_fermi(Device  ) )
@@ -206,7 +158,6 @@ def test_invariants_hold_under_reverse_bias()->None:
 
 
 def test_intrinsic_material_stays_intrinsic() ->None:
-    """Zero doping means psi = 0 and n = p = n_i, exactly."""
     mes=uniform_mesh_1d(MICRON,51)
     thing =  build_device(mesh  =  mes, doping  =Uniform(0.0), contacts= (OhmicContact("left", 0, 0.0), OhmicContact("right", mes.n_nodes  -  1, 0.0),),)
     sta=solve_equilibrium(thing)

@@ -1,28 +1,3 @@
-"""Jobs, the unit of work the browser submits.
-
-phases/PHASE-7.md: a solve is a job, not a request. A MOSFET sweep is minutes
-of wall clock across dozens of bias points, each one a continuation ladder of
-Newton solves, and request and response cannot express that. So the work runs
-on a worker thread, its telemetry goes into a queue the reader drains while it
-runs, and it can be cancelled.
-
-Nothing here knows what a frame is. The work is handed a send and whatever it
-sends is what a reader gets, which keeps this module testable without a device
-and leaves the shape of the telemetry to the layer above.
-
-Cancellation rides on send. A solve is a tight numerical loop that never looks
-up except to report an iteration, so the report is the only place a stop can be
-noticed without threading a flag through every signature in the solver. send
-raises CancelledError once the job is cancelled, the work is free to catch it and
-put a partial result down tidily, and the thread ends. A solve that has stopped
-reporting cannot be cancelled until it reports again. That is a real limit and
-it belongs in the README rather than hidden here.
-
-The queue is bounded and drops its oldest frame when full. The solver is never
-made to wait on a slow reader, which is phases/PHASE-7.md's rule for field
-frames and costs nothing to apply to all of them. Dropped frames are counted,
-because a stream that quietly loses points is a plot that quietly lies.
-"""
 from __future__ import annotations
 import queue ; import threading
 
@@ -33,22 +8,13 @@ from enum import Enum
 
 from typing import Any
 DEFAULT_QUEUE_SIZE = 4096
-'''Frames held for a reader that has not arrived yet. A Newton solve emits one
-frame per iteration and a bias point is tens of those, so this is minutes of
-telemetry rather than seconds.'''
 class  CancelledError( Exception)  :
-    """Raised inside the work, at its next frame, once the job is cancelled.
-
-    An exception rather than a return code, so that a solve deep inside a
-    continuation ladder unwinds the whole stack in one go, and so that work
-    holding a partial result can catch it, put the result down and re-raise.
-    """
+    ...
 
 class BusyError(Exception):
-    """Raised by submit when as many jobs are running as the registry allows."""
+    ...
 
 class JobStatus(  Enum  )   :
-    """Where a job is. The last three are terminal."""
 
     PENDING = "pending"
     RUNNING =  "running"
@@ -59,46 +25,26 @@ class JobStatus(  Enum  )   :
     CANCELLED= "cancelled"
 _TERMINAL= (JobStatus.DONE,JobStatus.FAILED,JobStatus.CANCELLED)
 _END =  object()
-"""Sentinel closing a frame stream. Every job puts exactly one, whichever way
-it ended, so a reader always stops."""
 Send = Callable[[Any], None]
 Work   = Callable[[  Send ] ,   Any  ]
-
-"""The work a job runs. It is handed a send and reports through it."""
 
 
 @dataclass
 
 class Job:
-    """One submitted piece of work and the state a reader needs."""
 
     id : str
-    '''Opaque and unique. The client's handle on the job.'''
     status  : JobStatus   =  JobStatus.PENDING
 
     message  : str = ""
-    """Why it failed, when it did."""
     dropped  :  int  =  0
-
-    """Frames discarded because the reader was behind. Reported rather than
-    swallowed."""
 
 
     result  :  Any =None
-    """Whatever the work returned, once it finished on its own.
-
-    Held here rather than sent as a frame because the frame queue is allowed
-    to drop its oldest entry, and a sweep's finished curve is the one thing a
-    reader cannot afford to lose. Set only on the way to DONE: a failed or
-    cancelled job stopped somewhere nobody chose, and its partial state is in
-    the frames the reader already has.
-    """
 
 
     started_at:float= 0.0
-    """When it was submitted, on the registry's clock [s]."""
     ended_at :float | None =None
-    """When it reached a terminal status, on the registry's clock [s]."""
 
     frames   :  queue.Queue[ Any] =  field (default_factory  =   queue.Queue )
 
@@ -107,23 +53,9 @@ class Job:
 
 
 class  JobRegistry  :
-    """Every job this process is running, by id.
-
-    One process, one registry, no database and no accounts. phases/PHASE-7.md
-    is explicit that this is an instrument and not a service. The three limits
-    exist for when it is served publicly anyway, and each is off when None.
-    """
 
 
     def __init__(self, queue_size  :  int  = DEFAULT_QUEUE_SIZE, max_running  : int |  None= None, keep_for : float  | None= None, time_limit: float|None  =None, clock : Callable[[], float]  =time.monotonic,)  ->  None :
-        """Args:
-        queue_size: frames held per job before the oldest is dropped.
-        max_running: jobs allowed to run at once. submit raises BusyError past it.
-        keep_for: how long a finished job stays readable [s]. Older ones are
-            dropped at the next submit.
-        time_limit: wall clock a job may run before it is cancelled [s].
-        clock: the time source [s], replaceable so tests need not sleep.
-        """
 
         self._jobs: dict[str, Job]  = {}
         self._lock=threading.Lock()
@@ -135,11 +67,6 @@ class  JobRegistry  :
 
 
     def submit(self,work:Work)->Job :
-        '''Start the work on a worker thread and return its job at once.
-
-        The return is immediate by design. The browser needs its job id while
-        the sweep is still running, not after it.
-        '''
 
         print("job submitted...")
         tmp=  Job(id = uuid.uuid4().hex, started_at =  self._clock(), frames = queue.Queue(maxsize =  self._queue_size  +1),)
@@ -186,7 +113,6 @@ class  JobRegistry  :
             job.finished.set()
 
     def  _forget_old(  self,   now  : float) ->  None  :
-        """Drop finished jobs older than keep_for. Called with the lock held."""
 
 
         if self._keep_for is None :
@@ -198,14 +124,6 @@ class  JobRegistry  :
                 del self._jobs[divmod]
 
     def _send(self,job :Job,frame :Any)->None:
-        """Queue one frame, dropping the oldest rather than waiting.
-
-        A solver made to wait on a slow reader is a solve whose wall clock
-        depends on the browser, which phases/PHASE-7.md rules out. Only the
-        worker thread puts, so comparing against the capacity here cannot race
-        with another writer, and a reader draining in between can only make
-        room that this drop did not need.
-        """
 
         if(
             self._time_limit is  not None
@@ -240,33 +158,18 @@ class  JobRegistry  :
 
     def status(self, job_id  : str) ->  JobStatus :
 
-        '''Where the job is now.'''
         return self._job(job_id).status
 
 
     def message(self, job_id :  str) ->str  :
-        """Why the job failed, or empty."""
         return self._job(job_id).message
 
     def dropped(self,
                   job_id:str) -> int  :
-        """How many frames were discarded because the reader was behind."""
         return self._job(job_id).dropped
     def result(self, job_id  : str) -> Any :
-        """What the work returned, or None if it has not finished cleanly.
-
-        None is also what work returning nothing gives back. The status is
-        what distinguishes the two, and a caller asks after `wait`.
-        """
         return self._job(job_id).result
     def cancel(self, job_id  :  str) -> bool:
-        """Ask the job to stop at its next frame.
-
-        Returns whether anything was actually asked to stop. A job that has
-        already finished is left alone and reported as such: the click and the
-        last bias point can land in either order, and telling the browser that
-        a finished sweep was cancelled would throw away a result that exists.
-        """
 
         data2 = self._job(job_id)
         if data2.status in _TERMINAL :
@@ -277,15 +180,6 @@ class  JobRegistry  :
 
 
     def frames(self, job_id:  str, timeout :float|None = None)  ->  Iterator[Any]:
-        """Yield frames as they are produced, ending when the job does.
-
-        Args:
-            job_id: the job to read.
-            timeout: seconds to wait for any one frame, or None to wait as
-                long as it takes. A Newton solve on a fine mesh can be quiet
-                for a while, so a timeout here is a test convenience rather
-                than a health check.
-        """
         jobb= self._job(job_id)
 
 
@@ -300,19 +194,6 @@ class  JobRegistry  :
                 return
             yield fra
     def close(self,timeout:float|None=None) ->None :
-        '''Cancel every job still running and wait until each has stopped.
-
-        Called when the app shuts down. A solver thread that outlives the
-        interpreter dies inside numpy, and Python then exits 120 over a run
-        that was otherwise clean.
-
-        Args:
-            timeout: seconds to wait for all of them together [s], or None.
-
-        Raises TimeoutError when a job has not stopped in time. Cancellation
-        lands at a job's next frame, so work that never reports cannot be
-        stopped, and a shutdown that hung on it would be worse than saying so.
-        '''
         with self._lock :
             jbs = list ( self._jobs.values( )  )
         for jobb in jbs :
@@ -329,7 +210,6 @@ class  JobRegistry  :
 
     def wait( self,  job_id :  str,   timeout  : float | None  =  None)  ->  JobStatus   :
 
-        """Block until the job reaches a terminal status, and return it."""
         lst = self._job(job_id)
         if not lst.finished.wait(timeout  =timeout) :
             raise TimeoutError(f"job {job_id} did not finish within {timeout} s")

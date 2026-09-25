@@ -1,58 +1,3 @@
-"""The coupled drift diffusion solve at a given bias, by Gummel iteration.
-
-Where the pieces meet. The mesh and doping come from device/, the residuals and
-Jacobians from discretize/, the models from physics/, and the iteration from
-solve/. Nothing here assembles and nothing here iterates. It only wires, which
-is what keeps solve/ free of semiconductor knowledge and keeps every piece
-testable on its own.
-
-The cycle, from docs/02-numerics.md:
-
-1. Solve nonlinear Poisson for psi, holding phi_n and phi_p fixed
-2. Solve the electron continuity equation for n, holding psi and p fixed
-3. Solve the hole continuity equation for p, holding psi and n fixed
-4. Check the update norm, repeat
-
-Why the Poisson block holds the quasi-Fermi levels rather than the densities
------------------------------------------------------------------------------
-This is the whole trick, and it is easy to get wrong in a way that still runs.
-Freezing n and p and solving a linear Poisson converges badly, because the
-charge cannot respond to the potential during the solve. Freezing phi_n and
-phi_p instead leaves n = exp(psi - phi_n) inside the equation, so Poisson stays
-nonlinear and Newton sees the true exponential response. The Jacobian gains
-(n + p)*volume on its diagonal, which is strictly positive and makes the solve
-reliable at any doping.
-
-After the potential moves by dpsi at fixed levels, the densities move with it:
-
-    n <- n * exp(dpsi)        p <- p * exp(-dpsi)
-
-which is the same statement as n = exp(psi - phi_n) with phi_n unchanged.
-
-Equilibrium is an exact fixed point of all of this. With n = exp(psi) and
-p = exp(-psi) the levels are flat at zero, Poisson is already solved, n*p = 1
-kills the recombination rate, and every edge flux cancels identically. A device
-at zero bias therefore comes back untouched, which is the sharpest single test
-of the wiring.
-
-Measuring convergence
----------------------
-Potential updates are measured in units of V_T, which is scale free already.
-Densities are measured as max|dn| / (n + 1), where the 1 is n_i in scaled
-units. A pure relative change would be dominated by nodes where the density is
-1e-15 and physically irrelevant, and an absolute change would be dominated by
-the majority carrier. The floor at n_i says, in the only units that matter,
-that a carrier below the intrinsic density carries no charge worth converging.
-
-Where it gives up
------------------
-Gummel converges linearly and the rate degrades as the three equations couple,
-which they do under forward bias once injection approaches the doping. That
-failure is expected, is documented rather than fought, and is the entire reason
-Phase 3 exists. See phases/PHASE-2.md.
-"""
-
-
 from __future__ import annotations
 
 from collections.abc import Callable;  from dataclasses import dataclass, replace
@@ -113,28 +58,10 @@ from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve; from ddsim
 from ddsim.solve.newton import NewtonIteration,NewtonResult,newton_solve
 MOBILITY_MODELS  =("constant", 'arora')
 
-"""The low field mobility models there are, by the name `for_device` takes.
-
-Written once, here, and read by both functions that build one and by
-ddsim/api/, so that the browser offers exactly the models that exist rather
-than a list of its own that goes stale.
-"""
 DENSITY_REFERENCE  =   1.0
-"""Floor in the density update norm [1], which is n_i in scaled units.
-
-Not a clamp on any density. It only says that a change from 1e-20 to 1e-19
-carries no charge and should not hold up convergence.
-"""
 
 
 class  TransportError( RuntimeError )  :
-    """A Gummel block could not produce a usable state.
-
-    Carries the offending state, because the state at the point of failure is
-    exactly what wants inspecting. A negative density means a sign error or a
-    broken M-matrix, and docs/05-pitfalls.md is clear that the repair is to
-    find the cause and never to clamp.
-    """
 
 
 
@@ -147,66 +74,17 @@ class  TransportError( RuntimeError )  :
 @dataclass(frozen=True)
 
 class SurfaceScattering   :
-    """What it takes to rebuild the diffusivities once the state has moved.
-
-    Lombardi surface mobility reads the field normal to the Si/SiO2 interface
-    and the carrier density at the same node, so unlike Arora it is not a
-    property of the device that can be worked out once. Unlike Caughey-Thomas
-    it also cannot be evaluated inside the assembly, because the normal field
-    on a horizontal channel edge lives on the vertical edges above and below
-    its endpoints rather than on the edge itself, and carrying that dependence
-    exactly would widen the Jacobian stencil past the edge based pattern every
-    assembly in `discretize/` is built on.
-
-    So it is frozen instead, and an outer loop turns the freezing into a fixed
-    point. See `solve_bias_newton`. Within one Newton solve the surface
-    correction is a constant array, which means the residual and the Jacobian
-    are assembled from exactly the same mobility and the nine block complex
-    step verification is untouched. At the outer fixed point the frozen
-    correction is the one the answer implies, so the converged state solves the
-    true equations. What is given up is the rate, not the answer.
-
-    This holds the pieces that do not move, so a refresh is one evaluation of
-    the model rather than a rebuild of the device.
-    """
 
     electrons  : LombardiSurface
-    """The model for electrons, with its own parameter set."""
 
     holes  :   LombardiSurface
-    """The model for holes."""
     mu_bulk_n:npt.NDArray[np.float64]
 
 
-    """Electron mobility before any surface correction [cm^2/(V s)], per node.
-
-    Whatever the chosen bulk model gives, so `constant` and `arora` both land
-    here and the surface term does not know which it corrected.
-    """
-
     mu_bulk_p  : npt.NDArray[np.float64]
-    """Hole mobility before any surface correction [cm^2/(V s)], per node."""
     total_doping  :  npt.NDArray [  np.float64]
-    """Na + Nd at each node [cm^-3], floored at n_i.
-
-    Only the net doping is available, same caveat and same reason as the
-    Scharfetter lifetime. The floor is separate and it is load bearing: the
-    roughness exponent carries N^(-eta), so a node with exactly zero doping
-    raises it to a negative power and returns an infinity. Every node in the
-    oxide has exactly zero doping, because `Device.net_doping` zeroes it
-    wherever there is no semiconductor. Below the intrinsic density there are
-    no scattering centres left worth counting, so n_i is where the count
-    stops, and no node of any device built here sits near it anyway.
-    """
 
     semiconductor :  npt.NDArray[np.bool_]
-    """Which nodes hold semiconductor, one per node.
-
-    The correction is applied at these and nowhere else. An insulator has no
-    surface mobility, and an oxide node left carrying one is not harmless:
-    an edge running from the interface into the oxide averages the two ends,
-    so a bad value there reaches the interface row, which is the channel.
-    """
 
     def corrected(
         self,
@@ -215,21 +93,6 @@ class SurfaceScattering   :
         n:npt.NDArray[np.float64],
         p : npt.NDArray[np.float64],
     ) ->tuple[npt.NDArray[np.float64],npt.NDArray[np.float64]]:
-        """Nodal mobilities [cm^2/(V s)] with the surface term folded in.
-
-        Args:
-            device: for the mesh, the scale factors and nothing else.
-            psi: potential at every node [1], scaled.
-            n: electron density at every node [1], scaled.
-            p: hole density at every node [1], scaled.
-
-        The state arrives scaled and the model's parameters are in physical
-        units, so everything is put back before it is used. That conversion is
-        the one place this could go quietly wrong: a normal field short by a
-        factor of the Debye length over the thermal voltage would still be
-        positive, still monotone, and still produce a mobility that looked
-        like a mobility.
-        """
         mes = device.mesh
         if not  isinstance(  mes , Mesh2D  )  :
             raise  TypeError(
@@ -259,38 +122,17 @@ class SurfaceScattering   :
 
 
 class TransportModels  :
-    """The material models a transport solve needs, all in scaled units."""
     recombination :  RecombinationModel
-    """Net recombination, built with scaled lifetimes."""
 
 
 
     Dn  :  EdgeDiffusivity
-    """Electron diffusivity [1], scaled by D_0.
-
-    A number, one value per edge, or a model the assembly evaluates at the
-    state it is assembling at. See physics/mobility.py.
-    """
 
     Dp :EdgeDiffusivity
-    """Hole diffusivity [1], scaled by D_0."""
 
     surface  :  SurfaceScattering  |   None  =   None
-    '''Surface scattering, or None where the device has no interface.
-
-    Present rather than folded into Dn and Dp because it has to be refreshed
-    as the state moves. `solve_bias_newton` reads it to decide whether to run
-    the outer fixed point at all, so None is what makes every solve before
-    Phase 5 take exactly the path it took.
-    '''
 
     field_dependent : bool = False
-    """Whether Dn and Dp are wrapped in Caughey-Thomas.
-
-    Carried so that a refresh can rebuild the same shape of model it replaced.
-    Reading it off Dn's type instead would work today and would break the
-    first time another edge model exists.
-    """
 
 
     def at_state(
@@ -301,12 +143,6 @@ class TransportModels  :
         p :  npt.NDArray[np.float64],
     ) ->  TransportModels:
 
-        """These models with the surface correction taken at this state.
-
-        Returns self unchanged where there is no surface model, so a caller
-        does not have to ask first and a device without an interface is not a
-        separate code path.
-        """
         if self.surface is None  :
             return self
         muu_n, muu_p = self.surface.corrected(device, psi, n, p)
@@ -314,44 +150,6 @@ class TransportModels  :
     @classmethod
     def for_device(cls, device  :  Device, recombination  :   RecombinationModel |   None  =  None, mobility  :   str  =   "constant" , auger  :  bool  =   False , field_dependent : bool   = False , surface   : bool   =  False,)  ->  TransportModels :
 
-        """Silicon models for a device, scaled to its own scale factors.
-
-        Args:
-            device: the device, for its doping, temperature and scaling.
-            recombination: an explicit model, which overrides both the SRH
-                default and the auger flag.
-            mobility: "constant" uses one mobility everywhere, the value for
-                undoped silicon. "arora" slows carriers down wherever the
-                doping is heavy, which is what real silicon does.
-            auger: add Auger recombination on top of the usual defect
-                recombination. It only matters at very high carrier
-                densities, so it's off by default.
-            field_dependent: cap how fast carriers can go in a strong field.
-                This is what gives you velocity saturation. Off by default.
-            surface: slow down carriers pressed against the oxide, the way a
-                real MOSFET channel does. Only works on a 2D device with an
-                oxide on it. Off by default.
-
-        Why they're all off by default: every Phase 1 and 2 result was
-        taken with constant mobility and no Auger, and every result
-        before Phase 5 without Caughey-Thomas, and the defaults keep
-        those reproducible. surface needs a Mesh2D because it reads the
-        field normal to the Si/SiO2 interface, and a line has no normal.
-
-        Doping dependent mobility slots in by making Dn and Dp arrays over
-        edges instead of scalars, which every assembly already accepts, and it
-        adds nothing to the Jacobian because the doping does not change during
-        a solve. Field dependence is not free in the same way: it reads the
-        potential difference across an edge, so the coupled assembly evaluates
-        it at each iterate and the Jacobian carries its tangent.
-
-        The SRH lifetimes come from the Scharfetter relation evaluated on the
-        local doping. It wants the total doping Na + Nd and only the net is
-        available, so abs(net) is used. The two agree everywhere except in
-        compensated material, and nothing here is compensated yet. When a
-        profile that overlaps donors and acceptors arrives, this is the line
-        that has to learn about it.
-        """
         res = device.scale
         TotalDoping  =   np.abs( device.net_doping.data)
 
@@ -383,19 +181,6 @@ class TransportModels  :
 def _scaled_diffusivity(
     device : Device, carrier : Carrier, mobility : str, field_dependent  :  bool  =False
 ) ->  EdgeDiffusivity :
-    """Scaled diffusivity for one carrier, from the chosen mobility model.
-
-    Constant comes back as a scalar and Arora as one value per edge. The
-    assembly takes either, so the two are not different code paths anywhere
-    downstream; only this function knows which was asked for.
-
-    With field_dependent set, whichever of those was chosen becomes the low
-    field limit of Caughey-Thomas and the result is a model rather than an
-    array. The wrapping order is the only one that makes sense: the low field
-    mobility is a nodal quantity and is averaged onto the edge first, and the
-    field factor is applied afterwards with that edge's own drop, because the
-    field is an edge quantity and has no value at a node.
-    """
     Scale   =  device.scale
     t2  = device.material.T
     vals  =  carrier is Carrier.ELECTRON
@@ -426,14 +211,6 @@ def _scaled_diffusivity(
 def _surface_scattering(
     device :Device, mobility :str, total_doping  :npt.NDArray[np.float64]
 )  -> SurfaceScattering:
-
-    """The Lombardi models and the bulk mobility they correct.
-
-    The bulk mobility is worked out once here and kept, because it is a
-    function of the doping alone and the doping does not move during a solve.
-    Only the normal field and the carrier densities move, and those are the
-    two arguments a refresh supplies.
-    """
 
     Temperature  =  device.material.T
 
@@ -475,13 +252,6 @@ def _surface_scattering(
     return SurfaceScattering(electrons= LombardiSurface.electrons(Temperature), holes =LombardiSurface.holes(Temperature), mu_bulk_n =  nod, mu_bulk_p = nodalp, total_doping=np.maximum(total_doping, device.material.n_i), semiconductor  =sem,)
 
 def  _from_nodal_mobility(device :  Device , carrier  :   Carrier , nodal  :  npt.NDArray[  np.float64  ], field_dependent   :  bool,)   ->  EdgeDiffusivity :
-    '''A scaled edge diffusivity from a mobility already worked out per node.
-
-    What the surface correction produces. It has already replaced whichever
-    bulk model was chosen, so there is no model name left to dispatch on, and
-    the rest of the journey onto the edges is the same one Arora takes: an
-    arithmetic average onto each edge, the Einstein relation, and the scaling.
-    '''
     EdgeNodes   =   device.scaled_mesh.geometry.edge_nodes
     res  =  C.V_T( device.material.T )
     low  =edge_diffusivity(nodal, res, EdgeNodes) / device.scale.D_0; return  _wrapped_in_saturation( device,   carrier,  low ,  field_dependent )
@@ -490,15 +260,6 @@ def  _from_nodal_mobility(device :  Device , carrier  :   Carrier , nodal  :  np
 
 
 def _wrapped_in_saturation(device :Device, carrier  :Carrier, low_field  :  Diffusivity, field_dependent : bool,)  ->  EdgeDiffusivity  :
-    """Caughey-Thomas around a low field diffusivity, or that diffusivity.
-
-    The wrapping order is the only one that makes sense and it is the one the
-    reference uses: the low field mobility is a nodal quantity, so it is
-    corrected for the surface and averaged onto the edge first, and the
-    velocity saturation factor is applied afterwards with that edge's own
-    parallel drop, because the parallel field is an edge quantity and has no
-    value at a node.
-    """
     if not field_dependent:
         return low_field
 
@@ -525,24 +286,12 @@ def _lagged_diffusivity(
     D:EdgeDiffusivity,device:Device,psi: npt.NDArray[np.float64]
 )->Diffusivity:
 
-    """A field dependent diffusivity frozen at the potential of this cycle.
-
-    What the uncoupled Gummel blocks get. Each of them solves one continuity
-    equation with psi held fixed, so within a block the field is a constant
-    and the diffusivity with it, which is what lagging a coefficient means and
-    is what a Gummel cycle already does to everything else it holds. At the
-    fixed point psi is the converged potential, so the frozen diffusivity is
-    the converged one and the cycle solves the same equations the coupled path
-    does. What is given up is the tangent, which is a rate of convergence and
-    not an answer.
-    """
     return diffusivity_at(D, edge_drop(psi), device.scaled_mesh.h)
 
 
 
 def _node_field(values:  npt.NDArray[np.float64], unit: str, name  :  str)-> Field :
 
-    """A scaled node Field, the form every assembly demands."""
     return Field(values, unit, ScalingState.SCALED, Location.NODE, name= name)
 
 
@@ -553,15 +302,12 @@ def _density_update(
 )  ->  float :
 
 
-    """max |dn| / (n + n_i), the convergence measure for a density [1]."""
-
     return float(np.max(np.abs(new-old) /(np.abs(old) +DENSITY_REFERENCE)))
 
 
 
 
 def poisson_block(device :Device) ->BlockStep[DeviceState]:
-    """Step 1: nonlinear Poisson at fixed quasi-Fermi levels."""
 
     Solver  = SparseLU(  )
 
@@ -597,21 +343,6 @@ def poisson_block(device :Device) ->BlockStep[DeviceState]:
 def _lagged_effective_potential(
     device :  Device, state: DeviceState, carrier:  Carrier
 ) -> Field :
-    """The potential one carrier is Boltzmann in, at the incoming state [V].
-
-    state.psi itself under Boltzmann, so nothing before Phase 5 pays anything
-    or moves a bit.
-
-    Under Fermi-Dirac the Bernoulli argument depends on the density as well as
-    on the potential, which the coupled Newton differentiates properly and a
-    Gummel block cannot: its whole premise is that the continuity equation is
-    linear in its own carrier once the other two unknowns are held. So the
-    correction is lagged at the incoming density, exactly the way this path
-    already lags a field dependent diffusivity. It costs a Gummel cycle its
-    quadratic convergence, which Gummel never had, and it leaves the fixed
-    point alone: at convergence the lagged density is the solved one and the
-    equation being satisfied is the degenerate one.
-    """
     deegeneracy=device.degeneracy
     if deegeneracy is  None  :
         return state.psi
@@ -628,7 +359,6 @@ def _lagged_effective_potential(
 def  electron_block (
     device  : Device,  models  :   TransportModels
 )   ->   BlockStep[DeviceState ]  :
-    """Step 2: electron continuity, linear in n once psi and p are held."""
     Doping = device.net_doping_scaled.data
     x2  = device.degeneracy
     sollver= SparseLU()
@@ -656,7 +386,6 @@ def  electron_block (
 
 
 def hole_block(device :Device,models:TransportModels)->BlockStep[DeviceState]:
-    """Step 3: hole continuity, linear in p once psi and n are held."""
     doipng =  device.net_doping_scaled.data; Degeneracy=device.degeneracy
     abs  =   SparseLU( )
     def step(state :DeviceState) -> tuple[DeviceState, float]:
@@ -692,13 +421,6 @@ def hole_block(device :Device,models:TransportModels)->BlockStep[DeviceState]:
 def  _check_positive (
     density   :  npt.NDArray [  np.float64  ] , name : str ,   state : DeviceState
 )   ->  None   :
-    """Refuse a non-positive density rather than clamping it.
-
-    The continuity matrix is an M-matrix and the right hand side is
-    non-negative, so this cannot happen for a reason that is not a bug. If it
-    does, the cause is a sign error or a broken discretization, and clamping
-    would hide both while producing a solution that satisfies no equation.
-    """
     if np.all(density>0.0):
         return
 
@@ -712,26 +434,9 @@ def  _check_positive (
     )
 
 def initial_state(device : Device)->DeviceState:
-    """A starting guess: Poisson with flat quasi-Fermi levels at the contacts.
-
-    Exact at zero bias and under reverse bias with no recombination, and a
-    reasonable guess at low forward bias. It is the Phase 1 solve, reused.
-    At any bias worth calling forward it is not good enough on its own, which
-    is what continuation is for.
-    """
     return solve_equilibrium(device,frozen_quasi_fermi(device))
 
 def _low_field_models(models: TransportModels) ->  TransportModels  :
-    """The same models with every state dependent mobility taken back out.
-
-    Caughey-Thomas unwraps to the low field diffusivity it was built around,
-    and the surface model is dropped. Recombination is untouched, since it was
-    never the difficulty.
-
-    What comes back is Phase 3's mobility: a fixed array over edges that the
-    assembly reads rather than evaluates. Nothing about the device, the mesh
-    or the bias changes.
-    """
     temp2 =tuple(
         D.low_field if isinstance(D, CaugheyThomas)else D
         for D in(models.Dn, models.Dp)
@@ -747,34 +452,10 @@ def _needs_a_low_field_prelude(
     models :TransportModels, guess: DeviceState |None
 )  -> bool  :
 
-    '''Whether a cold solve should be walked up to these models.
-
-    Only field dependence, and only cold. Two limits and a reason for each.
-
-    **Field dependence and not surface scattering.** Caughey-Thomas is inside
-    the Jacobian and its mobility falls steeply through the critical field, so
-    a step that overshoots lands somewhere the linearization did not predict.
-    Measured on a 1 um NMOS from the Poisson guess: 60 iterations, 55 of them
-    against the step limiter, no convergence. Surface scattering is outside
-    the Jacobian and only ever scales the mobility by a few, and the same
-    device cold starts through it in six steps.
-
-    **Cold and not warm.** A continuation step already arrives with a guess
-    from the neighbouring bias, and that guess is worth more than this one.
-    '''
-
     return  guess is  None  and  models.field_dependent
 
 
 def _low_field_edges(D:EdgeDiffusivity) ->  npt.NDArray[np.float64]  :
-    '''The per edge low field diffusivity inside whatever D is [1].
-
-    The fixed point is on the mobility, and with velocity saturation switched
-    on the mobility is wrapped in a model rather than sitting there as an
-    array. Reaching through the wrapper compares the thing that actually moves
-    between sweeps: the saturation factor is a function of the iterate and is
-    already converged by the Newton solve that just finished.
-    '''
     if isinstance(D, CaugheyThomas)  :
         return D.low_field
 
@@ -782,12 +463,6 @@ def _low_field_edges(D:EdgeDiffusivity) ->  npt.NDArray[np.float64]  :
 
 
 def _surface_moved(before  : TransportModels, after  : TransportModels)  -> float  :
-    """Largest relative change in either diffusivity between two sweeps [1].
-
-    Both carriers, because the electron channel of an NMOS converging says
-    nothing about the hole one, and a fixed point that has only half arrived
-    is not one.
-    """
     Worst  =  0.0
     for w,neww in((before.Dn,after.Dn),(before.Dp,after.Dp)):
         aa, bb =  _low_field_edges(w), _low_field_edges(neww)
@@ -810,37 +485,6 @@ def _surface_fixed_point(
     max_sweeps: int,
     rtol:float,
 ) ->NewtonResult:
-    """Newton to convergence, with the surface mobility refreshed between runs.
-
-    Lombardi reads the field normal to the interface, which for a horizontal
-    channel edge lives on the vertical edges above and below its two endpoints
-    rather than on the edge itself. Carrying that exactly would widen the
-    Jacobian stencil past the edge based pattern every assembly in
-    `discretize/` is built on, so the correction is frozen inside each Newton
-    solve and this loop makes the freezing a fixed point instead.
-
-    Two properties are worth being precise about, because "frozen coefficient"
-    is usually a euphemism for an approximation and here it is not one.
-
-    **Inside a sweep nothing is approximated.** The residual and the Jacobian
-    are assembled from the same frozen mobility, so they agree exactly and the
-    nine block complex step verification is untouched by any of this.
-
-    **At the fixed point nothing is frozen.** The loop ends when refreshing
-    the mobility from the answer changes it by less than rtol, which is to say
-    the mobility the solve used is the mobility the answer implies. What was
-    given up is the rate of convergence and not the converged state.
-
-    The reported result carries the whole cost: iterations summed over the
-    sweeps and both histories concatenated. The residual history therefore has
-    a sawtooth in it, one tooth per refresh, and that is the honest picture of
-    what this method does rather than a defect in it.
-
-    A sweep that fails to converge ends the loop immediately and is returned
-    as it is. Continuation reads that to decide to halve its step, and there
-    is nothing to be gained by refreshing a mobility from a state Newton could
-    not reach.
-    """
     Active=models.at_state(device,*unpack(x0))
     X  =  x0 ; k2=0
     residualHistory: list[float] =[]
@@ -895,19 +539,6 @@ def _reported_by_family(
     Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float],
     Callable[[NewtonIteration], None] |  None,
 ] :
-    """The two measures a coupled Newton solve is judged on, and its reporter.
-
-    Each measure is the largest of its per family split, picked rather than
-    computed, so the number the solve converges against is the same with or
-    without anyone watching. When someone is, the split from the evaluation
-    a frame was built from rides along on that frame, which is what lets the
-    browser say whether Poisson or a continuity equation stalled.
-
-    A split is attached only when its largest entry is exactly the frame's own
-    scalar. newton_solve reports a diverged iterate as infinite without
-    measuring it, and pairing that frame with the last split measured would
-    name a family for a residual the split never saw.
-    """
     laast: dict[str,dict[str,float]]={}
 
     def residual_norm(
@@ -950,75 +581,6 @@ def solve_bias_newton(
     surface_rtol :float=1e-8,
     on_frame:Callable[[object],None]|None=None,
 ) ->DeviceState:
-    """Solve the coupled system at the device's biases by full Newton.
-
-    Args:
-        device: the device, carrying its contact voltages.
-        models: recombination and diffusivities. Built from the device if None.
-        guess: a previous solution to start from. Continuation lives on this.
-        max_psi_step: cap on the potential update per step [1], scaled.
-            5.0 is the 5*V_T that docs/02-numerics.md prescribes.
-        max_iterations: Newton budget. Small on purpose: a coupled Newton that
-            needs thirty steps from a decent guess is not converging
-            quadratically and the budget should not hide that.
-        residual_rtol: residual threshold, relative to each equation family's
-            own term scale after row scaling.
-        update_tol: threshold on the update, measured per family by
-            coupled.coupled_update_norm rather than as max |dx|.
-        max_surface_sweeps: budget for the surface mobility fixed point.
-            Ignored where there is no surface model, which is every device
-            before Phase 5.
-        surface_rtol: how still the surface corrected diffusivity has to be,
-            as a relative change on the edge that moved most, before the
-            fixed point counts as reached.
-        on_frame: called with a NewtonIteration each time the residual is
-            measured, or None to report nothing. Every solve this one runs
-            reports into it, including the low field prelude and each sweep of
-            the surface fixed point, because those iterations are counted in
-            the result and a plot missing them would be missing the expensive
-            part. The equilibrium solve that builds the guess is the one
-            exception: its residual is a different quantity on a different
-            system, and it reports nothing. See phases/PHASE-7.md.
-
-    The same equations as solve_bias, solved together instead of in a cycle.
-    Returns the state with its NewtonResult attached, converged or not, and
-    does not raise: a failed solve is what continuation reads to decide to
-    halve its step.
-
-    Works in either dimension. Everything that knew it was in 1D is now asked
-    of the device: the mesh scales itself by the right power of x_0, the
-    charge volume is zero where there is no semiconductor, and the geometry
-    carries the edge list, the permittivity and the face a carrier is allowed
-    to cross. The Gummel path in this module is still 1D and says so.
-
-    Three things this does that a textbook Newton loop does not.
-
-    **The rows are scaled by their own terms.** See coupled.residual_term_scales.
-    Without it one threshold has to serve a charge and a current, and on a
-    1e16 device those differ by six decades.
-
-    **The scales are measured at each iterate, not frozen at the guess.** The
-    threshold itself never moves: it stays residual_rtol against a scale of
-    one. What is re-measured is the size of the terms the residual is made of,
-    which is a property of the state and not of how converged it is. Freezing
-    it at the guess made a 1e20 / 1e14 junction report failure at 2.8e-9 while
-    it was converged to 4.5e-15, because its electron term scale grows by
-    660000 between equilibrium and 1 V. See coupled.residual_term_scales.
-
-    **Only psi is damped.** docs/02-numerics.md and docs/05-pitfalls.md both
-    say to cap the potential update and take the density updates in full.
-
-    **A cold solve with velocity saturation is walked up to it.** The Poisson
-    guess is not in the basin of a Caughey-Thomas solve on a MOSFET: measured,
-    60 iterations with 55 of them against the step limiter and no convergence.
-    The same solve handed the low field answer converges in six, and at the
-    off state in zero, because the field dependence changes nothing where no
-    current flows. So a cold field dependent solve runs the low field models
-    first and continues from that. It is continuation in the model rather than
-    in the bias, it is the same shape as the Gummel prelude below it, and the
-    iterations it costs are added to the ones reported. See
-    `_needs_a_low_field_prelude` for why surface scattering does not need one.
-    """
     if models is None:
         models  = TransportModels.for_device(device)
     w=initial_state(device) if guess is None else guess
@@ -1039,13 +601,6 @@ def solve_bias_newton(
     def assembler(
         active  : TransportModels,
     ) -> Callable[[npt.NDArray[np.float64]], SparseAssembly]  :
-        """The assembly closure, over one frozen set of models.
-
-        Taken as a function of the models rather than reading them from the
-        enclosing scope, because the surface fixed point replaces them between
-        solves and a closure over a name that is being rebound is the kind of
-        bug that produces a converged wrong answer.
-        """
         def assemble(x : npt.NDArray[np.float64]) ->SparseAssembly :
             assembly, scales = assemble_coupled_terms(
                 dir,
@@ -1064,15 +619,6 @@ def solve_bias_newton(
 
 
     def measured(active :  TransportModels  )   ->   Callable[[npt.NDArray[np.float64  ],   npt.NDArray[np.float64  ] ], dict[str,  float ]] :
-        """The residual size, measured row by row against its own terms.
-
-        Recomputed from the iterate rather than carried out of the assembly,
-        for the reason `assembler` takes its models as an argument: the
-        surface fixed point rebinds the models between solves, and anything
-        remembered across that boundary is a converged wrong answer waiting to
-        happen. The term scales are a function of the state, so asking for
-        them again is the same answer for a fraction of an assembly.
-        """
 
         def norm(
             residual: npt.NDArray[np.float64],x: npt.NDArray[np.float64]
@@ -1137,37 +683,6 @@ def solve_bias_ramped(
     max_iterations   :   int  =   30 ,
     on_frame  :  Callable[[  object],  None  ]  |  None  =  None,
 )  ->   DeviceState  :
-    """Solve at the device's biases with no guess, ramping them in from zero.
-
-    Args:
-        device: the device, carrying the contact voltages wanted.
-        models: recombination and diffusivities. Built from the device if None.
-        step: first continuation step, as a fraction of the applied bias [1].
-        max_iterations: Newton budget at each fraction.
-        on_frame: telemetry. Carries both the ContinuationEvent per fraction
-            and the NewtonIteration frames of the solve at each one.
-
-    Returns a DeviceState at the device's own biases, with its NewtonResult
-    attached, converged or not. Same contract as solve_bias_newton, and the
-    same answer wherever that one converges: the parameter is a fraction of
-    the bias already on the device, so a fraction of one is the device itself.
-
-    **Why a cold solve needs this and a warm one does not.** The Poisson guess
-    knows nothing about the applied bias, so on a MOSFET with the drain at 1 V
-    the first Newton step wants a potential update far larger than max_psi_step
-    allows and gets clipped. Measured on a 2835 node 1 um NMOS from the Poisson
-    guess: at 0 V one step and nothing clipped, at 0.25 V ten steps and nothing
-    clipped, at 1 V twenty two steps with twelve of them clipped. A solve that
-    spends half its budget against the limiter never reaches a quadratic tail,
-    and whether it arrives at all is decided by rounding. It did not arrive on
-    CI, which reported a residual of 9.889e+03 on the solve that converges
-    here. See docs/07-decisions.md.
-
-    **It is continuation in the bias, not damping.** The Jacobian is not in
-    question. At a fraction the solve reaches from its neighbour, the tail is
-    quadratic and nothing is clipped, which is what the tests in
-    tests/convergence/test_cold_bias_ramp.py assert.
-    """
     if models is None:
         models= TransportModels.for_device(device)
 
@@ -1213,17 +728,6 @@ def solve_bias_ramped(
     )
 
 def _gummel_prelude(device  :Device, models :  TransportModels, state : DeviceState, cycles : int, on_frame : Callable[[object], None]  | None  = None,)->  DeviceState :
-    """Run a fixed number of Gummel cycles, ignoring whether they converged.
-
-    A prelude is not a solve. It only has to move the iterate into the basin
-    Newton can finish from, and stopping it early on a convergence test would
-    defeat the point, so the update tolerance is set below anything reachable
-    and the cycle count is the only thing that ends it.
-
-    A block that fails outright still ends it, and the state at that point is
-    returned rather than raised. Newton is about to be handed whatever this
-    produced and is allowed to fail on it in its own way.
-    """
     if cycles <=0:
         return state
     ste =[
@@ -1247,45 +751,6 @@ def _gummel_prelude(device  :Device, models :  TransportModels, state : DeviceSt
 
 def solve_bias_hybrid(device  :   Device, models : TransportModels   |  None =  None, guess   :   DeviceState |  None  = None, gummel_cycles :  int  =   3, retry_cycles  :   int   =  5, max_psi_step  : float = 5.0, max_iterations :   int   =  30, on_frame   : Callable[[ object],  None  ]  |   None = None ,)  ->  DeviceState :
 
-    """Gummel for a few cycles to reach the basin, then full Newton.
-
-    Args:
-        device: the device, carrying its contact voltages.
-        models: recombination and diffusivities. Built from the device if None.
-        guess: a previous solution to start from.
-        gummel_cycles: prelude length. docs/02-numerics.md says 3 to 5.
-        retry_cycles: extra cycles to run before one second Newton attempt,
-            when the first fails. Zero disables the retry.
-        max_psi_step: cap on the potential update per Newton step [1], scaled.
-        max_iterations: Newton budget per attempt.
-        on_frame: telemetry. Carries the prelude's cycles and Newton's
-            iterations in the order they happened, and a retry's too.
-
-    The strategy docs/02-numerics.md prescribes, built against a case where it
-    is measurably needed rather than on principle. On a 1e15 diode at 1.2 V on
-    41 nodes, Newton from the Poisson guess diverges: thirty steps, twenty
-    eight of them against the limiter, forty two nodes with a negative
-    density, final residual 1.3e5. Two Gummel cycles first turn that into an
-    eight step solve with a clean quadratic tail. Three give seven, five give
-    six.
-
-    Tightening the damping does not fix that case, which is worth knowing
-    before reaching for it. Capping the potential update at 2 V_T instead of 5
-    does converge, in forty seven steps with forty of them limited; capping at
-    1 or at 0.5 does not converge at all inside sixty. docs/05-pitfalls.md
-    says damping hides problems rather than solving them, and here it does not
-    even hide it.
-
-    Continuation remains the better answer where it is available: the same
-    device reaches 1.2 V in seven solves with no retries and no prelude at
-    all. The hybrid is for the case where there is no ramp to come up, which
-    is every first solve of one.
-
-    The retry restarts from the state before Newton ran, never from the state
-    Newton diverged to. A diverged iterate has negative densities in it, and
-    handing those to a Gummel block whose whole positivity argument assumes
-    non-negative input would produce a second failure with a different cause.
-    """
     if  models is  None  :
         models= TransportModels.for_device(device)
 
@@ -1308,24 +773,6 @@ def solve_bias(
     max_iterations: int = 200,
     on_frame:Callable[[object],None]|None =None,
 )->DeviceState:
-    """Solve the coupled system at the device's contact biases.
-
-    Args:
-        device: the device, carrying its contact voltages.
-        models: recombination and diffusivities. Built from the device if None.
-        guess: a previous solution to start from. The single most valuable
-            input there is, which is why continuation exists.
-        update_tol: convergence threshold on the Gummel cycle update.
-        max_iterations: cycle budget.
-        on_frame: called with a GummelIteration at the end of every cycle, or
-            None to report nothing. See phases/PHASE-7.md.
-
-    Returns the state with its GummelResult attached, converged or not, and
-    does not raise on failure. Above roughly 0.6 V forward bias, failing to
-    converge is the expected outcome rather than an exceptional one, and
-    phases/PHASE-2.md asks for the bias at which that happens to be measured.
-    A result that cannot be returned cannot be measured.
-    """
     if models is None:
 
         models   =  TransportModels.for_device(  device)

@@ -1,11 +1,3 @@
-"""Tests for api/jobs.py, the job runner underneath the HTTP layer.
-
-phases/PHASE-7.md: a solve is a job, not a request. A MOSFET sweep is minutes
-of Newton solves, so it is submitted, streamed while it runs, and cancellable.
-This module is that machinery with no HTTP and no solver in it, which is why
-the work here is fake: threading and cancellation are what is under test, and
-a real device would only make the test slow and the failure ambiguous.
-"""
 from __future__ import annotations
 import  threading
 import pytest
@@ -35,8 +27,6 @@ def  test_the_frames_arrive_in_the_order_they_were_sent(  )  -> None :
 
 
 def test_the_stream_ends_when_the_work_does() -> None:
-    """A reader draining frames has to be able to stop. Without an end the
-    websocket holds a socket open on a job that finished minutes ago."""
     jbs=JobRegistry()
 
     jobb=jbs.submit(lambda send :send("done"))
@@ -48,8 +38,6 @@ def test_the_stream_ends_when_the_work_does() -> None:
 
 
 def  test_submitting_does_not_wait_for_the_work() ->   None  :
-    """The whole reason a solve is a job. If submit blocked, the browser would
-    get its job id when the sweep was already over."""
     k2=threading.Event()
     stuff2=JobRegistry()
     jobb= stuff2.submit(lambda send :k2.wait(timeout =5.0))
@@ -58,9 +46,6 @@ def  test_submitting_does_not_wait_for_the_work() ->   None  :
     stuff2.wait(jobb.id,timeout=5.0)
 
 def test_work_that_raises_leaves_the_job_failed_with_the_reason() -> None :
-
-    """phases/PHASE-7.md: a failed solve never reports a success it did not
-    get, and it says what went wrong rather than spinning."""
 
     def explode(send :object)-> None :
 
@@ -74,8 +59,6 @@ def test_work_that_raises_leaves_the_job_failed_with_the_reason() -> None :
     assert "singular" in Jobs.message(jobb.id)
 
 def test_cancelling_stops_the_work_at_its_next_frame()->None:
-    """Cancellation rides on the telemetry callback, which is the only place
-    a solve looks up from the arithmetic. Sending a frame is what notices."""
     statred= threading.Event()
     FramesSent  =  [  ]
 
@@ -100,7 +83,6 @@ def test_cancelling_stops_the_work_at_its_next_frame()->None:
 
 def test_a_cancelled_job_ends_its_stream() -> None :
 
-    """Otherwise a cancelled sweep leaves the browser waiting forever."""
     sta  =  threading.Event()
     def forever(send) -> None :
 
@@ -124,7 +106,6 @@ def test_a_cancelled_job_ends_its_stream() -> None :
 
 
 def test_cancelling_a_finished_job_changes_nothing() -> None :
-    """The browser cannot know the sweep ended a moment before the click."""
     Jobs =  JobRegistry (  )
 
     jobb =  Jobs.submit(lambda send :  send('one'))
@@ -134,9 +115,6 @@ def test_cancelling_a_finished_job_changes_nothing() -> None :
 
 
 def test_the_work_can_see_that_it_was_cancelled(  )   ->  None  :
-    """A solve holding a partial result should be able to put it down tidily
-    rather than be stopped mid write. CancelledError is a real exception it can
-    catch, not a thread kill."""
 
     Caught  :  list[  str ]  =  [ ]
 
@@ -189,9 +167,6 @@ def test_every_job_gets_its_own_id() -> None :
 
     assert len(  idss) ==   10
 def test_a_full_queue_drops_its_oldest_frame_and_counts_the_loss() ->None:
-    """phases/PHASE-7.md: the server drops frames rather than making the
-    solver wait. Counting them is the difference between a plot that is
-    coarse and a plot that is wrong without saying so."""
     jbos   =  JobRegistry( queue_size  =  4  )
     jobb=  jbos.submit(lambda send : [send(n) for n in range(10)])
     jbos.wait(jobb.id,timeout=5.0)
@@ -202,10 +177,6 @@ def test_a_full_queue_drops_its_oldest_frame_and_counts_the_loss() ->None:
 
 
 def test_a_job_finishes_even_when_nobody_drains_its_queue()->None:
-    """The queue fills exactly when no reader is attached, which is also when
-    a blocking put would hang the worker forever. A job that never reaches a
-    terminal state is a browser waiting on a result that will never come, and
-    a process that cannot be shut down tidily."""
 
     Jobs  = JobRegistry( queue_size  = 2  )
 
@@ -216,8 +187,6 @@ def test_a_job_finishes_even_when_nobody_drains_its_queue()->None:
 
 
 def test_reading_frames_gives_up_rather_than_waiting_forever()-> None:
-    """A websocket handler needs to be able to bound its wait. Without this
-    a job whose worker is wedged holds a connection open indefinitely."""
     vals=JobRegistry()
 
     jobb = vals.submit(lambda send:threading.Event().wait(timeout= 5.0))
@@ -229,8 +198,6 @@ def test_reading_frames_gives_up_rather_than_waiting_forever()-> None:
 
 
 def test_waiting_for_a_job_gives_up_rather_than_hanging()->None:
-    """Same argument on the other call, and it is the one the tests here
-    lean on, so a silent hang would look like a slow suite."""
     joobs= JobRegistry()
     Job=joobs.submit(lambda send: threading.Event().wait(timeout = 5.0))
 
@@ -240,10 +207,6 @@ def test_waiting_for_a_job_gives_up_rather_than_hanging()->None:
 
 
 def test_a_finished_job_keeps_what_the_work_returned() -> None  :
-    """A sweep's curve is the one thing a reader cannot afford to lose, and
-    the frame queue is allowed to drop its oldest frame. So the return value
-    is held on the job rather than sent, and a browser that connects after
-    the last point still gets the curve."""
     max  = JobRegistry()
     Job =max.submit(lambda send :'the curve')
 
@@ -253,10 +216,6 @@ def test_a_finished_job_keeps_what_the_work_returned() -> None  :
 
 
 def test_a_job_that_is_still_running_has_no_result_yet() ->None :
-
-    """None rather than a wait. The caller asks once the status is terminal,
-    and a None that meant either not yet or nothing returned would be the
-    same ambiguity a spinner is."""
 
     joobs = JobRegistry()
     hodling = threading.Event()
@@ -269,9 +228,6 @@ def test_a_job_that_is_still_running_has_no_result_yet() ->None :
 
 
 def test_a_failed_job_has_no_result() ->None :
-    """Whatever the work built before it raised is not a result, and handing
-    back a half filled curve as though it were one is the worst outcome
-    available here."""
     jbos =  JobRegistry()
 
     Job=jbos.submit(lambda send :1/ 0)
@@ -282,13 +238,6 @@ def test_a_failed_job_has_no_result() ->None :
     assert jbos.result(Job.id) is None
 
 def test_a_cancelled_job_keeps_nothing_either (  )   ->   None  :
-    '''A cancelled sweep stopped somewhere nobody chose. Its partial curve is
-    in the frames the reader already has.
-
-    The work waits so that the cancel lands while it is still inside. Without
-    that, this work finishes before the cancel arrives and the job is DONE
-    with a result, which is the right answer to a different question.
-    '''
     Jobs=JobRegistry()
     Cancelled = threading.Event()
 
@@ -306,9 +255,6 @@ def test_a_cancelled_job_keeps_nothing_either (  )   ->   None  :
 
 
 def  test_closing_the_registry_stops_every_running_job(  )  -> None :
-    """A solver thread still running when the interpreter exits dies inside
-    numpy, and Python reports exit code 120 over a test run that passed. So
-    close cancels what is running and does not return until it has stopped."""
     jbs = JobRegistry()
 
 
@@ -329,8 +275,6 @@ def  test_closing_the_registry_stops_every_running_job(  )  -> None :
 
 
 def test_closing_gives_up_on_work_that_never_reports()->None :
-    """Cancellation lands at the next frame, so work that never sends one
-    cannot be stopped. close says so rather than hanging the shutdown."""
     dir = threading.Event()
     joobs  = JobRegistry()
     joobs.submit(lambda send:dir.wait(timeout=5.0))
@@ -344,9 +288,6 @@ def test_closing_gives_up_on_work_that_never_reports()->None :
 
 
 def test_a_full_registry_refuses_a_new_job_rather_than_queueing_it(  )  ->   None :
-    """On a public server every submit is a thread spending CPU, so the number
-    running at once is capped. The one over the cap is told the server is busy
-    rather than slowing everyone else down."""
     vals  =  threading.Event(  )
     bb  = JobRegistry(max_running =2)
     hled =[bb.submit(lambda send :vals.wait(timeout= 5.0)) for _ in range(2)]
@@ -363,8 +304,6 @@ def test_a_full_registry_refuses_a_new_job_rather_than_queueing_it(  )  ->   Non
 
 def test_a_finished_job_is_forgotten_once_it_is_old_enough()->None:
 
-    """Nothing else ever removes a job, so without this a public server
-    keeps every curve anyone has solved until it restarts."""
     Now  =   [  0.0 ]
     joobs=  JobRegistry(keep_for =  60.0, clock =  lambda :  Now[0])
     Old = joobs.submit(lambda send  : None)

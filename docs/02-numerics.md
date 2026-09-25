@@ -417,8 +417,8 @@ This reuses the DC Jacobian entirely. It's about 60 lines once Phase 3 works.
 
 ### The mass matrix, planned for Phase 10
 
-What's shipped so far is only the omega to zero limit, where M drops out (see
-the docstring of `extract/cv.py`). The frequency solve needs M written down.
+What's shipped so far is only the omega to zero limit, where M drops out (that limit is what
+`extract/cv.py` computes). The frequency solve needs M written down.
 
 With unknowns (psi, n, p) node interleaved as in `discretize/coupled.py`, the
 continuity residuals with their time derivatives are

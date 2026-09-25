@@ -1,53 +1,3 @@
-"""Devices drawn from rectangles, the 2D builder of phases/PHASE-7.md Stage 5.
-
-Three kinds of thing are drawn, each an axis aligned rectangle or segment in
-cm, with x across the device and y up it, the gate side on top:
-
-- blocks of silicon or oxide, painted in order, a later block over an earlier
-  one, so a trench is oxide drawn over silicon. The device is their bounding
-  box, which starts at the origin, and every part of it has to be painted.
-- implants, rectangles of doping, uniform or Gaussian, added up with the sign
-  of their dopant. Doping drawn over oxide changes nothing: an oxide node has
-  no charge volume to put it in.
-- electrodes, straight segments: ohmic on silicon, or a gate on oxide with a
-  work function.
-
-Nothing new is solved. The mesh is a tensor product of two graded axes, the
-region map is device/regions.py's, the contacts are the plates and gates the
-benchmark devices already use. Drawn as the benchmark MOS capacitor or MOSFET
-it is that device's doping on a different mesh, see NMOS_DRAWING.
-
-Rectangles only
----------------
-The 2D mesh is a tensor product, so every mesh line runs the full width or
-height of the device. A slanted or curved edge would cut cells in two, and a
-cell that is half oxide has no single permittivity. So every edge drawn is a
-mesh line, and nothing else can be drawn.
-
-The mesh
---------
-Each axis is graded_mesh_1d_through: a node line on every edge drawn, graded
-to h_min at every doping edge and every Si/SiO2 interface. The interfaces are
-where an inversion layer sits, which is why nmos and mos_cap grade their
-silicon to the surface. An implant edge on the device boundary is not graded
-towards, since the implant does not stop there; it continues past the drawing
-and its profile is carried as open on that side.
-
-Guard rails
------------
-Each refusal names what it is about. A silicon island no ohmic contact
-touches floats, since nothing sets its Fermi level. A gate on silicon is a
-Schottky contact, which this solver does not model. The island rule holds for
-each doping type too: a p or n region no ohmic contact touches is a floating
-body, which the solve cannot pin, so an SOI film needs a body tie. An ohmic
-contact on oxide has no carriers to pin. Two edges closer than h_min, or a
-rectangle with fewer than two node lines inside it, is a feature smaller than
-the mesh resolves. A mesh over NODE_BUDGET is refused before it is built.
-
-Surface mobility reads the field normal to a horizontal interface, which a
-drawing with a vertical Si/SiO2 wall also has. That refusal belongs to the
-model and lives in device/transport.py.
-"""
 from __future__ import annotations
 
 import math
@@ -78,18 +28,8 @@ from ddsim.mesh.mesh1d import graded_mesh_1d_through
 from ddsim.mesh.mesh2d import Mesh2D,tensor_mesh_2d
 
 MATERIALS  ={"silicon"  :SILICON, "oxide":  OXIDE}
-"""The materials a block can be, by the name the page sends."""
 DEGENERATE_DOPING_TOP=  1e20
-"""The heaviest doping allowed with Fermi-Dirac statistics on [cm^-3].
-
-The nmos source and drain peak, where n/Nc is 3.5, inside the range where
-the Joyce-Dixon inversion docs/01-physics.md uses holds."""
 NODE_BUDGET =20000
-
-'''The most nodes a drawn mesh may have [1].
-
-The benchmark nmos is 8379 nodes and its transfer curve takes about 20 s, so
-this is a minute or so for a curve, not an hour. The page states it.'''
 
 
 
@@ -97,24 +37,16 @@ this is a minute or so for a curve, not an hour. The page states it.'''
 
 class Block :
 
-    '''A rectangle of one material.'''
-
     material : str
 
 
-    '''"silicon" or "oxide".'''
-
     x0  :  float
-    """Left edge [cm]."""
 
     x1:float
-    """Right edge [cm]."""
 
     y0 :  float
-    """Bottom edge [cm]."""
 
     y1:float
-    """Top edge [cm]."""
 
 
 @dataclass(frozen  =  True)
@@ -123,85 +55,53 @@ class Block :
 
 
 class  Implant  :
-    """A rectangle of doping, added to whatever else is drawn there."""
     dopant  :  str
-    """"n" for donors, "p" for acceptors."""
 
 
     concentration:float
-    """Peak concentration [cm^-3], given positive."""
     x0: float
-    """Left edge [cm]."""
 
     x1 : float
-    """Right edge [cm]."""
 
 
     y0:float
-    """Bottom edge [cm]."""
     y1 :float
-    """Top edge [cm]."""
 
     profile :  str = "uniform"
-    """"uniform", the peak inside and nothing outside, or "gaussian", the shape
-    of an implant: the peak holds inside the rectangle, falls below and above
-    it as a Gaussian of `straggle`, and spreads past its left and right edges
-    as an erfc of `lateral`, half the peak at the mask edge."""
 
     straggle :float=0.0
-    """The vertical sigma of a Gaussian implant [cm]."""
 
 
 
     lateral:float =0.0
-    """The erfc length of a Gaussian implant's sides [cm]."""
 
 
 @dataclass(frozen=True)
 
 class  Electrode  :
-    """A contact along a straight segment."""
     name: str
-    """Terminal name, which a sweep and a bias refer to it by."""
     kind :str
-    """"ohmic", on silicon, or "gate", on oxide."""
 
     x0: float
-    """Start of the segment along x [cm]."""
 
     x1  :  float
-    """End of the segment along x [cm], x0 for a vertical one."""
 
     y0 :float
-    """Start of the segment along y [cm]."""
     y1:float
-    """End of the segment along y [cm], y0 for a horizontal one."""
     voltage  : float  =  0.0
-    """Applied bias [V]."""
 
 
     work_function:float =C.PHI_M_N_POLY
-    """Work function of a gate [eV]. n+ poly by default. Unused on ohmic."""
 
 Drawing =tuple[tuple[Block, ...], tuple[Implant, ...], tuple[Electrode, ...]]
 
 def _nmos_drawing()->Drawing:
-    """nmos's defaults, drawn from rectangles.
-
-    The oxide spans the top, the gate sits on it over the channel, and the
-    source and drain implants are drawn as their mask openings: rectangles
-    from the silicon surface up through the oxide, open on the outer side
-    because they are flush with the device boundary. Their profile is then
-    nmos's own product, an erfc across the mask edge times a Gaussian below
-    the surface, with nmos's own sigma and erfc length.
-    """
     L_gtae,sdd,tmp2,Na,x2 =1e-4,4e-5,2e-5,1e17,1e20;t ,  TSi   = 2e-6, 1e-4
     wdith, w =2.0 *  sdd  + L_gtae, TSi  + t
     simga,edg= implant_lengths(1.5e-5,1e-5,x2,Na)
     return((Block("silicon", 0.0, wdith, 0.0, TSi), Block("oxide", 0.0, wdith, TSi, w),), (Implant('p', Na, 0.0, wdith, 0.0, TSi), Implant('n', x2, 0.0, sdd, TSi, w, "gaussian", simga, edg), Implant("n", x2, wdith - sdd, wdith, TSi, w, "gaussian", simga, edg),), (Electrode('source', "ohmic", 0.0, tmp2, TSi, TSi), Electrode('drain', 'ohmic', wdith -tmp2, wdith, TSi, TSi), Electrode('gate', "gate", sdd, wdith - sdd, w, w), Electrode('body', "ohmic", 0.0, wdith, 0.0, 0.0),),)
 
 def _mos_cap_drawing()-> Drawing :
-    """mos_cap's defaults, drawn from rectangles."""
     Na, tOx, tSi, wid=  1e16, 1e-6, 2e-4, 1e-5
     topp =  tSi  +  tOx
     return(
@@ -218,11 +118,7 @@ def _mos_cap_drawing()-> Drawing :
 
 NMOS_DRAWING   = _nmos_drawing()
 
-"""The benchmark nmos, drawn. The default drawing."""
-
 MOS_CAP_DRAWING  =  _mos_cap_drawing (  )
-
-"""The benchmark MOS capacitor, drawn."""
 
 
 
@@ -237,7 +133,6 @@ def _check_records(
     electrodes:tuple[Electrode,...],
     degenerate:bool,
 )->None:
-    """Refuse anything drawn that is not one of the things that can be."""
     for nmuber, sum in enumerate(blocks, start=1)  :
 
         if sum.material not in MATERIALS :
@@ -318,13 +213,6 @@ def _check_records(
 def _lines(
     things :  list[tuple[str, float, float]], h_min:float, axis  :str
 ) ->  list[float]:
-    """Every edge along one axis, refusing two closer than h_min.
-
-    Args:
-        things: a description and the two edges of everything drawn.
-        h_min: the finest spacing the mesh is asked for on this axis [cm].
-        axis: "x" or "y", for the refusal.
-    """
     owers : dict[float,list[str]] ={}
     for set,loww,hig in things:
         owers.setdefault(loww, []).append(set)
@@ -351,11 +239,6 @@ def _paint(
     x_edges : npt.NDArray[np.float64],
     y_edges :npt.NDArray[np.float64],
 ) ->  npt.NDArray[np.int64] :
-    '''The material of every cell between the given lines, -1 where nothing is.
-
-    Read at the cell centre, which is inside exactly the blocks the cell is,
-    because every block edge is one of the lines.
-    '''
     ceentre_x  =   0.5  * (  x_edges [ 1   :  ]   +  x_edges [  :-  1])
     CentreY  = 0.5  *   (y_edges[  1  :]   +  y_edges[ :- 1  ])
     cnt= np.full((CentreY.size, ceentre_x.size), -1, dtype = np.int64)
@@ -368,8 +251,6 @@ def _interfaces(
     x_edges:npt.NDArray[np.float64],
     y_edges : npt.NDArray[np.float64],
 ) -> tuple[set[float],set[float]]:
-    '''Where silicon meets oxide: the x of every vertical wall, the y of every
-    horizontal one.'''
     Across  =   cells[ : ,  1 :]  !=   cells[  : ,   :-  1 ]
     id =  cells[1  :, :]!= cells[:-1, :]
     myvar= {float(x_edges[ii + 1]) for ii in np.flatnonzero(Across.any(axis=0))}
@@ -379,7 +260,6 @@ def _interfaces(
 
 
 def _implant_profile(implant  :  Implant,   width   :  float,   height :   float)  ->   DopingProfile  :
-    """One implant as a doping profile, open on any side flush with the boundary."""
     val= -math.inf if implant.x0 <=0.0 else implant.x0
     zip=math.inf if implant.x1 >= width else implant.x1
     bot= -math.inf if implant.y0<=0.0 else implant.y0
@@ -398,7 +278,6 @@ def _implant_profile(implant  :  Implant,   width   :  float,   height :   float
 
 def _electrode_nodes(mesh  :  Mesh2D, electrode  : Electrode)->  tuple[int, ...]:
 
-    """The mesh nodes on an electrode's segment, which is on mesh lines."""
     onn = (
         (mesh.node_x  >= electrode.x0)
         & (mesh.node_x  <=  electrode.x1)
@@ -410,36 +289,6 @@ def _electrode_nodes(mesh  :  Mesh2D, electrode  : Electrode)->  tuple[int, ...]
 
 
 def drawing(blocks  : tuple[  Block,   ... ]  =  NMOS_DRAWING[  0] , implants  :  tuple[ Implant,   ... ]  = NMOS_DRAWING [ 1 ], electrodes  : tuple [ Electrode , ... ] =  NMOS_DRAWING[ 2  ], nx  :  int =  63, ny  :   int  =  133, h_min_x   :  float  = 2e-7, h_min_y  :  float   =  6.25e-9 , degenerate  :  bool   = True, material  :  Material   | None =   None ,)  ->  Device   :
-    """A 2D device drawn from rectangles of material and doping.
-
-    Args:
-        blocks: rectangles of silicon and oxide, painted in order. Together
-            they cover a rectangle whose lower left corner is the origin.
-        implants: rectangles of doping, added up.
-        electrodes: ohmic contacts on silicon and gates on oxide, each along
-            a straight segment.
-        nx: mesh points across the device [1]. Every edge you draw needs one,
-            so a busy drawing needs more. Range 38 to 200.
-        ny: mesh points up the device [1]. Range 22 to 400.
-        h_min_x: the smallest column spacing, at every doping edge and every
-            vertical silicon to oxide wall [cm]. Two edges closer than this
-            get turned down. Range 4.1e-8 to 4.7e-6, log.
-        h_min_y: the smallest row spacing, at every doping edge and every
-            flat silicon to oxide interface [cm]. On a MOSFET the inversion
-            layer is only a few nanometres thick, and this is what has to
-            catch it. Range 1e-9 to 7.7e-7, log.
-        degenerate: use Fermi-Dirac statistics instead of the simpler
-            Boltzmann ones. On by default, because the starting drawing is
-            the benchmark nmos, doped to 1e20 cm^-3 in its source and drain.
-            With it off, any doping above 1e19 gets turned down.
-        material: defaults to silicon at 300 K.
-
-    The mesh ranges are the default drawing's, the benchmark nmos. Each end
-    is the last value that builds on the converged or the coarse mesh, and
-    each was solved over the 0 V to 1.5 V transfer with the full mobility
-    stack, 2026-09-23. Every sweep completed. A drawing of your own can
-    refuse sooner, and the page stops the knob where it does.
-    """
     _check_records ( blocks, implants, electrodes ,   degenerate  )
     if not blocks:
         raise ValueError("nothing is drawn: a device needs at least one block")

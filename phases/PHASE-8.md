@@ -12,7 +12,7 @@ moves during this phase, something is wrong.
 ## Scope
 
 1. **The case set.** 200 robustness cases drawn with a fixed seed (20260924)
-   from the knob ranges the API already declares in docstrings. Draw log
+   from the knob ranges the API already declares in ddsim/api/knobs.json. Draw log
    uniform where the slider is logarithmic and uniform otherwise, reading the
    ranges through `ddsim/api/devices.py`, not a second copy of them. Each case
    is one device plus one target bias, solved cold from equilibrium. The case

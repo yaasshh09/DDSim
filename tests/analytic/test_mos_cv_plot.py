@@ -1,50 +1,3 @@
-'''Generates the MOS C-V plot named in the Phase 4 definition of done.
-
-    A C-V curve from your own solver overlaid on DEVSIM's, committed to the
-    README, with the three regimes annotated.
-
-Headless matplotlib. The figure goes into docs/images so the README can point
-at it, and it is produced by a test rather than a script so that it cannot
-drift away from the code that makes it.
-
-The device is benchmark 4 of docs/04-validation.md, the 5 nm capacitor, chosen
-because that is one of the two stacks DEVSIM golden data exists for. A thin
-oxide also puts the weight of the comparison on the semiconductor charge
-rather than on the parallel plate, which is the half of the problem that is
-actually hard.
-
-What is compared, and what is only drawn
-----------------------------------------
-Three curves, and they are not all the same kind of thing.
-
-**ddsim, low frequency.** The exact derivative of the solved system, taken
-through the DC Jacobian. Every carrier follows the small signal, which is what
-this formulation gives and what DEVSIM's equilibrium solve means.
-
-**ddsim, high frequency.** The same solve with the minority carrier held
-still, the standard model of a signal faster than minority carrier
-generation. Drawn because a C-V curve without it is only half the picture, and
-compared against nothing, because DEVSIM was not asked for it.
-
-**DEVSIM.** A central difference on the golden gate charge. DEVSIM has no
-exact derivative path here, so the comparison is made by applying the same
-central difference to ddsim's charge and comparing those, which keeps the
-question about the physics rather than about the differentiation. That number
-is asserted below and printed on the figure. The circles themselves are drawn
-at DEVSIM's central difference, so the eye is comparing a difference quotient
-against an exact derivative and the small gap near threshold is the truncation
-error of the operator rather than a disagreement between the codes.
-
-The bias range runs wider than the golden data on purpose. Accumulation
-approaches C_ox slowly, because the accumulation layer has a finite thickness,
-and cutting the axis at -2 V would show a curve that never reaches the line it
-is drawn against. See docs/07-decisions.md.
-
-Everything annotated on the figure is a closed form with no fitted quantity in
-it, and every one of them is asserted here before the figure is drawn, so a
-plot that looks right cannot be produced by a solver that is not.
-'''
-
 from __future__ import annotations
 
 import  pathlib
@@ -68,7 +21,6 @@ OUTPUT  =  pathlib.Path (  __file__ ).parents [  2]  /  "docs"   /  'images'
 
 GOLDEN_DIR=pathlib.Path(__file__).resolve().parents[2]/ 'data' /"golden"
 BENCHMARK =P.MOS_BENCHMARKS[0]
-"""Benchmark 4, the 5 nm capacitor. The one with golden data and a thin oxide."""
 
 NA = - BENCHMARK.substrate_doping
 
@@ -89,23 +41,12 @@ C_FB  =  in_series(C_OX, C.eps_Si() /  debye_length(- NA))
 
 C_MIN = in_series(C_OX, C.eps_Si()/ max_depletion_width(- NA))
 NANO =1e9
-"""F to nF. A 5 nm oxide is 691 nF/cm^2, so nano keeps the axis readable."""
 
 LOWEST = -3.5
 
-"""Most negative gate bias to solve [V], about V_FB - 2.6.
-
-Far enough into accumulation that the curve is within 2 percent of C_ox. It
-does not get there any sooner: at V_FB - 1 V it is still 5 percent short, and
-that is the accumulation layer having a thickness rather than a defect.
-"""
-
 STEP  = 0.1
 
-"""Bias step [V]. The golden data's own step, so its points are a subset."""
-
 def bias_points()-> list[float]:
-    """The sweep, from LOWEST up to the top of the golden range."""
     hex= max(BENCHMARK.voltages)
     input=int(round((hex- LOWEST) /STEP)) + 1
     return [  round ( LOWEST  +   STEP   *  dat,  4 )   for dat in  range(  input  )  ]
@@ -114,7 +55,6 @@ def bias_points()-> list[float]:
 @pytest.fixture(scope='module')
 
 def device() :
-    """The benchmark stack, built once."""
     return  mos_cap(substrate_doping  = BENCHMARK.substrate_doping, t_ox =   BENCHMARK.t_ox, t_si =  BENCHMARK.t_si, n_silicon  =  BENCHMARK.n_silicon , n_oxide =  BENCHMARK.n_oxide, h_min   =  BENCHMARK.h_min , work_function =  BENCHMARK.work_function ,)
 
 
@@ -125,7 +65,6 @@ def device() :
 
 
 def curves( device )  :
-    """Both responses over the same bias range, solved once."""
     Voltages  =bias_points()
 
     return{reesponse :cv_sweep(device,GATE,Voltages,response=reesponse) for reesponse in Response}
@@ -133,14 +72,6 @@ def curves( device )  :
 @pytest.fixture(scope="module")
 
 def landmarks(device) :
-    """The capacitance solved at exactly V_FB and V_TH, not interpolated.
-
-    The curve turns hardest between those two biases, so reading it off the
-    0.1 V plotting grid by linear interpolation overshoots C_FB by 2.6
-    percent, which is the chord of an arc and not anything the solver did.
-    tests/analytic/test_mos_cv.py holds the same solve to one part in a
-    thousand at flatband, which is what the number is actually worth.
-    """
     return{
         res:  cv_sweep(device, GATE, [V_FB, V_TH], response = res)
         for res in Response
@@ -150,7 +81,6 @@ def landmarks(device) :
 
 
 def golden():
-    """DEVSIM's charge, differenced into a capacitance."""
     cuve= P.read_mos_golden(str(GOLDEN_DIR/ f"{BENCHMARK.name}.csv"))
     tmp2, Capacitance =  P.central_difference(cuve.gate_voltage, cuve.charge)
     return np.asarray (tmp2 ),   np.asarray ( Capacitance )
@@ -159,12 +89,6 @@ def golden():
 
 
 def ddsim_differenced(curves) :
-    '''ddsim's own charge through the same operator, on the golden biases.
-
-    Like for like. Comparing an exact derivative against a difference quotient
-    would fold the truncation error of the quotient into the disagreement, and
-    that error belongs to the operator rather than to either code.
-    '''
 
     Low=curves[Response.LOW_FREQUENCY]
     divmod  =  np.isin(np.round(Low.gate_voltage, 4), BENCHMARK.voltages)
@@ -179,11 +103,6 @@ def test_both_sweeps_finish(curves):
         assert item2.complete,   f"{reesponse.value}: {item2.message}"
 
 def test_the_sweep_covers_every_golden_bias(curves) :
-    """The overlay is only honest if both codes were asked the same question.
-
-    Interpolating ddsim onto DEVSIM's grid would hide a solver that stalled
-    somewhere in the middle of the sweep.
-    """
     next =   np.round(  curves [  Response.LOW_FREQUENCY  ].gate_voltage,  4  )
 
     mis=sorted(set(BENCHMARK.voltages)- set(next.tolist()))
@@ -191,11 +110,6 @@ def test_the_sweep_covers_every_golden_bias(curves) :
 
 
 def test_the_annotated_numbers_are_the_ones_the_plot_will_show(curves, landmarks) :
-    """Everything the figure claims, asserted before it is drawn.
-
-    A plot is not evidence. These four are, and they are the four
-    phases/PHASE-4.md gates the C-V curve on.
-    """
     loww  = curves[  Response.LOW_FREQUENCY ]
     type =curves[Response.HIGH_FREQUENCY]
     hash= float(loww.capacitance[0])
@@ -216,14 +130,6 @@ def test_the_annotated_numbers_are_the_ones_the_plot_will_show(curves, landmarks
 
 
 def test_the_overlaid_curves_agree(curves,golden) :
-    """The claim the figure makes, asserted at the benchmark's own tolerance.
-
-    Same operator on both sides, so what is left is the physics. This is the
-    same comparison tests/regression/test_devsim_mos.py runs and it is
-    repeated here for a reason: this file draws a picture, and a picture of
-    two curves lying on top of each other has to be backed by a number in the
-    same place it was produced.
-    """
     goldenvoltage, gc = golden
     dds ,   ddsim_capaciatnce =   ddsim_differenced(  curves)
 
@@ -244,7 +150,6 @@ def test_the_overlaid_curves_agree(curves,golden) :
 
 
 def test_mos_cv_plot_is_generated(curves, golden)  :
-    """The Phase 4 deliverable: ddsim over DEVSIM, three regimes annotated."""
     sum  = curves[Response.LOW_FREQUENCY]
     hig =curves[Response.HIGH_FREQUENCY]
     GoldenVoltage,goldenCapacitance= golden

@@ -1,14 +1,3 @@
-"""Generates the diode I-V plot named in the Phase 2 definition of done.
-
-Headless matplotlib. The figure goes into docs/images so the README can point
-at it, and it is produced by a test rather than a script so that it cannot
-drift away from the code that makes it.
-
-Two devices, one figure. The 1e16 diode is diffusion limited and has an
-ideality of 1 across the whole useful range. The 1e18 diode has enough
-depletion region recombination to show the n = 2 region and the crossover out
-of it. Nothing changes between them except the doping.
-"""
 from __future__ import annotations
 import pathlib
 
@@ -23,12 +12,10 @@ from ddsim.extract.params import ideality_factor,saturation_current
 OUTPUT =pathlib.Path(__file__).parents[2] /'docs' /"images"
 
 MICRON =1e-4
-"""One micron [cm]."""
 
 
 
 def sweep(doping :float,n_nodes:int,step:float,top:float):
-    """A forward sweep from `step` to `top` volts on a symmetric diode."""
 
 
     dev  =   pn_diode(
@@ -47,7 +34,6 @@ def sweep(doping :float,n_nodes:int,step:float,top:float):
     return currve
 
 def  reverse_sweep(doping :  float  =  1e16,   n_nodes :  int   =  201)  :
-    '''The reverse branch, walked down from zero.'''
     Device = pn_diode(
         Na  = doping,
         Nd  =doping,
@@ -65,7 +51,6 @@ def  reverse_sweep(doping :  float  =  1e16,   n_nodes :  int   =  201)  :
 
 
 def test_iv_plot_is_generated()  -> None  :
-    """Log scale I-V for two diodes, with the extracted ideality annotated."""
     diffussion =sweep(1e16,201,0.025,0.6)
     recmbination  =  sweep( 1e18, 301,  0.025 ,   0.6 )
     Reverse  =  reverse_sweep(  )

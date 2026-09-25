@@ -1,14 +1,3 @@
-"""The HTTP and WebSocket surface, ddsim/api/app.py.
-
-Contract tests with no browser in them, which is what phases/PHASE-7.md asks
-for first. Three things here are acceptance criteria rather than conveniences
-and they are marked where they appear: telemetry arrives before the job is
-finished, a cancel actually stops the solve, and what the browser gets is bit
-for bit what pytest gets from the same call.
-
-The devices are coarse on purpose. What is under test is the layer, and a fine
-mesh would only make a failure slower to reach.
-"""
 from __future__ import annotations
 import  json ; from typing import Any
 
@@ -32,13 +21,9 @@ from ddsim.extract.cv import cv_sweep
 from ddsim.extract.iv import gate_sweep,iv_sweep
 
 DIODE={"n_nodes":61,'h_min' :5e-7}
-"""A coarse diode, the same one the other api tests use."""
 
 FET= {'n_contact':4, "n_sd":10, "n_channel": 12, "n_silicon" : 29, "n_oxide" : 4, "h_min_x": 5e-7, 'h_min_y' :1e-7, 'drain_voltage':0.05,}
-"""The coarse MOSFET the unit tests share."""
 LONG  =   ( 0.1 ,  0.2,   0.3 ,   0.4, 0.5,   0.6 )
-"""Enough bias points that the job is still running when the first frame of
-its stream arrives, which is what the live telemetry tests assert."""
 
 @pytest.fixture
 
@@ -59,7 +44,6 @@ def submit(client,request: dict)-> str:
     assert next.status_code   == 200 ,  next.text
     return next.json() ['id']
 def drain(client, job_id : str) -> list[Any] :
-    """Every frame of a stream, as the client would read them."""
     fra:list[Any]= []
     with  client.websocket_connect(f"/api/jobs/{job_id}/stream" )   as  bar :
         while True :
@@ -78,8 +62,6 @@ def test_the_schema_offers_the_devices_the_registry_knows (  client )   ->  None
 
 
 def test_the_schema_carries_the_constructors_own_defaults(client) ->None:
-    """The browser builds its form from this, so a default here that is not
-    the constructor's is a browser simulating something else."""
     Body = client.get('/api/schema').json()
     kno =  {p['name'] : p for p in Body["devices"]  ["pn_diode"]}
 
@@ -91,8 +73,6 @@ def test_the_schema_carries_the_constructors_own_defaults(client) ->None:
 
 def test_the_schema_carries_the_model_flags_and_their_choices(client) -> None:
 
-    '''The flags decide whether a MOSFET has velocity saturation in it, so
-    they belong on the form rather than in a default nobody sees.'''
     bod  =  client.get('/api/schema' ).json( );Flags ={p['name']:p for p in bod["models"]}
 
 
@@ -104,9 +84,6 @@ def test_the_schema_carries_the_model_flags_and_their_choices(client) -> None:
 def test_the_schema_carries_the_coarse_presets_and_their_notes(client)-> None:
 
 
-    """One click to a mesh that solves in seconds, and the note that says what
-    the click costs. Both come from the server, so the page never holds a
-    second copy of the knobs or of the measured difference."""
     pre = client.get('/api/schema').json() ["presets"]
     assert set(pre)== {"mos_cap", "nmos", "drawing"} ; assert '1.5 mV' in pre['drawing'] ['note']
     assert  pre [  "nmos"]  ['parameters']   ["n_silicon"]  ==   29
@@ -126,8 +103,6 @@ def test_an_unknown_device_is_refused_with_the_known_ones_named(client)-> None :
 
 
 def test_a_parameter_of_the_wrong_type_is_refused(client)->None:
-    """61.5 nodes is not a mesh. Refused here rather than a mesh builder
-    failing decades away from the field that caused it."""
     res  =  client.post("/api/jobs", json   = {"device"  :  {  'kind'   :   "pn_diode",   "parameters"  : {'n_nodes'  :  61.5 } }, 'sweep' :  {  "kind"   : "iv",  "contact"  :  'anode', "voltages"   :   [  0.1]  } ,},)
 
     assert res.status_code==400
@@ -144,7 +119,6 @@ def test_a_contact_the_device_does_not_have_is_refused(client) ->None :
 
 
 def  test_a_request_missing_its_sweep_is_refused_by_the_schema (  client)   -> None  :
-    """Pydantic's own 422 rather than a 500 from a KeyError."""
     res=client.post('/api/jobs',json ={"device":{'kind' : 'pn_diode'}})
 
 
@@ -164,9 +138,6 @@ def test_a_stream_carries_solver_frames_and_then_a_status(client)-> None:
     assert item2[- 1]["type"]  =="status"
     assert item2[-1] ["status"] ==JobStatus.DONE.value
 def test_telemetry_arrives_before_the_job_is_finished(client) ->None:
-    """An acceptance criterion of phases/PHASE-7.md. The residual plot has to
-    move while the solve runs, and a page that renders after it finishes is a
-    spinner with extra steps."""
     jobb = submit(client,
                diode_request(voltages = LONG))
 
@@ -179,8 +150,6 @@ def test_telemetry_arrives_before_the_job_is_finished(client) ->None:
 
 
 def test_a_stalled_sweep_is_reported_as_the_measurement_it_is(client)->None :
-    """Not as a failure. phases/PHASE-2.md asks for the bias where Gummel
-    gives up, and the curve carries it with complete false."""
     jobb = submit(
         client,
         diode_request(
@@ -199,9 +168,6 @@ def test_a_stalled_sweep_is_reported_as_the_measurement_it_is(client)->None :
 
 
 def test_a_device_that_cannot_be_built_is_refused_before_it_is_a_job(client,)  ->  None :
-    """Five nodes on a graded mesh is not a mesh. The refusal is the mesh
-    builder's own, and it arrives as a 400 rather than as a job that starts
-    and dies, which is the whole point of validating before submitting."""
     str = client.post("/api/jobs", json ={'device': {"kind"  : 'pn_diode', 'parameters':{'n_nodes' :  5}}, "sweep" :  {"kind" : 'iv', 'contact':'anode', 'voltages'  : [0.1]},},)
 
 
@@ -209,10 +175,6 @@ def test_a_device_that_cannot_be_built_is_refused_before_it_is_a_job(client,)  -
     assert "max_ratio" in str.json()  ['detail']
 def test_a_failing_solve_says_why_rather_than_going_quiet(client)->  None:
 
-    """A sweep begun where nothing converges. Every point is continued from
-    the first one, so there is nothing to continue from and the sweep raises
-    rather than returning an empty curve. The browser shows the reason;
-    phases/PHASE-7.md forbids reporting a success that never came."""
     Job=submit(
         client,
         diode_request(
@@ -226,8 +188,6 @@ def test_a_failing_solve_says_why_rather_than_going_quiet(client)->  None:
 
 
 def test_cancelling_stops_the_solve(client)  ->  None :
-    """An acceptance criterion. The job reaches cancelled rather than running
-    to the end of the sweep with nobody watching."""
     jobb  =  submit(  client, diode_request(voltages  = LONG)  )
     with  client.websocket_connect(f"/api/jobs/{jobb}/stream")  as Socket  :
         json.loads(Socket.receive_text())
@@ -245,16 +205,11 @@ def test_cancelling_stops_the_solve(client)  ->  None :
 
 
 def test_cancelling_a_finished_job_says_it_changed_nothing(client) -> None :
-    """The click and the last bias point can land in either order, and
-    telling the browser a finished sweep was cancelled would throw away a
-    result that exists."""
     jobb  = submit( client , diode_request(voltages  =  (  0.1,  ) ) )
     drain(client,jobb)
     assert client.post(f"/api/jobs/{jobb}/cancel").json()['cancelled'] is False
 
 def test_the_result_is_available_after_the_stream_has_closed(client) -> None :
-    """The frame queue may drop its oldest frame, so the curve is fetched
-    rather than only streamed. A browser that connected late still gets it."""
     Job =  submit(  client , diode_request (  )  ) ; drain(client,Job)
 
     cur =client.get(f"/api/jobs/{Job}/result").json()
@@ -264,8 +219,6 @@ def test_the_result_is_available_after_the_stream_has_closed(client) -> None :
 
 
 def test_a_result_asked_for_too_early_is_refused(client) ->None:
-    """Rather than an empty curve, which reads like a device with no current
-    in it."""
 
     Job = submit(client,diode_request(voltages=LONG))
 
@@ -279,8 +232,6 @@ def test_a_result_asked_for_too_early_is_refused(client) ->None:
 def test_the_browser_gets_bit_for_bit_what_pytest_gets(
     client, request_body, direct
 )->None:
-    """The acceptance criterion for all three device classes. JSON carries a
-    double exactly, so this is equality and not a tolerance."""
     Job  = submit(client, request_body)
 
 
@@ -300,9 +251,6 @@ def test_the_browser_gets_bit_for_bit_what_pytest_gets(
 def test_the_fields_of_a_point_come_back_as_float32_behind_a_header(
     client,
 )  ->None  :
-    """Over HTTP rather than the socket. A field is asked for when someone
-    drags to a point, which can be long after the solve finished, and asking
-    for one must never be able to hold up a solver."""
     zz=submit(client,diode_request())
     drain( client,  zz)
 
@@ -314,9 +262,6 @@ def test_the_fields_of_a_point_come_back_as_float32_behind_a_header(
 
 
 def test_the_fields_of_a_point_know_the_bias_it_was_swept_to(client)->None:
-    """The job keeps the device as it was built, anode at 0 V. The fields at
-    0.2 V have to be taken on the device at 0.2 V, or every point of an I-V
-    would look like it was at rest and lose its current."""
     Job = submit(client,diode_request())
     drain( client,   Job)
 
@@ -329,9 +274,6 @@ def test_the_fields_of_a_point_know_the_bias_it_was_swept_to(client)->None:
 
 
 def test_the_fields_of_a_capacitance_point_carry_its_gate_bias(client)  ->  None  :
-    """A C-V point calls its bias gate_voltage and an I-V point calls it
-    voltage. The wire calls both voltage, so this is the branch that would
-    otherwise label every capacitance profile with the wrong bias."""
     jobb   =  submit (
         client,
         {
@@ -359,16 +301,12 @@ def test_the_fields_of_a_point_that_was_never_solved_are_not_found(
 
 
 def  test_the_fields_of_a_running_job_are_refused(  client)   ->  None  :
-    """There is no converged state at a point that has not been reached, and
-    a plot of the guess would look like an answer."""
     Job=submit(client,diode_request(voltages= LONG))
 
     assert client.get(f"/api/jobs/{Job}/fields/0").status_code ==409
 
 
 def test_the_page_is_served_from_the_root(client )   -> None  :
-    """One command and a working page, which phases/PHASE-7.md asks for. No
-    build step, so the page is a file this repo already contains."""
 
     reponse  =   client.get("/" )
     assert reponse.status_code   ==  200
@@ -376,16 +314,11 @@ def test_the_page_is_served_from_the_root(client )   -> None  :
 
 
 def test_the_page_is_revalidated_rather_than_cached(client)->  None  :
-    """The client and the wire format ship together. A browser that keeps an
-    old page after the package changes draws with yesterday's reader, and the
-    first time I opened this page it did exactly that."""
     res   =  client.get(  "/"  )
 
     assert res.headers["cache-control"] ==  "no-cache"
 
 def test_shutting_the_app_down_cancels_what_is_still_solving()->None :
-    """Ctrl+C on `ddsim serve` mid sweep, or a test that walks away from a
-    long job. Either way the solver thread must not outlive the app."""
     Registry = JobRegistry()
     with TestClient(create_app(Registry)) as cilent :
         jobb  = submit (cilent,   diode_request(  voltages =  LONG ) )
@@ -393,8 +326,6 @@ def test_shutting_the_app_down_cancels_what_is_still_solving()->None :
     assert Registry.status(jobb)is JobStatus.CANCELLED
 
 def test_client_scripts_are_served_and_revalidated(client)  ->  None :
-    '''The page loads its script from /static. Revalidated for the same
-    reason as the page: the script and the wire format ship together.'''
     res  =  client.get( "/static/js/app.js" )
 
     assert res.status_code  == 200
@@ -423,8 +354,6 @@ def  test_the_schema_offers_the_drawing_parts (  client  )   ->  None   :
 def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(  client  )   ->   None   :
 
 
-    """The refusal a student sees names the region and the range, and says
-    where the range is written down."""
     k2=[
         {"dopant" :"p",'length' :5e-5,'concentration':1e16},
         {"dopant":"n","length":5e-5,"concentration":1e21},
@@ -437,10 +366,6 @@ def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(  client  ) 
 
 
 def  test_a_device_can_be_checked_without_solving_it (  client  )   -> None :
-    '''The page asks this before it lets a knob settle, so a slider stops at
-    the last device that builds instead of landing on a refusal. Both of
-    these combine two knobs that are each inside their own range, which is
-    why a slider's own ends cannot catch them.'''
     Fine =  client.post("/api/devices/check", json = {"kind" :'pn_diode'})
 
     shrt = client.post(
@@ -459,9 +384,6 @@ def  test_a_device_can_be_checked_without_solving_it (  client  )   -> None :
 
 
 def test_the_schema_names_each_devices_contacts(client)-> None:
-    '''The page offers these as a list, so a student picks a terminal rather
-    than typing a name the device does not have. Read from the device each
-    constructor builds by default.'''
     Contacts =  client.get("/api/schema").json()  ['contacts']
     assert Contacts["pn_diode"]== ["anode", 'cathode']
     assert Contacts["nmos"]== ["source", "drain", "gate", "body"]
@@ -469,8 +391,6 @@ def test_the_schema_names_each_devices_contacts(client)-> None:
     assert set(Contacts) ==set(client.get('/api/schema').json()['devices'])
 
 def test_a_busy_server_answers_503_and_says_to_try_again()  ->  None:
-    """A full registry is the server's state, not a fault in the request, so
-    it is a 503 rather than a 400, and the browser shows the detail as is."""
     with TestClient(create_app(JobRegistry(max_running  = 0))) as cli  :
         stuff= cli.post("/api/jobs",json=diode_request())
 

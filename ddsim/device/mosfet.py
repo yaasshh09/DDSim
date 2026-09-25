@@ -1,55 +1,3 @@
-"""An n-channel MOSFET, the Phase 5 device.
-
-Four terminals on two materials: a p-type body with an n+ source and drain
-implanted into its surface, an oxide over the whole of that surface, and a gate
-electrode on the oxide over the channel alone.
-
-The point of phases/PHASE-5.md is that threshold roll-off, DIBL and velocity
-saturation come out of Poisson and two continuity equations on this geometry
-and nothing else. So nothing here is fitted and nothing is a model of a short
-channel effect. Everything below is either a length, a concentration, or a
-consequence of one of those.
-
-The two channel lengths
------------------------
-`L_gate` is the electrode, which is what the sweep is against and what a data
-sheet quotes. The metallurgical channel is shorter, by `lateral_diffusion` at
-each end, because an implant spreads sideways under the mask edge. That gap is
-not a correction bolted on afterwards: it is in the doping profile, so the
-solver sees the shorter channel without being told about it, and the roll-off
-that follows is a result rather than an input.
-
-Where the terminals are
------------------------
-The oxide spans the whole width, so the Si/SiO2 interface is one flat node
-line, which is what device/regions.py requires and what keeps the mesh a clean
-tensor product.
-
-The gate covers the channel span exactly. The oxide above the source and drain
-has no electrode over it and so takes the natural condition, dpsi/dn = 0. That
-is the ideal structure of docs/01-physics.md: no gate overlap, so no overlap
-capacitance and no gate induced drain leakage.
-
-Source and drain are plates on the silicon surface, at the interface row,
-covering the outer part of each implant. They stop short of the mask edge
-deliberately. A contact pins psi, n and p, so running one all the way to the
-junction would pin the junction, and the built in potential would stop being
-something the solver works out for itself.
-
-The body is a plate over the whole bottom edge, for the reason the MOS
-capacitor gives: a point contact leaves the rest of that boundary reflecting,
-which is a different device.
-
-What is not here
-----------------
-No fixed interface charge, no poly depletion, no halo or pocket implant, and no
-lightly doped drain. Every one of those exists to move the threshold voltage or
-to soften a field, which is to say every one of them would be tuning the answer
-this phase is supposed to derive.
-"""
-
-
-
 from __future__ import annotations
 import  math
 
@@ -71,29 +19,13 @@ from ddsim.mesh.mesh2d import tensor_mesh_2d
 SOURCE =  'source'
 
 
-"""Terminal name of the source."""
 DRAIN= "drain"
-"""Terminal name of the drain."""
 GATE =  "gate"
-"""Terminal name of the gate."""
 BODY =  'body'
-
-"""Terminal name of the substrate contact."""
 
 def _junction_mesh(
     length  : float, n_nodes : int, refine_at :float, h_min  : float
 ) ->Mesh1D :
-    '''Columns graded toward a junction, or uniform if they are already finer.
-
-    `h_min` is what the junction wants resolved, not a floor on cell size.
-    Grading trades a coarse far end for a fine near one, so it has something
-    to trade only while spreading the nodes evenly would leave them coarser
-    than `h_min`. Once the segment is short enough that it would not, every
-    cell is already inside the target and the even spacing is the answer.
-
-    This is what lets the short end of the gate length sweep exist: at a 50 nm
-    gate the half channel holds its columns at 1.7 nm with h_min asking for 2.
-    '''
     if h_min  * (n_nodes- 1)>= length  :
         return uniform_mesh_1d (  length = length,   n_nodes   =  n_nodes)
     return graded_mesh_1d (
@@ -104,106 +36,12 @@ def _junction_mesh(
 
 
 def  implant_lengths(x_j   :  float,   lateral_diffusion :   float,   sd_peak   :  float,   Na :   float)  -> tuple[ float,   float  ]  :
-    """The source implant's depth sigma and lateral erfc length [cm].
-
-    Args:
-        x_j: junction depth [cm].
-        lateral_diffusion: how far the junction reaches under the mask [cm].
-        sd_peak: surface concentration of the implant [cm^-3].
-        Na: the substrate acceptor concentration it meets [cm^-3].
-
-    The implant, in closed form both ways. sigma is set by where the depth
-    profile is to cross the substrate doping, and the erfc length by where
-    the lateral one is, so x_j and lateral_diffusion are what they say. Here
-    rather than inside nmos so a MOSFET drawn from rectangles uses the same
-    two numbers to the last bit.
-    """
     sima = x_j   /   math.sqrt ( 2.0  *   math.log( sd_peak / Na )  )
     edg=lateral_diffusion /float(_erfcinv(2.0*Na/sd_peak))
     return sima, edg
 
 
 def nmos(L_gate : float = 1e-4, sd_length : float=4e-5, contact_length : float = 2e-5, substrate_doping:float = - 1e17, sd_peak : float = 1e20, x_j :  float  = 1.5e-5, lateral_diffusion :float  = 1e-5, t_ox  :float = 2e-6, t_si : float = 1e-4, n_contact : int=6, n_sd: int = 12, n_channel  :  int  = 16, n_silicon: int =  101, n_oxide : int  =33, h_min_x :  float = 2e-7, h_min_y:float =6.25e-9, gate_voltage  :  float=0.0, drain_voltage : float =0.0, source_voltage: float  = 0.0, body_voltage: float  = 0.0, work_function: float= C.PHI_M_N_POLY, material  : Material| None  = None, degenerate :bool  = True,)  ->Device :
-    """An n-channel MOSFET on a p-type substrate.
-
-    Args:
-        L_gate: gate length [cm]. 1e-4 is 1 um. Range 5e-6 to 3e-4, log.
-            It has to be more than twice lateral_diffusion or there's no
-            channel left, so on the default device it stops at 2e-5. The
-            short channel lesson goes down to 5e-6.
-        sd_length: length of the source and of the drain [cm], from the
-            outside edge to the edge of the gate. Range 3e-5 to 5.7e-5.
-        contact_length: how much of the source and of the drain the metal
-            contact covers [cm], measured in from the outside edge. Has to be
-            less than sd_length. Range 5e-6 to 3e-5.
-        substrate_doping: net doping of the body [cm^-3]. Negative means
-            p-type. Range -1e19 to -1e14, log.
-        sd_peak: doping at the surface of the source and drain [cm^-3].
-            Range 1e18 to 1e20, log.
-        x_j: how deep the source and drain go [cm], measured where their
-            doping falls to the body's. Range 2.5e-6 to 5e-5, log.
-        lateral_diffusion: how far the source and drain creep sideways under
-            the gate [cm]. The real channel is L_gate minus twice this.
-            Range 1e-6 to 3e-5, log.
-        t_ox: oxide thickness [cm]. 2e-6 is 20 nm. Range 1e-7 to 1e-5, log.
-        t_si: how deep the silicon goes [cm], several times the depletion
-            width. Range 5e-5 to 5e-4, log.
-        n_contact: mesh columns under each contact [1]. Range 2 to 30.
-        n_sd: mesh columns from a contact's edge to the gate's edge [1].
-            Range 9 to 55.
-        n_channel: mesh columns in each half of the channel [1].
-            Range 11 to 59.
-        n_silicon: mesh rows down through the silicon, counting the surface
-            [1]. Range 17 to 285.
-        n_oxide: mesh rows through the oxide, counting the surface [1].
-            Range 2 to 129.
-        h_min_x: the smallest column spacing, at each junction [cm].
-            Range 1.2e-7 to 5e-6, log.
-        h_min_y: the smallest row spacing, at the silicon surface [cm]. This
-            is the mesh setting the drain current cares about most, because
-            the thin inversion layer is the one thing on the device a mesh
-            can miss. If you halve it, raise n_oxide too.
-            Range 1e-9 to 1e-6, log.
-        gate_voltage: voltage on the gate [V]. Range -1 to 2.5.
-        drain_voltage: voltage on the drain [V]. Range -0.5 to 2.
-        source_voltage: voltage on the source [V]. Range -0.5 to 0.5.
-        body_voltage: voltage on the bottom contact [V]. Range -2 to 0.5,
-            which stops short of forward biasing the body junctions.
-        work_function: the gate's work function [eV]. Defaults to n+
-            polysilicon, the usual NMOS gate. Range 4 to 5.3.
-        material: defaults to silicon at 300 K.
-        degenerate: use Fermi-Dirac statistics instead of the simpler
-            Boltzmann ones. On by default, because the source and drain are
-            doped to 1e20 cm^-3, and there Boltzmann puts the Fermi level
-            30.5 mV off.
-
-    L_gate stops at twice lateral_diffusion because below that no channel is
-    left and the device is refused. h_min_y and n_oxide have to be refined
-    together or the Si/SiO2 seam opens up, see docs/05-pitfalls.md. The
-    h_min_y default is the rung of tests/convergence/test_mosfet_mesh_convergence.py
-    where the drain current stops moving by more than a tenth of what
-    benchmark 6 asserts. At 1e20 cm^-3 n/Nc is 3.5, which is where the 30.5 mV
-    Fermi level error comes from, see docs/07-decisions.md, 2026-09-09.
-
-    Every range end above was solved, one knob at a time with the rest at
-    their defaults, over the lesson's 0 V to 1.5 V transfer at 50 mV drain
-    with the full mobility stack, on both the converged and the coarse mesh,
-    2026-09-23. A mesh knob was solved at the last value that builds on each
-    mesh, since the two meshes refuse at different places. The bias ends were
-    also swept as the swept contact: gate -1 to 2.5 V, drain -0.5 to 2 V at
-    0 and 2.5 V of gate, source and body with the gate at 1.5 V. Every sweep
-    completed. See docs/07-decisions.md, 2026-09-23.
-
-    The implant is separable and both halves of it are closed form, which is
-    what lets a test measure the junction depth and the lateral encroachment
-    against the numbers asked for rather than against a previous run:
-
-        N(x, y) = sd_peak * lateral(x) * exp(-(t_si - y)^2 / (2 sigma^2))
-
-    with `lateral` an erfc edge at the mask. sigma comes from x_j and the two
-    concentrations, and the erfc length from lateral_diffusion and the same
-    two, so both junctions land exactly where they were asked to.
-    """
 
     for str,Value in(
         ("L_gate",L_gate),
