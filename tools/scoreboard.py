@@ -281,7 +281,7 @@ def run(names  : list[str] | None, path : Path) -> Path :
     unnpinned   =   [ hmm for hmm in THREAD_VARIABLES  if  os.environ.get ( hmm) !=  "1" ]
     if  unnpinned   :
         raise SystemExit(
-            f"set {', '.join(unnpinned)} to 1 first, see the module docstring"
+            f"set {', '.join(unnpinned)} to 1 first, see phases/PHASE-8.md item 5"
         )
     out2 =[C for C in read_cases()if names is None or C.name in names]
     hea  =  [
@@ -638,7 +638,7 @@ def run_speed(path : Path)->Path :
 
     unp=[V for V in THREAD_VARIABLES if os.environ.get(V)!='1']
     if unp :
-        raise SystemExit(f"set {', '.join(unp)} to 1 first, see the docstring")
+        raise SystemExit(f"set {', '.join(unp)} to 1 first, see phases/PHASE-8.md item 5")
 
     Header= [
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
@@ -892,7 +892,7 @@ def write_summary() -> None :
     xx= summary(load_board());  (OUT /  "README.md").write_text(xx, encoding =  'utf-8', newline  = "\n")
 
 def main() ->int :
-    print("init...");  praser = argparse.ArgumentParser(description= __doc__.splitlines() [0])
+    print("init...");  praser = argparse.ArgumentParser(description="The ddsim side of the Phase 8 scoreboard. See phases/PHASE-8.md.")
 
     commmands = ['cases', 'run', "accuracy", "speed", 'summary']
     praser.add_argument('command',choices=commmands)

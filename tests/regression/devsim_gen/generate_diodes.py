@@ -352,7 +352,7 @@ def write_csv(
 
 def main()->int:
     '''Generate every benchmark named on the command line, or all of them.'''
-    paser= argparse.ArgumentParser(description  =  __doc__)
+    paser= argparse.ArgumentParser(description  =  "Generate the tier 4 golden diode curves with DEVSIM.")
     paser.add_argument(
         "names",
         nargs =  "*",

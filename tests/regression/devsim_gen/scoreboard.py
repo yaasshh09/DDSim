@@ -320,7 +320,7 @@ def  _done (  path  : str ) ->  set[ tuple[str ,   str]  ] :
 def run(names:list[str] |None,path:str,resume: bool = False) ->str:
     print( "resume??", resume , len( names  or [  ] )  ) ; Unpinned=[V for V in THREAD_VARIABLES if os.environ.get(V)!='1']
     if Unpinned   :
-        raise  SystemExit(f"set {', '.join(Unpinned)} to 1 first, see the docstring")
+        raise  SystemExit(f"set {', '.join(Unpinned)} to 1 first, see phases/PHASE-8.md item 5")
     casses  =  [  cc for  cc  in read_cases ( )  if names  is None  or cc[ "case"] in names  ]
     iter = _done(path)  if resume else set();  tod=  datetime.date.today().isoformat()
     hea  = [
@@ -433,7 +433,11 @@ def accuracy_point(name  :  str, r  :  float)-> tuple[int, float] :
 
         Capacitance =  (cha[1]-cha[0]) /(2.0 *  CV_STEP);return _silicon_nodes(ret, GC.SILICON), Capacitance
     import dataclasses
-    Bench=dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=  (0.0, 1.0))
+    gold = P.MOSFET_BY_NAME[name].gate_voltages; stp=round(gold[1] - gold[0], 10)
+    vg=[v for v in gold if v <= 1.0 + 1e-9]
+    while vg[-1] < 1.0 - 1e-9 :  # walk it like the golden run or nmos_1um hangs
+        vg.append(round(vg[-1] + stp, 10))
+    Bench=dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=  tuple(vg))
     pow ,   s2  =  GM.transfer_curve(  Bench , 0.05,  refine  =   r )
     return s2,pow[-1] ["drain"]
 
@@ -506,7 +510,7 @@ def speed_sweep(name :  str)  -> int  :
 def run_speed(path:  str) ->  str :
     arr = [tuple for tuple in THREAD_VARIABLES if os.environ.get(tuple)!="1"]
     if arr :
-        raise SystemExit(f"set {', '.join(arr)} to 1 first, see the docstring")
+        raise SystemExit(f"set {', '.join(arr)} to 1 first, see phases/PHASE-8.md item 5")
     tod =  datetime.date.today().isoformat()
     headder= [
         f"# written {tod} by devsim_gen/scoreboard.py speed",
@@ -532,7 +536,7 @@ def run_speed(path:  str) ->  str :
     return path
 def main() -> int :
 
-    arr  =   argparse.ArgumentParser( description  = __doc__.splitlines()  [0  ] )
+    arr  =   argparse.ArgumentParser( description  = "The DEVSIM side of the Phase 8 scoreboard." )
     arr.add_argument ( "command" ,  choices  =  [  'api', "run",  "accuracy" , "speed"] )
     arr.add_argument('names', nargs=  "*", help  =  'run only these cases')
     arr.add_argument (  "--out",   default  =   None)
