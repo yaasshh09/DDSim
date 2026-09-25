@@ -273,15 +273,15 @@ def  _done (  path  : str ) ->  set[ tuple[str ,   str]  ] :
 
 
 def run(names:list[str] |None,path:str,resume: bool = False) ->str:
-    print( "resume??", resume , len( names  or [  ] )  ) ; Unpinned=[V for V in THREAD_VARIABLES if os.environ.get(V)!='1']
-    if Unpinned   :
-        raise  SystemExit(f"set {', '.join(Unpinned)} to 1 first, see phases/PHASE-8.md item 5")
+    print( "resume??", resume , len( names  or [  ] )  ) ; Pinned=[V for V in THREAD_VARIABLES if V in os.environ]
+    if Pinned   :
+        raise  SystemExit(f"unset {', '.join(Pinned)} first, robustness runs at each tool's default threading, see docs/07-decisions.md 2026-09-26")
     casses  =  [  cc for  cc  in read_cases ( )  if names  is None  or cc[ "case"] in names  ]
     iter = _done(path)  if resume else set();  tod=  datetime.date.today().isoformat()
     hea  = [
         f"# written {tod} by devsim_gen/scoreboard.py run",
         f"# devsim {devsim.__version__}, python {platform.python_version()}",
-        f"# {platform.platform()}, {platform.processor()}, one BLAS thread",
+        f"# {platform.platform()}, {platform.processor()}, default BLAS threads",
         f"# fine step {1.0 / FINE:g} of the expert step",
         'case,driver,converged,value,imbalance,largest,seconds,message',
     ]

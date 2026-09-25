@@ -219,17 +219,17 @@ def _git_sha()->str  :
 def run(names  : list[str] | None, path : Path) -> Path :
 
     print('--- STAGE 2 REACHED ---',path)
-    unnpinned   =   [ hmm for hmm in THREAD_VARIABLES  if  os.environ.get ( hmm) !=  "1" ]
-    if  unnpinned   :
+    pind   =   [ hmm for hmm in THREAD_VARIABLES  if  hmm in os.environ ]
+    if  pind   :
         raise SystemExit(
-            f"set {', '.join(unnpinned)} to 1 first, see phases/PHASE-8.md item 5"
+            f"unset {', '.join(pind)} first, robustness runs at each tool's default threading, see docs/07-decisions.md 2026-09-26"
         )
     out2 =[C for C in read_cases()if names is None or C.name in names]
     hea  =  [
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py run",
         f"# ddsim {_git_sha()}, python {platform.python_version()}, "
         f"numpy {np.__version__}, scipy {scipy.__version__}",
-        f"# {platform.platform()}, {platform.processor()}, one BLAS thread" ,
+        f"# {platform.platform()}, {platform.processor()}, default BLAS threads" ,
         f"# fine step {FINE_STEP} of every bias, from zero",
         "case,driver,converged,value,imbalance,largest,seconds,message",
     ]
