@@ -6,160 +6,179 @@ nothing in solve/ knows what a carrier density is. One of the tests below
 walks the import graph and enforces that.
 """
 
-from __future__ import annotations
+from __future__ import  annotations
 
 import ast
+
 import pathlib
 
 import numpy as np
-import pytest
-import scipy.sparse as sp
+import pytest, scipy.sparse as sp
+
 
 from ddsim.solve.linear import SparseLU
 
 
-def tridiagonal(n: int, off: float = -1.0, diag: float = 2.0) -> sp.coo_matrix:
+
+def tridiagonal(n :int,off: float= -1.0,diag:float=2.0)->sp.coo_matrix:
     """A well conditioned tridiagonal matrix, the 1D Laplacian shape."""
-    rows, cols, values = [], [], []
-    for i in range(n):
-        rows.append(i)
-        cols.append(i)
-        values.append(diag)
-        if i > 0:
-            rows.append(i)
-            cols.append(i - 1)
-            values.append(off)
-        if i < n - 1:
-            rows.append(i)
-            cols.append(i + 1)
-            values.append(off)
-    return sp.coo_matrix(
-        (np.array(values), (np.array(rows), np.array(cols))), shape=(n, n)
-    )
+    row, cools, Values = [], [], []
+    for temp in range(n) :
 
+        row.append(  temp  )
+        cools.append(temp)
+        Values.append(diag)
+        if temp > 0:
 
-Triplets = tuple[np.ndarray, np.ndarray, np.ndarray, tuple[int, int]]
+            row.append(temp) ; cools.append(temp  - 1)
+            Values.append(off)
+        if temp  < n -  1  :
+            row.append(temp)
+            cools.append(temp  + 1)
+            Values.append(off)
+    return sp.coo_matrix((np.array(Values), (np.array(row), np.array(cools))), shape = (n, n))
 
+Triplets =  tuple[np.ndarray, np.ndarray, np.ndarray, tuple[int, int]]
 
-def as_arrays(matrix: sp.coo_matrix) -> Triplets:
+def as_arrays(matrix:sp.coo_matrix)->Triplets:
+
     """COO triplets plus shape, the form SparseLU.factorize takes."""
-    return matrix.row, matrix.col, matrix.data, matrix.shape
+    return matrix.row, matrix.col, matrix.data,  matrix.shape
 
 
-def test_solves_a_small_system() -> None:
-    matrix = sp.coo_matrix(np.array([[4.0, 1.0], [1.0, 3.0]]))
-    solver = SparseLU()
-    solver.factorize(*as_arrays(matrix))
-    b = np.array([1.0, 2.0])
-    np.testing.assert_allclose(solver.solve(b), np.linalg.solve(matrix.toarray(), b))
 
+def test_solves_a_small_system(  )  -> None :
+    yy  = sp.coo_matrix(np.array( [ [4.0, 1.0] ,  [1.0, 3.0  ]])  )
+    next= SparseLU()
+    next.factorize (*  as_arrays (  yy )  )
+    B  =  np.array([1.0 ,   2.0 ] )
+    np.testing.assert_allclose(next.solve(B), np.linalg.solve(yy.toarray(), B))
 
-def test_solves_a_tridiagonal_system_against_a_dense_reference() -> None:
-    matrix = tridiagonal(50)
-    solver = SparseLU()
-    solver.factorize(*as_arrays(matrix))
-    b = np.linspace(1.0, 2.0, 50)
-    expected = np.linalg.solve(matrix.toarray(), b)
-    np.testing.assert_allclose(solver.solve(b), expected, rtol=1e-12)
+def test_solves_a_tridiagonal_system_against_a_dense_reference ( )   ->   None   :
+    matix  = tridiagonal(50 ) ; slover=  SparseLU()
+    slover.factorize(  *   as_arrays( matix  )  )
 
+    bb =np.linspace(1.0,
+              2.0,
+            50)
+    Expected = np.linalg.solve(matix.toarray(), bb)
+    np.testing.assert_allclose(slover.solve(bb), Expected, rtol= 1e-12)
 
-def test_solves_a_nonsymmetric_system() -> None:
+def test_solves_a_nonsymmetric_system()->None:
     """The real Jacobians are strongly non-symmetric. Do not assume otherwise."""
-    matrix = tridiagonal(30, off=-1.0)
-    dense = matrix.toarray()
-    dense[0, -1] = 5.0
-    dense[-1, 0] = -3.0
-    solver = SparseLU()
-    solver.factorize(*as_arrays(sp.coo_matrix(dense)))
-    b = np.ones(30)
-    np.testing.assert_allclose(solver.solve(b), np.linalg.solve(dense, b), rtol=1e-12)
+    mat =tridiagonal(30,off=-1.0)
+    den =mat.toarray()
+    den[ 0, -   1]   =   5.0;den[- 1,
+              0]= -3.0
+    Solver  = SparseLU()
+
+    Solver.factorize(*as_arrays(sp.coo_matrix(den)))
+    bar=np.ones(30)
+    np.testing.assert_allclose(Solver.solve(bar),np.linalg.solve(den,bar),rtol= 1e-12)
+def test_solves_multiple_right_hand_sides_with_one_factorization()->None:
+    mat  =   tridiagonal(20  )
+    sol= SparseLU(); sol.factorize(* as_arrays(mat))
+    res =mat.toarray()
+    for myvar in(np.ones(20), np.arange(20.0), np.linspace(- 1.0, 1.0, 20)):
+
+        expcted =np.linalg.solve(res, myvar)
 
 
-def test_solves_multiple_right_hand_sides_with_one_factorization() -> None:
-    matrix = tridiagonal(20)
-    solver = SparseLU()
-    solver.factorize(*as_arrays(matrix))
-    dense = matrix.toarray()
-    for b in (np.ones(20), np.arange(20.0), np.linspace(-1.0, 1.0, 20)):
-        expected = np.linalg.solve(dense, b)
-        np.testing.assert_allclose(solver.solve(b), expected, rtol=1e-12)
+        np.testing.assert_allclose(  sol.solve( myvar  ) ,   expcted ,   rtol  =  1e-12  )
 
 
-def test_duplicate_coo_entries_are_summed() -> None:
+def  test_duplicate_coo_entries_are_summed(  )  -> None  :
+
+
     """Assembly emits one triplet per contribution, so duplicates are normal."""
-    rows = np.array([0, 0, 1])
-    cols = np.array([0, 0, 1])
-    values = np.array([1.0, 3.0, 2.0])
-    solver = SparseLU()
-    solver.factorize(rows, cols, values, (2, 2))
-    np.testing.assert_allclose(solver.solve(np.array([8.0, 2.0])), [2.0, 1.0])
+    row = np.array([0, 0, 1])
+    temp2   = np.array( [0 ,  0 , 1  ])
+    out2=np.array([1.0,
+                     3.0,
+                     2.0])
+    sol=SparseLU(); sol.factorize(row,temp2,out2,(2,2))
+
+    np.testing.assert_allclose(sol.solve(np.array([8.0, 2.0])), [2.0, 1.0])
 
 
-def test_first_factorization_reports_a_new_pattern() -> None:
-    solver = SparseLU()
-    solver.factorize(*as_arrays(tridiagonal(10)))
-    assert solver.pattern_unchanged is False
+def test_first_factorization_reports_a_new_pattern()->  None :
+
+    data2 = SparseLU()
+    data2.factorize(* as_arrays(tridiagonal(10)))
+    assert  data2.pattern_unchanged is False
 
 
-def test_same_pattern_with_new_values_is_recognised() -> None:
+
+def test_same_pattern_with_new_values_is_recognised()->None :
     """Across Newton steps the pattern never changes, only the values."""
-    solver = SparseLU()
-    solver.factorize(*as_arrays(tridiagonal(10)))
-    solver.factorize(*as_arrays(tridiagonal(10, diag=3.0)))
-    assert solver.pattern_unchanged is True
+    sovler =SparseLU()
+    sovler.factorize(*  as_arrays(tridiagonal(10 ) )  )
+
+    sovler.factorize(* as_arrays(tridiagonal(10, diag  =  3.0)))
+    assert sovler.pattern_unchanged is True
 
 
-def test_a_changed_pattern_is_recognised() -> None:
-    solver = SparseLU()
-    solver.factorize(*as_arrays(tridiagonal(10)))
-    solver.factorize(*as_arrays(tridiagonal(12)))
-    assert solver.pattern_unchanged is False
+
+def test_a_changed_pattern_is_recognised() ->None:
+    t2=  SparseLU()
+
+    t2.factorize(  * as_arrays(  tridiagonal (  10 )  ) ); t2.factorize(*  as_arrays(tridiagonal(12)))
+    assert t2.pattern_unchanged  is False
 
 
-def test_a_changed_pattern_at_the_same_size_is_recognised() -> None:
+
+def test_a_changed_pattern_at_the_same_size_is_recognised()  ->None:
     """Same shape, different stencil. Comparing shapes alone is not enough."""
-    solver = SparseLU()
-    solver.factorize(*as_arrays(tridiagonal(10)))
-    dense = tridiagonal(10).toarray()
-    dense[0, 9] = 1.0
-    solver.factorize(*as_arrays(sp.coo_matrix(dense)))
-    assert solver.pattern_unchanged is False
 
+    Solver=  SparseLU()
+    Solver.factorize(*  as_arrays(tridiagonal(10))); aa  =   tridiagonal(  10  ).toarray(  )
+    aa[0,9]=1.0
 
-def test_refactorizing_with_new_values_gives_the_new_solution() -> None:
+    Solver.factorize(*as_arrays(sp.coo_matrix(aa)))
+    assert Solver.pattern_unchanged is False
+def test_refactorizing_with_new_values_gives_the_new_solution ( )  ->  None  :
     """The pattern cache must not leak stale numbers into the next solve.
 
     This is the test that matters. A cache that accidentally reused the old
     numerical factorization would give a plausible wrong answer.
     """
-    solver = SparseLU()
-    solver.factorize(*as_arrays(tridiagonal(15, diag=2.0)))
-    first = solver.solve(np.ones(15))
-
-    updated = tridiagonal(15, diag=10.0)
-    solver.factorize(*as_arrays(updated))
-    second = solver.solve(np.ones(15))
-
-    expected = np.linalg.solve(updated.toarray(), np.ones(15))
-    np.testing.assert_allclose(second, expected, rtol=1e-12)
-    assert not np.allclose(first, second)
 
 
-def test_pattern_tracking_never_changes_the_answer() -> None:
+    sorted=SparseLU()
+    sorted.factorize(*as_arrays(tridiagonal(15, diag= 2.0)))
+    frist= sorted.solve(np.ones(15))
+
+
+
+    vars = tridiagonal(15, diag = 10.0)
+    sorted.factorize(*as_arrays(vars))
+    Second =sorted.solve(np.ones(15))
+
+    object = np.linalg.solve(vars.toarray(), np.ones(15))
+
+    np.testing.assert_allclose(Second,   object,   rtol  =  1e-12)
+
+    assert not np.allclose(  frist,   Second )
+
+
+def test_pattern_tracking_never_changes_the_answer()-> None:
     """Tracking is bookkeeping. A warm solver and a cold one must agree bitwise."""
-    matrix = tridiagonal(40, diag=5.0)
-    warm = SparseLU()
-    warm.factorize(*as_arrays(tridiagonal(40)))
-    warm.factorize(*as_arrays(matrix))
 
-    cold = SparseLU()
-    cold.factorize(*as_arrays(matrix))
-
-    b = np.linspace(0.0, 1.0, 40)
-    np.testing.assert_array_equal(warm.solve(b), cold.solve(b))
+    Matrix = tridiagonal(40, diag =5.0)
 
 
-def test_ordering_is_colamd_not_natural() -> None:
+    next =  SparseLU( )
+    next.factorize(*as_arrays(tridiagonal(40)))
+    next.factorize(*as_arrays(Matrix))
+
+
+    arr=SparseLU()
+    arr.factorize( *  as_arrays(Matrix) )
+    bb= np.linspace(0.0, 1.0, 40)
+    np.testing.assert_array_equal(next.solve(bb),arr.solve(bb))
+
+
+def test_ordering_is_colamd_not_natural()  ->  None:
     """Guards against reintroducing the pre-permutation pessimization.
 
     Feeding perm_c back through permc_spec="NATURAL" looks like ordering
@@ -168,94 +187,94 @@ def test_ordering_is_colamd_not_natural() -> None:
     NATURAL path skips. Measured 14x to 46x slower overall. See the docstring
     in solve/linear.py.
     """
-    side = 30
-    laplacian = sp.kron(
-        sp.eye(side),
-        sp.diags([[-1.0] * (side - 1), [4.0] * side, [-1.0] * (side - 1)], [-1, 0, 1]),
-    ) + sp.kron(
-        sp.diags([[-1.0] * (side - 1), [0.0] * side, [-1.0] * (side - 1)], [-1, 0, 1]),
-        sp.eye(side),
+
+    Side  = 30
+    Laplacian=sp.kron(
+        sp.eye(Side),
+        sp.diags([[-1.0] *(Side -1),[4.0]*Side,[-1.0] *(Side- 1)],[-1,0,1]),
+    ) +sp.kron(
+        sp.diags([[-1.0]*(Side-1),[0.0] *Side,[-1.0]*(Side - 1)],[- 1,0,1]),
+        sp.eye(Side),
     )
-    solver = SparseLU()
-    solver.factorize(*as_arrays(sp.coo_matrix(laplacian)))
-    fill_first = solver.fill_nnz
-    solver.factorize(*as_arrays(sp.coo_matrix(laplacian)))
-    assert solver.pattern_unchanged is True
-    assert solver.fill_nnz == fill_first
+    bar= SparseLU()
+    bar.factorize(*as_arrays(sp.coo_matrix(Laplacian)))
+    fillFirst  =  bar.fill_nnz
+    bar.factorize(*  as_arrays( sp.coo_matrix (  Laplacian  ))  )
+    assert bar.pattern_unchanged is True
+    assert bar.fill_nnz   ==  fillFirst
+
+def test_singular_matrix_raises_an_informative_error()->  None :
+
+    k2= np.array([0,1]);clos = np.array ([ 0,  1  ] )
+    valuues = np.array([1.0,0.0])
+    t2 = SparseLU()
+    with pytest.raises(RuntimeError,match='singular'):
+        t2.factorize(k2, clos, valuues, (2, 2))
 
 
-def test_singular_matrix_raises_an_informative_error() -> None:
-    rows = np.array([0, 1])
-    cols = np.array([0, 1])
-    values = np.array([1.0, 0.0])
-    solver = SparseLU()
-    with pytest.raises(RuntimeError, match="singular"):
-        solver.factorize(rows, cols, values, (2, 2))
 
 
-def test_solving_before_factorizing_raises() -> None:
-    solver = SparseLU()
-    with pytest.raises(RuntimeError, match="factorize"):
-        solver.solve(np.ones(3))
+def test_solving_before_factorizing_raises() ->  None  :
+    solevr = SparseLU()
+    with pytest.raises(RuntimeError, match = 'factorize') :
+        solevr.solve(np.ones(3))
 
 
-def test_non_square_matrix_raises() -> None:
-    solver = SparseLU()
-    with pytest.raises(ValueError, match="square"):
-        solver.factorize(np.array([0]), np.array([0]), np.array([1.0]), (2, 3))
 
 
-def test_right_hand_side_of_wrong_length_raises() -> None:
-    solver = SparseLU()
-    solver.factorize(*as_arrays(tridiagonal(5)))
-    with pytest.raises(ValueError, match="length"):
-        solver.solve(np.ones(4))
+def test_non_square_matrix_raises() ->None  :
+    Solver=SparseLU()
+    with pytest.raises(ValueError,match ='square'):
+        Solver.factorize(np.array([0]), np.array([0]), np.array([1.0]), (2, 3))
 
 
-def test_solve_package_imports_nothing_semiconductor_specific() -> None:
-    """docs/03-architecture.md: solve/ knows nothing about semiconductors.
+def test_right_hand_side_of_wrong_length_raises()  -> None :
+    sol =   SparseLU ( )
+    sol.factorize(* as_arrays(tridiagonal(5)))
+    with pytest.raises(ValueError, match  = "length") :
+        sol.solve(np.ones(4))
+
+def test_solve_package_imports_nothing_semiconductor_specific() ->None:
+    '''docs/03-architecture.md: solve/ knows nothing about semiconductors.
 
     continuation.py gets reused by the SPICE layer unchanged. That only works
     if a carrier density never leaks into this package. Enforced here rather
     than left as a comment nobody reads.
-    """
-    forbidden = {
-        "ddsim.core.constants",
-        "ddsim.physics",
-        "ddsim.device",
-        "ddsim.discretize",
-    }
-    package = pathlib.Path(__file__).parents[2] / "ddsim" / "solve"
+    '''
+    out2=  {"ddsim.core.constants", "ddsim.physics", 'ddsim.device', "ddsim.discretize",}
+    pac=pathlib.Path(__file__).parents[2]/"ddsim"/'solve'
 
-    for source in package.glob("*.py"):
-        tree = ast.parse(source.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            names: list[str] = []
-            if isinstance(node, ast.Import):
-                names = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom) and node.module is not None:
-                names = [node.module]
-            for name in names:
-                for banned in forbidden:
-                    assert not name.startswith(banned), (
-                        f"{source.name} imports {name}, which breaks the "
-                        "solve/ module boundary"
+    for Source in pac.glob("*.py") :
+        Tree=ast.parse(Source.read_text(encoding = "utf-8"))
+        for r2 in ast.walk(Tree) :
+            nam:list[str] = []
+            if isinstance(r2,ast.Import):
+                nam = [aias.name for aias in r2.names]
+            elif isinstance(r2, ast.ImportFrom) and r2.module is not None :
+                nam =  [r2.module]
+            for tmp2 in nam:
+                for Banned in out2 :
+                    assert not tmp2.startswith(Banned), (
+                        f"{Source.name} imports {tmp2}, which breaks the "
+                        'solve/ module boundary'
                     )
 
 
-def imported_modules(source: pathlib.Path) -> list[str]:
+def imported_modules(source: pathlib.Path)  -> list[str] :
     """Every module name a file imports, however it spells the import."""
-    tree = ast.parse(source.read_text(encoding="utf-8"))
-    names: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            names += [alias.name for alias in node.names]
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            names.append(node.module)
-    return names
+    tere =  ast.parse(source.read_text(encoding ='utf-8'))
+    Names :  list[str] =[]
+    for Node in ast.walk(tere):
+        if isinstance(Node,ast.Import) :
+            Names  +=   [Alias.name  for  Alias in Node.names ]
+        elif isinstance(Node,ast.ImportFrom)and Node.module is not None:
+            Names.append(Node.module)
+    return Names
 
 
-def test_nothing_imports_the_api_package() -> None:
+
+
+def test_nothing_imports_the_api_package()->None :
     """phases/PHASE-7.md: api/ is a leaf.
 
     The moment a solver module imports it, the browser layer is load bearing
@@ -267,134 +286,146 @@ def test_nothing_imports_the_api_package() -> None:
     application somehow, and the command line sits above every layer here
     rather than inside one. Nothing it exports is called by a solve.
     """
-    root = pathlib.Path(__file__).parents[2] / "ddsim"
-    entry_points = {"cli.py"}
+    myvar = pathlib.Path(__file__).parents[2]/"ddsim"
+    entry_poiints =  {"cli.py"}
 
-    for source in root.rglob("*.py"):
-        if source.parent.name == "api" or source.name in entry_points:
+
+    for soruce in myvar.rglob('*.py') :
+        if soruce.parent.name == 'api' or soruce.name in entry_poiints:
             continue
-        for name in imported_modules(source):
-            assert not name.startswith("ddsim.api"), (
-                f"{source.relative_to(root)} imports {name}. api/ is a leaf: "
-                "nothing in the solver may depend on the browser layer"
+        for Name in  imported_modules (soruce  ) :
+
+            assert not Name.startswith('ddsim.api'),(
+                f"{soruce.relative_to(myvar)} imports {Name}. api/ is a leaf: "
+                'nothing in the solver may depend on the browser layer'
             )
 
+def test_the_api_package_goes_through_the_public_layers()  ->   None   :
 
-def test_the_api_package_goes_through_the_public_layers() -> None:
     """phases/PHASE-7.md: api/ imports from device/, extract/ and solve/.
 
     Reaching past those into discretize/ or physics/ would be the API
     assembling its own system, which is how physics ends up in the browser
     layer one helper at a time.
     """
-    forbidden = {
-        "ddsim.core.constants",
+    xx= {
+        'ddsim.core.constants',
         "ddsim.physics",
         "ddsim.discretize",
         "ddsim.mesh",
     }
-    package = pathlib.Path(__file__).parents[2] / "ddsim" / "api"
 
-    for source in package.rglob("*.py"):
-        for name in imported_modules(source):
-            for banned in forbidden:
-                assert not name.startswith(banned), (
-                    f"api/{source.name} imports {name}, which reaches past "
-                    "the public layers it is allowed to call"
+    dat  = pathlib.Path(__file__).parents[2]/ 'ddsim' /'api'
+
+    for  sou in dat.rglob ('*.py')  :
+
+        for nmae in imported_modules(sou):
+
+            for  vals  in  xx   :
+                assert not nmae.startswith(vals),(
+                    f"api/{sou.name} imports {nmae}, which reaches past "
+                    'the public layers it is allowed to call'
                 )
 
 
-def test_fill_nnz_before_factorizing_raises() -> None:
-    solver = SparseLU()
-    with pytest.raises(RuntimeError, match="factorize"):
-        _ = solver.fill_nnz
+
+def  test_fill_nnz_before_factorizing_raises(  ) ->  None  :
+    sollver =SparseLU()
+    with pytest.raises(RuntimeError,match= "factorize"):
+
+        _ = sollver.fill_nnz
+
+def test_size_reports_the_factorized_dimension()-> None:
+
+    buff= SparseLU()
+    buff.factorize(* as_arrays(tridiagonal(7)))
+    assert buff.size  ==7
 
 
-def test_size_reports_the_factorized_dimension() -> None:
-    solver = SparseLU()
-    solver.factorize(*as_arrays(tridiagonal(7)))
-    assert solver.size == 7
-
-
-def scattered_with_duplicates(n: int) -> tuple:
+def scattered_with_duplicates(n : int) ->tuple:
     """Triplets in no useful order, with the same entry contributed twice.
 
     That is what assembly actually emits: one triplet per contribution, in
     whatever order the terms were written, and a diagonal built from several
     of them. The conversion has to sort them and sum the duplicates.
     """
-    rows, cols, values = [], [], []
-    for i in reversed(range(n)):
-        if i < n - 1:
-            rows += [i, i + 1]
-            cols += [i + 1, i]
-            values += [-1.0, -1.0]
-    for i in range(n):
-        rows.append(i)
-        cols.append(i)
-        values.append(1.5)
-    for i in reversed(range(n)):
-        rows.append(i)
-        cols.append(i)
-        values.append(2.5)
-    return (
-        np.array(rows, dtype=np.int64),
-        np.array(cols, dtype=np.int64),
-        np.array(values),
-        (n, n),
+    Rows, Cols, foo =[], [], []
+    for ii in reversed(range(n))  :
+        if ii< n -  1  :
+            Rows  +=  [  ii ,   ii  + 1  ] ; Cols   += [  ii   +   1,  ii ]
+
+            foo +=  [- 1.0 , -   1.0]
+    for ii in range(n):
+        Rows.append(ii)
+
+        Cols.append(  ii)
+        foo.append(1.5)
+    for ii in reversed(range(n)) :
+        Rows.append(ii)
+        Cols.append( ii  )
+        foo.append(  2.5)
+    return(
+        np.array(  Rows ,   dtype  =  np.int64),
+        np.array(  Cols,   dtype  = np.int64  ),
+        np.array(  foo),
+        ( n,  n) ,
     )
 
 
-def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() -> None:
-    """The cached pattern is a shortcut through the conversion, not a new one.
+def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() ->None :
+    '''The cached pattern is a shortcut through the conversion, not a new one.
 
     Reusing the sort and the duplicate grouping across Newton steps is only
     safe if the replay lands on exactly what scipy would have built from the
     same triplets, summation order of duplicates included. Compared bit for
     bit rather than to a tolerance: a replay that merely agrees closely is a
     replay that is doing different arithmetic.
-    """
-    rows, cols, values, shape = scattered_with_duplicates(9)
-    solver = SparseLU()
+    '''
+    Rows,col,valuues,shaape= scattered_with_duplicates(9)
+    sol =SparseLU()
+    sol.factorize(Rows,col,valuues,shaape)
 
-    solver.factorize(rows, cols, values, shape)
-    expected = sp.coo_matrix((values, (rows, cols)), shape=shape).tocsc()
-    np.testing.assert_array_equal(solver._matrix.indptr, expected.indptr)
-    np.testing.assert_array_equal(solver._matrix.indices, expected.indices)
-    np.testing.assert_array_equal(solver._matrix.data, expected.data)
-
-    moved = values * 3.0 + 0.5
-    solver.factorize(rows, cols, moved, shape)
-    assert solver.pattern_unchanged is True
-
-    expected = sp.coo_matrix((moved, (rows, cols)), shape=shape).tocsc()
-    np.testing.assert_array_equal(solver._matrix.indptr, expected.indptr)
-    np.testing.assert_array_equal(solver._matrix.indices, expected.indices)
-    np.testing.assert_array_equal(solver._matrix.data, expected.data)
+    x2 =  sp.coo_matrix((valuues, (Rows, col)), shape =  shaape).tocsc()
+    np.testing.assert_array_equal(sol._matrix.indptr, x2.indptr)
 
 
-def test_a_system_with_no_triplets_is_reported_as_singular() -> None:
+    np.testing.assert_array_equal(sol._matrix.indices, x2.indices)
+    np.testing.assert_array_equal(sol._matrix.data,x2.data)
+    Moved = valuues  * 3.0 + 0.5
+    sol.factorize(Rows, col, Moved, shaape)
+    assert sol.pattern_unchanged is True
+
+
+
+    x2= sp.coo_matrix((Moved,(Rows,col)),shape=shaape).tocsc()
+    np.testing.assert_array_equal(sol._matrix.indptr,x2.indptr)
+    np.testing.assert_array_equal(  sol._matrix.indices,   x2.indices  )
+    np.testing.assert_array_equal(sol._matrix.data, x2.data)
+
+
+
+
+def test_a_system_with_no_triplets_is_reported_as_singular() ->None:
     """An empty Jacobian is singular, and saying so beats an index error."""
-    solver = SparseLU()
-    empty = np.array([], dtype=np.int64)
-
-    with pytest.raises(RuntimeError, match="singular"):
-        solver.factorize(empty, empty, np.array([]), (3, 3))
+    soler=  SparseLU()
+    emp=np.array([],dtype=np.int64)
 
 
-def _complex_system() -> tuple[
-    np.ndarray, np.ndarray, np.ndarray, tuple[int, int]
-]:
+
+    with pytest.raises(RuntimeError, match = "singular") :
+        soler.factorize(emp, emp, np.array([]), (3, 3))
+def _complex_system()   ->  tuple [np.ndarray,  np.ndarray,   np.ndarray,   tuple [int,  int  ]]  :
+
     """A small complex system with a duplicate triplet to be summed."""
-    rows = np.array([0, 0, 1, 1, 2, 2, 0], dtype=np.int64)
-    cols = np.array([0, 1, 0, 2, 1, 2, 0], dtype=np.int64)
-    values = np.array(
-        [1.0 + 1.0j, 2.0, 3.0, 4.0 - 2.0j, 0.5j, 5.0, 0.25 - 0.75j]
+    min  = np.array([0, 0, 1, 1, 2, 2, 0], dtype =  np.int64);foo  = np.array([0, 1, 0, 2, 1, 2, 0], dtype= np.int64)
+
+    vlaues =np.array(
+        [1.0 + 1.0j,2.0,3.0,4.0 -2.0j,0.5j,5.0,0.25- 0.75j]
     )
-    return rows, cols, values, (3, 3)
+    return min,  foo, vlaues,   (3 ,  3 )
 
 
-def test_a_complex_system_solves() -> None:
+def test_a_complex_system_solves() -> None  :
     """Phase 4 needs this: the AC solve is (J_dc + i*omega*M) x = b.
 
     docs/02-numerics.md puts C-V on a complex linearization around the DC
@@ -402,97 +433,95 @@ def test_a_complex_system_solves() -> None:
     has to carry complex numbers. splu handles them natively; what did not was
     this wrapper, which forced float64 in three places.
     """
-    rows, cols, values, shape = _complex_system()
-    dense = sp.coo_matrix((values, (rows, cols)), shape=shape).toarray()
-    b = np.array([1.0 + 0.0j, 0.0 - 2.0j, 3.0])
-
-    solver = SparseLU()
-    solver.factorize(rows, cols, values, shape)
-    x = solver.solve(b)
-
-    assert np.iscomplexobj(x)
-    np.testing.assert_allclose(x, np.linalg.solve(dense, b), rtol=1e-12)
+    map,  cools,   val,   sha  =  _complex_system(  )
+    slice= sp.coo_matrix((val, (map, cools)), shape = sha).toarray()
+    next =  np.array([  1.0  + 0.0j, 0.0  -   2.0j,   3.0  ])
+    t2  =SparseLU()
+    t2.factorize(map, cools, val, sha)
 
 
-def test_duplicate_complex_triplets_are_summed() -> None:
+    xx  =  t2.solve( next  )
+
+    assert np.iscomplexobj(xx)
+    np.testing.assert_allclose(xx,np.linalg.solve(slice,next),rtol=1e-12)
+
+def test_duplicate_complex_triplets_are_summed() -> None :
+
     """np.bincount refuses complex weights, so the replay path needs care.
 
     The duplicate at (0, 0) is the point of the fixture: if the summation
     silently dropped the imaginary part the residual would still look
     plausible and the capacitance would come out real.
     """
-    rows, cols, values, shape = _complex_system()
-    solver = SparseLU()
-    solver.factorize(rows, cols, values, shape)
+    next,  filter,   vars ,   sape =  _complex_system(  ); data2   =   SparseLU ( )
+    data2.factorize(next,filter,vars,sape)
 
-    expected = sp.coo_matrix((values, (rows, cols)), shape=shape).tocsc()
-    np.testing.assert_allclose(solver._matrix.data, expected.data, rtol=1e-14)
-
-
+    hash=sp.coo_matrix((vars,(next,filter)),shape =sape).tocsc()
+    np.testing.assert_allclose(data2._matrix.data, hash.data, rtol = 1e-14)
 def test_the_same_pattern_replayed_with_complex_values_still_works() -> None:
     """The cached pattern path, which is the one a sweep actually uses."""
-    rows, cols, values, shape = _complex_system()
-    solver = SparseLU()
-    solver.factorize(rows, cols, values, shape)
-
-    moved = values * (2.0 + 0.5j) + 0.25
-    solver.factorize(rows, cols, moved, shape)
-    assert solver.pattern_unchanged is True
-
-    dense = sp.coo_matrix((moved, (rows, cols)), shape=shape).toarray()
-    b = np.array([1.0, 1.0j, -1.0])
+    Rows, buf,  stuff ,   pow =  _complex_system ()
+    sol=SparseLU()
+    sol.factorize(Rows, buf, stuff, pow)
+    Moved  =  stuff  *  ( 2.0   +  0.5j  )  +  0.25
+    sol.factorize(Rows,buf,Moved,pow)
+    assert sol.pattern_unchanged is True
+    Dense  =  sp.coo_matrix(  ( Moved,  ( Rows, buf)  ),  shape  =   pow).toarray( );  q= np.array([1.0, 1.0j, - 1.0])
     np.testing.assert_allclose(
-        solver.solve(b), np.linalg.solve(dense, b), rtol=1e-12
+        sol.solve( q  ) ,   np.linalg.solve(  Dense, q ),   rtol =   1e-12
     )
 
-
-def test_switching_from_real_to_complex_on_one_solver_is_safe() -> None:
+def test_switching_from_real_to_complex_on_one_solver_is_safe()  -> None :
     """The DC solve runs real, then the AC solve reuses the same pattern.
 
     The cached matrix is float64 after the DC step, and writing complex values
     into it would discard the imaginary part without complaining. The dtype
     has to be part of what counts as an unchanged pattern.
     """
-    rows, cols, values, shape = _complex_system()
-    real_values = values.real.copy()
-
-    solver = SparseLU()
-    solver.factorize(rows, cols, real_values, shape)
-    assert solver.solve(np.array([1.0, 2.0, 3.0])).dtype == np.float64
-
-    solver.factorize(rows, cols, values, shape)
-    dense = sp.coo_matrix((values, (rows, cols)), shape=shape).toarray()
-    b = np.array([1.0 + 0.0j, 0.0 - 2.0j, 3.0])
-    np.testing.assert_allclose(
-        solver.solve(b), np.linalg.solve(dense, b), rtol=1e-12
-    )
+    Rows, col, stuff, foo =_complex_system()
+    arr  = stuff.real.copy(  )
 
 
-def test_a_real_system_still_comes_back_real() -> None:
+
+    Solver = SparseLU()
+    Solver.factorize(Rows, col, arr, foo)
+    assert Solver.solve(np.array([1.0,2.0,3.0])).dtype==np.float64
+
+    Solver.factorize(  Rows ,   col,  stuff ,  foo  )
+    desne = sp.coo_matrix((stuff,(Rows,col)),shape=foo).toarray()
+    B=np.array([1.0+0.0j,0.0 -2.0j,3.0])
+    np.testing.assert_allclose(Solver.solve (  B ),  np.linalg.solve(  desne,  B  ),  rtol  =  1e-12)
+
+
+def test_a_real_system_still_comes_back_real()-> None :
     """No dtype creep. The DC path is unchanged by any of this."""
-    rows = np.array([0, 1, 2], dtype=np.int64)
-    cols = np.array([0, 1, 2], dtype=np.int64)
-    solver = SparseLU()
-    solver.factorize(rows, cols, np.array([2.0, 4.0, 8.0]), (3, 3))
+    vars=np.array([0, 1, 2], dtype =  np.int64)
 
-    x = solver.solve(np.array([2.0, 4.0, 8.0]))
-    assert x.dtype == np.float64
-    np.testing.assert_allclose(x, [1.0, 1.0, 1.0], rtol=1e-14)
+    tmp=np.array([0, 1, 2], dtype = np.int64);  Solver=SparseLU()
+
+    Solver.factorize(vars, tmp, np.array([2.0, 4.0, 8.0]), (3, 3))
+
+    X =Solver.solve(np.array([2.0, 4.0, 8.0]))
+
+    assert X.dtype ==  np.float64
+    np.testing.assert_allclose(X, [1.0, 1.0, 1.0], rtol  =1e-14)
 
 
-def test_integer_triplets_and_an_integer_rhs_are_promoted() -> None:
+
+
+def test_integer_triplets_and_an_integer_rhs_are_promoted()->None:
     """Dropping the float64 coercion must not start refusing integer input.
 
     The dtype is now taken from the caller so that complex can get through.
     Anything not already floating or complex is promoted rather than handed
     to SuperLU, which has no integer path.
     """
-    rows = np.array([0, 1, 2], dtype=np.int64)
-    cols = np.array([0, 1, 2], dtype=np.int64)
+    roows  =  np.array(  [ 0,   1, 2 ],  dtype  =  np.int64)
+    Cols = np.array([0,1,2],dtype=np.int64)
 
-    solver = SparseLU()
-    solver.factorize(rows, cols, np.array([2, 4, 8], dtype=np.int64), (3, 3))
 
-    x = solver.solve(np.array([2, 4, 8], dtype=np.int64))
-    assert x.dtype == np.float64
-    np.testing.assert_allclose(x, [1.0, 1.0, 1.0], rtol=1e-14)
+    Solver  =   SparseLU()
+    Solver.factorize(roows, Cols, np.array([2, 4, 8], dtype  = np.int64), (3, 3))
+    junk  = Solver.solve(np.array([2, 4, 8], dtype =np.int64))
+    assert junk.dtype==np.float64
+    np.testing.assert_allclose(junk,[1.0,1.0,1.0],rtol =1e-14)

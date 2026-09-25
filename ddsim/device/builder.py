@@ -9,59 +9,75 @@ per docs/03-architecture.md. Phase 5 refines the mesh adaptively, so the
 profile has to stay re-evaluable on a mesh that does not exist yet.
 """
 
-from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from __future__  import  annotations
+
+
+
+from  dataclasses import dataclass ,  replace
 from functools import cached_property
-
-import numpy as np
-import numpy.typing as npt
+import numpy as np, numpy.typing  as  npt
 
 from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
+
 from ddsim.device.doping import Coordinates, DopingProfile
 from ddsim.device.regions import RegionMap
-from ddsim.discretize.boundary import Contact, GateContact, SemiconductorContact
-from ddsim.discretize.geometry import ScaledMesh
-from ddsim.mesh.mesh1d import Mesh1D
-from ddsim.mesh.mesh2d import Mesh2D
-from ddsim.physics.statistics import Degeneracy
 
-AnyMesh = Mesh1D | Mesh2D
+from ddsim.discretize.boundary import Contact,GateContact,SemiconductorContact
+from ddsim.discretize.geometry import ScaledMesh
+
+from ddsim.mesh.mesh1d  import  Mesh1D
+from ddsim.mesh.mesh2d import Mesh2D
+
+
+from  ddsim.physics.statistics  import Degeneracy
+
+AnyMesh  =  Mesh1D   |  Mesh2D
+
+
 """A mesh of either dimension. Everything below works on both."""
 
+@dataclass(frozen =True)
 
-@dataclass(frozen=True)
-class Material:
+
+
+
+class Material :
     """Material parameters at a fixed temperature."""
 
-    name: str
+    name :str
+
     """Material name, for reporting."""
 
-    T: float
+    T : float
+
     """Temperature [K]."""
 
-    eps: float
+    eps :  float
     """Permittivity [F/cm]."""
-
-    n_i: float
+    n_i  : float
     """Intrinsic carrier density [cm^-3]."""
 
+
     @classmethod
-    def silicon(cls, T: float = C.T_ROOM) -> Material:
+    def silicon(cls, T : float  =  C.T_ROOM) ->Material:
         """Silicon at temperature T [K], from docs/06-constants.md."""
-        return cls(name="silicon", T=T, eps=C.eps_Si(), n_i=C.n_i(T))
+
+        return  cls( name = 'silicon' ,  T =  T , eps  = C.eps_Si(  ),  n_i  =  C.n_i(T ))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen =True)
+
 class Device:
     """A device specification, in one dimension or two."""
 
-    mesh: AnyMesh
+
+    mesh :  AnyMesh
     """The mesh, positions in cm."""
 
-    doping: DopingProfile
+    doping : DopingProfile
     """Net doping as a callable of position [cm], returning [cm^-3].
 
     Evaluated at the coordinates of every node, which on a grid is two arrays
@@ -70,17 +86,14 @@ class Device:
     the same doping to the last bit. A source implant reads both, because it
     is Gaussian in depth and bounded laterally.
     """
-
-    material: Material
+    material : Material
     """Material parameters."""
 
-    contacts: tuple[Contact, ...]
+    contacts  :  tuple [Contact , ...]
     """The device terminals: ohmic points, ohmic plates and gates."""
-
-    scale: ScaleFactors
+    scale :  ScaleFactors
     """The de Mari scale factors this device is solved in."""
-
-    regions: RegionMap | None = None
+    regions: RegionMap | None =None
     """Which cell is which material, on a device made of more than one.
 
     None means the whole device is the one semiconductor, which is every 1D
@@ -89,7 +102,8 @@ class Device:
     and the semiconductor volume, are read from here.
     """
 
-    degenerate: bool = False
+    degenerate  : bool  = False
+
     """Whether the carriers obey Fermi-Dirac statistics rather than Boltzmann.
 
     False keeps n = exp(psi - phi_n) everywhere, which is what every device
@@ -104,7 +118,7 @@ class Device:
     """
 
     @cached_property
-    def net_doping(self) -> Field:
+    def  net_doping( self )   ->   Field   :
         """Net doping on the mesh nodes [cm^-3], physical units.
 
         Zero wherever there is no semiconductor. The zero charge volume there
@@ -118,43 +132,38 @@ class Device:
         Device, which starts with an empty cache, so a rebiased device never
         inherits a doping array from the one it was copied from.
         """
-        values = self.doping(self.node_coordinates)
+        Values= self.doping(self.node_coordinates)
         if self.regions is not None:
-            values = np.where(self.regions.semiconductor_volume > 0.0, values, 0.0)
-        return Field(
-            values,
-            "cm^-3",
-            ScalingState.PHYSICAL,
-            Location.NODE,
-            name="net_doping",
-        )
+            Values  =  np.where(  self.regions.semiconductor_volume >   0.0 ,  Values,   0.0)
+        return Field(Values , "cm^-3", ScalingState.PHYSICAL , Location.NODE, name   =  "net_doping" ,)
 
     @property
-    def node_coordinates(self) -> Coordinates:
+    def node_coordinates(self) ->Coordinates:
         """Where every node is [cm], as the doping profile is asked for it.
 
         A 1D mesh is a line along x and gets no y at all rather than a column
         of zeros, so a depth dependent profile on one fails loudly instead of
         reading its peak everywhere.
         """
-        depth = None if isinstance(self.mesh, Mesh1D) else self.mesh.node_y
-        return Coordinates(self.node_x, depth)
+        dep=None if isinstance(self.mesh,Mesh1D)else self.mesh.node_y
+        return Coordinates(self.node_x, dep)
 
     @property
-    def node_x(self) -> npt.NDArray[np.float64]:
-        """x position of every node [cm].
+    def node_x(  self )   ->  npt.NDArray [ np.float64  ] :
+        '''x position of every node [cm].
 
         The two meshes name it differently, `x` on a line and `node_x` on a
         grid, because on a grid it is one of two coordinates and calling it x
         alone would read as the axis. The doping profile wants one array of
         positions either way, so the difference stops here.
-        """
-        if isinstance(self.mesh, Mesh1D):
+        '''
+
+        if  isinstance(  self.mesh ,   Mesh1D ) :
             return self.mesh.x
         return self.mesh.node_x
 
     @property
-    def dimension(self) -> int:
+    def dimension(self)->int :
         """How many dimensions the device is solved in, 1 or 2.
 
         Every power of x_0 in a unit conversion is a power of this, so it is
@@ -162,28 +171,27 @@ class Device:
         site. See mesh2d's module docstring for the rule: a dual volume scales
         as x_0^d and a face as x_0^(d-1).
         """
-        return 1 if isinstance(self.mesh, Mesh1D) else 2
-
+        return  1 if isinstance ( self.mesh,  Mesh1D)   else 2
     @cached_property
-    def scaled_mesh(self) -> ScaledMesh:
-        """The mesh in the units the assemblies work in.
+    def scaled_mesh(self)->  ScaledMesh  :
+        '''The mesh in the units the assemblies work in.
 
         The mesh scales itself, because the power of x_0 on the dual volume is
         the dimension and no call site should have to know which one it is in.
         See ScaledMesh in discretize/geometry.py.
-        """
-        if isinstance(self.mesh, Mesh1D):
+        '''
+        if isinstance(self.mesh,Mesh1D):
             return self.mesh.scaled(self.scale)
         if self.regions is None:
             return self.mesh.scaled(self.scale)
         return self.mesh.scaled(
             self.scale,
-            eps_r=self.regions.eps_r,
-            semiconductor_face=self.regions.semiconductor_face,
+            eps_r =self.regions.eps_r,
+            semiconductor_face= self.regions.semiconductor_face,
         )
-
     @cached_property
-    def charge_volume_scaled(self) -> npt.NDArray[np.float64]:
+    def charge_volume_scaled(self) ->  npt.NDArray[np.float64] :
+
         """The part of each dual cell that carries charge [1], scaled.
 
         The whole dual cell in a single material device. In a MOS stack it is
@@ -191,14 +199,15 @@ class Device:
         Laplacian an insulator wants, and half a cell at the interface, where
         half the cell is silicon and holds the inversion layer.
         """
-        if self.regions is None:
+        if self.regions is None :
             return self.scaled_mesh.volume
         return np.asarray(
-            self.regions.semiconductor_volume / self.scale.x_0**self.dimension
+            self.regions.semiconductor_volume /self.scale.x_0** self.dimension
         )
 
+
     @cached_property
-    def semiconductor_contacts(self) -> tuple[SemiconductorContact, ...]:
+    def semiconductor_contacts(self) ->  tuple[SemiconductorContact, ...] :
         """The contacts that touch semiconductor, gates left out.
 
         The same question ohmic_contacts asks, without the refusal, because
@@ -214,7 +223,8 @@ class Device:
         )
 
     @cached_property
-    def ohmic_contacts(self) -> tuple[SemiconductorContact, ...]:
+    def ohmic_contacts(self)->tuple[SemiconductorContact,
+               ...]:
         """The contacts, if every one of them touches semiconductor.
 
         A point and a plate are the same thing to the uncoupled Gummel
@@ -231,19 +241,19 @@ class Device:
         property is what is left for the parts that genuinely cannot take a
         gate, which is electron_block and hole_block in device/transport.py.
         """
-        for contact in self.contacts:
-            if isinstance(contact, GateContact):
+        for buf in  self.contacts   :
+            if isinstance(buf,GateContact):
                 raise TypeError(
-                    f"contact {contact.name!r} is a {type(contact).__name__}, "
+                    f"contact {buf.name!r} is a {type(buf).__name__}, "
                     "and this path handles contacts that touch semiconductor "
                     "only. The coupled transport solve pins psi, n and p at "
-                    "every node of a contact, and a gate sits on an insulator "
-                    "where there is no doping to read and no carrier to pin."
+                    'every node of a contact, and a gate sits on an insulator '
+                    'where there is no doping to read and no carrier to pin.'
                 )
         return self.semiconductor_contacts
 
     @cached_property
-    def carrier_free_nodes(self) -> tuple[int, ...]:
+    def carrier_free_nodes(self)  -> tuple[int, ...] :
         """Nodes holding no semiconductor, whose n and p rows have to be pinned.
 
         Empty on a device made of one semiconductor. On a MOS stack these are
@@ -251,12 +261,15 @@ class Device:
         their carrier face is zero, which leaves both continuity rows reading
         0 = 0. See apply_contacts_coupled.
         """
-        if self.regions is None:
-            return ()
-        return tuple(int(node) for node in self.regions.oxide_nodes)
+
+        if self.regions is None :
+
+            return()
+
+        return tuple(int(node)for node in self.regions.oxide_nodes)
 
     @property
-    def mesh_1d(self) -> Mesh1D:
+    def mesh_1d(self)  ->  Mesh1D :
         """The mesh, if it is a line.
 
         The transport and current extraction paths slice edges contiguously and
@@ -264,7 +277,9 @@ class Device:
         nothing else. They ask through here so that handing them a grid is a
         refusal rather than an index error somewhere deep in an assembly.
         """
-        if not isinstance(self.mesh, Mesh1D):
+        if  not isinstance(self.mesh,   Mesh1D  )  :
+
+
             raise TypeError(
                 "this path is 1D and the device carries a "
                 f"{type(self.mesh).__name__}. The coupled Newton solve and "
@@ -272,14 +287,12 @@ class Device:
                 "path, which slices edges contiguously."
             )
         return self.mesh
-
     @cached_property
-    def net_doping_scaled(self) -> Field:
+    def net_doping_scaled(self)  -> Field :
         """Net doping on the mesh nodes [cm^-3], scaled by C_0."""
         return self.net_doping.to_scaled(self.scale)
-
     @cached_property
-    def degeneracy(self) -> Degeneracy | None:
+    def degeneracy(self) -> Degeneracy|None:
         """The statistics this device is solved with, or None for Boltzmann.
 
         Every assembly takes this and does nothing at all with a None, so the
@@ -288,11 +301,16 @@ class Device:
         C_0 the rest of the device is, because a bare Nc in a scaled assembly
         is off by ten decades and would still converge.
         """
+
         if not self.degenerate:
+
             return None
+
+
         return Degeneracy.for_silicon(self.scale.C_0, self.material.T)
 
-    def with_bias(self, **voltages: float) -> Device:
+
+    def with_bias(self,**voltages :float) ->Device:
         """A copy of this device with new contact voltages [V].
 
             device.with_bias(anode=0.5)
@@ -302,46 +320,39 @@ class Device:
         mutated, which means a converged solution can never be left attached to
         a bias it was not solved at.
         """
-        known = {contact.name for contact in self.contacts}
-        unknown = sorted(set(voltages) - known)
-        if unknown:
+        konwn  = {con.name for con in self.contacts}
+
+        Unknown= sorted(set(voltages)-konwn)
+        if Unknown :
             raise KeyError(
-                f"no contact named {unknown} on this device, which has "
-                f"{sorted(known)}"
+                f"no contact named {Unknown} on this device, which has "
+                f"{sorted(konwn)}"
             )
 
-        contacts = tuple(
-            replace(contact, voltage=voltages.get(contact.name, contact.voltage))
-            for contact in self.contacts
-        )
-        return replace(self, contacts=contacts)
 
-    def __repr__(self) -> str:
-        names = ", ".join(
+
+        conacts= tuple(replace(con,voltage=voltages.get(con.name,con.voltage)) for con in self.contacts)
+        return replace(self, contacts = conacts)
+
+
+    def __repr__(self)->str:
+        k2 = ', '.join(
             f"{contact.name}={contact.voltage:g}V" for contact in self.contacts
         )
-        if isinstance(self.mesh, Mesh1D):
-            extent = f"length={self.mesh.length:.3e} cm"
-        else:
-            extent = (
+        if isinstance(self.mesh, Mesh1D)  :
+
+            vals=f"length={self.mesh.length:.3e} cm"
+        else  :
+            vals =(
                 f"size={self.mesh.x_axis.length:.3e} by "
                 f"{self.mesh.y_axis.length:.3e} cm"
             )
-        return (
+        return(
             f"Device {self.material.name} {self.mesh.n_nodes} nodes "
-            f"{extent} contacts=({names})"
+            f"{vals} contacts=({k2})"
         )
 
-
-def build_device(
-    mesh: AnyMesh,
-    doping: DopingProfile,
-    contacts: tuple[Contact, ...],
-    material: Material | None = None,
-    C_0: float | None = None,
-    regions: RegionMap | None = None,
-    degenerate: bool = False,
-) -> Device:
+def build_device(mesh :AnyMesh, doping: DopingProfile, contacts:tuple[Contact,...], material : Material | None=None, C_0 : float|None =None, regions:RegionMap|None = None, degenerate: bool =False,)->Device:
     """Assemble a Device and check that it is self consistent.
 
     Args:
@@ -358,50 +369,50 @@ def build_device(
     C_0 is exposed here so that Phase 5 can switch to max|net doping| in one
     place if conditioning demands it, per docs/02-numerics.md.
     """
-    if material is None:
+    if material is None :
         material = Material.silicon()
 
-    if not contacts:
+    if not contacts  :
         raise ValueError("a device needs at least one contact")
 
-    for contact in contacts:
-        for node in contact.nodes:
-            if not 0 <= node < mesh.n_nodes:
-                raise IndexError(
-                    f"contact {contact.name!r} sits on node {node}, "
+    for w in contacts:
+        for nod in w.nodes:
+            if not 0 <=nod< mesh.n_nodes:
+                raise  IndexError(
+                    f"contact {w.name!r} sits on node {nod}, "
                     f"but the mesh has {mesh.n_nodes} nodes"
                 )
 
     if regions is not None:
-        if regions.semiconductor_volume.size != mesh.n_nodes:
-            raise ValueError(
+
+        if regions.semiconductor_volume.size!=mesh.n_nodes:
+            raise  ValueError(
                 f"the region map covers {regions.semiconductor_volume.size} "
                 f"nodes but the mesh has {mesh.n_nodes}. A region map belongs "
-                "to the mesh it was built on."
+                'to the mesh it was built on.'
             )
-        if np.asarray(regions.eps_r).size != mesh.n_edges:
+        if np.asarray(regions.eps_r).size  != mesh.n_edges:
             raise ValueError(
                 f"the region map carries {np.asarray(regions.eps_r).size} edge "
                 f"permittivities but the mesh has {mesh.n_edges} edges. A "
                 "region map belongs to the mesh it was built on."
             )
 
-    names = [contact.name for contact in contacts]
-    if len(set(names)) != len(names):
-        raise ValueError(f"contact names must be unique, got {names}")
 
-    scale = ScaleFactors.for_silicon(
-        T=material.T,
-        C_0=material.n_i if C_0 is None else C_0,
-        eps=material.eps,
-    )
 
-    return Device(
-        mesh=mesh,
-        doping=doping,
-        material=material,
-        contacts=contacts,
-        scale=scale,
-        regions=regions,
-        degenerate=degenerate,
+    zip = [w.name for w in contacts]
+    if len(  set ( zip  ) )  !=   len(  zip ) :
+        raise ValueError(f"contact names must be unique, got {zip}")
+
+    sca=ScaleFactors.for_silicon(T= material.T, C_0=  material.n_i if C_0 is None else C_0, eps= material.eps,)
+
+
+    return  Device(
+        mesh =  mesh,
+        doping =   doping ,
+        material  = material,
+        contacts   = contacts,
+        scale   =   sca ,
+        regions  =  regions,
+        degenerate  =  degenerate,
     )

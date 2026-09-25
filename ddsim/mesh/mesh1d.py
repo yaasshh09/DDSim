@@ -24,23 +24,29 @@ so a 1 um device with a 1e18 junction needs roughly a 1000 to 1 spacing range.
 The generator here handles that.
 """
 
-from __future__ import annotations
 
+
+from __future__ import annotations
 from dataclasses import dataclass
 
-import numpy as np
-import numpy.typing as npt
+
+
+import numpy as np, numpy.typing as  npt
 
 from ddsim.core.scaling import ScaleFactors
-from ddsim.discretize.geometry import UNIFORM_1D, ScaledMesh
 
-_RATIO_TOLERANCE = 1e-14
+
+from ddsim.discretize.geometry import UNIFORM_1D,ScaledMesh
+
+_RATIO_TOLERANCE=  1e-14
+
+
 """Relative tolerance for the geometric ratio solve [1]."""
 
-_DEGENERATE_TOLERANCE = 1e-12
+_DEGENERATE_TOLERANCE= 1e-12
 """Below this relative difference, a side is treated as exactly uniform [1]."""
 
-_SCORE_SLACK = 1e-9
+_SCORE_SLACK= 1e-9
 """How far above the best lower bound a split may still be worth scoring [1].
 
 The worst neighbouring cell ratio of a split is its growth ratio, up to the
@@ -50,107 +56,115 @@ between the growth ratios of two different splits.
 """
 
 
-@dataclass(frozen=True)
-class Mesh1D:
-    """A 1D mesh with its primal and dual grids and the index maps between them."""
+@dataclass( frozen   =  True  )
 
+
+
+class Mesh1D  :
+
+
+    """A 1D mesh with its primal and dual grids and the index maps between them."""
     x: npt.NDArray[np.float64]
+
+
     """Node positions [cm], strictly increasing, x[0] = 0."""
 
-    h: npt.NDArray[np.float64]
+    h :  npt.NDArray[  np.float64  ]
     """Edge lengths [cm], length n_nodes - 1. Always equal to diff(x)."""
 
-    volume: npt.NDArray[np.float64]
+
+    volume  : npt.NDArray[  np.float64 ]
     """Dual cell widths [cm], length n_nodes. Sums to the domain length."""
-
-    edge_nodes: npt.NDArray[np.int64]
+    edge_nodes : npt.NDArray[np.int64]
     """Shape (n_edges, 2). edge_nodes[e] is the (left, right) node of edge e."""
-
-    node_edges: tuple[tuple[int, ...], ...]
+    node_edges: tuple[tuple[int,...],...]
     """node_edges[i] lists the edges touching node i. One entry at each
     boundary, two in the interior."""
 
-    def scaled(self, scale: ScaleFactors) -> ScaledMesh:
+
+    def  scaled (  self,
+      scale   :  ScaleFactors)  -> ScaledMesh   :
         """This mesh in the units the assemblies work in.
 
         In 1D the dual face is the unit cross section, so it stays exactly
         1.0 and the geometry is the shared UNIFORM_1D default. That is what
         keeps every number this project has ever produced where it is.
         """
-        return ScaledMesh(
-            h=self.h / scale.x_0,
-            volume=self.volume / scale.x_0,
-            geometry=UNIFORM_1D,
-        )
+        return ScaledMesh(h=self.h / scale.x_0, volume=self.volume / scale.x_0, geometry=UNIFORM_1D,)
 
     @property
-    def n_nodes(self) -> int:
+
+    def n_nodes(self) ->int :
         """Number of nodes."""
         return int(self.x.size)
 
     @property
-    def n_edges(self) -> int:
+    def n_edges(self)-> int:
         """Number of edges."""
         return int(self.h.size)
 
-    @property
-    def length(self) -> float:
-        """Total domain length [cm]."""
-        return float(self.x[-1] - self.x[0])
 
-    def __repr__(self) -> str:
-        return (
+    @property
+    def length( self) -> float  :
+        """Total domain length [cm]."""
+        return float(self.x[-1] -self.x[0])
+
+    def __repr__(self) ->  str :
+        return(
             f"Mesh1D n_nodes={self.n_nodes} length={self.length:.4e} cm "
             f"h_min={self.h.min():.4e} h_max={self.h.max():.4e}"
         )
 
 
-def _assemble(x: npt.NDArray[np.float64]) -> Mesh1D:
+def _assemble(x :npt.NDArray[np.float64])->Mesh1D :
     """Build the dual grid and index maps from node positions [cm].
 
     h is recomputed from x rather than carried through, so that h == diff(x)
     holds exactly no matter how x was constructed.
     """
-    h = np.diff(x)
 
-    volume = np.empty_like(x)
-    volume[1:-1] = 0.5 * (h[:-1] + h[1:])
-    volume[0] = 0.5 * h[0]
-    volume[-1] = 0.5 * h[-1]
+    hh =np.diff(x)
 
-    n_edges = h.size
-    edge_nodes = np.empty((n_edges, 2), dtype=np.int64)
-    edge_nodes[:, 0] = np.arange(n_edges)
-    edge_nodes[:, 1] = np.arange(1, n_edges + 1)
+    voluume = np.empty_like(x)
+    voluume[1:-  1]= 0.5 * (hh[:- 1] + hh[1 :])
+    voluume[0] =0.5 *hh[0]
+    voluume[  -  1  ]   =  0.5  *   hh [-  1 ]
 
-    node_edges: list[tuple[int, ...]] = []
-    for node in range(x.size):
-        touching = []
-        if node > 0:
-            touching.append(node - 1)
-        if node < n_edges:
-            touching.append(node)
-        node_edges.append(tuple(touching))
+    n_egdes =  hh.size ; r2 =  np.empty((n_egdes, 2), dtype=  np.int64)
+    r2[:, 0]  =np.arange(n_egdes)
+    r2[:, 1]=np.arange(1, n_egdes  + 1)
 
-    return Mesh1D(x=x, h=h, volume=volume, edge_nodes=edge_nodes,
-                  node_edges=tuple(node_edges))
+    node_egdes:list[tuple[int,...]] = []
+    for round  in  range( x.size)  :
+        Touching =[]
+        if round  >0:
+
+            Touching.append(round- 1)
+        if round < n_egdes:
+            Touching.append(round)
+        node_egdes.append(tuple(Touching))
+
+    return  Mesh1D (  x   =   x ,  h =  hh, volume   =  voluume , edge_nodes  =   r2,
+                  node_edges  = tuple(node_egdes ) )
 
 
-def uniform_mesh_1d(length: float, n_nodes: int) -> Mesh1D:
+def uniform_mesh_1d(length :float, n_nodes  :int)  ->  Mesh1D :
     """A uniformly spaced mesh on [0, length] [cm]."""
-    if length <= 0.0:
-        raise ValueError(f"length must be positive, got {length}")
-    if n_nodes < 2:
-        raise ValueError(f"a mesh needs at least 2 nodes, got {n_nodes}")
+    if length<= 0.0:
+        raise ValueError(  f"length must be positive, got {length}"  )
+    if n_nodes  < 2 :
+        raise  ValueError (  f"a mesh needs at least 2 nodes, got {n_nodes}")
 
     return _assemble(np.linspace(0.0, length, n_nodes))
 
 
+
+
 def _geometric_sums(
-    h_min: float,
-    ratio: npt.NDArray[np.float64],
-    n_intervals: npt.NDArray[np.float64],
-) -> npt.NDArray[np.float64]:
+    h_min  : float,
+    ratio   :  npt.NDArray[ np.float64],
+    n_intervals : npt.NDArray[ np.float64 ],
+)  ->  npt.NDArray[np.float64 ]  :
     """_geometric_sum evaluated on a whole array of (ratio, count) pairs [cm].
 
     The same expression, evaluated everywhere and repaired afterwards rather
@@ -163,14 +177,14 @@ def _geometric_sums(
     Every split of the mesh needs its own ratio solved, and solving them one
     at a time spends more time in the interpreter than in the arithmetic.
     """
-    with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
-        total = h_min * (ratio**n_intervals - 1.0) / (ratio - 1.0)
-    return np.where(ratio == 1.0, h_min * n_intervals, total)
 
 
-def _solve_ratios(
-    side_length: float, h_min: float, n_intervals: npt.NDArray[np.int64]
-) -> npt.NDArray[np.float64]:
+    with np.errstate(over= 'ignore', invalid = "ignore", divide = "ignore")  :
+        x2 = h_min * (ratio **n_intervals - 1.0) / (ratio -  1.0)
+    return np.where( ratio ==   1.0,  h_min   *  n_intervals ,  x2  )
+
+
+def _solve_ratios(side_length : float, h_min :  float, n_intervals:npt.NDArray[np.int64]) -> npt.NDArray[np.float64]  :
     """_solve_ratio for many interval counts at once [1].
 
     NaN marks a count the side cannot be covered with, which is what None
@@ -179,72 +193,68 @@ def _solve_ratios(
     frozen as soon as it meets the same stopping test, so the answers agree
     to the last bit.
     """
-    counts = np.asarray(n_intervals, dtype=np.float64)
-    ratio = np.full(counts.shape, np.nan)
+    cou= np.asarray(n_intervals, dtype= np.float64)
+    hmm = np.full(cou.shape, np.nan)
 
-    uniform_total = h_min * counts
-    feasible = (
-        (counts > 0.0)
-        & (h_min <= side_length * (1.0 + _DEGENERATE_TOLERANCE))
-        & (uniform_total <= side_length * (1.0 + _DEGENERATE_TOLERANCE))
-    )
 
-    degenerate = feasible & (
-        (counts == 1.0)
-        | (np.abs(uniform_total - side_length) <= _DEGENERATE_TOLERANCE * side_length)
-    )
-    ratio[degenerate] = 1.0
+    uniformTotal =  h_min  * cou
+    Feasible =((cou >0.0) & (h_min <=side_length*(1.0 +_DEGENERATE_TOLERANCE)) & (uniformTotal <= side_length*(1.0 + _DEGENERATE_TOLERANCE)))
 
-    solving = feasible & ~degenerate
-    if not solving.any():
-        return ratio
 
-    counts = counts[solving]
-    low = np.ones(counts.shape)
-    high = np.full(counts.shape, 2.0)
+    Degenerate = Feasible   &   ((  cou  == 1.0  ) |  (  np.abs( uniformTotal -  side_length )  <=  _DEGENERATE_TOLERANCE *   side_length  ))
+    hmm[Degenerate]= 1.0
 
-    below = _geometric_sums(h_min, high, counts) < side_length
-    while below.any():
-        high[below] *= 2.0
-        if np.any(high > 1e6):
-            return ratio
-        below = _geometric_sums(h_min, high, counts) < side_length
+    soolving  =Feasible & ~ Degenerate
+    if not soolving.any (  )  :
+        return hmm
 
-    active = np.ones(counts.shape, dtype=bool)
-    for _ in range(200):
-        middle = 0.5 * (low + high)
-        below = _geometric_sums(h_min, middle, counts) < side_length
-        low = np.where(active & below, middle, low)
-        high = np.where(active & ~below, middle, high)
-        active &= high - low > _RATIO_TOLERANCE * low
-        if not active.any():
+    cou =  cou [soolving]
+    loww  = np.ones(cou.shape)
+    high   =  np.full(cou.shape , 2.0  )
+
+    Below = _geometric_sums(h_min,
+                    high,
+                  cou)  <  side_length
+    while Below.any()  :
+        high[Below] *=2.0
+
+        if np.any( high  >  1e6  )  :
+            return hmm
+        Below = _geometric_sums(h_min, high, cou)  <  side_length
+    act  =np.ones(cou.shape, dtype  = bool)
+    for _ in range(200) :
+        foo =  0.5* (loww + high)
+        Below=  _geometric_sums(h_min, foo, cou)  < side_length
+
+        loww = np.where(act &Below, foo, loww)
+        high =np.where(act & ~Below,foo,high)
+        act   &=  high   - loww  >  _RATIO_TOLERANCE  *   loww
+
+        if not act.any():
             break
 
-    ratio[solving] = 0.5 * (low + high)
-    return ratio
 
-
-def _side_spacings(
-    side_length: float, h_min: float, n_intervals: int, ratio: float
-) -> npt.NDArray[np.float64]:
+    hmm[soolving] = 0.5*(loww+ high)
+    return  hmm
+def _side_spacings(side_length :float,h_min:float,n_intervals: int,ratio : float) ->npt.NDArray[np.float64]:
     """Spacings for one side, ordered outward from the refinement point [cm].
 
     Rescaled so the side sums to exactly side_length. The bisection above
     lands within 1e-14 relative, and rescaling by a single positive factor
     removes the remainder without disturbing the monotone ordering.
     """
-    spacings = h_min * ratio ** np.arange(n_intervals, dtype=np.float64)
-    return spacings * (side_length / spacings.sum())
+    spacngs= h_min* ratio **np.arange(n_intervals,dtype = np.float64)
+    return spacngs  *(side_length/  spacngs.sum())
 
 
 def graded_mesh_1d(
-    length: float,
-    n_nodes: int,
-    refine_at: float,
+    length : float,
+    n_nodes  :int,
+    refine_at  :  float,
     h_min: float,
-    max_ratio: float = 1.5,
-) -> Mesh1D:
-    """A mesh refined to h_min at refine_at, growing geometrically away from it.
+    max_ratio :float = 1.5,
+)  -> Mesh1D :
+    '''A mesh refined to h_min at refine_at, growing geometrically away from it.
 
     Args:
         length: domain length [cm].
@@ -268,150 +278,122 @@ def graded_mesh_1d(
     is enough to know its score without building its spacing array, so only the
     splits that can actually win are built and measured. See the comment on the
     bound below for why that is the same answer as scoring all of them.
-    """
-    if length <= 0.0:
+    '''
+    if length <=  0.0 :
         raise ValueError(f"length must be positive, got {length}")
-    if n_nodes < 2:
+
+    if n_nodes< 2:
         raise ValueError(f"a mesh needs at least 2 nodes, got {n_nodes}")
-    if h_min <= 0.0:
+    if h_min<=0.0 :
         raise ValueError(f"h_min must be positive, got {h_min}")
-    if not 0.0 <= refine_at <= length:
+    if not 0.0 <= refine_at<=length:
         raise ValueError(
             f"refine_at must lie in [0, {length}], got {refine_at}"
         )
 
-    n_intervals = n_nodes - 1
-    left_length = refine_at
-    right_length = length - refine_at
-
-    if h_min * n_intervals > length:
+    NIntervals   =   n_nodes -   1 ; ll= refine_at
+    rightlength =  length  -  refine_at
+    if h_min  *NIntervals  >length :
         raise ValueError(
-            f"infeasible request: {n_intervals} cells of at least h_min={h_min:g} cm "
-            f"need {h_min * n_intervals:g} cm but the domain is only {length:g} cm. "
-            "Reduce h_min or reduce n_nodes."
+            f"infeasible request: {NIntervals} cells of at least h_min={h_min:g} cm "
+            f"need {h_min * NIntervals:g} cm but the domain is only {length:g} cm. "
+            'Reduce h_min or reduce n_nodes.'
         )
+    if ll  ==  0.0  :
+        spl  =  np.array ( [0  ],   dtype   =  np.int64)
+    elif rightlength==0.0 :
+        spl=np.array([NIntervals], dtype = np.int64)
+    else :
+        spl=np.arange(1,NIntervals,dtype=np.int64)
 
-    if left_length == 0.0:
-        splits = np.array([0], dtype=np.int64)
-    elif right_length == 0.0:
-        splits = np.array([n_intervals], dtype=np.int64)
-    else:
-        splits = np.arange(1, n_intervals, dtype=np.int64)
 
-    on_left = splits
-    on_right = n_intervals - splits
-    ratio_left = _solve_ratios(left_length, h_min, on_left)
-    ratio_right = _solve_ratios(right_length, h_min, on_right)
+    onleft= spl
+    pow =NIntervals  - spl
 
-    feasible = ((on_left == 0) | np.isfinite(ratio_left)) & (
-        (on_right == 0) | np.isfinite(ratio_right)
+    raito_left=_solve_ratios(ll,h_min,onleft)
+    RatioRight  =  _solve_ratios(rightlength, h_min, pow)
+
+
+
+    fea=((onleft==0)| np.isfinite(raito_left)) &(
+        (pow==0)|np.isfinite(RatioRight)
     )
-    if not feasible.any():
-        raise ValueError(
-            f"infeasible request: no split of {n_intervals} cells reaches "
+    if not fea.any() :
+        raise  ValueError (
+            f"infeasible request: no split of {NIntervals} cells reaches "
             f"h_min={h_min:g} cm at refine_at={refine_at:g} cm within a domain "
             f"of {length:g} cm."
         )
+    bb  = np.ones (  spl.size)
+    il  = onleft   >=   2
+    bb[il]= raito_left[il]
+    ir=pow>= 2
+    bb[ir]= np.maximum(bb[ir],RatioRight[ir])
 
-    growth = np.ones(splits.size)
-    inside_left = on_left >= 2
-    growth[inside_left] = ratio_left[inside_left]
-    inside_right = on_right >= 2
-    growth[inside_right] = np.maximum(growth[inside_right], ratio_right[inside_right])
 
-    junction = np.ones(splits.size)
-    straddles = feasible & (on_left > 0) & (on_right > 0)
-    across = (
-        right_length
-        / _geometric_sums(
-            h_min,
-            ratio_right[straddles],
-            on_right[straddles].astype(np.float64),
-        )
-    ) / (
-        left_length
-        / _geometric_sums(
-            h_min, ratio_left[straddles], on_left[straddles].astype(np.float64)
-        )
-    )
-    junction[straddles] = np.maximum(across, 1.0 / across)
+    Junction=np.ones(spl.size)
+    stradddles = fea& (onleft  >0) & (pow> 0)
+    next=(rightlength /_geometric_sums(h_min, RatioRight[stradddles], pow[stradddles].astype(np.float64),))/(ll / _geometric_sums(h_min,raito_left[stradddles],onleft[stradddles].astype(np.float64)))
 
-    bound = np.maximum(growth, junction)
-    bound[~feasible] = np.inf
+    Junction[stradddles]=np.maximum(next,1.0/next)
+    hash  =np.maximum(bb,
+                Junction)
+    hash[~ fea]=np.inf
 
-    def score_splits(
-        indices: npt.NDArray[np.intp],
-    ) -> tuple[npt.NDArray[np.float64] | None, float]:
+
+
+    def score_splits(indices :npt.NDArray[np.intp],)  ->tuple[npt.NDArray[np.float64]  |  None, float]:
         """Worst neighbouring cell ratio of each split, best one kept."""
-        chosen: npt.NDArray[np.float64] | None = None
-        best = np.inf
-        for index in indices:
-            pieces = []
-            if on_left[index] > 0:
-                pieces.append(
-                    _side_spacings(
-                        left_length,
-                        h_min,
-                        int(on_left[index]),
-                        float(ratio_left[index]),
-                    )[::-1]
-                )
-            if on_right[index] > 0:
-                pieces.append(
-                    _side_spacings(
-                        right_length,
-                        h_min,
-                        int(on_right[index]),
-                        float(ratio_right[index]),
-                    )
-                )
 
-            spacings = np.concatenate(pieces)
-            neighbour_ratios = spacings[1:] / spacings[:-1]
-            score = float(
-                max(neighbour_ratios.max(), (1.0 / neighbour_ratios).max())
+        chosen: npt.NDArray[np.float64] |None=None
+        best = np.inf
+        for index in indices :
+            pieces = []
+            if onleft[index]  > 0 :
+                pieces.append(_side_spacings(ll, h_min, int(onleft[index]), float(raito_left[index]),)[::-  1])
+            if pow [ index  ]  >  0  :
+                pieces.append(_side_spacings(rightlength, h_min, int(pow[index]), float(RatioRight[index]),))
+
+            spacings= np.concatenate(pieces)
+            neighbour_ratios   =  spacings[1 :  ]  / spacings[ :-  1]
+            score =  float(
+                max (neighbour_ratios.max (),   (1.0  /  neighbour_ratios  ).max() )
             )
             if score < best:
-                best = score
-                chosen = spacings
-        return chosen, best
 
-    best_bound = float(bound.min())
-    best_spacings, best_score = score_splits(
-        np.flatnonzero(bound <= best_bound * (1.0 + _SCORE_SLACK))
+                best =score
+
+                chosen  =  spacings
+        return chosen,best
+
+    best_bound  = float (hash.min() )
+    bes, best_score =score_splits(
+        np.flatnonzero(hash  <= best_bound*(1.0  +_SCORE_SLACK))
     )
 
-    if best_score > best_bound * (1.0 + _SCORE_SLACK):
-        best_spacings, best_score = score_splits(np.flatnonzero(feasible))
-
-    assert best_spacings is not None
-
-    if best_score > max_ratio:
-        raise ValueError(
+    if best_score>best_bound *(1.0 + _SCORE_SLACK) :
+        bes,best_score= score_splits(np.flatnonzero(fea))
+    assert bes is not None
+    if best_score>max_ratio:
+        raise  ValueError(
             f"the gentlest mesh meeting these constraints jumps by "
             f"{best_score:.3f} between neighbouring cells, above max_ratio="
             f"{max_ratio}. Add nodes, relax h_min, or raise max_ratio "
-            "deliberately."
+            'deliberately.'
         )
 
-    x = np.empty(n_nodes, dtype=np.float64)
-    x[0] = 0.0
-    x[1:] = np.cumsum(best_spacings)
+    buf  =  np.empty( n_nodes ,  dtype =   np.float64  )
+    buf[0]  =  0.0
+    buf[1:] = np.cumsum(bes)
+    tmp= int(np.argmin(np.abs(buf - refine_at)))
 
-    n_left_final = int(np.argmin(np.abs(x - refine_at)))
-    x[n_left_final] = refine_at
-    x[-1] = length
-
-    return _assemble(x)
+    buf[tmp]=refine_at
+    buf[-1]= length
+    return _assemble(buf)
 
 
-def graded_mesh_1d_at(
-    length: float,
-    n_nodes: int,
-    points: tuple[float, ...],
-    h_min: float,
-    max_ratio: float = 1.5,
-) -> Mesh1D:
+
+def graded_mesh_1d_at(length :   float , n_nodes  : int , points  :  tuple[ float,  ...], h_min  :   float, max_ratio :  float   = 1.5,)  ->   Mesh1D   :
     """A mesh refined to h_min at every one of several points.
 
     Args:
@@ -442,95 +424,95 @@ def graded_mesh_1d_at(
     are the same length and get the same count, so they are mirror images
     and meet at equal cells.
     """
-    if len(points) == 1:
-        if not 0.0 < points[0] < length:
+    if len(points)==1:
+
+        if  not 0.0   < points[  0 ]  <   length  :
             raise ValueError(
                 f"the point must lie inside (0, {length:g}), got {points[0]:g}"
             )
-        return graded_mesh_1d(length, n_nodes, points[0], h_min, max_ratio)
-    if not points:
-        raise ValueError("a graded mesh needs at least one point to grade towards")
-    if any(np.diff(points) <= 0.0):
+
+        return  graded_mesh_1d( length ,   n_nodes,  points[0 ],  h_min,  max_ratio)
+    if not points :
+        raise  ValueError ( "a graded mesh needs at least one point to grade towards")
+    if any(np.diff(points)  <= 0.0) :
         raise ValueError(f"the points must be increasing, got {points}")
-    if not (0.0 < points[0] and points[-1] < length):
+    if not(0.0 <points[0] and points[-  1] <  length):
         raise ValueError(
             f"every point must lie inside (0, {length:g}), got {points}"
         )
 
-    sides: list[tuple[float, bool]] = [(points[0], True)]
-    for left, right in zip(points[:-1], points[1:], strict=True):
-        half = 0.5 * (right - left)
-        sides += [(half, False), (half, True)]
-    sides.append((length - points[-1], False))
-    spans = np.array([span for span, _ in sides])
-    room = np.floor(spans / h_min * (1.0 + _DEGENERATE_TOLERANCE)).astype(np.int64)
+    Sides:list[tuple[float,bool]] = [(points[0],True)]
+    for open, foo in zip(points[:-1], points[1  :], strict =True) :
+        x2  = 0.5*  (foo -  open)
+        Sides+=[(x2,False),(x2,True)]
+    Sides.append((length-points[-1],False))
+    spaans  = np.array([Span for Span, _ in Sides])
+    roo  =np.floor(spaans /  h_min* (1.0 + _DEGENERATE_TOLERANCE)).astype(np.int64)
 
-    cells_wanted = n_nodes - 1
-    if cells_wanted > room.sum():
+    cellsWanted=n_nodes-1
+    if cellsWanted> roo.sum() :
         raise ValueError(
             f"n_nodes={n_nodes} is more than this mesh holds: at h_min={h_min:g} "
-            f"cm everywhere it has room for {room.sum() + 1} nodes. Use fewer "
+            f"cm everywhere it has room for {roo.sum() + 1} nodes. Use fewer "
             "nodes or a smaller h_min."
         )
 
-    def wanted(g: float) -> npt.NDArray[np.float64]:
+    def wanted(g : float)->npt.NDArray[np.float64]:
         """Cells each side wants at growth rate g [1]."""
-        return np.asarray(np.log1p(g * spans / h_min) / g)
+        return np.asarray(np.log1p(g *spaans /h_min)/g)
 
-    low, high = 1e-12, 1e6
-    for _ in range(200):
-        middle = np.sqrt(low * high)
-        if wanted(middle).sum() > cells_wanted:
-            low = middle
+    loww,high=1e-12,1e6
+    for _  in range(200 )   :
+
+        midle=np.sqrt(loww* high)
+        if wanted(  midle  ).sum(  )  > cellsWanted  :
+            loww =midle
+
         else:
-            high = middle
-    counts = np.clip(np.rint(wanted(high)), 1, room).astype(np.int64)
+            high =midle
+    Counts   =  np.clip( np.rint (wanted (high  )  ), 1 ,  roo ).astype (  np.int64  )
 
-    short = cells_wanted - int(counts.sum())
-    for end in sorted((0, len(sides) - 1), key=lambda side: -spans[side]):
-        moved = int(np.clip(counts[end] + short, 1, room[end])) - int(counts[end])
-        counts[end] += moved
-        short -= moved
+    short  =cellsWanted- int(Counts.sum())
+    for End in sorted((0,len(Sides) -1),key =lambda side: -spaans[side]):
+        Moved= int(np.clip(Counts[End] +short, 1, roo[End])) - int(Counts[End])
+        Counts[End] +=Moved
+        short-= Moved
+
     if short:
-        raise ValueError(
+        raise ValueError (
             f"could not share {n_nodes} nodes between the sides of this mesh. "
             "Change n_nodes by one or two."
         )
 
-    pieces = []
-    for (span, reversed_), count in zip(sides, counts, strict=True):
-        ratio = float(_solve_ratios(span, h_min, np.array([count]))[0])
-        spacing = _side_spacings(span, h_min, int(count), ratio)
-        pieces.append(spacing[::-1] if reversed_ else spacing)
-    spacings = np.concatenate(pieces)
+    pie   =  []
+    for(Span, revesed), coount in zip(Sides, Counts, strict=True) :
+        iter= float(_solve_ratios(Span,h_min,np.array([coount]))[0])
+        Spacing=  _side_spacings(Span, h_min, int(coount), iter)
+        pie.append(Spacing[::-  1] if revesed else Spacing)
+    spaicngs= np.concatenate(pie)
 
-    neighbour_ratios = spacings[1:] / spacings[:-1]
-    worst = float(max(neighbour_ratios.max(), (1.0 / neighbour_ratios).max()))
-    if worst > max_ratio:
+
+
+    w=spaicngs[1:] /spaicngs[:-1]; dir= float(max(w.max(),(1.0/w).max()))
+    if dir > max_ratio :
         raise ValueError(
-            f"the gentlest mesh meeting these constraints jumps by {worst:.3f} "
+            f"the gentlest mesh meeting these constraints jumps by {dir:.3f} "
             f"between neighbouring cells, above max_ratio={max_ratio}. Add "
             "nodes, relax h_min, or raise max_ratio deliberately."
         )
 
-    x = np.empty(n_nodes, dtype=np.float64)
-    x[0] = 0.0
-    x[1:] = np.cumsum(spacings)
-    at_point = np.cumsum(counts)[0::2][: len(points)]
-    x[at_point] = points
-    x[-1] = length
-    return _assemble(x)
 
 
-def graded_mesh_1d_through(
-    length: float,
-    n_nodes: int,
-    lines: tuple[float, ...],
-    points: tuple[float, ...],
-    h_min: float,
-    max_ratio: float = 1.5,
-) -> Mesh1D:
-    """A mesh with a node on every line, refined to h_min at every point.
+    xx  = np.empty( n_nodes,   dtype =  np.float64)
+    xx[ 0] = 0.0
+
+    xx[1:]= np.cumsum(spaicngs)
+    id = np.cumsum(Counts) [0  ::  2][: len(points)]
+    xx[  id]  =  points
+    xx[- 1  ] =  length
+    return _assemble( xx)
+def graded_mesh_1d_through(length :  float , n_nodes  :   int, lines :  tuple [ float,   ...], points :  tuple[float, ... ], h_min   :   float, max_ratio   : float  =  1.5,) -> Mesh1D   :
+    '''A mesh with a node on every line, refined to h_min at every point.
 
     Args:
         length: domain length [cm].
@@ -558,107 +540,107 @@ def graded_mesh_1d_through(
     The price of pinning the lines is the rounding: a span's spacing is
     stretched by up to half a cell's worth, so h_min at a point is near
     rather than exact.
-    """
-    if h_min <= 0.0:
+    '''
+    if h_min  <=0.0 :
         raise ValueError(f"h_min must be positive, got {h_min}")
-    for name, positions in (("line", lines), ("point", points)):
-        for position in positions:
-            if not 0.0 <= position <= length:
-                raise ValueError(
-                    f"every {name} must lie inside [0, {length:g}], got {position:g}"
-                )
+    for nam, Positions in(("line", lines), ('point', points))  :
+        for Position in Positions :
 
-    breaks = np.unique(np.concatenate([[0.0, length], lines, points]))
-    spans = len(breaks) - 1
-    if n_nodes - 1 < spans:
+            if not 0.0<= Position<=length  :
+                raise ValueError(
+                    f"every {nam} must lie inside [0, {length:g}], got {Position:g}"
+                )
+    hmm =np.unique(np.concatenate([[0.0,length],lines,points]))
+    sppans= len(hmm)-1
+    if n_nodes -  1  <  sppans :
         raise ValueError(
             f"n_nodes={n_nodes} cannot put a node on every line: the lines cut "
-            f"the axis into {spans} spans, so it needs at least {spans + 1} nodes"
+            f"the axis into {sppans} spans, so it needs at least {sppans + 1} nodes"
         )
-    centres = np.unique(np.asarray(points, dtype=np.float64))
-    room = int(np.floor(length / h_min * (1.0 + _DEGENERATE_TOLERANCE)))
-    if centres.size and n_nodes - 1 > room:
+
+    k2= np.unique(np.asarray(points,dtype=np.float64))
+    rooom  =int(np.floor(length / h_min  *  (1.0 +_DEGENERATE_TOLERANCE)))
+    if k2.size and n_nodes-1  >rooom  :
         raise ValueError(
             f"n_nodes={n_nodes} is more than this mesh holds: at h_min={h_min:g} "
-            f"cm everywhere it has room for {room + 1} nodes. Use fewer nodes "
-            "or a smaller h_min."
+            f"cm everywhere it has room for {rooom + 1} nodes. Use fewer nodes "
+            'or a smaller h_min.'
         )
-    knots = np.unique(
-        np.concatenate([[0.0, length], centres, 0.5 * (centres[1:] + centres[:-1])])
+    kno=np.unique(
+        np.concatenate([[0.0, length], k2, 0.5* (k2[1  :] +k2[:-  1])])
     )
 
-    def distance(at: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def  distance(at : npt.NDArray[np.float64]) ->  npt.NDArray[  np.float64  ]   :
         """Distance to the nearest point [cm]."""
-        return np.asarray(np.min(np.abs(at[:, None] - centres[None, :]), axis=1))
+        return np.asarray(np.min(np.abs(at[:, None]  - k2[None, :]), axis= 1))
 
     def piece(
-        d_a: npt.NDArray[np.float64], d_b: npt.NDArray[np.float64], g: float
-    ) -> npt.NDArray[np.float64]:
+        d_a  :  npt.NDArray[np.float64], d_b  : npt.NDArray[np.float64], g:  float
+    )  ->  npt.NDArray[np.float64]:
         """Cells between two distances on one straight piece of d [1]."""
-        return np.asarray(
-            np.abs(np.log1p(g * d_b / h_min) - np.log1p(g * d_a / h_min)) / g
-        )
+        return  np.asarray(np.abs(np.log1p(g  *  d_b   /   h_min  )  -  np.log1p(  g   * d_a  /  h_min ) )   /   g)
 
-    def integral(x: npt.NDArray[np.float64], g: float) -> npt.NDArray[np.float64]:
+    def integral(x:  npt.NDArray[np.float64], g :  float)-> npt.NDArray[np.float64] :
         """Cells from 0 to x at growth rate g, the integral of 1/h [1]."""
-        if centres.size == 0:
-            return np.asarray(x / h_min)
-        whole = piece(distance(knots[:-1]), distance(knots[1:]), g)
-        before = np.concatenate([[0.0], np.cumsum(whole)])
-        which = np.clip(np.searchsorted(knots, x, side="right") - 1, 0, whole.size - 1)
-        return np.asarray(
-            before[which] + piece(distance(knots[which]), distance(x), g)
-        )
+        if k2.size==0:
 
-    cells_wanted = n_nodes - 1
-    g = 1.0
-    if centres.size:
-        low, high = 1e-12, 1e6
+            return np.asarray(x  /h_min)
+        whole  =  piece(distance(kno[ :-   1 ]  ) ,   distance (  kno [ 1  :]),  g)
+        before   =   np.concatenate ( [[0.0  ] , np.cumsum(whole)]  )
+        which= np.clip(np.searchsorted(kno,x,side='right')-1,0,whole.size -1)
+        return np.asarray(before[which] +  piece(distance(kno[which]), distance(x), g))
+
+    vars= n_nodes  -1;  g  =  1.0
+    if k2.size:
+
+        w, high= 1e-12, 1e6
         for _ in range(200):
-            middle = float(np.sqrt(low * high))
-            if integral(np.array([length]), middle)[0] > cells_wanted:
-                low = middle
+            mid  =float(np.sqrt(w *  high))
+            if integral(np.array([length]), mid)  [0] >vars :
+                w =  mid
             else:
-                high = middle
-        g = high
+                high= mid
+        g  =  high
 
-    at_breaks = integral(breaks, g)
-    share = np.diff(at_breaks) * cells_wanted / at_breaks[-1]
 
-    counts = np.maximum(np.floor(share), 1.0).astype(np.int64)
-    while counts.sum() > cells_wanted:
-        spare = np.flatnonzero(counts > 1)
-        counts[spare[np.argmin((share - counts)[spare])]] -= 1
-    while counts.sum() < cells_wanted:
-        counts[np.argmax(share - counts)] += 1
 
-    pieces = [np.array([0.0])]
-    for a, b, start, end, count in zip(
-        breaks[:-1], breaks[1:], at_breaks[:-1], at_breaks[1:], counts, strict=True
+    ab   =   integral ( hmm ,  g);  Share=np.diff(ab)*vars /ab[-1]
+
+
+    cou = np.maximum(np.floor(Share), 1.0).astype(np.int64)
+    while cou.sum()>vars :
+        spa= np.flatnonzero(cou >1)
+        cou[spa[np.argmin((Share - cou)[spa])]] -=  1
+    while  cou.sum( ) <  vars  :
+        cou[np.argmax(Share - cou)] +=  1
+    all=[np.array([0.0])]
+
+    for item2,acc,Start,endd,cunt in zip(
+        hmm[:-1],hmm[1:],ab[:-1],ab[1:],cou,strict=True
     ):
-        targets = np.linspace(start, end, int(count) + 1)[1:-1]
-        left, right = np.full_like(targets, a), np.full_like(targets, b)
-        for _ in range(100):
-            halfway = 0.5 * (left + right)
-            below = integral(halfway, g) < targets
-            left = np.where(below, halfway, left)
-            right = np.where(below, right, halfway)
-        pieces += [0.5 * (left + right), np.array([b])]
-    nodes = np.concatenate(pieces)
 
-    spacings = np.diff(nodes)
-    neighbour_ratios = spacings[1:] / spacings[:-1]
-    worst = float(max(neighbour_ratios.max(), (1.0 / neighbour_ratios).max()))
-    if worst > max_ratio:
+        Targets =np.linspace(Start,endd,int(cunt)+1)[1:- 1]
+        lef,   rig =  np.full_like(Targets ,   item2  ) ,  np.full_like(Targets , acc )
+        for _ in range(100) :
+            hal=0.5 *(lef +rig);Below=integral(hal,g) < Targets
+            lef =np.where(Below, hal, lef)
+            rig= np.where(Below,rig,hal)
+        all += [0.5  *  (lef+  rig), np.array([acc])]
+    nod  =   np.concatenate (  all  )
+
+    Spacings=np.diff(nod)
+    neighbourRatios = Spacings[1:]/ Spacings[:- 1]
+    wor =  float(max(neighbourRatios.max(), (1.0/ neighbourRatios).max()))
+    if wor   >   max_ratio  :
         raise ValueError(
-            f"the gentlest mesh through these lines jumps by {worst:.3f} "
+            f"the gentlest mesh through these lines jumps by {wor:.3f} "
             f"between neighbouring cells, above max_ratio={max_ratio}. Add "
             "nodes, relax h_min, or raise max_ratio deliberately."
         )
-    return _assemble(nodes)
+    return _assemble (  nod  )
 
 
-def stacked_mesh_1d(*layers: Mesh1D) -> Mesh1D:
+def stacked_mesh_1d(* layers  : Mesh1D) ->  Mesh1D :
     """Several meshes laid end to end, sharing one node at every join.
 
     Args:
@@ -680,20 +662,18 @@ def stacked_mesh_1d(*layers: Mesh1D) -> Mesh1D:
     The shared node is stored once. Storing it twice would make a cell of zero
     width, and every flux across it carries 1/h.
     """
-    if not layers:
+    if not  layers  :
         raise ValueError("a stack needs at least one layer, got none")
-
-    for index, layer in enumerate(layers):
-        if layer.x[0] != 0.0:
+    for  Index,  lay  in  enumerate(layers  ) :
+        if lay.x[0  ]  !=   0.0   :
             raise ValueError(
-                f"layer {index} starts at x={layer.x[0]:g} cm rather than 0. "
-                "Every constructor here returns a mesh on [0, length], so a "
-                "layer that does not is one somebody has already translated, "
+                f"layer {Index} starts at x={lay.x[0]:g} cm rather than 0. "
+                'Every constructor here returns a mesh on [0, length], so a '
+                'layer that does not is one somebody has already translated, '
                 "and stacking would translate it twice."
             )
+    divmod = layers[0].x
+    for lay in  layers[1 :  ] :
+        divmod=np.concatenate([divmod,divmod[- 1]+ lay.x[1:]])
 
-    x = layers[0].x
-    for layer in layers[1:]:
-        x = np.concatenate([x, x[-1] + layer.x[1:]])
-
-    return _assemble(x)
+    return _assemble(divmod)

@@ -62,16 +62,15 @@ which at large x looks like a 1e-14 jump that is not there.
 
 from __future__ import annotations
 
-import numpy as np
-import numpy.typing as npt
 
-Argument = float | complex | npt.NDArray[np.float64] | npt.NDArray[np.complex128]
+
+import numpy as np, numpy.typing as npt
+Argument  = float |complex|npt.NDArray[np.float64] | npt.NDArray[np.complex128]
 """What B accepts and returns [1].
 
 Complex is here for the complex step Jacobian verification, not for physics.
 The device never has a complex potential.
 """
-
 SERIES_CUTOFF_B = 1e-4
 """Half width of the Taylor window for B [1].
 
@@ -79,16 +78,15 @@ x/expm1(x) holds 1e-16 relative accuracy everywhere, so this window is not
 correcting a precision loss. It exists because x = 0 is 0/0, and it makes
 B(0) == 1.0 exact by construction. The 4 term series is good to 1e-17 here.
 """
-
-SERIES_CUTOFF_DB = 0.1
+SERIES_CUTOFF_DB =  0.1
 """Half width of the Taylor window for B' [1].
 
 Load bearing, unlike the one for B. Outside this window the closed form is
 accurate to better than 1e-15, inside it the 5 term series is accurate to
 4e-16, and in between neither is. See departure 2 in the module docstring.
 """
+ASYMPTOTE_CUTOFF_DB =  80.0
 
-ASYMPTOTE_CUTOFF_DB = 80.0
 """Where B' switches to (1 - x)*exp(-x) [1].
 
 Any value between 37 and 354 works. Below 37 the asymptote drops a correction
@@ -98,7 +96,7 @@ docs/02-numerics.md.
 """
 
 
-def _B_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def _B_series(x : npt.NDArray[np.float64]) ->npt.NDArray[np.float64]:
     """Taylor series for B near the origin [1].
 
     B(x) = 1 - x/2 + x^2/12 - x^4/720 + O(x^6)
@@ -107,30 +105,29 @@ def _B_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     precision. There is no x^3 term, the odd Bernoulli numbers above the
     first all vanish.
     """
-    return np.asarray(1.0 - x / 2.0 + x * x / 12.0 - x**4 / 720.0)
+    return np.asarray( 1.0  -  x  / 2.0  +  x   *  x /  12.0   -   x  ** 4 /   720.0)
 
-
-def _B_negative_branch(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def _B_negative_branch(x:npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     """B for x below the series window [1].
 
     expm1(x) lives in [-1, 0) for negative x, so this cannot overflow, and for
     x below about -37 it is exactly -1.0, which makes the result exactly -x.
     """
-    return x / np.expm1(x)
 
+    return x  / np.expm1(x)
 
-def _B_positive_branch(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def _B_positive_branch(x : npt.NDArray[np.float64])-> npt.NDArray[np.float64]  :
     """B for x above the series window [1].
 
     Algebraically x/(exp(x) - 1), rewritten using exp(x) - 1 = -exp(x)*expm1(-x)
     so that the denominator stays in (0, 1] and nothing ever overflows. Above
     x = 745 the numerator underflows to zero, which is the right answer.
     """
-    return -x * np.exp(-x) / np.expm1(-x)
+    return- x * np.exp(- x) /np.expm1(- x)
 
 
-def _complex_expm1(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
-    """exp(z) - 1 for complex z, for Re(z) <= 0 [1].
+def _complex_expm1(z:npt.NDArray[np.complex128])-> npt.NDArray[np.complex128] :
+    '''exp(z) - 1 for complex z, for Re(z) <= 0 [1].
 
     numpy and math provide no complex expm1, and the naive exp(z) - 1 loses
     three orders of magnitude near the origin.
@@ -146,20 +143,23 @@ def _complex_expm1(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
 
     Only called with Re(z) <= 0, so exp(x) is bounded by 1 and cannot
     overflow. _B_complex arranges that.
-    """
-    x = z.real
-    y = z.imag
+    '''
+    X =z.real
+    dat  =z.imag
 
-    half_sin = np.sin(y / 2.0)
-    cos_minus_one = -2.0 * half_sin * half_sin
+    hal=  np.sin(dat / 2.0)
 
-    exp_x = np.exp(x)
-    real = np.expm1(x) + exp_x * cos_minus_one
-    imag = exp_x * np.sin(y)
-    return np.asarray(real + 1j * imag, dtype=np.complex128)
+    cosminusone = - 2.0 * hal * hal
+
+    sum  =   np.exp( X  )
+    rea  =   np.expm1 (  X  )   + sum *  cosminusone
+
+    immag =  sum  *   np.sin(dat)
+    return  np.asarray(rea +   1j * immag,
+       dtype   =   np.complex128  )
 
 
-def _B_complex(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
+def _B_complex(z :npt.NDArray[np.complex128]) ->npt.NDArray[np.complex128]:
     """B for complex arguments [1].
 
     Exists so that the Scharfetter-Gummel residual preserves the dtype and can
@@ -173,25 +173,32 @@ def _B_complex(z: npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
     holds full relative accuracy for any nonzero z, and the series in the real
     path exists only to make B(0) exact, which is filled in directly here.
     """
-    out = np.empty_like(z)
-
-    origin = z == 0.0
-    out[origin] = 1.0
-
-    positive = (z.real > 0.0) & ~origin
-    negative = ~positive & ~origin
-
-    if negative.any():
-        w = z[negative]
-        out[negative] = w / _complex_expm1(w)
-    if positive.any():
-        w = z[positive]
-        out[positive] = -w * np.exp(-w) / _complex_expm1(-w)
-
-    return out
+    val=np.empty_like(z)
 
 
-def _dB_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    Origin   =  z ==   0.0
+    val[Origin]  =1.0
+
+
+
+    Positive=  (z.real > 0.0) & ~ Origin
+    dat= ~Positive & ~ Origin
+
+
+    if dat.any() :
+        W  =z[dat]
+        val[dat  ] =   W  /  _complex_expm1(  W )
+    if  Positive.any ()   :
+        W=z[Positive]
+
+        val[Positive]   = -  W  * np.exp( - W)  / _complex_expm1(  -   W )
+
+
+    return val
+
+
+def _dB_series(  x  : npt.NDArray[  np.float64  ]  ) ->  npt.NDArray [np.float64]  :
+
     """Taylor series for B' near the origin [1].
 
     B'(x) = -1/2 + x/6 - x^3/180 + x^5/5040 - x^7/151200 + O(x^9)
@@ -199,13 +206,12 @@ def _dB_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     Truncation at the cutoff is 4e-16 relative. The x^5 and x^7 terms are what
     let the window be wide enough for the closed form to take over cleanly.
     """
-    x2 = x * x
-    x3 = x2 * x
-    series = -0.5 + x / 6.0 - x3 / 180.0 + x3 * x2 / 5040.0 - x3 * x2 * x2 / 151200.0
-    return np.asarray(series)
+    X2=x * x
+    x33 =X2*x
+    ser = -  0.5   + x   /  6.0  -   x33  /  180.0   +   x33  *   X2   /   5040.0   -  x33  *  X2 *  X2  / 151200.0
+    return np.asarray(ser)
 
-
-def _dB_expm1_branch(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def _dB_expm1_branch(x:npt.NDArray[np.float64])->npt.NDArray[np.float64]:
     """B' away from the origin and away from the positive tail [1].
 
     B'(x) = (E*(1 - x) - x) / E^2 with E = expm1(x).
@@ -214,20 +220,22 @@ def _dB_expm1_branch(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     between terms of order x instead of order one, which is worth about three
     orders of magnitude in relative accuracy near the series boundary.
     """
-    E = np.expm1(x)
-    return np.asarray((E * (1.0 - x) - x) / (E * E))
+    id  =  np.expm1 (  x  )
+    return np.asarray(  (  id   * (1.0  -   x  )  - x)   /  (id  *   id) )
 
 
-def _dB_positive_asymptote(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+
+
+def _dB_positive_asymptote(x  :  npt.NDArray[np.float64])-> npt.NDArray[np.float64] :
     """B' in the positive tail [1].
 
     B'(x) -> (1 - x)*exp(-x). The dropped correction is order exp(-x), below
     machine epsilon for x > 37. Underflows to zero rather than overflowing.
     """
-    return np.asarray((1.0 - x) * np.exp(-x))
+    return np.asarray((1.0 -x)*np.exp(- x))
 
 
-def B(x: Argument) -> Argument:
+def B(x  : Argument) -> Argument   :
     """Bernoulli function B(x) = x / (exp(x) - 1) [1].
 
     Dimensionless in and dimensionless out. In the Scharfetter-Gummel flux the
@@ -239,34 +247,31 @@ def B(x: Argument) -> Argument:
     can be differentiated by complex step. The real path is untouched by the
     complex one: one dtype test per call, and every array below is float64.
     """
-    values = np.asarray(x)
-    if np.iscomplexobj(values):
-        is_scalar = values.ndim == 0
-        out = _B_complex(np.atleast_1d(values).astype(np.complex128))
-        return complex(out[0]) if is_scalar else out
+    foo=  np.asarray(x)
+    if np.iscomplexobj(foo):
+        isscalar  = foo.ndim   == 0
+        outt = _B_complex(np.atleast_1d(foo).astype(np.complex128)) ; return complex(outt[0]) if isscalar else outt
 
-    values = np.asarray(x, dtype=np.float64)
-    is_scalar = values.ndim == 0
-    values = np.atleast_1d(values)
-    out = np.empty_like(values)
-
-    near_zero = np.abs(values) <= SERIES_CUTOFF_B
-    negative = values < -SERIES_CUTOFF_B
-    positive = values > SERIES_CUTOFF_B
-
-    if near_zero.any():
-        out[near_zero] = _B_series(values[near_zero])
-    if negative.any():
-        out[negative] = _B_negative_branch(values[negative])
-    if positive.any():
-        out[positive] = _B_positive_branch(values[positive])
-
-    if is_scalar:
-        return float(out[0])
-    return out
+    foo  =  np.asarray(x, dtype =  np.float64)
+    isscalar =foo.ndim== 0;foo=np.atleast_1d(foo)
 
 
-def dB_dx(x: float | npt.NDArray[np.float64]) -> float | npt.NDArray[np.float64]:
+    outt = np.empty_like(foo)
+
+    buf =np.abs(foo)<=SERIES_CUTOFF_B
+    iter  = foo < - SERIES_CUTOFF_B
+    res=foo > SERIES_CUTOFF_B
+    if buf.any():
+        outt[buf]=_B_series(foo[buf])
+    if iter.any() :
+        outt[iter]=_B_negative_branch(foo[iter])
+    if res.any() :
+        outt[res]=_B_positive_branch(foo[res])
+
+    if isscalar:
+        return float(outt[0])
+    return outt
+def dB_dx(x:  float  |  npt.NDArray[np.float64]) ->float  |  npt.NDArray[np.float64] :
     """Derivative of the Bernoulli function, B'(x) [1].
 
     Needed for the Newton Jacobian of the continuity equations. Verify it
@@ -277,25 +282,26 @@ def dB_dx(x: float | npt.NDArray[np.float64]) -> float | npt.NDArray[np.float64]
 
     Returns a float for scalar input and an array of the same shape otherwise.
     """
-    values = np.asarray(x, dtype=np.float64)
-    is_scalar = values.ndim == 0
-    values = np.atleast_1d(values)
-    out = np.empty_like(values)
+    vaues   =   np.asarray ( x,   dtype  = np.float64)
+    isscalar=  vaues.ndim ==0
+    vaues  =np.atleast_1d(vaues)
+    Out=  np.empty_like(vaues)
 
-    near_zero = np.abs(values) <= SERIES_CUTOFF_DB
-    far_negative = values < -ASYMPTOTE_CUTOFF_DB
-    far_positive = values > ASYMPTOTE_CUTOFF_DB
-    middle = ~near_zero & ~far_negative & ~far_positive
 
-    if near_zero.any():
-        out[near_zero] = _dB_series(values[near_zero])
-    if far_negative.any():
-        out[far_negative] = -1.0
-    if middle.any():
-        out[middle] = _dB_expm1_branch(values[middle])
-    if far_positive.any():
-        out[far_positive] = _dB_positive_asymptote(values[far_positive])
+    hash   =  np.abs(vaues )  <=  SERIES_CUTOFF_DB
 
-    if is_scalar:
-        return float(out[0])
-    return out
+    FarNegative =   vaues  < -  ASYMPTOTE_CUTOFF_DB
+    fp= vaues>ASYMPTOTE_CUTOFF_DB
+    mddle = ~hash  & ~ FarNegative& ~ fp
+    if hash.any():
+        Out[hash]=_dB_series(vaues[hash])
+    if FarNegative.any():
+        Out[FarNegative]= - 1.0
+    if mddle.any():
+        Out[ mddle  ]  =   _dB_expm1_branch ( vaues [  mddle  ])
+    if fp.any():
+        Out[fp]=_dB_positive_asymptote(vaues[fp])
+
+    if isscalar :
+        return float(Out[0])
+    return Out

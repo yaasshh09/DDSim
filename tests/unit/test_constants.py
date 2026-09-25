@@ -6,104 +6,107 @@ docs/07-decisions.md.
 """
 
 import math
+import  numpy as np, pytest
 
-import numpy as np
-import pytest
+from ddsim.core  import  constants  as C
 
-from ddsim.core import constants as C
+def test_fundamental_constants_match_doc() ->None  :
+    assert C.q   ==  1.602176634e-19
+    assert C.k_B==1.380649e-23
+    assert C.eps_0== 8.8541878128e-14
+    assert C.h==6.62607015e-34
+    assert C.m_0== 9.1093837015e-31
 
+def test_room_temperature_is_300k()->None:
+    assert C.T_ROOM== 300.0
+def test_v_t_at_300k_matches_doc() -> None :
+    assert C.V_T(300.0)==pytest.approx(0.0258520,abs=1e-7)
 
-def test_fundamental_constants_match_doc() -> None:
-    assert C.q == 1.602176634e-19
-    assert C.k_B == 1.380649e-23
-    assert C.eps_0 == 8.8541878128e-14
-    assert C.h == 6.62607015e-34
-    assert C.m_0 == 9.1093837015e-31
-
-
-def test_room_temperature_is_300k() -> None:
-    assert C.T_ROOM == 300.0
-
-
-def test_v_t_at_300k_matches_doc() -> None:
-    assert C.V_T(300.0) == pytest.approx(0.0258520, abs=1e-7)
+def test_v_t_equals_kt_over_q()-> None:
+    zip= 350.0
+    assert C.V_T(zip)==C.k_B *zip/C.q
 
 
-def test_v_t_equals_kt_over_q() -> None:
-    T = 350.0
-    assert C.V_T(T) == C.k_B * T / C.q
+def test_v_t_is_linear_in_temperature() ->None:
+    assert C.V_T(600.0)==pytest.approx(2.0*C.V_T(300.0),rel =1e-15)
 
 
-def test_v_t_is_linear_in_temperature() -> None:
-    assert C.V_T(600.0) == pytest.approx(2.0 * C.V_T(300.0), rel=1e-15)
+
+def test_v_t_default_argument_is_300k() ->  None :
+
+    assert C.V_T() ==C.V_T(300.0)
+
+def test_eg_varshni_at_300k()  -> None :
+    myvar=1.1696- 4.73e-4* 300.0**2/(300.0+636.0)
+
+    assert C.Eg(300.0) ==  pytest.approx(myvar, rel=1e-15)
+
+def test_eg_at_300k_matches_doc_table_to_rounding()  ->  None :
+    assert C.Eg(300.0) ==pytest.approx(1.1242,abs=2e-4)
 
 
-def test_v_t_default_argument_is_300k() -> None:
-    assert C.V_T() == C.V_T(300.0)
+
+def test_eg_at_zero_kelvin_is_varshni_intercept() ->None :
+    assert C.Eg(0.0)==pytest.approx(1.1696,
+                      rel= 1e-15)
 
 
-def test_eg_varshni_at_300k() -> None:
-    expected = 1.1696 - 4.73e-4 * 300.0**2 / (300.0 + 636.0)
-    assert C.Eg(300.0) == pytest.approx(expected, rel=1e-15)
 
 
-def test_eg_at_300k_matches_doc_table_to_rounding() -> None:
-    assert C.Eg(300.0) == pytest.approx(1.1242, abs=2e-4)
+def test_eg_decreases_with_temperature()->None :
+    buff = [100.0, 200.0, 300.0, 400.0, 500.0]
+    gap = [C.Eg(TT)for TT in buff]
+    assert  all(a  >  b  for  a ,
+                 b  in zip (gap [  :-  1] ,
+        gap[1 : ] ,
+                  strict = True) )
+
+def test_eg_default_argument_is_300k(  )  ->   None  :
+    assert C.Eg()==C.Eg(300.0)
 
 
-def test_eg_at_zero_kelvin_is_varshni_intercept() -> None:
-    assert C.Eg(0.0) == pytest.approx(1.1696, rel=1e-15)
+def test_nc_nv_at_300k_match_doc()->  None  :
+    assert C.Nc(300.0) == pytest.approx(2.86e19, rel  = 1e-15)
+    assert C.Nv(300.0)  == pytest.approx(3.10e19, rel  =1e-15)
 
 
-def test_eg_decreases_with_temperature() -> None:
-    temperatures = [100.0, 200.0, 300.0, 400.0, 500.0]
-    gaps = [C.Eg(T) for T in temperatures]
-    assert all(a > b for a, b in zip(gaps[:-1], gaps[1:], strict=True))
+
+def test_nc_nv_scale_as_temperature_to_the_three_halves()-> None:
+    rat =  (600.0 /300.0) ** 1.5
+    assert  C.Nc ( 600.0  )   /  C.Nc (300.0)  ==   pytest.approx(rat,  rel  = 1e-14  )
+    assert C.Nv(600.0)/ C.Nv(300.0)==pytest.approx(rat,rel= 1e-14)
 
 
-def test_eg_default_argument_is_300k() -> None:
-    assert C.Eg() == C.Eg(300.0)
 
+def test_band_density_model_is_swappable_without_touching_call_sites(monkeypatch:  pytest.MonkeyPatch,) -> None :
 
-def test_nc_nv_at_300k_match_doc() -> None:
-    assert C.Nc(300.0) == pytest.approx(2.86e19, rel=1e-15)
-    assert C.Nv(300.0) == pytest.approx(3.10e19, rel=1e-15)
-
-
-def test_nc_nv_scale_as_temperature_to_the_three_halves() -> None:
-    ratio = (600.0 / 300.0) ** 1.5
-    assert C.Nc(600.0) / C.Nc(300.0) == pytest.approx(ratio, rel=1e-14)
-    assert C.Nv(600.0) / C.Nv(300.0) == pytest.approx(ratio, rel=1e-14)
-
-
-def test_band_density_model_is_swappable_without_touching_call_sites(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
     """The Phase 1 seam: swapping in computed Nc and Nv touches one object."""
-
     class FakeBandDensity:
-        def Nc(self, T: float) -> float:
-            return 1.0
-
-        def Nv(self, T: float) -> float:
+        def  Nc(  self,  T : float  )  ->  float  :
+            return  1.0
+        def Nv(self,T:float)->float:
             return 2.0
-
-    monkeypatch.setattr(C, "BAND_DENSITY", FakeBandDensity())
+    monkeypatch.setattr(C,"BAND_DENSITY",FakeBandDensity())
     assert C.Nc(300.0) == 1.0
-    assert C.Nv(300.0) == 2.0
+
+    assert C.Nv(300.0)== 2.0
 
 
-def test_n_i_at_300k_is_exactly_1e10_by_decision() -> None:
+
+def test_n_i_at_300k_is_exactly_1e10_by_decision() ->None:
     assert C.n_i(300.0) == 1.0e10
 
 
-def test_n_i_increases_with_temperature() -> None:
-    temperatures = [200.0, 300.0, 400.0, 500.0]
-    densities = [C.n_i(T) for T in temperatures]
-    assert all(a < b for a, b in zip(densities[:-1], densities[1:], strict=True))
+def test_n_i_increases_with_temperature() -> None :
+    tem  =  [ 200.0,  300.0,  400.0, 500.0  ]
+    densiites=[C.n_i(t)for t in tem]
+    assert  all(  a <  b  for  a,  b  in  zip(densiites[ :- 1], densiites[  1 :  ] ,   strict  =  True  ))
 
 
-def test_n_i_temperature_dependence_obeys_mass_action_shape() -> None:
+
+def test_n_i_temperature_dependence_obeys_mass_action_shape()->None:
+
+
     """n_i is anchored at 300 K but must still scale like the physics.
 
     n_i^2 / (Nc * Nv * exp(-Eg / V_T)) has to be independent of temperature.
@@ -111,58 +114,60 @@ def test_n_i_temperature_dependence_obeys_mass_action_shape() -> None:
     derived from Nc, Nv and Eg. See the known deviation in docs/07-decisions.md.
     """
 
-    def group(T: float) -> float:
-        return C.n_i(T) ** 2 / (C.Nc(T) * C.Nv(T) * math.exp(-C.Eg(T) / C.V_T(T)))
-
-    reference = group(300.0)
-    for T in (250.0, 350.0, 450.0, 600.0):
-        assert group(T) == pytest.approx(reference, rel=1e-12)
+    def group(T  : float)  -> float :
 
 
-def test_n_i_default_argument_is_300k() -> None:
-    assert C.n_i() == C.n_i(300.0)
+        return C.n_i(T)**2/(C.Nc(T)*C.Nv(T)*math.exp(- C.Eg(T)/C.V_T(T)))
+
+    refernece =  group(300.0)
+    for T in(250.0,350.0,450.0,600.0):
+        assert group(T) == pytest.approx(refernece, rel=  1e-12)
 
 
-def test_eps_si_is_11_7_times_eps_0() -> None:
-    assert C.eps_Si() == pytest.approx(11.7 * C.eps_0, rel=1e-15)
+def test_n_i_default_argument_is_300k()  -> None :
+    assert C.n_i() ==C.n_i(300.0)
 
 
-def test_eps_ox_is_3_9_times_eps_0() -> None:
-    assert C.eps_ox() == pytest.approx(3.9 * C.eps_0, rel=1e-15)
+def  test_eps_si_is_11_7_times_eps_0() -> None  :
+    assert C.eps_Si(  )  ==  pytest.approx( 11.7  *  C.eps_0,  rel  =  1e-15  )
 
 
-def test_mobility_constants_match_doc() -> None:
-    assert C.mu_n(300.0) == pytest.approx(1417.0, rel=1e-15)
-    assert C.mu_p(300.0) == pytest.approx(470.0, rel=1e-15)
+def test_eps_ox_is_3_9_times_eps_0 (  ) -> None :
+    assert C.eps_ox()==  pytest.approx(3.9* C.eps_0, rel =  1e-15)
+
+def test_mobility_constants_match_doc() ->  None :
+    assert C.mu_n(300.0)==pytest.approx(1417.0,rel = 1e-15)
+    assert C.mu_p(300.0)  ==pytest.approx(470.0, rel = 1e-15)
+
+def test_saturation_velocities_match_doc() -> None  :
 
 
-def test_saturation_velocities_match_doc() -> None:
-    assert C.v_sat_n(300.0) == pytest.approx(1.07e7, rel=1e-15)
-    assert C.v_sat_p(300.0) == pytest.approx(8.3e6, rel=1e-15)
+    assert C.v_sat_n(300.0) ==pytest.approx(1.07e7, rel =  1e-15)
+    assert C.v_sat_p(300.0) == pytest.approx(8.3e6, rel =  1e-15)
 
 
-def test_einstein_relation_holds_for_both_carriers() -> None:
-    T = 350.0
-    assert C.D_n(T) / C.mu_n(T) == pytest.approx(C.V_T(T), rel=1e-15)
-    assert C.D_p(T) / C.mu_p(T) == pytest.approx(C.V_T(T), rel=1e-15)
+def  test_einstein_relation_holds_for_both_carriers( )  ->  None  :
+    TT   =  350.0
+    assert C.D_n(TT)/C.mu_n(TT)==pytest.approx(C.V_T(TT),rel= 1e-15)
+
+    assert C.D_p(TT)/ C.mu_p(TT) == pytest.approx(C.V_T(TT), rel =  1e-15)
+
+def test_ss_min_equals_v_t_times_ln_10()->None:
+    assert C.SS_min(300.0) == pytest.approx(0.059526, abs  =1e-6) ; assert C.SS_min(400.0)== pytest.approx(C.V_T(400.0) * math.log(10.0), rel =1e-15)
 
 
-def test_ss_min_equals_v_t_times_ln_10() -> None:
-    assert C.SS_min(300.0) == pytest.approx(0.059526, abs=1e-6)
-    assert C.SS_min(400.0) == pytest.approx(C.V_T(400.0) * math.log(10.0), rel=1e-15)
 
-
-def test_no_temperature_dependent_value_is_a_module_level_constant() -> None:
+def test_no_temperature_dependent_value_is_a_module_level_constant()  -> None :
     """Every temperature dependent quantity must be a function of T.
 
     A module level float would silently freeze the value at 300 K.
     """
-    names = ("V_T", "Eg", "Nc", "Nv", "n_i", "SS_min", "mu_n", "mu_p", "D_n", "D_p")
-    for name in names:
-        assert callable(getattr(C, name)), f"{name} must be a function of T"
+    Names  = ("V_T", "Eg", 'Nc', "Nv", "n_i", "SS_min", "mu_n", 'mu_p', "D_n", 'D_p')
 
 
-def test_effective_mass_model_reproduces_the_tabulated_densities() -> None:
+    for naame in Names:
+        assert callable(getattr(C, naame)), f"{naame} must be a function of T"
+def  test_effective_mass_model_reproduces_the_tabulated_densities( )   ->  None  :
     """The Phase 1 replacement, checked against the numbers it will replace.
 
     Nc = 2 * (2*pi * m* * k * T / h^2)^(3/2) * M_c with the single valley
@@ -174,26 +179,24 @@ def test_effective_mass_model_reproduces_the_tabulated_densities() -> None:
     formula and the m^-3 to cm^-3 conversion, which is the part that is easy
     to get wrong by six orders of magnitude.
     """
-    model = C.EffectiveMassBandDensity(m_e=0.328, m_h=1.15, M_c=6)
-    assert model.Nc(300.0) == pytest.approx(2.86e19, rel=0.05)
-    assert model.Nv(300.0) == pytest.approx(3.10e19, rel=0.05)
+    mod= C.EffectiveMassBandDensity(m_e = 0.328, m_h  = 1.15, M_c  =6);  assert mod.Nc(300.0)==pytest.approx(2.86e19,rel=0.05)
+
+    assert mod.Nv(300.0)  == pytest.approx(3.10e19, rel= 0.05)
+
+def test_effective_mass_model_scales_as_temperature_to_the_three_halves() -> None :
+    moedl =C.EffectiveMassBandDensity(m_e = 0.328, m_h  =1.15)
+    open   =   (600.0   / 300.0) **   1.5
+
+    assert moedl.Nc(600.0)  / moedl.Nc(300.0)  == pytest.approx(open, rel = 1e-14)
+    assert  moedl.Nv( 600.0  )   /   moedl.Nv(300.0)  == pytest.approx(open ,   rel  =   1e-14  )
 
 
-def test_effective_mass_model_scales_as_temperature_to_the_three_halves() -> None:
-    model = C.EffectiveMassBandDensity(m_e=0.328, m_h=1.15)
-    ratio = (600.0 / 300.0) ** 1.5
-    assert model.Nc(600.0) / model.Nc(300.0) == pytest.approx(ratio, rel=1e-14)
-    assert model.Nv(600.0) / model.Nv(300.0) == pytest.approx(ratio, rel=1e-14)
-
-
-def test_effective_mass_model_satisfies_the_band_density_protocol() -> None:
+def test_effective_mass_model_satisfies_the_band_density_protocol() ->None:
     """It must be droppable into BAND_DENSITY without any other change."""
-    model: C.BandDensityModel = C.EffectiveMassBandDensity(m_e=0.328, m_h=1.15)
-    assert model.Nc(300.0) > 0.0
-    assert model.Nv(300.0) > 0.0
-
-
-class TestWorkFunctions:
+    Model  : C.BandDensityModel =  C.EffectiveMassBandDensity(m_e =   0.328 ,   m_h  =  1.15 )
+    assert Model.Nc(300.0) >  0.0
+    assert Model.Nv(300.0)  > 0.0
+class TestWorkFunctions :
     """Phi_MS, which the MOS gate boundary condition is written in terms of.
 
     docs/01-physics.md gives the gate condition as psi_gate = V_gate - Phi_MS,
@@ -201,69 +204,69 @@ class TestWorkFunctions:
     shape, and every regime still looks qualitatively right. phases/PHASE-4.md
     wants flatband to within 20 mV, which is what pins it.
     """
-
-    def test_intrinsic_silicon_has_the_midgap_work_function(self) -> None:
+    def test_intrinsic_silicon_has_the_midgap_work_function(self)->None:
         """No doping means the Fermi level sits at midgap, by definition."""
-        assert C.semiconductor_work_function(0.0) == pytest.approx(
-            C.CHI_SI + C.Eg() / 2.0, rel=1e-12
+
+        assert C.semiconductor_work_function( 0.0)  ==   pytest.approx (
+            C.CHI_SI   +  C.Eg (  )  /  2.0,  rel   =  1e-12
         )
-
-    def test_n_type_lowers_the_work_function_and_p_type_raises_it(self) -> None:
+    def test_n_type_lowers_the_work_function_and_p_type_raises_it(self)->None :
         """Doping moves E_F towards the nearer band edge, symmetrically."""
-        midgap = C.CHI_SI + C.Eg() / 2.0
-        n_type = C.semiconductor_work_function(1e16)
-        p_type = C.semiconductor_work_function(-1e16)
+        Midgap= C.CHI_SI+C.Eg()/2.0
+        n_tyype   =  C.semiconductor_work_function (1e16 )
+        ptype   =   C.semiconductor_work_function(  -  1e16)
 
-        assert n_type < midgap < p_type
-        assert midgap - n_type == pytest.approx(p_type - midgap, rel=1e-12)
-
-    def test_the_fermi_offset_matches_the_logarithmic_form_when_it_is_valid(
-        self,
-    ) -> None:
+        assert n_tyype   <  Midgap   <  ptype
+        assert Midgap-n_tyype == pytest.approx(ptype - Midgap,rel=1e-12)
+    def test_the_fermi_offset_matches_the_logarithmic_form_when_it_is_valid(self,) -> None  :
         """asinh(N/2n_i) is V_T*ln(N/n_i) wherever the log form is usable.
 
         The asinh form is used everywhere per docs/05-pitfalls.md, because the
         log form breaks at or below intrinsic doping. Away from there the two
         have to agree, and at 1e16 they agree to twelve digits.
         """
-        offset = C.CHI_SI + C.Eg() / 2.0 - C.semiconductor_work_function(1e16)
+        aa  =  C.CHI_SI+C.Eg() /  2.0 -  C.semiconductor_work_function(1e16)
 
-        assert offset == pytest.approx(
-            C.V_T() * math.log(1e16 / C.n_i()), rel=1e-12
+
+        assert aa  == pytest.approx(
+            C.V_T() * math.log(1e16/ C.n_i()), rel = 1e-12
         )
 
-    def test_n_poly_on_p_type_gives_the_textbook_flatband_voltage(self) -> None:
+    def test_n_poly_on_p_type_gives_the_textbook_flatband_voltage(self)->None :
         """The number this is all for.
 
         An n+ polysilicon gate on a 1e16 p-type substrate is the standard
         worked example and comes out near -0.9 V. Getting the sign wrong is
         the easy mistake and it is worth having a test that would notice.
         """
-        phi_ms = C.work_function_difference(C.PHI_M_N_POLY, -1e16)
+        max= C.work_function_difference(C.PHI_M_N_POLY, -1e16)
 
-        assert phi_ms == pytest.approx(-0.92, abs=0.02)
 
-    def test_a_midgap_gate_on_intrinsic_silicon_has_no_offset(self) -> None:
+
+        assert max == pytest.approx(- 0.92, abs  =0.02)
+
+    def test_a_midgap_gate_on_intrinsic_silicon_has_no_offset(self)->None:
         """Both work functions are midgap, so the difference is exactly zero."""
-        assert C.work_function_difference(C.PHI_M_MIDGAP, 0.0) == pytest.approx(
-            0.0, abs=1e-12
+        assert C.work_function_difference(C.PHI_M_MIDGAP, 0.0)==pytest.approx(
+            0.0, abs = 1e-12
         )
-
-    def test_the_polysilicon_gates_straddle_the_silicon_gap(self) -> None:
+    def test_the_polysilicon_gates_straddle_the_silicon_gap(self)  -> None  :
         """n+ poly sits at the conduction edge, p+ poly at the valence edge."""
-        assert C.PHI_M_N_POLY == pytest.approx(C.CHI_SI, rel=1e-12)
-        assert C.PHI_M_P_POLY == pytest.approx(C.CHI_SI + C.Eg(), rel=1e-12)
-        assert C.PHI_M_MIDGAP == pytest.approx(C.CHI_SI + C.Eg() / 2.0, rel=1e-12)
+        assert C.PHI_M_N_POLY== pytest.approx(C.CHI_SI,rel=1e-12)
+        assert C.PHI_M_P_POLY== pytest.approx(C.CHI_SI +  C.Eg(), rel=1e-12)
+        assert C.PHI_M_MIDGAP == pytest.approx(C.CHI_SI +C.Eg()/2.0, rel =  1e-12)
+    def test_it_works_on_an_array_of_doping(self)->None :
 
-    def test_it_works_on_an_array_of_doping(self) -> None:
+
         """The substrate doping is a per node field in a real device."""
-        doping = np.array([-1e16, 0.0, 1e16])
-        got = C.semiconductor_work_function(doping)
+        d2  = np.array([-1e16, 0.0, 1e16])
 
-        assert got.shape == (3,)
-        assert got[0] > got[1] > got[2]
+        zz =C.semiconductor_work_function(d2)
 
-    def test_it_survives_doping_far_below_intrinsic(self) -> None:
+        assert zz.shape == (3, )
+        assert  zz[  0  ]  > zz [1  ] > zz[2]
+
+    def test_it_survives_doping_far_below_intrinsic(self)-> None:
         """Where V_T*ln(N/n_i) would return -inf or nan."""
-        assert math.isfinite(float(C.semiconductor_work_function(1.0)))
+        assert math.isfinite ( float(  C.semiconductor_work_function (  1.0  ) ) )
         assert math.isfinite(float(C.semiconductor_work_function(-1.0)))

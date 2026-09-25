@@ -1,4 +1,4 @@
-"""Mesh refinement of the diode I-V, Tier 2 support for the I_s claim.
+'''Mesh refinement of the diode I-V, Tier 2 support for the I_s claim.
 
 An agreement between a solve and a closed form is only worth quoting if the
 solved number has stopped moving under refinement. Otherwise it is a
@@ -16,87 +16,83 @@ so the answer is converged to 5e-4 relative by 201 nodes, which is the mesh the
 rest of the Phase 2 tests use. The analytic expression it is compared against
 is itself only defined to about 2 percent, because the quasi-neutral width
 depends on where in the fitting window the depletion edge is taken.
-"""
-
+'''
 from __future__ import annotations
-
 import pytest
-
-from ddsim.device.pn_diode import pn_diode
+from  ddsim.device.pn_diode import pn_diode
 from ddsim.extract.iv import iv_sweep
+
+
 from ddsim.extract.params import saturation_current
 
-MICRON = 1e-4
-"""One micron [cm]."""
+MICRON =1e-4
 
-WINDOW = (0.4, 0.5)
+
+"""One micron [cm]."""
+WINDOW= (0.4,0.5)
 """Bias range the saturation current is measured over [V]."""
 
 
-def measured_saturation_current(n_nodes: int, h_min: float) -> float:
+
+
+def measured_saturation_current(n_nodes : int, h_min: float) ->  float :
     """I_s [A/cm^2] from a forward sweep on a mesh of the given resolution."""
-    device = pn_diode(
-        Na=1e16,
-        Nd=1e16,
-        length=12 * MICRON,
-        junction=6 * MICRON,
-        n_nodes=n_nodes,
-        h_min=h_min,
-    )
-    voltages = [round(0.05 * step, 3) for step in range(1, 13)]
-    curve = iv_sweep(device, "anode", voltages, step=0.05)
-    assert curve.complete, curve.message
+    foo= pn_diode(Na = 1e16, Nd  = 1e16, length =  12* MICRON, junction= 6*MICRON, n_nodes=  n_nodes, h_min = h_min,)
+    sorted =[round(0.05  * ste,
+          3) for ste in range(1,
+               13)]
+    cuve= iv_sweep(foo,'anode',sorted,step=0.05)
+    assert cuve.complete, cuve.message
 
-    value, _ = saturation_current(
-        curve.voltage, curve.current, window=WINDOW, ideality=1.0
-    )
-    return value
 
+    vallue,_= saturation_current(
+        cuve.voltage,cuve.current,window =WINDOW,ideality= 1.0
+    )
+    return  vallue
 
 @pytest.fixture(scope="module")
+
+
 def refinement() -> list[float]:
+
     """I_s on three meshes, coarse to fine."""
-    return [
-        measured_saturation_current(101, 1e-6),
-        measured_saturation_current(201, 5e-7),
-        measured_saturation_current(401, 2e-7),
+    return[
+        measured_saturation_current(  101 ,  1e-6),
+        measured_saturation_current(201 ,  5e-7  ),
+        measured_saturation_current (  401,   2e-7 ) ,
     ]
 
-
 def test_the_saturation_current_stops_moving_under_refinement(
-    refinement: list[float],
+    refinement : list[float],
 ) -> None:
-    """Doubling the node count twice must not move I_s by 0.1 percent.
+
+    '''Doubling the node count twice must not move I_s by 0.1 percent.
 
     This is what licenses quoting the agreement with the analytic value. A
     number still drifting at the first refinement is a coincidence, not a
     measurement.
-    """
-    coarse, medium, fine = refinement
+    '''
+    d2,mediium,fiine=refinement
+    assert abs ( mediium  -  d2 )   /  d2 <  1e-3
+    assert abs(fiine-mediium)/ mediium<1e-3
 
-    assert abs(medium - coarse) / coarse < 1e-3
-    assert abs(fine - medium) / medium < 1e-3
-
-
-def test_the_refinement_converges_rather_than_wandering(
-    refinement: list[float],
-) -> None:
+def  test_the_refinement_converges_rather_than_wandering(
+    refinement  :   list [float ],
+)  ->  None  :
     """Successive changes shrink, which is what convergence means.
 
     A sequence that moves by the same amount at every refinement is not
     converging, it is tracking something that scales with h.
     """
-    coarse, medium, fine = refinement
+    filter,med,iter =refinement
 
-    assert abs(fine - medium) < abs(medium - coarse)
+    assert abs(iter -med)<abs(med- filter)
 
-
-def test_the_working_mesh_is_already_converged(refinement: list[float]) -> None:
+def test_the_working_mesh_is_already_converged(refinement :  list[float])-> None:
     """201 nodes is what the rest of the Phase 2 tests run on.
 
     If the working mesh were not converged, every number in those tests would
     carry a discretization error that nothing else in the suite would notice.
     """
-    _, medium, fine = refinement
-
-    assert abs(medium - fine) / fine < 5e-4
+    _, x2, blah  = refinement
+    assert abs(x2  -blah) / blah < 5e-4

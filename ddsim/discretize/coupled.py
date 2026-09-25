@@ -85,20 +85,20 @@ float returns a complex step Jacobian of exactly zero, which reads as
 agreement with any block that happens to be missing a term.
 """
 
-from __future__ import annotations
-
+from __future__  import  annotations
 from collections.abc import Sequence
-from enum import Enum, IntEnum
+from  enum  import  Enum,   IntEnum
 from typing import NamedTuple, TypeVar, cast
+import numpy as np, numpy.typing  as  npt
 
-import numpy as np
-import numpy.typing as npt
-
-from ddsim.core import constants as C
-from ddsim.core.field import Field, Location, ScalingState
+from  ddsim.core  import constants as C
+from  ddsim.core.field  import  Field, Location,  ScalingState
 from ddsim.core.scaling import ScaleFactors
+
+
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import (
+
+from ddsim.discretize.boundary import(
     Carrier,
     Contact,
     GateContact,
@@ -107,39 +107,45 @@ from ddsim.discretize.boundary import (
     ohmic_density_scaled,
     ohmic_psi_scaled,
 )
+
+
 from ddsim.discretize.continuity import Diffusivity
 from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
-from ddsim.mesh.mesh1d import Mesh1D
-from ddsim.physics.bernoulli import B, dB_dx
-from ddsim.physics.mobility import (
+from ddsim.mesh.mesh1d  import  Mesh1D;  from ddsim.physics.bernoulli  import B ,  dB_dx
+
+from ddsim.physics.mobility import(
     EdgeDiffusivity,
     diffusivity_at,
     diffusivity_tangent,
 )
 from ddsim.physics.recombination import Density, RecombinationModel
+
 from ddsim.physics.statistics import Degeneracy
 
-EPS = float(np.finfo(np.float64).eps)
+EPS=float(np.finfo(np.float64).eps)
+
 """Machine epsilon for float64 [1]. The relative granularity of every term below."""
 
 
-class Unknown(IntEnum):
+class Unknown(IntEnum) :
     """Which of a node's three unknowns, and its offset within the node."""
 
-    PSI = 0
+    PSI =0
     """Electrostatic potential."""
 
-    N = 1
+    N  = 1
     """Electron density."""
 
-    P = 2
-    """Hole density."""
+    P  = 2
+    '''Hole density.'''
+UNKNOWNS_PER_NODE=len(Unknown)
 
-
-UNKNOWNS_PER_NODE = len(Unknown)
 """Three: psi, n and p at every node."""
 
-Number = TypeVar("Number", np.float64, np.complex128)
+Number=  TypeVar("Number", np.float64, np.complex128)
+
+
+
 """The dtype of an unknown vector.
 
 Constrained to the two dtypes that actually occur rather than left open, so
@@ -149,9 +155,9 @@ coupled_jacobian is real only and says so.
 """
 
 
-TermScales = tuple[
-    npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
-]
+TermScales =tuple[npt.NDArray[np.float64],npt.NDArray[np.float64],npt.NDArray[np.float64]]
+
+
 """The size of the terms every row is assembled from [1], by family.
 
 Three arrays of one entry per node, not three numbers. A residual is a
@@ -167,48 +173,43 @@ seven decades below the answer. See docs/07-decisions.md.
 """
 
 
-def unknown_index(node: int, component: Unknown) -> int:
+
+
+def unknown_index(node  :int, component  :Unknown)->  int:
     """Index of one unknown in the interleaved vector."""
-    return UNKNOWNS_PER_NODE * node + int(component)
-
-
-def pack(
-    psi: npt.NDArray[Number],
-    n: npt.NDArray[Number],
-    p: npt.NDArray[Number],
-) -> npt.NDArray[Number]:
+    return UNKNOWNS_PER_NODE  *  node   +  int(  component  )
+def pack(psi : npt.NDArray[Number], n  : npt.NDArray[Number], p : npt.NDArray[Number],) -> npt.NDArray[Number]:
     """Interleave the three node arrays into one unknown vector [1]."""
-    if not psi.size == n.size == p.size:
+    if not psi.size==n.size==p.size :
         raise ValueError(
             "psi, n and p must have the same length, got "
             f"{psi.size}, {n.size} and {p.size}."
         )
+    xx= np.empty(UNKNOWNS_PER_NODE *psi.size,dtype= np.result_type(psi,n,p))
+    xx[Unknown.PSI ::UNKNOWNS_PER_NODE] = psi
+    xx [ Unknown.N  ::  UNKNOWNS_PER_NODE ]   =  n
+    xx[Unknown.P::UNKNOWNS_PER_NODE] = p
 
-    x = np.empty(UNKNOWNS_PER_NODE * psi.size, dtype=np.result_type(psi, n, p))
-    x[Unknown.PSI :: UNKNOWNS_PER_NODE] = psi
-    x[Unknown.N :: UNKNOWNS_PER_NODE] = n
-    x[Unknown.P :: UNKNOWNS_PER_NODE] = p
-    return x
+    return xx
+
 
 
 def unpack(
-    x: npt.NDArray[Number],
-) -> tuple[npt.NDArray[Number], npt.NDArray[Number], npt.NDArray[Number]]:
+    x:npt.NDArray[Number],
+)-> tuple[npt.NDArray[Number], npt.NDArray[Number], npt.NDArray[Number]] :
     """Split the unknown vector into (psi, n, p) [1].
 
     Strided views, not copies. The residual is evaluated once per Newton step
     and 3N times per Jacobian verification, and none of it needs a copy.
     """
-    return (
-        x[Unknown.PSI :: UNKNOWNS_PER_NODE],
-        x[Unknown.N :: UNKNOWNS_PER_NODE],
-        x[Unknown.P :: UNKNOWNS_PER_NODE],
+    return(
+        x[ Unknown.PSI  ::  UNKNOWNS_PER_NODE  ] ,
+        x [  Unknown.N   ::  UNKNOWNS_PER_NODE] ,
+        x[ Unknown.P  ::   UNKNOWNS_PER_NODE  ] ,
     )
-
-
 def edge_drop(
-    psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D
-) -> npt.NDArray[Number]:
+    psi  :  npt.NDArray[Number], geometry  :EdgeGeometry=  UNIFORM_1D
+)  ->  npt.NDArray[Number] :
     """psi_right - psi_left on every edge [1], the X the Bernoulli pair uses.
 
     The field along an edge is this divided by the edge length, with a minus
@@ -216,16 +217,11 @@ def edge_drop(
     Scharfetter-Gummel argument does, which is why they are computed the same
     way here rather than each in its own convention.
     """
-    node_left, node_right = geometry.ends_of(psi.size)
-    return psi[node_right] - psi[node_left]
+    nodeLeft , NodeRight  =   geometry.ends_of (psi.size)
 
+    return psi[  NodeRight]   -  psi[ nodeLeft]
 
-def effective_potentials(
-    psi: npt.NDArray[Number],
-    n: npt.NDArray[Number],
-    p: npt.NDArray[Number],
-    degeneracy: Degeneracy | None = None,
-) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
+def effective_potentials(psi :npt.NDArray[Number], n:npt.NDArray[Number], p :npt.NDArray[Number], degeneracy:Degeneracy|None = None,)->tuple[npt.NDArray[Number],npt.NDArray[Number]]:
     """The potentials the two carriers are Boltzmann in [1], on nodes.
 
     Under Boltzmann both are psi itself, returned as the same array, so every
@@ -246,38 +242,38 @@ def effective_potentials(
     one.
     """
     if degeneracy is None:
-        return psi, psi
+        return  psi,  psi
 
-    potential = cast("npt.NDArray[np.float64]", psi)
-    electrons = cast("npt.NDArray[np.float64]", n)
-    holes = cast("npt.NDArray[np.float64]", p)
-    return (
+
+    pottential= cast('npt.NDArray[np.float64]',psi);ele   =  cast(  "npt.NDArray[np.float64]" ,   n  )
+
+    Holes  =cast('npt.NDArray[np.float64]', p)
+
+    return(
         cast(
-            "npt.NDArray[Number]",
-            degeneracy.electron_potential(potential, electrons),
+            'npt.NDArray[Number]' ,
+            degeneracy.electron_potential(  pottential , ele ) ,
         ),
-        cast("npt.NDArray[Number]", degeneracy.hole_potential(potential, holes)),
+        cast ("npt.NDArray[Number]",  degeneracy.hole_potential (pottential ,  Holes)),
     )
 
-
-def _bernoulli_pair(
-    psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D
-) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
+def _bernoulli_pair(psi :  npt.NDArray[Number], geometry : EdgeGeometry = UNIFORM_1D) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]  :
     """(B(X), B(-X)) on every edge, with X = psi_right - psi_left [1].
 
     Unlike the one in continuity.py this does not force float64, because the
     residual it feeds has to survive a complex step.
     """
-    X = edge_drop(psi, geometry)
-    return np.asarray(B(X)), np.asarray(B(-X))
+    XX =  edge_drop(psi, geometry)
+    return np.asarray(B(XX)), np.asarray(B(-XX))
+
 
 
 def _diffusivity_at(
-    D: EdgeDiffusivity,
-    psi: npt.NDArray[Number],
-    h: npt.NDArray[np.float64],
-    geometry: EdgeGeometry = UNIFORM_1D,
-) -> Diffusivity:
+    D:  EdgeDiffusivity,
+    psi :  npt.NDArray[Number],
+    h:npt.NDArray[np.float64],
+    geometry: EdgeGeometry  = UNIFORM_1D,
+)->  Diffusivity :
     """One diffusivity per edge at this state [1].
 
     The drop across each edge is worked out here and the dispatch on whether
@@ -288,41 +284,41 @@ def _diffusivity_at(
 
 
 def _diffusivity_tangent(
-    D: EdgeDiffusivity,
+    D:EdgeDiffusivity,
     psi: npt.NDArray[np.float64],
     h: npt.NDArray[np.float64],
-    geometry: EdgeGeometry = UNIFORM_1D,
-) -> npt.NDArray[np.float64] | None:
+    geometry : EdgeGeometry =UNIFORM_1D,
+)->npt.NDArray[np.float64]|None :
     """dD/dX on every edge [1], or None where D does not depend on X."""
-    return diffusivity_tangent(D, edge_drop(psi, geometry), h)
+    return diffusivity_tangent(D,edge_drop(psi,geometry),h)
 
 
-def _bernoulli_derivative_pair(
-    psi: npt.NDArray[np.float64], geometry: EdgeGeometry = UNIFORM_1D
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+def _bernoulli_derivative_pair(psi:npt.NDArray[np.float64],geometry:EdgeGeometry=UNIFORM_1D) ->tuple[npt.NDArray[np.float64],npt.NDArray[np.float64]] :
     """(B'(X), B'(-X)) on every edge [1].
 
     Real only. The Jacobian is assembled at a real state; it is the residual
     that gets differentiated, never this.
     """
-    X = edge_drop(psi, geometry)
-    return (
-        np.asarray(dB_dx(X), dtype=np.float64),
-        np.asarray(dB_dx(-X), dtype=np.float64),
+
+    XX =edge_drop(psi,geometry)
+    return(
+        np.asarray(dB_dx(XX), dtype  =np.float64),
+        np.asarray(dB_dx(-  XX), dtype  = np.float64),
     )
 
+def  coupled_residual(
+    h  :  npt.NDArray[np.float64 ],
+    volume  :  npt.NDArray[  np.float64],
+    x :  npt.NDArray[  Number ],
+    net_doping   :  npt.NDArray [  np.float64],
+    Dn  :  EdgeDiffusivity,
+    Dp  :   EdgeDiffusivity,
+    recombination :   RecombinationModel,
+    geometry  : EdgeGeometry  =   UNIFORM_1D ,
+    degeneracy   : Degeneracy   |  None  = None,
+)  -> npt.NDArray[ Number  ]   :
 
-def coupled_residual(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    x: npt.NDArray[Number],
-    net_doping: npt.NDArray[np.float64],
-    Dn: EdgeDiffusivity,
-    Dp: EdgeDiffusivity,
-    recombination: RecombinationModel,
-    geometry: EdgeGeometry = UNIFORM_1D,
-    degeneracy: Degeneracy | None = None,
-) -> npt.NDArray[Number]:
+
     """Residual of the coupled system, interleaved by node [1].
 
     Args:
@@ -349,38 +345,27 @@ def coupled_residual(
     Preserves the dtype of x, so complex step differentiation works directly
     on this function. That is how every Jacobian block below is verified.
     """
-    psi, n, p = unpack(x)
-    R = cast(
-        "npt.NDArray[Number]",
-        recombination.rate(cast(Density, n), cast(Density, p)),
+    psi, n, p =unpack(x)
+    id = cast (
+        "npt.NDArray[Number]" ,
+        recombination.rate(  cast(  Density,  n),  cast( Density,  p  )  ),
     )
-    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
-    return _residual_from(
-        h,
+    res, psip = effective_potentials( psi , n ,  p , degeneracy)
+    return  _residual_from(
+        h ,
         volume,
-        x,
+        x ,
         net_doping,
-        _diffusivity_at(Dn, psi, h, geometry),
-        _diffusivity_at(Dp, psi, h, geometry),
-        _bernoulli_pair(psi_n, geometry),
-        _bernoulli_pair(psi_p, geometry),
-        R,
-        geometry,
+        _diffusivity_at(Dn , psi , h,   geometry  ),
+        _diffusivity_at (Dp,   psi,   h ,  geometry ) ,
+        _bernoulli_pair(  res,   geometry ) ,
+        _bernoulli_pair (psip, geometry  ),
+        id,
+        geometry ,
     )
 
 
-def _residual_from(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    x: npt.NDArray[Number],
-    net_doping: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
-    bernoulli_n: tuple[npt.NDArray[Number], npt.NDArray[Number]],
-    bernoulli_p: tuple[npt.NDArray[Number], npt.NDArray[Number]],
-    R: npt.NDArray[Number],
-    geometry: EdgeGeometry = UNIFORM_1D,
-) -> npt.NDArray[Number]:
+def _residual_from(h :  npt.NDArray[ np.float64 ], volume  :  npt.NDArray [ np.float64  ], x   :  npt.NDArray [ Number ], net_doping  :  npt.NDArray[  np.float64  ], Dn   :  Diffusivity , Dp  : Diffusivity , bernoulli_n   : tuple[npt.NDArray[  Number], npt.NDArray[  Number ]  ], bernoulli_p  :  tuple[  npt.NDArray[ Number  ] ,   npt.NDArray [ Number]], R  :   npt.NDArray[  Number  ], geometry  : EdgeGeometry  = UNIFORM_1D ,)   ->   npt.NDArray [Number ]   :
     """coupled_residual with both Bernoulli pairs and the rate in hand.
 
     A pair is the most expensive thing in an assembly, and the residual, the
@@ -396,37 +381,40 @@ def _residual_from(
     Private because the pairs have to be the ones belonging to this state and
     nothing outside can check that.
     """
-    psi, n, p = unpack(x)
-    bn_plus, bn_minus = bernoulli_n
-    bp_plus, bp_minus = bernoulli_p
+    psi,  n, p  =  unpack(x)
+    any, bnminus =bernoulli_n
+    BpPlus, blah = bernoulli_p
 
-    out = np.zeros_like(x)
-    F_psi, F_n, F_p = unpack(out)
-    node_left, node_right = geometry.ends(h.size)
+    outt  = np.zeros_like( x )
+    FPsi, f ,   fp   =  unpack( outt  )
+    nodeLeft,nr =geometry.ends(h.size)
 
-    face_flux = geometry.weight * (psi[node_left] - psi[node_right]) / h
-    np.add.at(F_psi, node_left, face_flux)
-    np.add.at(F_psi, node_right, -face_flux)
-    F_psi -= (p - n + net_doping) * volume
+    zz  = geometry.weight  *   (psi[ nodeLeft]  - psi[nr ] )  /   h
 
-    Jn = (Dn * geometry.carrier_face / h) * (
-        bn_plus * n[node_right] - bn_minus * n[node_left]
+    np.add.at(FPsi, nodeLeft, zz)
+    np.add.at(FPsi,  nr ,   -  zz  )
+
+    FPsi-= (p-n + net_doping)*volume
+    Jnn =(Dn * geometry.carrier_face / h)  * (any * n[nr]-  bnminus * n[nodeLeft])
+    f += R *volume
+    np.add.at(f,nodeLeft,-Jnn)
+
+
+    np.add.at( f,   nr , Jnn)
+
+    Jpp=(Dp  *  geometry.carrier_face/ h) * (
+        BpPlus*p[nodeLeft]- blah *p[nr]
     )
-    F_n += R * volume
-    np.add.at(F_n, node_left, -Jn)
-    np.add.at(F_n, node_right, Jn)
+    fp  +=  R * volume
+    np.add.at(fp,nodeLeft,Jpp)
+    np.add.at(fp, nr, - Jpp)
 
-    Jp = (Dp * geometry.carrier_face / h) * (
-        bp_plus * p[node_left] - bp_minus * p[node_right]
-    )
-    F_p += R * volume
-    np.add.at(F_p, node_left, Jp)
-    np.add.at(F_p, node_right, -Jp)
-
-    return out
+    return outt
 
 
-class NodeRange(Enum):
+
+class NodeRange(Enum) :
+
     """Which nodes a block of Jacobian entries attaches to.
 
     Three, in any dimension: every node, and the two endpoints of every edge.
@@ -435,16 +423,17 @@ class NodeRange(Enum):
     """
 
     ALL = "all"
+
     """Every node. The diagonal blocks."""
 
     LEFT = "left"
     """Node e of edge e, for every edge."""
+    RIGHT="right"
 
-    RIGHT = "right"
     """Node e+1 of edge e, for every edge."""
 
-
 class _Triplets:
+
     """A COO accumulator that names the block every entry belongs to.
 
     The point is that the assembly below reads as nine named blocks rather
@@ -452,28 +441,20 @@ class _Triplets:
     unknown it is differentiating, which is the thing a reader has to be able
     to check against the residual by eye.
     """
-
     def __init__(
-        self, n_nodes: int, geometry: EdgeGeometry = UNIFORM_1D
-    ) -> None:
-        node_left, node_right = geometry.ends_of(n_nodes)
-        self._nodes = {
-            NodeRange.ALL: np.arange(n_nodes, dtype=np.int64),
-            NodeRange.LEFT: node_left,
-            NodeRange.RIGHT: node_right,
+        self, n_nodes  :  int, geometry  : EdgeGeometry = UNIFORM_1D
+    ) ->  None  :
+        NodeLeft,zz=geometry.ends_of(n_nodes)
+        self._nodes  ={
+            NodeRange.ALL:np.arange(n_nodes, dtype= np.int64),
+            NodeRange.LEFT : NodeLeft,
+            NodeRange.RIGHT : zz,
         }
-        self._rows: list[npt.NDArray[np.int64]] = []
-        self._cols: list[npt.NDArray[np.int64]] = []
-        self._values: list[npt.NDArray[np.float64]] = []
+        self._rows   : list[npt.NDArray[  np.int64 ]]  =  [ ] ; self._cols:  list[npt.NDArray[np.int64]]  = []
 
-    def add(
-        self,
-        equation: Unknown,
-        at_nodes: NodeRange,
-        unknown: Unknown,
-        of_nodes: NodeRange,
-        values: npt.NDArray[np.float64],
-    ) -> None:
+        self._values:list[npt.NDArray[np.float64]]= []
+    def add(self , equation :  Unknown, at_nodes   :  NodeRange, unknown  :   Unknown, of_nodes   : NodeRange, values  :  npt.NDArray[  np.float64  ],)  ->  None   :
+
         """dF_equation at at_nodes, with respect to unknown at of_nodes.
 
         The index arithmetic used to be cached across Newton steps, keyed on
@@ -484,36 +465,35 @@ class _Triplets:
         not to optimize before Phase 5.
         """
         self._rows.append(
-            UNKNOWNS_PER_NODE * self._nodes[at_nodes] + int(equation)
+            UNKNOWNS_PER_NODE * self._nodes[at_nodes]  + int(equation)
         )
         self._cols.append(
-            UNKNOWNS_PER_NODE * self._nodes[of_nodes] + int(unknown)
+            UNKNOWNS_PER_NODE  * self._nodes[of_nodes]+  int(unknown)
         )
-        self._values.append(np.asarray(values, dtype=np.float64))
+
+        self._values.append(np.asarray(values,dtype =np.float64))
 
     def build(
         self,
-    ) -> tuple[
+    )  ->tuple[
         npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]
     ]:
         """(rows, cols, values), with duplicates left for the CSC conversion."""
-        return (
+        return(
             np.concatenate(self._rows),
             np.concatenate(self._cols),
             np.concatenate(self._values),
         )
-
-
 def coupled_jacobian(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    x: npt.NDArray[np.float64],
+    h :npt.NDArray[np.float64],
+    volume:npt.NDArray[np.float64],
+    x :npt.NDArray[np.float64],
     Dn: EdgeDiffusivity,
-    Dp: EdgeDiffusivity,
+    Dp:EdgeDiffusivity,
     recombination: RecombinationModel,
-    geometry: EdgeGeometry = UNIFORM_1D,
-    degeneracy: Degeneracy | None = None,
-) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    geometry:EdgeGeometry= UNIFORM_1D,
+    degeneracy: Degeneracy |None=None,
+)->tuple[npt.NDArray[np.int64],npt.NDArray[np.int64],npt.NDArray[np.float64]]:
     """Jacobian of coupled_residual, in COO form.
 
     Returns (rows, cols, values). Written as nine named blocks, each one
@@ -522,32 +502,14 @@ def coupled_jacobian(
     differentiation in tests/unit/test_coupled.py, which phases/PHASE-3.md
     makes non-negotiable.
     """
-    psi, n, p = unpack(x)
-    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
-    return _jacobian_from(
-        h,
-        volume,
-        x,
-        _diffusivity_at(Dn, psi, h, geometry),
-        _diffusivity_at(Dp, psi, h, geometry),
-        _bernoulli_pair(psi_n, geometry),
-        _bernoulli_pair(psi_p, geometry),
-        _bernoulli_derivative_pair(psi_n, geometry),
-        _bernoulli_derivative_pair(psi_p, geometry),
-        np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64),
-        np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64),
-        geometry,
-        _diffusivity_tangent(Dn, psi, h, geometry),
-        _diffusivity_tangent(Dp, psi, h, geometry),
-        *_potential_tangents(n, p, degeneracy),
-    )
+    psi , n, p  = unpack ( x)
+    yy,   range =   effective_potentials(  psi,  n,  p,  degeneracy)
+    return _jacobian_from(h, volume, x, _diffusivity_at(Dn,psi,h,geometry), _diffusivity_at(Dp,psi,h,geometry), _bernoulli_pair(yy,geometry), _bernoulli_pair(range,geometry), _bernoulli_derivative_pair(yy,geometry), _bernoulli_derivative_pair(range,geometry), np.asarray(recombination.d_rate_dn(n,p),dtype=np.float64), np.asarray(recombination.d_rate_dp(n,p),dtype=np.float64), geometry, _diffusivity_tangent(Dn,psi,h,geometry), _diffusivity_tangent(Dp,psi,h,geometry), * _potential_tangents(n,p,degeneracy),)
 
 
-def _potential_tangents(
-    n: npt.NDArray[np.float64],
-    p: npt.NDArray[np.float64],
-    degeneracy: Degeneracy | None,
-) -> tuple[npt.NDArray[np.float64] | None, npt.NDArray[np.float64] | None]:
+
+def _potential_tangents(n :npt.NDArray[np.float64], p  : npt.NDArray[np.float64], degeneracy :  Degeneracy |None,)  -> tuple[npt.NDArray[np.float64]|None, npt.NDArray[np.float64] | None] :
+
     """(d psi_eff_n/dn, d psi_eff_p/dp) on nodes [1], or None under Boltzmann.
 
     None rather than an array of zeros, so the Boltzmann Jacobian skips the
@@ -556,28 +518,10 @@ def _potential_tangents(
     with the field.
     """
     if degeneracy is None:
-        return None, None
-    return degeneracy.d_electron_potential_dn(n), degeneracy.d_hole_potential_dp(p)
+        return None,   None
+    return degeneracy.d_electron_potential_dn(n),degeneracy.d_hole_potential_dp(p)
 
-
-def _jacobian_from(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    x: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
-    bernoulli_n: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    bernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    dbernoulli_n: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    dbernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    dR_dn: npt.NDArray[np.float64],
-    dR_dp: npt.NDArray[np.float64],
-    geometry: EdgeGeometry = UNIFORM_1D,
-    dDn_dX: npt.NDArray[np.float64] | None = None,
-    dDp_dX: npt.NDArray[np.float64] | None = None,
-    dpsi_n_dn: npt.NDArray[np.float64] | None = None,
-    dpsi_p_dp: npt.NDArray[np.float64] | None = None,
-) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+def _jacobian_from(h  :npt.NDArray[np.float64], volume : npt.NDArray[np.float64], x :  npt.NDArray[np.float64], Dn  : Diffusivity, Dp :  Diffusivity, bernoulli_n : tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], bernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], dbernoulli_n  :tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], dbernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], dR_dn :npt.NDArray[np.float64], dR_dp :  npt.NDArray[np.float64], geometry  : EdgeGeometry =UNIFORM_1D, dDn_dX : npt.NDArray[np.float64] |  None  = None, dDp_dX : npt.NDArray[np.float64]  | None =None, dpsi_n_dn :  npt.NDArray[np.float64] | None =  None, dpsi_p_dp : npt.NDArray[np.float64]  |  None  = None,)-> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     """coupled_jacobian with all four Bernoulli pairs and every tangent in hand.
 
     dDn_dX and dDp_dX are None unless the diffusivity depends on the potential
@@ -589,105 +533,105 @@ def _jacobian_from(
     Scharfetter-Gummel stencil alone into that stencil plus the same edge
     conductance the potential block already carries.
     """
-    psi, n, p = unpack(x)
-    n_nodes = psi.size
+    psi, n, p=unpack(x)
+    acc  =  psi.size
 
-    b_plus, b_minus = bernoulli_n
-    db_plus, db_minus = dbernoulli_n
-    bp_plus, bp_minus = bernoulli_p
-    dbp_plus, dbp_minus = dbernoulli_p
+    str,hex =bernoulli_n
+    dbPlus, db =dbernoulli_n
 
-    nodes = NodeRange.ALL
-    left = NodeRange.LEFT
-    right = NodeRange.RIGHT
+    blah,bp_mius=bernoulli_p
 
-    J = _Triplets(n_nodes, geometry)
-    node_left, node_right = geometry.ends(h.size)
+    dp, t2 = dbernoulli_p
 
-    conductance = geometry.weight / h
-    diagonal = np.zeros(n_nodes)
-    np.add.at(diagonal, node_left, conductance)
-    np.add.at(diagonal, node_right, conductance)
-    J.add(Unknown.PSI, nodes, Unknown.PSI, nodes, diagonal)
-    J.add(Unknown.PSI, left, Unknown.PSI, right, -conductance)
-    J.add(Unknown.PSI, right, Unknown.PSI, left, -conductance)
 
-    J.add(Unknown.PSI, nodes, Unknown.N, nodes, volume)
-    J.add(Unknown.PSI, nodes, Unknown.P, nodes, -volume)
+    nod =NodeRange.ALL
+    lef =NodeRange.LEFT;  rig  =  NodeRange.RIGHT
 
-    G_sg = (Dn * geometry.carrier_face / h) * (
-        db_plus * n[node_right] + db_minus * n[node_left]
+    j = _Triplets(acc, geometry)
+    NodeLeft,filter = geometry.ends(h.size)
+
+
+
+    Conductance  =   geometry.weight  /  h
+    dia  =   np.zeros( acc )
+    np.add.at(dia,NodeLeft,Conductance)
+    np.add.at(  dia,  filter ,  Conductance)
+    j.add( Unknown.PSI, nod ,  Unknown.PSI, nod,  dia) ; j.add(Unknown.PSI, lef, Unknown.PSI, rig, - Conductance)
+
+
+    j.add (  Unknown.PSI ,   rig ,  Unknown.PSI,  lef,  - Conductance )
+
+    j.add( Unknown.PSI,  nod , Unknown.N ,   nod, volume  )
+    j.add(Unknown.PSI,nod,Unknown.P,nod,-volume)
+
+    gs =(Dn *geometry.carrier_face/h)* (
+        dbPlus * n[filter]+db*n[NodeLeft]
     )
-    G = G_sg
+    GG = gs
     if dDn_dX is not None:
-        G = G + (dDn_dX * geometry.carrier_face / h) * (
-            b_plus * n[node_right] - b_minus * n[node_left]
+        GG= GG + (dDn_dX *geometry.carrier_face /h) * (
+            str  * n[filter] - hex  *n[NodeLeft]
         )
-    diagonal = np.zeros(n_nodes)
-    np.add.at(diagonal, node_left, G)
-    np.add.at(diagonal, node_right, G)
-    J.add(Unknown.N, nodes, Unknown.PSI, nodes, diagonal)
-    J.add(Unknown.N, left, Unknown.PSI, right, -G)
-    J.add(Unknown.N, right, Unknown.PSI, left, -G)
+    dia= np.zeros(acc)
+    np.add.at(dia, NodeLeft, GG)
+    np.add.at (dia , filter,  GG)
+    j.add(Unknown.N,nod,Unknown.PSI,nod,dia)
+    j.add(Unknown.N,lef,Unknown.PSI,rig,- GG)
+    j.add(Unknown.N ,
+                     rig,
+                    Unknown.PSI,
+            lef,
+        -  GG  )
 
-    to_right = (Dn * geometry.carrier_face / h) * b_plus
-    to_left = (Dn * geometry.carrier_face / h) * b_minus
-    if dpsi_n_dn is not None:
-        to_right = to_right + G_sg * dpsi_n_dn[node_right]
-        to_left = to_left + G_sg * dpsi_n_dn[node_left]
-    diagonal = dR_dn * volume
-    np.add.at(diagonal, node_left, to_left)
-    np.add.at(diagonal, node_right, to_right)
-    J.add(Unknown.N, nodes, Unknown.N, nodes, diagonal)
-    J.add(Unknown.N, left, Unknown.N, right, -to_right)
-    J.add(Unknown.N, right, Unknown.N, left, -to_left)
+    bb= (Dn * geometry.carrier_face/ h)* str
 
-    J.add(Unknown.N, nodes, Unknown.P, nodes, dR_dp * volume)
+    tl = (Dn * geometry.carrier_face/h)*  hex
+    if  dpsi_n_dn is  not None   :
 
-    H_sg = (Dp * geometry.carrier_face / h) * (
-        dbp_plus * p[node_left] + dbp_minus * p[node_right]
+        bb=bb+ gs * dpsi_n_dn[filter]
+        tl  =  tl  +  gs *   dpsi_n_dn [ NodeLeft ]
+    dia= dR_dn* volume
+    np.add.at(dia,NodeLeft,tl)
+    np.add.at(dia, filter, bb)
+    j.add(Unknown.N,nod,Unknown.N,nod,dia) ; j.add(Unknown.N, lef, Unknown.N, rig, -bb)
+    j.add(  Unknown.N,   rig ,  Unknown.N ,   lef ,   -  tl)
+
+    j.add(Unknown.N,nod,Unknown.P,nod,dR_dp *volume)
+
+    junk   =   (  Dp   *  geometry.carrier_face /  h  ) *  (
+        dp *  p [ NodeLeft ]   + t2  *  p[filter ]
     )
-    H = H_sg
-    if dDp_dX is not None:
-        H = H + (dDp_dX * geometry.carrier_face / h) * (
-            bp_plus * p[node_left] - bp_minus * p[node_right]
+    HH = junk
+    if dDp_dX  is not None   :
+        HH=  HH +  (dDp_dX * geometry.carrier_face/ h) *(
+            blah * p[NodeLeft] - bp_mius*p[filter]
         )
-    diagonal = np.zeros(n_nodes)
-    np.add.at(diagonal, node_left, -H)
-    np.add.at(diagonal, node_right, -H)
-    J.add(Unknown.P, nodes, Unknown.PSI, nodes, diagonal)
-    J.add(Unknown.P, left, Unknown.PSI, right, H)
-    J.add(Unknown.P, right, Unknown.PSI, left, H)
+    dia =  np.zeros (  acc  )
+    np.add.at(dia, NodeLeft, -HH)
+    np.add.at(  dia ,  filter ,  - HH)
+    j.add(Unknown.P, nod, Unknown.PSI, nod, dia)
 
-    J.add(Unknown.P, nodes, Unknown.N, nodes, dR_dn * volume)
-
-    to_left = (Dp * geometry.carrier_face / h) * bp_plus
-    to_right = (Dp * geometry.carrier_face / h) * bp_minus
-    if dpsi_p_dp is not None:
-        to_left = to_left - H_sg * dpsi_p_dp[node_left]
-        to_right = to_right - H_sg * dpsi_p_dp[node_right]
-    diagonal = dR_dp * volume
-    np.add.at(diagonal, node_left, to_left)
-    np.add.at(diagonal, node_right, to_right)
-    J.add(Unknown.P, nodes, Unknown.P, nodes, diagonal)
-    J.add(Unknown.P, left, Unknown.P, right, -to_right)
-    J.add(Unknown.P, right, Unknown.P, left, -to_left)
-
-    return J.build()
+    j.add(Unknown.P,lef,Unknown.PSI,rig,HH)
+    j.add(Unknown.P, rig, Unknown.PSI, lef, HH)
 
 
-def assemble_coupled(
-    mesh: Mesh1D,
-    psi: Field,
-    n: Field,
-    p: Field,
-    net_doping: Field,
-    recombination: RecombinationModel,
-    scale: ScaleFactors,
-    Dn: EdgeDiffusivity,
-    Dp: EdgeDiffusivity,
-    degeneracy: Degeneracy | None = None,
-) -> SparseAssembly:
+    j.add(Unknown.P,nod,Unknown.N,nod,dR_dn * volume)
+    tl  =   (Dp *   geometry.carrier_face   /  h  )   * blah
+    bb= (Dp *  geometry.carrier_face /  h) *bp_mius
+    if dpsi_p_dp  is  not None   :
+
+        tl =  tl -  junk *dpsi_p_dp[NodeLeft];bb = bb  -junk *dpsi_p_dp[filter]
+    dia=dR_dp*volume
+    np.add.at(  dia, NodeLeft, tl  )
+    np.add.at(dia, filter, bb)
+    j.add(Unknown.P, nod, Unknown.P, nod, dia); j.add(Unknown.P,lef,Unknown.P,rig,-bb)
+
+    j.add (Unknown.P,  rig,   Unknown.P , lef,  -   tl  )
+
+    return j.build()
+
+
+def assemble_coupled(mesh : Mesh1D, psi :Field, n  :Field, p  : Field, net_doping :Field, recombination : RecombinationModel, scale : ScaleFactors, Dn :EdgeDiffusivity, Dp :EdgeDiffusivity, degeneracy:Degeneracy | None  =  None,)  -> SparseAssembly  :
     """Assemble the coupled 3N system for a 1D mesh.
 
     Args:
@@ -704,49 +648,43 @@ def assemble_coupled(
     Checks the scaling state and mesh location once here, then works on raw
     arrays, exactly as assemble_poisson and the two continuity assemblies do.
     """
-    for name, field in (
-        ("psi", psi),
+    for Name, map in(
+        ('psi', psi),
         ("n", n),
         ("p", p),
         ("net_doping", net_doping),
     ):
-        if field.scaling is not ScalingState.SCALED:
-            raise ValueError(
-                f"{name} must be SCALED before assembly, got {field.scaling.name}. "
-                "A physical value here is wrong by a fixed factor and would "
+        if map.scaling is not ScalingState.SCALED:
+            raise  ValueError (
+                f"{Name} must be SCALED before assembly, got {map.scaling.name}. "
+                'A physical value here is wrong by a fixed factor and would '
                 "still converge."
             )
-        if field.location is not Location.NODE:
-            raise ValueError(f"{name} must live on NODE, got {field.location.name}.")
-        if field.size != mesh.n_nodes:
+        if map.location  is not  Location.NODE  :
+            raise ValueError(f"{Name} must live on NODE, got {map.location.name}.")
+        if map.size  != mesh.n_nodes:
+
+
             raise ValueError(
-                f"{name} has length {field.size} but the mesh has "
+                f"{Name} has length {map.size} but the mesh has "
                 f"{mesh.n_nodes} nodes."
             )
+    max: npt.NDArray[np.float64]= pack(psi.data,
+                     n.data,
+                    p.data)
 
-    x: npt.NDArray[np.float64] = pack(psi.data, n.data, p.data)
-    return assemble_coupled_arrays(
-        h=mesh.h / scale.x_0,
-        volume=mesh.volume / scale.x_0,
-        x=x,
-        net_doping=net_doping.data,
-        Dn=Dn,
-        Dp=Dp,
-        recombination=recombination,
-        degeneracy=degeneracy,
+    return assemble_coupled_arrays (
+        h =  mesh.h  /  scale.x_0 ,
+        volume = mesh.volume   /   scale.x_0,
+        x  = max,
+        net_doping =  net_doping.data,
+        Dn  =   Dn ,
+        Dp =  Dp,
+        recombination  =   recombination,
+        degeneracy =  degeneracy ,
     )
 
-
-def assemble_coupled_arrays(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    x: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    Dn: EdgeDiffusivity,
-    Dp: EdgeDiffusivity,
-    recombination: RecombinationModel,
-    degeneracy: Degeneracy | None = None,
-) -> SparseAssembly:
+def assemble_coupled_arrays(h: npt.NDArray[np.float64], volume : npt.NDArray[np.float64], x : npt.NDArray[np.float64], net_doping : npt.NDArray[np.float64], Dn : EdgeDiffusivity, Dp:EdgeDiffusivity, recombination  : RecombinationModel, degeneracy : Degeneracy |None  = None,)->SparseAssembly  :
     """assemble_coupled with the scaling and location already checked.
 
     The Field level checks belong once at the entry to a solve, not once per
@@ -758,31 +696,31 @@ def assemble_coupled_arrays(
     returns.
     """
     return assemble_coupled_terms(
-        h, volume, x, net_doping, Dn, Dp, recombination, degeneracy=degeneracy
+        h , volume,  x , net_doping , Dn,   Dp , recombination, degeneracy =   degeneracy
     ).assembly
 
-
-class CoupledAssembly(NamedTuple):
+class CoupledAssembly(NamedTuple) :
     """An assembled coupled system and the term scales of the same state."""
 
-    assembly: SparseAssembly
-    """Residual and Jacobian, unscaled."""
 
-    scales: TermScales
+
+    assembly  :  SparseAssembly
+
+    '''Residual and Jacobian, unscaled.'''
+    scales :TermScales
     """Per node term scale for the psi, n and p rows at this state [1]."""
 
-
-def assemble_coupled_terms(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    x: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    Dn: EdgeDiffusivity,
-    Dp: EdgeDiffusivity,
-    recombination: RecombinationModel,
-    geometry: EdgeGeometry = UNIFORM_1D,
-    degeneracy: Degeneracy | None = None,
-) -> CoupledAssembly:
+def  assemble_coupled_terms(
+    h : npt.NDArray[  np.float64],
+    volume :  npt.NDArray [  np.float64  ] ,
+    x  :  npt.NDArray[  np.float64  ],
+    net_doping  : npt.NDArray[np.float64],
+    Dn  :  EdgeDiffusivity,
+    Dp : EdgeDiffusivity ,
+    recombination  : RecombinationModel ,
+    geometry  :  EdgeGeometry =   UNIFORM_1D,
+    degeneracy   : Degeneracy   |   None  =   None,
+)  ->  CoupledAssembly :
     """Residual, Jacobian and term scales, with the shared work done once.
 
     What a Newton loop calls. The residual, the Jacobian and the scales all
@@ -797,88 +735,55 @@ def assemble_coupled_terms(
     row. Scaling first would leave the pinned rows at one while everything
     around them moved.
     """
-    psi, n, p = unpack(x)
+    psi ,   n,   p   =   unpack(x )
+    chr, max =effective_potentials(psi, n, p, degeneracy)
 
-    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
-    bernoulli_n = _bernoulli_pair(psi_n, geometry)
-    bernoulli_p = (
-        bernoulli_n if degeneracy is None else _bernoulli_pair(psi_p, geometry)
+    bernooulli_n = _bernoulli_pair(chr, geometry)
+
+    bernoullip=(
+        bernooulli_n if degeneracy is None else _bernoulli_pair(max,geometry)
     )
-    dbernoulli_n = _bernoulli_derivative_pair(psi_n, geometry)
-    dbernoulli_p = (
-        dbernoulli_n
-        if degeneracy is None
-        else _bernoulli_derivative_pair(psi_p, geometry)
-    )
-    dpsi_n_dn, dpsi_p_dp = _potential_tangents(n, p, degeneracy)
-    R = np.asarray(recombination.rate(n, p), dtype=np.float64)
-    dR_dn = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
-    dR_dp = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
+    dbernoullin =_bernoulli_derivative_pair(chr, geometry)
+    dbe= (dbernoullin if degeneracy is None else _bernoulli_derivative_pair(max,geometry))
+    dppsi_n_dn, dppsi_p_dp=  _potential_tangents(n, p, degeneracy)
+    r = np.asarray(recombination.rate(n, p), dtype = np.float64)
+    DrDn  =np.asarray(recombination.d_rate_dn(n, p), dtype = np.float64)
+    drdp=np.asarray(recombination.d_rate_dp(n,p),dtype=np.float64)
 
-    Dn_edge = _diffusivity_at(Dn, psi, h, geometry)
-    Dp_edge = _diffusivity_at(Dp, psi, h, geometry)
-    dDn_dX = _diffusivity_tangent(Dn, psi, h, geometry)
-    dDp_dX = _diffusivity_tangent(Dp, psi, h, geometry)
 
-    residual = _residual_from(
+    dn=_diffusivity_at(Dn,psi,h,geometry)
+    dp =_diffusivity_at(Dp, psi, h, geometry)
+    dd  =_diffusivity_tangent(Dn, psi, h, geometry)
+    ddp  = _diffusivity_tangent(Dp, psi, h, geometry)
+    xx  =  _residual_from(h, volume, x, net_doping, dn, dp, bernooulli_n, bernoullip, r, geometry,)
+    Rows,   col ,  t2   =  _jacobian_from(h, volume, x, dn , dp, bernooulli_n, bernoullip, dbernoullin , dbe, DrDn, drdp , geometry, dd, ddp, dppsi_n_dn , dppsi_p_dp,)
+    yy=_term_scales_from(
         h,
         volume,
         x,
         net_doping,
-        Dn_edge,
-        Dp_edge,
-        bernoulli_n,
-        bernoulli_p,
-        R,
+        dn,
+        dp,
+        bernooulli_n,
+        bernoullip,
+        r,
         geometry,
     )
-    rows, cols, values = _jacobian_from(
-        h,
-        volume,
-        x,
-        Dn_edge,
-        Dp_edge,
-        bernoulli_n,
-        bernoulli_p,
-        dbernoulli_n,
-        dbernoulli_p,
-        dR_dn,
-        dR_dp,
-        geometry,
-        dDn_dX,
-        dDp_dX,
-        dpsi_n_dn,
-        dpsi_p_dp,
-    )
-    scales = _term_scales_from(
-        h,
-        volume,
-        x,
-        net_doping,
-        Dn_edge,
-        Dp_edge,
-        bernoulli_n,
-        bernoulli_p,
-        R,
-        geometry,
-    )
-
-    size = x.size
+    sum = x.size
     return CoupledAssembly(
-        assembly=SparseAssembly(
-            residual=np.asarray(residual, dtype=np.float64),
-            rows=rows,
-            cols=cols,
-            values=values,
-            shape=(size, size),
+        assembly =SparseAssembly(
+            residual  = np.asarray(xx, dtype = np.float64),
+            rows =  Rows,
+            cols = col,
+            values = t2,
+            shape =  (sum, sum),
         ),
-        scales=scales,
+        scales  = yy,
     )
 
 
-def limit_psi_step(
-    delta: npt.NDArray[np.float64], max_psi_step: float
-) -> npt.NDArray[np.float64]:
+
+def limit_psi_step(delta : npt.NDArray[np.float64],max_psi_step:float)-> npt.NDArray[np.float64]:
     """Cap the potential update and take the density updates in full.
 
     docs/02-numerics.md prescribes exactly this: dpsi_max of 5*V_T per Newton
@@ -896,26 +801,18 @@ def limit_psi_step(
     Returns the argument itself when nothing needs capping, so that
     newton_solve does not count an inactive limiter as a limited step.
     """
-    dpsi = delta[Unknown.PSI :: UNKNOWNS_PER_NODE]
-    peak = float(np.max(np.abs(dpsi)))
-    if peak <= max_psi_step:
+    Dpsi  =   delta [Unknown.PSI  ::   UNKNOWNS_PER_NODE ]
+
+
+    tmp  = float(np.max(np.abs(Dpsi)))
+    if  tmp  <=  max_psi_step :
         return delta
-
-    limited = delta.copy()
-    limited[Unknown.PSI :: UNKNOWNS_PER_NODE] = dpsi * (max_psi_step / peak)
-    return limited
+    Limited =delta.copy()
+    Limited[Unknown.PSI ::UNKNOWNS_PER_NODE]=Dpsi* (max_psi_step / tmp);return Limited
 
 
-def apply_contacts_coupled(
-    assembly: SparseAssembly,
-    x: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    contacts: Sequence[Contact],
-    scale: ScaleFactors,
-    carrier_free_nodes: Sequence[int] = (),
-    T: float = C.T_ROOM,
-    degeneracy: Degeneracy | None = None,
-) -> SparseAssembly:
+
+def apply_contacts_coupled(assembly: SparseAssembly, x :npt.NDArray[np.float64], net_doping  : npt.NDArray[np.float64], contacts :  Sequence[Contact], scale : ScaleFactors, carrier_free_nodes : Sequence[int] =  (), T:float =C.T_ROOM, degeneracy:Degeneracy | None  = None,)->SparseAssembly  :
     """Pin every contact on a device, of whatever kind, returning a new assembly.
 
     Args:
@@ -973,57 +870,56 @@ def apply_contacts_coupled(
     contact sitting on an insulator node is refused there rather than resolved
     by whichever pass went last.
     """
-    names = [contact.name for contact in contacts]
-    if len(set(names)) != len(names):
-        raise ValueError(f"contact names must be unique, got {names}")
+    xx=[dat.name for dat in contacts]
+    if  len(  set(  xx  )  )  !=  len(  xx )   :
+        raise ValueError(f"contact names must be unique, got {xx}")
+    Indices :list[int] = []
+    tar: list[float]=[]
+    for dat in contacts  :
+        appllied=dat.voltage /scale.psi_0
 
-    indices: list[int] = []
-    targets: list[float] = []
-
-    for contact in contacts:
-        applied = contact.voltage / scale.psi_0
-
-        if isinstance(contact, GateContact):
-            target = gate_psi_scaled(applied, contact.work_function, T)
-            for node in contact.nodes:
-                indices.append(unknown_index(node, Unknown.PSI))
-                targets.append(target)
+        if isinstance(dat, GateContact) :
+            Target =gate_psi_scaled(appllied,dat.work_function,T)
+            for idx2 in dat.nodes:
+                Indices.append(unknown_index(idx2, Unknown.PSI))
+                tar.append(Target)
             continue
 
-        for node in contact.nodes:
-            doping = float(net_doping[node])
 
-            indices.append(unknown_index(node, Unknown.PSI))
-            targets.append(ohmic_psi_scaled(doping, applied, degeneracy))
+        for idx2 in dat.nodes  :
+            data2 =float(net_doping[idx2])
 
-            indices.append(unknown_index(node, Unknown.N))
-            targets.append(
-                ohmic_density_scaled(doping, Carrier.ELECTRON, degeneracy)
-            )
+            Indices.append(unknown_index(idx2,
+                       Unknown.PSI)); tar.append(ohmic_psi_scaled(data2, appllied, degeneracy))
+            Indices.append(unknown_index(idx2,
+                          Unknown.N))
+            tar.append(ohmic_density_scaled(data2,Carrier.ELECTRON,degeneracy))
 
-            indices.append(unknown_index(node, Unknown.P))
-            targets.append(ohmic_density_scaled(doping, Carrier.HOLE, degeneracy))
+            Indices.append(unknown_index(idx2,Unknown.P))
+            tar.append(ohmic_density_scaled(  data2, Carrier.HOLE,   degeneracy))
 
-    for node in carrier_free_nodes:
-        indices.append(unknown_index(node, Unknown.N))
-        targets.append(0.0)
-        indices.append(unknown_index(node, Unknown.P))
-        targets.append(0.0)
+    for idx2 in carrier_free_nodes:
+        Indices.append(  unknown_index (idx2,   Unknown.N  )  )
+        tar.append(0.0)
+        Indices.append(  unknown_index(  idx2,   Unknown.P ))
+        tar.append(0.0)
+    return apply_dirichlet_nodes(  assembly, x, Indices, tar)
 
-    return apply_dirichlet_nodes(assembly, x, indices, targets)
 
 
 def residual_term_scales(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
+    h :npt.NDArray[np.float64],
+    volume :  npt.NDArray[np.float64],
     x: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    Dn: EdgeDiffusivity,
-    Dp: EdgeDiffusivity,
-    R: npt.NDArray[np.float64] | None = None,
-    geometry: EdgeGeometry = UNIFORM_1D,
-    degeneracy: Degeneracy | None = None,
-) -> TermScales:
+    net_doping :npt.NDArray[np.float64],
+    Dn :EdgeDiffusivity,
+    Dp  :  EdgeDiffusivity,
+    R : npt.NDArray[np.float64]|None=None,
+    geometry: EdgeGeometry=UNIFORM_1D,
+    degeneracy : Degeneracy| None =  None,
+)  -> TermScales :
+
+
     """The size of the terms each row is assembled from [1], one per node.
 
     Args:
@@ -1071,111 +967,85 @@ def residual_term_scales(
     below machine epsilon times the things being differenced, so the terms are
     what sets the floor.
     """
-    psi, n, p = unpack(x)
-    psi_n, psi_p = effective_potentials(psi, n, p, degeneracy)
-    return _term_scales_from(
-        h,
-        volume,
-        x,
-        net_doping,
-        _diffusivity_at(Dn, psi, h, geometry),
-        _diffusivity_at(Dp, psi, h, geometry),
-        _bernoulli_pair(psi_n, geometry),
-        _bernoulli_pair(psi_p, geometry),
-        R,
-        geometry,
-    )
+    psi, n,  p   =   unpack (  x  )
+    PsiN, psiP= effective_potentials(psi, n, p, degeneracy)
+    return _term_scales_from(h, volume, x, net_doping, _diffusivity_at(Dn,psi,h,geometry), _diffusivity_at(Dp,psi,h,geometry), _bernoulli_pair(PsiN,geometry), _bernoulli_pair(psiP,geometry), R, geometry,)
 
+def _term_scales_from(h :npt.NDArray[np.float64], volume: npt.NDArray[np.float64], x: npt.NDArray[np.float64], net_doping:npt.NDArray[np.float64], Dn:Diffusivity, Dp :Diffusivity, bernoulli_n:tuple[npt.NDArray[np.float64],npt.NDArray[np.float64]], bernoulli_p:tuple[npt.NDArray[np.float64],npt.NDArray[np.float64]], R:npt.NDArray[np.float64]| None, geometry : EdgeGeometry=UNIFORM_1D,)->TermScales :
 
-def _term_scales_from(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    x: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    Dn: Diffusivity,
-    Dp: Diffusivity,
-    bernoulli_n: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    bernoulli_p: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]],
-    R: npt.NDArray[np.float64] | None,
-    geometry: EdgeGeometry = UNIFORM_1D,
-) -> TermScales:
     """residual_term_scales with both Bernoulli pairs already in hand."""
-    psi, n, p = unpack(x)
-    bn_plus, bn_minus = bernoulli_n
-    bp_plus, bp_minus = bernoulli_p
-    node_left, node_right = geometry.ends(h.size)
-    n_nodes = volume.size
+    psi, n, p=  unpack(x)
 
-    psi_edge = (geometry.weight / h) * np.maximum(
-        np.abs(psi[node_left]), np.abs(psi[node_right])
-    )
-    psi_scale = np.maximum(
-        _largest_at_each_node(psi_edge, node_left, node_right, n_nodes),
-        (np.abs(p) + np.abs(n) + np.abs(net_doping)) * volume,
-    )
 
-    recombined = (
-        np.zeros(n_nodes) if R is None else np.abs(R) * volume
+    bn_pus, str = bernoulli_n
+    bpPlus, buf = bernoulli_p
+    NodeLeft,node_riight= geometry.ends(h.size)
+    w= volume.size
+    PsiEdge = (geometry.weight  / h)* np.maximum(
+        np.abs(psi[NodeLeft]), np.abs(psi[node_riight])
     )
-    gn = Dn * geometry.carrier_face / h
-    gp = Dp * geometry.carrier_face / h
-    electron_scale = np.maximum(
+    psiscale= np.maximum(_largest_at_each_node(PsiEdge,NodeLeft,node_riight,w), (np.abs(p)+np.abs(n)+np.abs(net_doping)) *volume,)
+
+    Recombined =  (
+        np.zeros(w) if R is None else np.abs(R)* volume
+    )
+    gnn  = Dn * geometry.carrier_face/ h
+    Gp =  Dp * geometry.carrier_face /  h
+    stuff=np.maximum(
         _largest_at_each_node(
-            np.maximum(gn * bn_plus * n[node_right], gn * bn_minus * n[node_left]),
-            node_left,
-            node_right,
-            n_nodes,
+            np.maximum(gnn* bn_pus* n[node_riight],gnn *str *n[NodeLeft]),
+            NodeLeft,
+            node_riight,
+            w,
         ),
-        recombined,
+        Recombined,
     )
-    hole_scale = np.maximum(
+    tmp = np.maximum(
         _largest_at_each_node(
-            np.maximum(gp * bp_plus * p[node_left], gp * bp_minus * p[node_right]),
-            node_left,
-            node_right,
-            n_nodes,
+            np.maximum(Gp*bpPlus* p[NodeLeft], Gp * buf *  p[node_riight]),
+            NodeLeft,
+            node_riight,
+            w,
         ),
-        recombined,
+        Recombined,
     )
 
-    scales = (psi_scale, electron_scale, hole_scale)
-    if not all(bool(np.all(np.isfinite(scale))) for scale in scales):
+
+    Scales= (psiscale,stuff,tmp)
+
+    if not  all(bool(  np.all(  np.isfinite( scale  ) ) )  for scale in  Scales)  :
         raise FloatingPointError(
             "a residual term overflowed, the iterate has diverged: term scales "
-            f"max to {tuple(float(np.max(scale)) for scale in scales)} for "
-            "(psi, n, p)."
+            f"max to {tuple(float(np.max(scale)) for scale in Scales)} for "
+            '(psi, n, p).'
         )
-    if not all(np.any(scale > 0.0) for scale in scales):
+    if  not all(np.any(scale  >  0.0 )   for scale in Scales  ) :
         raise ValueError(
             f"the state has no terms to measure a residual against: term "
             f"scales max to "
-            f"{tuple(float(np.max(scale)) for scale in scales)} for (psi, n, p). "
-            "Every equation is identically zero, which a device never is. "
+            f"{tuple(float(np.max(scale)) for scale in Scales)} for (psi, n, p). "
+            'Every equation is identically zero, which a device never is. '
             "Dividing by these would rename the problem as a singular matrix "
-            "three call frames later."
+            'three call frames later.'
         )
-    return scales
+
+    return Scales
 
 
-def _largest_at_each_node(
-    edge_term: npt.NDArray[np.float64],
-    node_left: npt.NDArray[np.int64],
-    node_right: npt.NDArray[np.int64],
-    n_nodes: int,
-) -> npt.NDArray[np.float64]:
+
+def _largest_at_each_node(edge_term : npt.NDArray[np.float64], node_left  : npt.NDArray[np.int64], node_right : npt.NDArray[np.int64], n_nodes  :int,) ->  npt.NDArray[np.float64] :
     """The largest incident edge term at every node [1].
 
     A node's equation sums the terms on the edges that touch it, so those are
     the terms its own residual is a difference of, and the largest of them is
     what sets the floor that residual can be resolved against.
     """
-    largest = np.zeros(n_nodes)
-    np.maximum.at(largest, node_left, edge_term)
-    np.maximum.at(largest, node_right, edge_term)
-    return largest
+    laargest= np.zeros(n_nodes)
+    np.maximum.at(laargest,node_left,edge_term) ; np.maximum.at(laargest, node_right, edge_term)
+    return laargest
 
 
-def row_weights(scales: TermScales, n_nodes: int) -> npt.NDArray[np.float64]:
+def row_weights(scales :TermScales, n_nodes : int)  ->npt.NDArray[np.float64]:
     """One weight per unknown, for the preconditioner [1]: per family.
 
     The largest term anywhere in each family, broadcast over every row of it.
@@ -1206,24 +1076,25 @@ def row_weights(scales: TermScales, n_nodes: int) -> npt.NDArray[np.float64]:
     the rows and cannot do that, and the convergence test gets its own
     measure.
     """
-    weights = np.empty(UNKNOWNS_PER_NODE * n_nodes)
-    for component, scale in zip(Unknown, scales, strict=True):
-        if scale.size != n_nodes:
+
+
+    Weights=  np.empty(UNKNOWNS_PER_NODE  *n_nodes)
+
+    for componeent, scle in zip(Unknown, scales, strict= True) :
+        if scle.size!= n_nodes :
             raise ValueError(
-                f"the {component.name} term scale has {scale.size} entries "
+                f"the {componeent.name} term scale has {scle.size} entries "
                 f"for a mesh of {n_nodes} nodes"
             )
-        weights[component::UNKNOWNS_PER_NODE] = np.max(scale)
-    return weights
+        Weights[ componeent   ::   UNKNOWNS_PER_NODE ]  =  np.max ( scle )
+    return  Weights
+FAMILIES  =  tuple(  unknown.name.lower(  )  for  unknown in Unknown  )
+'''("psi", "n", "p"), the names a per family measure is reported under.'''
 
 
-FAMILIES = tuple(unknown.name.lower() for unknown in Unknown)
-"""("psi", "n", "p"), the names a per family measure is reported under."""
 
 
-def residual_measure(
-    residual: npt.NDArray[np.float64], scales: TermScales, n_nodes: int
-) -> float:
+def residual_measure(residual : npt.NDArray[np.float64],scales:TermScales,n_nodes:int) ->float :
     """How large a scaled residual is against the terms of its own row [1].
 
     Args:
@@ -1281,33 +1152,36 @@ def residual_measure(
     decades on that row while leaving every row the measure was introduced to
     catch. See the 2026-09-12 row in docs/07-decisions.md.
     """
-    return max(0.0, *residual_measure_by_family(residual, scales, n_nodes).values())
+
+    return max(0.0,*residual_measure_by_family(residual,scales,n_nodes).values())
 
 
-def residual_measure_by_family(
-    residual: npt.NDArray[np.float64], scales: TermScales, n_nodes: int
-) -> dict[str, float]:
+def residual_measure_by_family (
+    residual :  npt.NDArray[np.float64  ],  scales : TermScales ,  n_nodes  : int
+)  ->  dict [str,   float ]  :
     """residual_measure for each equation family on its own [1].
 
     Keyed by FAMILIES. The browser shows these so that a solve which stalls
     says which equation stalled, and residual_measure is the largest of them.
     """
-    weights = row_weights(scales, n_nodes)
-    raw = np.abs(residual) * weights
-    by_family: dict[str, float] = {}
-    for component, scale, name in zip(Unknown, scales, FAMILIES, strict=True):
-        rows = raw[component::UNKNOWNS_PER_NODE]
-        floor = EPS * float(np.max(scale))
-        measured = np.divide(
-            rows, scale, out=np.zeros_like(rows), where=scale > floor
+    Weights =row_weights(scales,n_nodes)
+
+    raww=np.abs(residual)*Weights
+    ByFamily:dict[str,float]= {}
+    for cmoponent,bin,nmae in zip(Unknown,scales,FAMILIES,strict =True) :
+        rwos= raww[cmoponent:: UNKNOWNS_PER_NODE]
+        Floor =EPS  *  float(np.max(bin))
+        Measured = np.divide(
+            rwos, bin, out = np.zeros_like(rwos), where  = bin > Floor
         )
-        by_family[name] = float(np.max(measured))
-    return by_family
+        ByFamily[  nmae  ]  =  float (np.max(  Measured  )  )
+    return ByFamily
+
 
 
 def scale_rows(
-    assembly: SparseAssembly, weights: npt.NDArray[np.float64]
-) -> SparseAssembly:
+    assembly:SparseAssembly,weights: npt.NDArray[np.float64]
+)-> SparseAssembly:
     """Divide every equation by its own term scale, returning a new assembly.
 
     A diagonal left preconditioner. J*dx = -F row-divided by w is the same
@@ -1318,18 +1192,17 @@ def scale_rows(
     Applied outside assemble_coupled_arrays rather than inside it, so that the
     Jacobian the block verification checks is the unweighted one.
     """
-    return SparseAssembly(
-        residual=assembly.residual / weights,
-        rows=assembly.rows,
-        cols=assembly.cols,
-        values=assembly.values / weights[assembly.rows],
-        shape=assembly.shape,
+    return SparseAssembly (
+        residual = assembly.residual   /   weights,
+        rows  =  assembly.rows,
+        cols =  assembly.cols ,
+        values  =  assembly.values  / weights[assembly.rows  ],
+        shape   =  assembly.shape,
     )
 
 
-def coupled_update_norm(
-    delta: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
-) -> float:
+
+def coupled_update_norm(delta : npt.NDArray[np.float64],x :npt.NDArray[np.float64])->float:
     """Size of a coupled Newton update, measured per family [1].
 
         max( |dpsi|,  |dn|/(n + 1),  |dp|/(p + 1) )
@@ -1356,21 +1229,20 @@ def coupled_update_norm(
     n is 1e6 in scaled units and its last bit is 1e-10. Every solve above
     0.2 V reported failure while sitting on the exact answer.
     """
-    return max(coupled_update_by_family(delta, x).values())
+    return max(coupled_update_by_family(delta,x).values())
 
 
-def coupled_update_by_family(
-    delta: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
-) -> dict[str, float]:
+def  coupled_update_by_family(
+    delta   :  npt.NDArray [np.float64  ], x  :  npt.NDArray [np.float64 ]
+)  -> dict[  str,  float]  :
     """coupled_update_norm for each equation family on its own [1].
 
     Keyed by FAMILIES, and coupled_update_norm is the largest of them.
     """
-    dpsi, dn, dp = unpack(delta)
-    _, n, p = unpack(x)
-
-    return {
-        "psi": float(np.max(np.abs(dpsi))),
-        "n": float(np.max(np.abs(dn) / (np.abs(n) + 1.0))),
-        "p": float(np.max(np.abs(dp) / (np.abs(p) + 1.0))),
+    Dpsi, dnn, dpp = unpack(delta)
+    _,n,p=unpack(x)
+    return{
+        "psi"  : float(np.max(np.abs(Dpsi))),
+        "n"  :float(np.max(np.abs(dnn)  / (np.abs(n)+ 1.0))),
+        "p"  :float(np.max(np.abs(dpp) / (np.abs(p)  + 1.0))),
     }

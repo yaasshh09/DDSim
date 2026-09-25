@@ -16,375 +16,322 @@ a better test of the halving logic than any real device, because the window
 edge is exactly where the driver has to behave.
 """
 
+
 from __future__ import annotations
 
-import pytest
+import  pytest
 
-from ddsim.solve.continuation import ContinuationEvent, continue_to
+from ddsim.solve.continuation import ContinuationEvent,continue_to
+
+def always(value  :  float) -> float :
+    '''A solve that always converges, returning the parameter as the solution.'''
+    return  value
 
 
-def always(value: float) -> float:
-    """A solve that always converges, returning the parameter as the solution."""
-    return value
-
-
-def record_calls(calls: list[tuple[float, float]]):
+def record_calls(calls   :   list[tuple[ float ,   float ] ]  )   :
     """A solve that records the parameter and the guess it was handed."""
 
-    def solve(parameter: float, guess: float) -> float:
-        calls.append((parameter, guess))
+    def solve(  parameter  :   float,  guess  :  float  )  ->   float  :
+        calls.append((parameter,guess))
+
         return parameter
 
-    return solve
+    return  solve
+def fails_beyond(limit:float, minimum_step :float)  :
 
-
-def fails_beyond(limit: float, minimum_step: float):
-    """Converges only when the step from the last accepted point is small enough.
+    '''Converges only when the step from the last accepted point is small enough.
 
     Stands in for a real solver near high injection, where a large bias jump
     lands outside the basin of attraction and a small one does not.
-    """
-    accepted = [0.0]
+    '''
+    Accepted =[0.0]
+    def solve(parameter :float,
+       guess:float)->float |None:
+        if  parameter  > limit  and  abs( parameter  - Accepted[  -  1] )  >  minimum_step   :
 
-    def solve(parameter: float, guess: float) -> float | None:
-        if parameter > limit and abs(parameter - accepted[-1]) > minimum_step:
-            return None
-        accepted.append(parameter)
+            return  None
+        Accepted.append(parameter )
         return parameter
 
     return solve
 
 
-def test_reaches_the_target_exactly() -> None:
+
+def test_reaches_the_target_exactly()   ->  None   :
     """The last step is clipped, so the target is hit and not merely passed.
 
     Float accumulation of 0.05 twenty times does not land on 1.0, and a bias
     sweep that reports 0.9999999999 V is a nuisance in every plot downstream.
     """
-    result = continue_to(
-        lambda value, guess: always(value),
-        start=0.0,
-        target=1.0,
-        initial=0.0,
+    r2  = continue_to(
+        lambda value, guess : always(value),
+        start =  0.0,
+        target = 1.0,
+        initial =0.0,
         step=0.05,
     )
-
-    assert result.converged
-    assert result.parameter == 1.0
-    assert result.solution == 1.0
-
-
-def test_never_overshoots_the_target() -> None:
-    calls: list[tuple[float, float]] = []
-    continue_to(
-        record_calls(calls), start=0.0, target=0.3, initial=0.0, step=0.11
-    )
-
-    assert max(parameter for parameter, _ in calls) <= 0.3
+    assert r2.converged
+    assert r2.parameter== 1.0
+    assert r2.solution   == 1.0
 
 
-def test_walks_downward_too() -> None:
+def test_never_overshoots_the_target()->None :
+    callls :list[tuple[float,float]] =[]
+    continue_to(record_calls(callls),start =0.0,target =0.3,initial =0.0,step =0.11)
+
+
+    assert max (  parameter for  parameter, _ in  callls  ) <=  0.3
+
+def test_walks_downward_too() -> None :
     """Reverse bias ramps run the other way, and the sign is the driver's job."""
-    calls: list[tuple[float, float]] = []
-    result = continue_to(
-        record_calls(calls), start=0.0, target=-1.0, initial=0.0, step=0.25
+    zip  :   list[tuple[  float, float ] ]  =  [  ]
+    d2=continue_to(
+        record_calls(zip),start=0.0,target=-1.0,initial =0.0,step=0.25
     )
 
-    assert result.converged
-    assert result.parameter == -1.0
-    assert all(parameter <= 0.0 for parameter, _ in calls)
+    assert d2.converged
 
+    assert d2.parameter == -1.0
+    assert all(parameter <= 0.0 for parameter,_ in zip)
 
-def test_hands_each_solve_the_previous_solution() -> None:
+def test_hands_each_solve_the_previous_solution() ->None :
     """The entire reason continuation works, from docs/02-numerics.md."""
-    calls: list[tuple[float, float]] = []
-    continue_to(record_calls(calls), start=0.0, target=1.0, initial=0.0, step=0.25)
+    temp:list[tuple[float,float]]=[]
+    continue_to(record_calls(temp), start = 0.0, target =1.0, initial=0.0, step =0.25)
+    for preious,currnt in zip(temp,temp[1 :],strict= False):
+        assert currnt [1 ]  == preious[  0]
 
-    for previous, current in zip(calls, calls[1:], strict=False):
-        assert current[1] == previous[0]
 
 
-def test_a_target_equal_to_the_start_does_nothing() -> None:
-    calls: list[tuple[float, float]] = []
-    result = continue_to(
-        record_calls(calls), start=0.5, target=0.5, initial=7.0, step=0.1
+
+def test_a_target_equal_to_the_start_does_nothing() ->  None :
+    Calls : list[tuple[float, float]] = []
+    bar= continue_to(
+        record_calls(Calls),start=0.5,target=0.5,initial =7.0,step = 0.1
     )
 
-    assert result.converged
-    assert result.solution == 7.0
-    assert calls == []
+    assert bar.converged ; assert bar.solution== 7.0;  assert Calls==[]
 
 
-def test_the_step_grows_by_the_growth_factor() -> None:
-    calls: list[tuple[float, float]] = []
-    continue_to(
-        record_calls(calls),
-        start=0.0,
-        target=100.0,
-        initial=0.0,
-        step=1.0,
-        growth=1.5,
-        max_step=1e9,
-    )
+def test_the_step_grows_by_the_growth_factor() ->  None  :
+    acc  :   list[tuple[  float, float  ] ]  =   [  ]
 
-    positions = [0.0, *[parameter for parameter, _ in calls]]
-    taken = [
-        later - earlier
-        for earlier, later in zip(positions[:-1], positions[1:], strict=True)
+    continue_to(record_calls(acc), start =  0.0, target=  100.0, initial = 0.0, step = 1.0, growth = 1.5, max_step= 1e9,)
+
+    pos =  [0.0, *  [  Parameter  for Parameter ,  _ in  acc  ]  ]
+    taaken = [
+        dat -yy
+        for yy,dat in zip(pos[:- 1],pos[1:],strict=True)
     ]
-    assert taken[0] == pytest.approx(1.0)
-    assert taken[1] == pytest.approx(1.5)
-    assert taken[2] == pytest.approx(2.25)
+    assert taaken[0]==pytest.approx(1.0)
+    assert taaken[1] == pytest.approx(1.5)
+    assert taaken[2]==  pytest.approx(2.25)
 
 
-def test_the_step_is_capped() -> None:
-    calls: list[tuple[float, float]] = []
+def test_the_step_is_capped() ->None:
+    hmm: list[tuple[float,float]]= []
     continue_to(
-        record_calls(calls),
+        record_calls(hmm),
         start=0.0,
         target=100.0,
-        initial=0.0,
-        step=1.0,
+        initial =0.0,
+        step= 1.0,
         growth=1.5,
         max_step=2.0,
     )
-
-    positions = [0.0, *[parameter for parameter, _ in calls]]
-    taken = [
-        later - earlier
-        for earlier, later in zip(positions[:-1], positions[1:], strict=True)
-    ]
-    assert max(taken) <= 2.0 + 1e-12
+    positins  =[0.0,
+           *[Parameter for Parameter,
+              _ in hmm]]
+    Taken  = [Later  -  erlier for erlier, Later in zip(positins[:-  1], positins[1 :], strict= True)]
+    assert max (Taken  )   <=  2.0   +  1e-12
 
 
-def test_a_failed_step_is_halved_and_retried() -> None:
+def test_a_failed_step_is_halved_and_retried ( )  ->   None  :
+
+
     """The requirement phases/PHASE-2.md states in as many words."""
-    result = continue_to(
-        fails_beyond(0.5, 0.2), start=0.0, target=1.0, initial=0.0, step=0.5
+    lst=continue_to(
+        fails_beyond(0.5,0.2),start=0.0,target=1.0,initial= 0.0,step =0.5
     )
 
-    assert result.converged
-    assert result.parameter == 1.0
+    assert lst.converged
 
-    rejected = [event for event in result.events if not event.converged]
-    assert rejected, "nothing was rejected, so the halving path never ran"
-    for event in rejected:
-        assert "halved" in event.message
+    assert lst.parameter== 1.0
 
+    slice =[eveent for eveent in lst.events if not eveent.converged]
+    assert  slice,  'nothing was rejected, so the halving path never ran'
+    for eveent in slice :
+        assert 'halved' in eveent.message
 
-def test_every_attempt_is_logged() -> None:
+def test_every_attempt_is_logged()-> None  :
     """A logged event per attempt, accepted or not."""
-    result = continue_to(
-        fails_beyond(0.5, 0.2), start=0.0, target=1.0, initial=0.0, step=0.5
-    )
-
-    assert len(result.events) > len(result.accepted)
-    assert [event.parameter for event in result.events if event.converged] == list(
-        result.accepted
-    )
+    reuslt=continue_to(fails_beyond(0.5,0.2),start=0.0,target =1.0,initial= 0.0,step= 0.5)
+    assert len(reuslt.events)  > len(  reuslt.accepted )
+    assert[Event.parameter for Event in reuslt.events if Event.converged] == list(reuslt.accepted)
 
 
-def test_gives_up_below_the_minimum_step() -> None:
+
+def test_gives_up_below_the_minimum_step (  ) -> None  :
     """Failing loudly beats halving forever."""
-    result = continue_to(
-        lambda value, guess: None,
-        start=0.0,
-        target=1.0,
-        initial=0.0,
-        step=0.1,
-        min_step=0.01,
+    res  =continue_to(
+        lambda value, guess  :None,
+        start = 0.0,
+        target=  1.0,
+        initial  = 0.0,
+        step = 0.1,
+        min_step= 0.01,
     )
 
-    assert not result.converged
-    assert result.parameter == 0.0
-    assert result.solution == 0.0
-    assert "minimum step" in result.message
+    assert not res.converged ; assert res.parameter==  0.0
+    assert res.solution==0.0
+    assert "minimum step" in res.message
 
 
-def test_the_partial_solution_survives_a_failure() -> None:
+def test_the_partial_solution_survives_a_failure()->None  :
     """Whatever was reached is returned, because it is worth inspecting."""
-    result = continue_to(
-        fails_beyond(0.4, 1e-9),
-        start=0.0,
-        target=1.0,
-        initial=0.0,
-        step=0.1,
-        min_step=0.01,
+    res =  continue_to(
+        fails_beyond ( 0.4,  1e-9  ),
+        start   =  0.0 ,
+        target =  1.0 ,
+        initial  =   0.0,
+        step   = 0.1,
+        min_step   = 0.01,
     )
 
-    assert not result.converged
-    assert 0.0 < result.parameter <= 0.4
-    assert result.solution == result.parameter
 
+    assert  not  res.converged
 
+    assert 0.0 < res.parameter<=0.4
+    assert res.solution == res.parameter
 def test_running_out_of_attempts_is_reported() -> None:
-    result = continue_to(
-        lambda value, guess: always(value),
-        start=0.0,
-        target=1e6,
-        initial=0.0,
-        step=1.0,
-        max_step=1.0,
-        max_attempts=5,
+    yy= continue_to(lambda value,guess:always(value), start=0.0, target= 1e6, initial=0.0, step=1.0, max_step =1.0, max_attempts=5,)
+
+
+    assert  not  yy.converged
+    assert 'attempts'  in yy.message
+
+
+
+
+@pytest.mark.parametrize(('kwargs', "match"), [({'step' : 0.0}, "step must be positive"), ({'step': -  0.1}, 'step must be positive'), ({'step' : 0.1, "growth": 1.0}, 'growth'), ({'step':  0.1, "min_step": 0.5}, "min_step"), ({'step' : 0.1, "max_step" :0.05}, "max_step"), ({'step' : 0.1, "max_attempts" :  0}, "max_attempts"),],)
+
+
+
+def test_bad_arguments_raise(kwargs: dict,match :str)->None:
+    with pytest.raises(ValueError,match = match) :
+
+        continue_to(lambda value, guess:  always(value), start  = 0.0, target  =1.0, initial=  0.0, **  kwargs,)
+
+
+def test_repr_reports_where_it_got_to ( )   -> None  :
+    res =  continue_to(
+        lambda value, guess : always(value), start = 0.0, target=  1.0, initial  =0.0, step = 0.5
     )
 
-    assert not result.converged
-    assert "attempts" in result.message
+    assert '1' in repr(res)
+    assert "converged" in repr(res)
 
 
-@pytest.mark.parametrize(
-    ("kwargs", "match"),
-    [
-        ({"step": 0.0}, "step must be positive"),
-        ({"step": -0.1}, "step must be positive"),
-        ({"step": 0.1, "growth": 1.0}, "growth"),
-        ({"step": 0.1, "min_step": 0.5}, "min_step"),
-        ({"step": 0.1, "max_step": 0.05}, "max_step"),
-        ({"step": 0.1, "max_attempts": 0}, "max_attempts"),
-    ],
-)
-def test_bad_arguments_raise(kwargs: dict, match: str) -> None:
-    with pytest.raises(ValueError, match=match):
-        continue_to(
-            lambda value, guess: always(value),
-            start=0.0,
-            target=1.0,
-            initial=0.0,
-            **kwargs,
-        )
 
 
-def test_repr_reports_where_it_got_to() -> None:
-    result = continue_to(
-        lambda value, guess: always(value), start=0.0, target=1.0, initial=0.0, step=0.5
+def test_event_repr_reports_the_attempt()->None:
+    temp2=continue_to(
+        fails_beyond(0.5,0.2),start=0.0,target= 1.0,initial=0.0,step=0.5
     )
+    val  = repr( temp2.events [0 ]  )
+    assert 'step' in val
 
-    assert "1" in repr(result)
-    assert "converged" in repr(result)
+    assert 'ok' in val or "failed" in val
 
-
-def test_event_repr_reports_the_attempt() -> None:
-    result = continue_to(
-        fails_beyond(0.5, 0.2), start=0.0, target=1.0, initial=0.0, step=0.5
-    )
-    text = repr(result.events[0])
-
-    assert "step" in text
-    assert "ok" in text or "failed" in text
-
-
-def test_every_attempt_is_reported_as_it_is_made() -> None:
+def test_every_attempt_is_reported_as_it_is_made() -> None :
     """The same events the result carries, handed over one at a time."""
-    seen: list[ContinuationEvent] = []
+    Seen: list[ContinuationEvent] = []
 
-    result = continue_to(
-        lambda value, guess: always(value),
-        start=0.0,
-        target=1.0,
-        initial=0.0,
-        step=0.25,
-        on_event=seen.append,
+    res =  continue_to(
+        lambda value ,   guess  :   always ( value  ),
+        start  =  0.0,
+        target  = 1.0 ,
+        initial  =   0.0,
+        step =  0.25,
+        on_event  = Seen.append,
     )
 
-    assert result.converged
-    assert tuple(seen) == result.events
+    assert res.converged
+    assert tuple(Seen) ==  res.events
 
 
-def test_an_event_arrives_before_the_next_solve_is_attempted() -> None:
+
+def test_an_event_arrives_before_the_next_solve_is_attempted() ->  None  :
     """The whole point is watching a ramp while it runs. A stream that only
     flushes at the end is a progress bar that fills in one jump, and the
     assertion that separates the two is the interleaving, not the count."""
-    order: list[str] = []
+    buff:list[str]= []
 
-    def solve(value: float, guess: float) -> float:
-        order.append("solve")
+    def solve(value : float, guess: float) -> float :
+        buff.append(  "solve" )
         return value
 
-    continue_to(
-        solve,
-        start=0.0,
-        target=1.0,
-        initial=0.0,
-        step=0.25,
-        on_event=lambda event: order.append("event"),
-    )
 
-    assert order[:4] == ["solve", "event", "solve", "event"]
+    continue_to(solve, start = 0.0, target  =  1.0, initial =0.0, step= 0.25, on_event =  lambda event  :  buff.append("event"),)
 
+    assert buff[:4]==['solve','event','solve',"event"]
 
-def test_a_failed_attempt_is_reported_too() -> None:
+def test_a_failed_attempt_is_reported_too() -> None  :
+
     """A ramp in trouble is exactly when someone is watching. Reporting only
     the accepted points would show a ramp slowing down for no visible reason."""
-    seen: list[ContinuationEvent] = []
-
+    seeen:list[ContinuationEvent]=[]
     continue_to(
         fails_beyond(0.5, 0.1),
-        start=0.0,
-        target=1.0,
-        initial=0.0,
+        start = 0.0,
+        target = 1.0,
+        initial =0.0,
         step=0.4,
-        on_event=seen.append,
+        on_event=  seeen.append,
     )
-
-    refused = [event for event in seen if not event.converged]
-    assert refused, "this ramp has to fail somewhere for the test to mean anything"
-    assert "step halved" in refused[0].message
-
-
-def test_watching_a_ramp_does_not_change_it() -> None:
-    """Same inertness argument as the Newton callback."""
-    seen: list[ContinuationEvent] = []
-
-    quiet = continue_to(
-        fails_beyond(0.5, 0.1), start=0.0, target=1.0, initial=0.0, step=0.4
-    )
-    watched = continue_to(
-        fails_beyond(0.5, 0.1),
-        start=0.0,
-        target=1.0,
-        initial=0.0,
-        step=0.4,
-        on_event=seen.append,
-    )
-
-    assert quiet.events == watched.events
-    assert quiet.parameter == watched.parameter
-    assert quiet.converged == watched.converged
-    assert quiet.message == watched.message
-    assert tuple(seen) == watched.events
+    val =[eve for eve in seeen if not eve.converged]
+    assert val,"this ramp has to fail somewhere for the test to mean anything"
+    assert 'step halved' in val[0].message
 
 
-def test_an_exception_from_the_callback_stops_the_ramp() -> None:
+def  test_watching_a_ramp_does_not_change_it (  ) ->   None  :
+    '''Same inertness argument as the Newton callback.'''
+    cnt:list[ContinuationEvent]= []
+
+    quuiet=continue_to(fails_beyond(0.5,0.1),start= 0.0,target=1.0,initial =0.0,step=0.4)
+    wat = continue_to(fails_beyond(0.5, 0.1), start  = 0.0, target = 1.0, initial = 0.0, step = 0.4, on_event  =cnt.append,)
+
+
+    assert quuiet.events ==wat.events
+    assert quuiet.parameter==wat.parameter
+    assert quuiet.converged == wat.converged
+    assert  quuiet.message  == wat.message; assert tuple(cnt)== wat.events
+
+def test_an_exception_from_the_callback_stops_the_ramp( )  ->   None  :
+
+
     """Cancellation, the same way the Newton callback does it."""
-
-    def refuse(event: ContinuationEvent) -> None:
-        if event.parameter >= 0.5:
+    def refuse(event :  ContinuationEvent)->None :
+        if event.parameter>= 0.5 :
             raise KeyboardInterrupt("cancelled")
 
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(KeyboardInterrupt)  :
+
         continue_to(
-            lambda value, guess: always(value),
-            start=0.0,
-            target=1.0,
-            initial=0.0,
+            lambda value,guess:always(value),
+            start =0.0,
+            target= 1.0,
+            initial = 0.0,
             step=0.25,
             on_event=refuse,
         )
 
-
-def test_a_ramp_that_is_already_at_the_target_reports_nothing() -> None:
+def test_a_ramp_that_is_already_at_the_target_reports_nothing() ->  None:
     """No attempt was made, so there is nothing to report. An event here would
     put a point on the plot that no solve produced."""
-    seen: list[ContinuationEvent] = []
+    see :  list[ContinuationEvent]=[]
 
-    result = continue_to(
-        lambda value, guess: always(value),
-        start=1.0,
-        target=1.0,
-        initial=1.0,
-        step=0.25,
-        on_event=seen.append,
-    )
+    dat =   continue_to (lambda  value, guess  :   always ( value), start  =  1.0, target =   1.0, initial =   1.0 , step  =  0.25, on_event   =  see.append,)
 
-    assert result.converged
-    assert seen == []
+    assert dat.converged
+    assert see == []

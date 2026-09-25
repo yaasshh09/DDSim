@@ -1,4 +1,4 @@
-"""Carrier statistics. Boltzmann through Phase 4, Fermi-Dirac deferred.
+'''Carrier statistics. Boltzmann through Phase 4, Fermi-Dirac deferred.
 
 Pure functions over arrays. No mesh, no solver state, no device knowledge, so
 every function here is directly testable against a textbook formula.
@@ -18,47 +18,52 @@ with no constants at all. That is the form the solver uses. The physical forms
 are kept alongside for testing against textbook numbers and for reporting.
 
 Sign convention, fixed by docs/01-physics.md: psi increases toward n-type.
-"""
+'''
 
 from __future__ import annotations
 
+
 from dataclasses import dataclass
 
-import numpy as np
-import numpy.typing as npt
-
+import numpy as np, numpy.typing as npt
 from ddsim.core import constants as C
-
-Scalar = float | npt.NDArray[np.float64]
-
-
-def n_boltzmann_scaled(psi: Scalar, phi_n: Scalar = 0.0) -> Scalar:
+Scalar=float|npt.NDArray[np.float64]
+def n_boltzmann_scaled ( psi : Scalar, phi_n  :   Scalar = 0.0 )  -> Scalar  :
     """Electron density [1], in units of C_0 = n_i.
 
     n = exp(psi - phi_n). Equals 1 in intrinsic material at equilibrium.
     """
-    return np.asarray(np.exp(np.asarray(psi) - np.asarray(phi_n)))
+    return np.asarray(np.exp(np.asarray(psi)  - np.asarray(phi_n)))
 
 
-def p_boltzmann_scaled(psi: Scalar, phi_p: Scalar = 0.0) -> Scalar:
+
+def p_boltzmann_scaled(psi: Scalar,
+         phi_p: Scalar= 0.0)->Scalar:
     """Hole density [1], in units of C_0 = n_i.
 
     p = exp(phi_p - psi). Equals 1 in intrinsic material at equilibrium.
     """
-    return np.asarray(np.exp(np.asarray(phi_p) - np.asarray(psi)))
 
 
-def dn_dpsi_scaled(psi: Scalar, phi_n: Scalar = 0.0) -> Scalar:
+    return  np.asarray (np.exp (np.asarray(phi_p  ) - np.asarray( psi  ))  )
+
+
+
+def dn_dpsi_scaled(psi  :  Scalar,   phi_n :  Scalar =  0.0  )  ->  Scalar :
     """dn/dpsi [1]. Equal to n itself, which is why Poisson stays well behaved."""
-    return n_boltzmann_scaled(psi, phi_n)
+    return n_boltzmann_scaled(psi,
+                  phi_n)
 
 
-def dp_dpsi_scaled(psi: Scalar, phi_p: Scalar = 0.0) -> Scalar:
+def dp_dpsi_scaled(psi : Scalar, phi_p : Scalar= 0.0)  ->Scalar:
+
     """dp/dpsi [1]. Equal to -p."""
-    return -p_boltzmann_scaled(psi, phi_p)
+    return-p_boltzmann_scaled(psi,phi_p)
 
 
-def n_boltzmann(psi: Scalar, phi_n: Scalar, n_i: float, V_T: float) -> Scalar:
+
+
+def n_boltzmann(psi:Scalar,phi_n :Scalar,n_i: float,V_T :float)->Scalar:
     """Electron density [cm^-3] from potentials in volts.
 
     Args:
@@ -67,15 +72,16 @@ def n_boltzmann(psi: Scalar, phi_n: Scalar, n_i: float, V_T: float) -> Scalar:
         n_i: intrinsic density [cm^-3].
         V_T: thermal voltage [V].
     """
-    return np.asarray(n_i * np.exp((np.asarray(psi) - np.asarray(phi_n)) / V_T))
+    return np.asarray(n_i  *  np.exp((np.asarray(psi)- np.asarray(phi_n)) / V_T))
 
-
-def p_boltzmann(psi: Scalar, phi_p: Scalar, n_i: float, V_T: float) -> Scalar:
+def p_boltzmann(psi :  Scalar, phi_p : Scalar, n_i  :float, V_T :  float) -> Scalar :
     """Hole density [cm^-3] from potentials in volts."""
-    return np.asarray(n_i * np.exp((np.asarray(phi_p) - np.asarray(psi)) / V_T))
+    return  np.asarray (  n_i  * np.exp (( np.asarray(phi_p )  - np.asarray(psi)  )  /   V_T ) )
 
 
-def psi_equilibrium_scaled(net_doping: Scalar) -> Scalar:
+
+
+def psi_equilibrium_scaled(net_doping:Scalar) ->Scalar:
     """Equilibrium potential [1] for a given net doping [1].
 
     Solves charge neutrality together with mass action:
@@ -92,12 +98,10 @@ def psi_equilibrium_scaled(net_doping: Scalar) -> Scalar:
 
     Also the initial guess for the nonlinear Poisson solve.
     """
-    return np.asarray(np.arcsinh(np.asarray(net_doping) / 2.0))
-
-
+    return np.asarray(np.arcsinh(np.asarray(net_doping) /2.0))
 def equilibrium_densities_scaled(
     net_doping: Scalar,
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+) ->tuple[npt.NDArray[np.float64],npt.NDArray[np.float64]]:
     """Equilibrium (n, p) [1] for a given net doping [1].
 
     Same two conditions as psi_equilibrium_scaled, solved directly:
@@ -111,26 +115,22 @@ def equilibrium_densities_scaled(
     carrier comes from the quadratic formula and the minority carrier comes
     from n*p = 1, which makes mass action exact rather than merely close.
     """
-    original = np.asarray(net_doping, dtype=np.float64)
-    N = np.atleast_1d(original)
-    root = np.sqrt(N * N + 4.0)
+    ori   =  np.asarray(  net_doping,   dtype =  np.float64 )
+    NN = np.atleast_1d(ori)
+    Root  = np.sqrt(NN *  NN + 4.0)
+    n =np.empty_like(NN)
+    p =np.empty_like(NN)
 
-    n = np.empty_like(N)
-    p = np.empty_like(N)
+    bar=NN>= 0.0
+    acc = ~  bar
+    n[bar]= 0.5 *(NN[bar] + Root[bar])
+    p[acc] = 0.5 * (Root[acc] -NN[acc])
 
-    donors = N >= 0.0
-    acceptors = ~donors
+    p[bar]= 1.0/n[bar]
+    n [  acc]  =  1.0 /  p[ acc ]
+    return n.reshape(ori.shape),p.reshape(ori.shape)
+EXP_LIMIT  = 700.0
 
-    n[donors] = 0.5 * (N[donors] + root[donors])
-    p[acceptors] = 0.5 * (root[acceptors] - N[acceptors])
-
-    p[donors] = 1.0 / n[donors]
-    n[acceptors] = 1.0 / p[acceptors]
-
-    return n.reshape(original.shape), p.reshape(original.shape)
-
-
-EXP_LIMIT = 700.0
 """Largest exponent evaluated inside the Fermi occupancy [1].
 
 1/(1 + exp(z)) is below 1e-304 at z = 700 and is 1 to the last bit at
@@ -138,7 +138,10 @@ z = -700, so clipping there changes no representable result and is what stops
 exp from overflowing on an eta hundreds of kT below the band edge.
 """
 
+
+
 QUADRATURE_ORDER = 96
+
 """Gauss-Legendre nodes per panel [1].
 
 Two panels, so 192 evaluations. Measured against the alternating series and
@@ -147,19 +150,24 @@ eta in [-40, 40]. 48 nodes reaches 3e-11, which is enough for the 1 percent
 criterion but not enough to grade Joyce-Dixon by.
 """
 
-QUADRATURE_TAIL = 60.0
-"""How far past the Fermi level the quadrature integrates [1].
+
+QUADRATURE_TAIL=60.0
+
+
+'''How far past the Fermi level the quadrature integrates [1].
 
 The occupancy is exp(-60) = 8.8e-27 of its plateau value beyond this, and the
 x^(1/2) in front cannot rescue that.
-"""
+'''
 
-JOYCE_DIXON_COEFFICIENTS = (
-    1.0 / np.sqrt(8.0),
-    3.0 / 16.0 - np.sqrt(3.0) / 9.0,
+
+JOYCE_DIXON_COEFFICIENTS =(
+    1.0 /np.sqrt(8.0),
+    3.0 /  16.0-  np.sqrt(3.0) /  9.0,
     1.48386e-4,
     -4.42563e-6,
 )
+
 """A1 to A4 of the Joyce-Dixon series, Joyce and Dixon 1977 [1].
 
     eta = ln(u) + A1 u + A2 u^2 + A3 u^3 + A4 u^4
@@ -174,7 +182,8 @@ eta at u = 4, and with the sign flipped it lands 1.6e-1 away, three decades
 worse. See docs/07-decisions.md.
 """
 
-JOYCE_DIXON_MAX_U = 8.0
+
+JOYCE_DIXON_MAX_U=8.0
 """Largest n/Nc the series is allowed at [1].
 
 The series is a fit and it eventually turns over. Measured against Brent
@@ -195,7 +204,8 @@ rather than extrapolates.
 """
 
 
-def _fermi_dirac_integral(eta: Scalar, order: float) -> npt.NDArray[np.float64]:
+
+def _fermi_dirac_integral( eta :  Scalar,  order  :  float) -> npt.NDArray[ np.float64 ] :
     """F_order(eta) = int_0^inf x^order / (1 + exp(x - eta)) dx [1].
 
     Fixed order Gauss-Legendre on the substitution x = t^2, which turns
@@ -213,28 +223,26 @@ def _fermi_dirac_integral(eta: Scalar, order: float) -> npt.NDArray[np.float64]:
     it is called at the same eta, because a Jacobian entry derived from it is
     compared against complex step at 1e-10.
     """
-    eta_array = np.atleast_1d(np.asarray(eta, dtype=np.float64)).ravel()
-    nodes, weights = np.polynomial.legendre.leggauss(QUADRATURE_ORDER)
-
-    fermi_level = np.sqrt(np.maximum(eta_array, 0.0))
-    edges = (
-        (np.zeros_like(eta_array), fermi_level),
-        (fermi_level, np.sqrt(np.maximum(eta_array, 0.0) + QUADRATURE_TAIL)),
+    etaarray  =  np.atleast_1d(np.asarray(eta, dtype =np.float64)).ravel()
+    data2,Weights =np.polynomial.legendre.leggauss(QUADRATURE_ORDER)
+    fl=np.sqrt(np.maximum(etaarray,0.0))
+    edg = (
+        (np.zeros_like(etaarray), fl),
+        (fl, np.sqrt(np.maximum(etaarray, 0.0)  + QUADRATURE_TAIL)),
     )
 
-    total = np.zeros_like(eta_array)
-    for low, high in edges:
-        half_width = 0.5 * (high - low)
-        centre = 0.5 * (high + low)
-        t = centre[:, None] + half_width[:, None] * nodes[None, :]
-        exponent = np.clip(t * t - eta_array[:, None], -EXP_LIMIT, EXP_LIMIT)
-        integrand = 2.0 * t ** (2.0 * order + 1.0) / (1.0 + np.exp(exponent))
-        total += half_width * (integrand @ weights)
+    Total =  np.zeros_like(  etaarray )
+    for tuple, hgh in edg :
+        temp  = 0.5  *  (hgh  -  tuple)
 
-    return np.asarray(total.reshape(np.shape(eta)))
+        Centre=0.5*(hgh +tuple);item2 =Centre[:,None]+ temp[:,None] *data2[None,:]
+        Exponent   =   np.clip(  item2 *   item2   -  etaarray[ : ,   None],  -  EXP_LIMIT,   EXP_LIMIT  )
+        Integrand= 2.0 *  item2 ** (2.0* order + 1.0) /  (1.0 + np.exp(Exponent))
+        Total  +=   temp *  (Integrand  @ Weights  )
 
+    return np.asarray(Total.reshape(np.shape(eta)))
 
-def fermi_dirac_half(eta: Scalar) -> npt.NDArray[np.float64]:
+def  fermi_dirac_half( eta :  Scalar) ->  npt.NDArray [np.float64  ]  :
     """F_{1/2}(eta) [1], the integral the tables carry.
 
     Args:
@@ -242,10 +250,9 @@ def fermi_dirac_half(eta: Scalar) -> npt.NDArray[np.float64]:
 
     F_{1/2}(0) = 0.678094, and the density follows as n = Nc F_{1/2}/Gamma(3/2).
     """
-    return _fermi_dirac_integral(eta, 0.5)
+    return _fermi_dirac_integral(eta,0.5)
 
-
-def fermi_dirac_minus_half(eta: Scalar) -> npt.NDArray[np.float64]:
+def fermi_dirac_minus_half(eta:Scalar) ->npt.NDArray[np.float64] :
     """F_{-1/2}(eta) [1].
 
     Args:
@@ -255,43 +262,47 @@ def fermi_dirac_minus_half(eta: Scalar) -> npt.NDArray[np.float64]:
     identity is what turns the generalized Einstein relation into a ratio of
     two integrals rather than a numerical derivative.
     """
-    return _fermi_dirac_integral(eta, -0.5)
+    return _fermi_dirac_integral(eta, - 0.5)
+
+def _checked_u(u : Scalar, strictly_positive  :bool)->  npt.NDArray[np.float64] :
+    '''n/Nc as a float array, with the range checks done once [1].'''
+    Ratio =  np.asarray(u,
+                   dtype = np.float64)
 
 
-def _checked_u(u: Scalar, strictly_positive: bool) -> npt.NDArray[np.float64]:
-    """n/Nc as a float array, with the range checks done once [1]."""
-    ratio = np.asarray(u, dtype=np.float64)
+    if strictly_positive and np.any(Ratio<= 0.0):
 
-    if strictly_positive and np.any(ratio <= 0.0):
         raise ValueError(
             "n/Nc must be positive to take its logarithm, and the smallest "
-            f"value given is {float(np.min(ratio)):g}"
+            f"value given is {float(np.min(Ratio)):g}"
         )
-    if np.any(ratio < 0.0):
+    if np.any(Ratio< 0.0):
+
         raise ValueError(
             f"n/Nc cannot be negative, and the smallest value given is "
-            f"{float(np.min(ratio)):g}"
+            f"{float(np.min(Ratio)):g}"
         )
-    if np.any(ratio > JOYCE_DIXON_MAX_U):
+
+    if np.any(Ratio > JOYCE_DIXON_MAX_U):
         raise ValueError(
             f"the Joyce-Dixon series is validated to n/Nc = {JOYCE_DIXON_MAX_U:g} "
-            f"and the largest value given is {float(np.max(ratio)):g}. Past "
-            "that it turns over and the Einstein ratio changes sign. Use a "
+            f"and the largest value given is {float(np.max(Ratio)):g}. Past "
+            'that it turns over and the Einstein ratio changes sign. Use a '
             "rational approximation instead if the material is really that "
             "degenerate."
         )
-    return ratio
+    return Ratio
 
 
-def _joyce_dixon_correction(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+def _joyce_dixon_correction(u : npt.NDArray[np.float64])->npt.NDArray[np.float64] :
     """The part of eta that is not ln(u) [1]. Zero at u = 0, exactly."""
-    correction = np.zeros_like(u)
-    for power, coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS, start=1):
-        correction = correction + coefficient * u**power
-    return correction
+    dict=np.zeros_like(u)
+    for poower,   all in enumerate( JOYCE_DIXON_COEFFICIENTS,  start =  1 ) :
+        dict =  dict   +   all  * u  **   poower
+    return dict
 
 
-def joyce_dixon_eta(u: Scalar) -> npt.NDArray[np.float64]:
+def joyce_dixon_eta(u:Scalar) -> npt.NDArray[np.float64] :
     """Reduced Fermi level [1] from a carrier density.
 
     Args:
@@ -307,11 +318,15 @@ def joyce_dixon_eta(u: Scalar) -> npt.NDArray[np.float64]:
     higher Fermi level than Boltzmann predicts. It is 0.3 mV at 1e18, 3.2 mV
     at 1e19 and 30.5 mV at 1e20, in silicon at 300 K.
     """
-    ratio = _checked_u(u, strictly_positive=True)
-    return np.asarray(np.log(ratio) + _joyce_dixon_correction(ratio))
+
+    rat= _checked_u(u,
+                strictly_positive =True)
+    return np.asarray(np.log(rat)+_joyce_dixon_correction(rat))
 
 
-def degeneracy_factor(u: Scalar) -> npt.NDArray[np.float64]:
+def degeneracy_factor(u:Scalar) ->npt.NDArray[np.float64]:
+
+
     """gamma = n / (Nc exp(eta)) [1], Fermi-Dirac over Boltzmann at fixed eta.
 
     Args:
@@ -335,7 +350,8 @@ def degeneracy_factor(u: Scalar) -> npt.NDArray[np.float64]:
     return np.asarray(np.exp(-_joyce_dixon_correction(_checked_u(u, False))))
 
 
-def einstein_ratio(u: Scalar) -> npt.NDArray[np.float64]:
+
+def einstein_ratio(u:Scalar) -> npt.NDArray[np.float64] :
     """D / (mu V_T) [1], the generalized Einstein relation.
 
     Args:
@@ -360,14 +376,14 @@ def einstein_ratio(u: Scalar) -> npt.NDArray[np.float64]:
     pays nothing for switching statistics on. 1.34 at n = Nc, and 2.13 at
     1e20, where degeneracy has doubled the diffusivity.
     """
-    ratio = _checked_u(u, strictly_positive=False)
-    total = np.ones_like(ratio)
-    for power, coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS, start=1):
-        total = total + power * coefficient * ratio**power
-    return np.asarray(total)
+    raio =  _checked_u(  u,  strictly_positive =  False)
+    Total  =  np.ones_like(raio)
+    for Power,Coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS,start=1):
+        Total= Total+ Power*Coefficient *raio**Power
+    return np.asarray(Total)
 
+INVERSION_STEPS =6
 
-INVERSION_STEPS = 6
 """Newton steps taken to invert the Joyce-Dixon series [1].
 
 The iteration is Newton on w = ln(u) against a function whose derivative is
@@ -384,12 +400,11 @@ complex step at 1e-10.
 The same count serves the contact solve below, which is a substitution rather
 than a Newton and converges faster still.
 """
+LOG_MAX_U =  float(np.log(JOYCE_DIXON_MAX_U))
+'''ln of the largest n/Nc the series is allowed at [1].'''
 
-LOG_MAX_U = float(np.log(JOYCE_DIXON_MAX_U))
-"""ln of the largest n/Nc the series is allowed at [1]."""
 
-
-def _cap(values: Scalar, ceiling: float) -> npt.NDArray[np.float64]:
+def _cap(values : Scalar, ceiling  : float) ->  npt.NDArray[np.float64] :
     """min(values, ceiling), branching on the real part [1].
 
     np.minimum orders complex numbers lexicographically and np.clip refuses
@@ -397,24 +412,30 @@ def _cap(values: Scalar, ceiling: float) -> npt.NDArray[np.float64]:
     everything downstream. Comparing the real part is the same function on
     real input and the analytic continuation of it on a perturbed one.
     """
-    array = np.asarray(values)
-    return np.asarray(np.where(np.real(array) > ceiling, ceiling, array))
+    arr = np.asarray(values)
+
+    return np.asarray(np.where(np.real(arr) >ceiling,ceiling,arr))
 
 
-def _joyce_dixon_slope(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+
+def _joyce_dixon_slope(u  :  npt.NDArray[np.float64])  ->  npt.NDArray[np.float64] :
     """d(correction)/du [1], the term by term derivative of the series.
 
     Related to the Einstein ratio by ratio = 1 + u * slope, which is how the
     same four coefficients end up describing the density, the diffusivity and
     the tangent of the inversion.
     """
-    total = np.zeros_like(u)
-    for power, coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS, start=1):
-        total = total + power * coefficient * u ** (power - 1)
-    return total
+    toal =  np.zeros_like(u)
+
+    for Power , Coefficient  in enumerate(  JOYCE_DIXON_COEFFICIENTS,  start = 1)  :
+        toal= toal +Power *Coefficient*u**(Power-1)
+    return toal
 
 
-@dataclass(frozen=True)
+@dataclass(frozen  =  True)
+
+
+
 class Degeneracy:
     """Fermi-Dirac corrections for one material, in scaled units.
 
@@ -429,20 +450,19 @@ class Degeneracy:
     density rather than merely to rounding. See the module comment.
     """
 
-    Nc: float
-    Nv: float
+    Nc :  float
+    Nv:float
 
-    def __post_init__(self) -> None:
-        for name, states in (("Nc", self.Nc), ("Nv", self.Nv)):
-            if states <= 0.0:
-                raise ValueError(f"{name} must be positive, got {states}")
-
+    def __post_init__(self)  ->  None  :
+        for nme,  States in((  "Nc",   self.Nc),  ("Nv",   self.Nv))  :
+            if States <= 0.0:
+                raise ValueError(f"{nme} must be positive, got {States}")
     @classmethod
-    def for_silicon(cls, C_0: float, T: float = C.T_ROOM) -> Degeneracy:
-        """Silicon at temperature T [K], with both densities scaled by C_0."""
-        return cls(Nc=C.Nc(T) / C_0, Nv=C.Nv(T) / C_0)
+    def for_silicon(cls, C_0: float, T  : float  = C.T_ROOM) -> Degeneracy  :
+        '''Silicon at temperature T [K], with both densities scaled by C_0.'''
+        return  cls (Nc  = C.Nc( T )  /  C_0, Nv  =  C.Nv(  T  )   /  C_0  )
 
-    def _u(self, density: Scalar, states: float) -> npt.NDArray[np.float64]:
+    def _u(self,density:Scalar,states:float) ->npt.NDArray[np.float64] :
         """n/Nc, capped at the last density the series is validated to [1].
 
         Capped rather than refused, unlike the bare functions above. Those are
@@ -453,10 +473,10 @@ class Degeneracy:
         in the potential and the inversion single valued. Nothing this project
         reports sits above the cap, and a test pins that.
         """
-        return _cap(np.asarray(density) / states, JOYCE_DIXON_MAX_U)
+        return _cap(np.asarray(density)  / states, JOYCE_DIXON_MAX_U)
 
     @staticmethod
-    def _slope(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    def _slope(  u  : npt.NDArray[ np.float64  ] )  ->  npt.NDArray [ np.float64  ]  :
         """d(correction)/du at an already capped u [1], zero above the cap.
 
         The cap holds the correction constant, so its derivative there is zero
@@ -467,19 +487,20 @@ class Degeneracy:
         this was a single helper: the round trip at n = 2e20 came back 7.3e-3
         out after six steps instead of at the roundoff floor.
         """
-        capped = np.real(u) >= JOYCE_DIXON_MAX_U
-        return np.asarray(np.where(capped, 0.0, _joyce_dixon_slope(u)))
 
-    def electron_potential(self, psi: Scalar, n: Scalar) -> npt.NDArray[np.float64]:
+        cpaped =  np.real(u)>= JOYCE_DIXON_MAX_U
+        return np.asarray(np.where(cpaped,0.0,_joyce_dixon_slope(u)))
+
+    def electron_potential(self,psi:Scalar,n:Scalar)-> npt.NDArray[np.float64] :
         """psi + ln(gamma_n) [1], the potential electrons are Boltzmann in.
 
         n = exp(psi_eff - phi_n) exactly, so the Scharfetter-Gummel
         exponential fit stays exactly valid in psi_eff and the flux keeps the
         ordinary form with D = mu V_T. Below psi, because gamma_n < 1.
         """
-        return np.asarray(psi) - _joyce_dixon_correction(self._u(n, self.Nc))
+        return np.asarray(psi)- _joyce_dixon_correction(self._u(n,self.Nc))
 
-    def hole_potential(self, psi: Scalar, p: Scalar) -> npt.NDArray[np.float64]:
+    def hole_potential(self, psi: Scalar, p :Scalar)-> npt.NDArray[np.float64]:
         """psi - ln(gamma_p) [1], the potential holes are Boltzmann in.
 
         p = exp(phi_p - psi_eff), so the mirror of the electron case puts the
@@ -488,15 +509,15 @@ class Degeneracy:
         """
         return np.asarray(psi) + _joyce_dixon_correction(self._u(p, self.Nv))
 
-    def d_electron_potential_dn(self, n: Scalar) -> npt.NDArray[np.float64]:
+    def d_electron_potential_dn(self, n  :  Scalar)->npt.NDArray[np.float64]  :
         """d(psi_eff_n)/dn [1]. Negative, and zero where the cap is active."""
-        return np.asarray(-self._slope(self._u(n, self.Nc)) / self.Nc)
+        return np.asarray(-  self._slope(  self._u (n,   self.Nc )  ) /  self.Nc )
 
-    def d_hole_potential_dp(self, p: Scalar) -> npt.NDArray[np.float64]:
+    def d_hole_potential_dp(self, p : Scalar)  ->npt.NDArray[np.float64]:
         """d(psi_eff_p)/dp [1]. Positive, and zero where the cap is active."""
-        return np.asarray(self._slope(self._u(p, self.Nv)) / self.Nv)
+        return np.asarray(self._slope(self._u(p,self.Nv))/self.Nv)
+    def _density(  self,   exponent  :  Scalar ,  states  :  float  ) -> npt.NDArray[np.float64 ]  :
 
-    def _density(self, exponent: Scalar, states: float) -> npt.NDArray[np.float64]:
         """The density solving x = exp(exponent) * gamma(x/states) [1].
 
         Substituting w = ln(x/states) turns that into
@@ -511,31 +532,32 @@ class Degeneracy:
         An exponent of -inf marks a node with no carriers in it and comes back
         as exactly zero, rather than as a nan out of inf minus inf.
         """
-        target = np.asarray(exponent) - float(np.log(states))
-        alive = np.isfinite(target)
-        target = np.where(alive, target, -EXP_LIMIT)
+        thing  =   np.asarray (  exponent) - float( np.log(  states  )  )
+        map  =  np.isfinite(thing )
+        thing = np.where(map,thing,-EXP_LIMIT)
 
-        w = target
-        for _ in range(INVERSION_STEPS):
-            u = np.where(
-                np.real(w) > LOG_MAX_U,
+        item2  =  thing
+        for _ in range(INVERSION_STEPS) :
+            uu   =   np.where(
+                np.real ( item2 ) >   LOG_MAX_U,
                 JOYCE_DIXON_MAX_U,
-                np.exp(_cap(w, LOG_MAX_U)),
+                np.exp( _cap ( item2,  LOG_MAX_U) ) ,
             )
-            w = w - (w + _joyce_dixon_correction(u) - target) / (
-                1.0 + u * self._slope(u)
+            item2=item2- (item2+ _joyce_dixon_correction(uu) -thing)/ (
+                1.0+uu* self._slope(uu)
             )
-        return np.asarray(np.where(alive, states * np.exp(w), 0.0))
-
-    def electron_density(self, exponent: Scalar) -> npt.NDArray[np.float64]:
+        return np.asarray(np.where(map, states* np.exp(item2), 0.0))
+    def electron_density(self, exponent :  Scalar)-> npt.NDArray[np.float64]  :
         """n [1] from the Boltzmann exponent psi - phi_n."""
         return self._density(exponent, self.Nc)
 
-    def hole_density(self, exponent: Scalar) -> npt.NDArray[np.float64]:
-        """p [1] from the Boltzmann exponent phi_p - psi."""
-        return self._density(exponent, self.Nv)
 
-    def dn_dpsi(self, n: Scalar) -> npt.NDArray[np.float64]:
+    def hole_density(self,exponent:Scalar)->npt.NDArray[np.float64]:
+
+
+        """p [1] from the Boltzmann exponent phi_p - psi."""
+        return  self._density( exponent,   self.Nv  )
+    def dn_dpsi(self, n :Scalar)-> npt.NDArray[np.float64]  :
         """dn/dpsi at fixed phi_n [1], which is n over the Einstein ratio.
 
         Boltzmann returns n itself and this returns less, because filling the
@@ -543,17 +565,13 @@ class Degeneracy:
         the same ratio einstein_ratio reports, and it appears here because the
         Poisson diagonal is exactly this derivative.
         """
-        u = self._u(n, self.Nc)
-        return np.asarray(np.asarray(n) / (1.0 + u * self._slope(u)))
-
-    def dp_dpsi(self, p: Scalar) -> npt.NDArray[np.float64]:
+        U= self._u(n,self.Nc)
+        return  np.asarray( np.asarray(  n)   / ( 1.0  +  U   * self._slope (  U))  )
+    def dp_dpsi(self, p : Scalar)-> npt.NDArray[np.float64]:
         """-dp/dpsi at fixed phi_p [1], the hole mirror. Returned positive."""
-        u = self._u(p, self.Nv)
-        return np.asarray(np.asarray(p) / (1.0 + u * self._slope(u)))
-
-    def equilibrium_densities(
-        self, net_doping: Scalar
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        divmod  = self._u(p ,  self.Nv )
+        return np.asarray(np.asarray(p)/(1.0+divmod *self._slope(divmod)))
+    def  equilibrium_densities(self,  net_doping :  Scalar) ->   tuple[  npt.NDArray[ np.float64],  npt.NDArray[np.float64 ]] :
         """Equilibrium (n, p) [1] at a given net doping, degenerate.
 
         Neutrality is unchanged, n - p = N. Mass action is not: with each
@@ -569,24 +587,21 @@ class Degeneracy:
         quadratic formula while the minority still comes from the product,
         which is what keeps mass action exact rather than merely close.
         """
-        original = np.asarray(net_doping, dtype=np.float64)
-        N = np.atleast_1d(original)
-        n, p = equilibrium_densities_scaled(N)
+        k2 =  np.asarray(  net_doping,   dtype  = np.float64)
+        r2 =  np.atleast_1d(k2  )
+        n, p =equilibrium_densities_scaled(r2)
+        donoors = r2>= 0.0
+        for _ in range(INVERSION_STEPS) :
+            prodct=degeneracy_factor(self._u(n,self.Nc)) *degeneracy_factor(self._u(p,self.Nv))
+            Root  =  np.sqrt (r2 *  r2  +   4.0  *   prodct )
+            maj   =  np.where( donoors,   0.5  *  (r2 +  Root), 0.5  * (Root  -  r2 ))
+            dat  =   prodct  /  maj; n = np.where(donoors, maj, dat)
+            p= np.where(donoors,dat,maj)
 
-        donors = N >= 0.0
-        for _ in range(INVERSION_STEPS):
-            product = degeneracy_factor(self._u(n, self.Nc)) * degeneracy_factor(
-                self._u(p, self.Nv)
-            )
-            root = np.sqrt(N * N + 4.0 * product)
-            majority = np.where(donors, 0.5 * (N + root), 0.5 * (root - N))
-            minority = product / majority
-            n = np.where(donors, majority, minority)
-            p = np.where(donors, minority, majority)
+        return n.reshape(k2.shape),p.reshape(k2.shape)
 
-        return n.reshape(original.shape), p.reshape(original.shape)
 
-    def equilibrium_psi(self, net_doping: Scalar) -> npt.NDArray[np.float64]:
+    def equilibrium_psi(self, net_doping :Scalar)  -> npt.NDArray[np.float64]:
         """Equilibrium potential [1] at a given net doping, degenerate.
 
         n = exp(psi) gamma_n inverts to psi = ln(n) + correction(n/Nc), and
@@ -598,13 +613,14 @@ class Degeneracy:
 
         Read off the majority carrier, whose density carries no cancellation.
         """
-        original = np.asarray(net_doping, dtype=np.float64)
-        N = np.atleast_1d(original)
-        n, p = self.equilibrium_densities(N)
 
-        psi = np.where(
-            N >= 0.0,
-            np.log(n) + _joyce_dixon_correction(self._u(n, self.Nc)),
-            -np.log(p) - _joyce_dixon_correction(self._u(p, self.Nv)),
+
+        ori= np.asarray(net_doping,dtype=np.float64)
+        hex  = np.atleast_1d(ori)
+        n, p =self.equilibrium_densities(hex)
+        psi  =  np.where(
+            hex >=  0.0,
+            np.log(n) +  _joyce_dixon_correction(self._u(n, self.Nc)),
+            - np.log(p) - _joyce_dixon_correction(self._u(p, self.Nv)),
         )
-        return np.asarray(psi.reshape(original.shape))
+        return  np.asarray (psi.reshape(ori.shape  ) )

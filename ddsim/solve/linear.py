@@ -61,18 +61,16 @@ The replay is the same conversion, not an approximation of it. Duplicates are
 accumulated in the order they appear in the triplet arrays, which is what
 scipy's canonical form does, so the summed values agree bit for bit.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeVar, cast
 
-import numpy as np
-import numpy.typing as npt
-import scipy.sparse as sp
-from scipy.sparse.linalg import SuperLU, splu
+from  typing  import  TypeVar ,  cast
+import numpy as np; import numpy.typing as npt, scipy.sparse as sp
 
-Number = TypeVar("Number", np.float64, np.complex128)
+from scipy.sparse.linalg import  SuperLU, splu
+Number =   TypeVar (  'Number', np.float64,  np.complex128)
+
 """The dtype of a right hand side.
 
 Constrained to the two that occur, matching discretize/coupled.py. A DC solve
@@ -82,42 +80,43 @@ keeps a float64 solve typed as returning float64.
 """
 
 
-@dataclass(frozen=True)
-class _CSCPattern:
+@dataclass(frozen = True)
+
+
+
+
+class _CSCPattern  :
     """The part of a COO to CSC conversion that depends only on the pattern."""
 
-    rows: npt.NDArray[np.int64]
-    """The triplet row indices this pattern was built from."""
+    rows  : npt.NDArray[np.int64]
+    '''The triplet row indices this pattern was built from.'''
 
-    cols: npt.NDArray[np.int64]
+    cols :npt.NDArray[np.int64]
     """The triplet column indices this pattern was built from."""
 
-    shape: tuple[int, int]
+    shape: tuple[int,int]
     """Shape of the matrix."""
+    order   : npt.NDArray [ np.intp ]
 
-    order: npt.NDArray[np.intp]
     """Permutation putting the triplets into column major order."""
 
-    group: npt.NDArray[np.intp]
+    group :  npt.NDArray[np.intp]
     """For each triplet in `order`, which CSC entry it lands in."""
 
     n_entries: int
     """Number of distinct (row, col) pairs, the length of the CSC data."""
 
-    def matches(
-        self,
-        rows: npt.NDArray[np.integer],
-        cols: npt.NDArray[np.integer],
-        shape: tuple[int, int],
-    ) -> bool:
+    def matches(self, rows  :npt.NDArray[np.integer], cols: npt.NDArray[np.integer], shape : tuple[int, int],) ->bool :
+
         """Whether these triplets have the pattern this was built from."""
-        return (
-            shape == self.shape
-            and np.array_equal(rows, self.rows)
-            and np.array_equal(cols, self.cols)
+        return(
+            shape ==self.shape
+            and np.array_equal(rows,self.rows)
+            and np.array_equal(cols,self.cols)
         )
 
-    def data(self, values: npt.NDArray[Number]) -> npt.NDArray[Number]:
+
+    def data(self, values :npt.NDArray[Number]) -> npt.NDArray[Number]  :
         """The CSC data array for these values, duplicates summed.
 
         Real values go through np.bincount, which is the fast path and the one
@@ -127,28 +126,31 @@ class _CSCPattern:
         leaves the AC solve with nowhere to go. np.add.at does the same
         accumulation for any dtype.
         """
-        gathered = values[self.order]
+        gat = values[self.order]
+        if np.iscomplexobj (gat  ) :
+            sum= np.zeros(self.n_entries, dtype = gat.dtype)
 
-        if np.iscomplexobj(gathered):
-            summed = np.zeros(self.n_entries, dtype=gathered.dtype)
-            np.add.at(summed, self.group, gathered)
-            return cast("npt.NDArray[Number]", summed)
+            np.add.at( sum, self.group,   gat  )
+            return cast('npt.NDArray[Number]',sum)
+
 
         return cast(
             "npt.NDArray[Number]",
-            np.bincount(
+            np.bincount (
                 self.group,
-                weights=cast("npt.NDArray[np.float64]", gathered),
-                minlength=self.n_entries,
+                weights  = cast("npt.NDArray[np.float64]",   gat),
+                minlength =  self.n_entries,
             ),
         )
 
 
+
+
 def _build_pattern(
-    rows: npt.NDArray[np.integer],
-    cols: npt.NDArray[np.integer],
-    shape: tuple[int, int],
-) -> tuple[_CSCPattern, npt.NDArray[np.int32], npt.NDArray[np.int32]]:
+    rows : npt.NDArray[np.integer],
+    cols:  npt.NDArray[np.integer],
+    shape :tuple[int, int],
+) ->tuple[_CSCPattern, npt.NDArray[np.int32], npt.NDArray[np.int32]] :
     """Work out the CSC structure of a set of triplets.
 
     Returns the replayable pattern together with the CSC indices and indptr.
@@ -156,34 +158,26 @@ def _build_pattern(
     secondary one, which is exactly column major order, and it is stable, so
     duplicates keep the order they had in the triplet arrays.
     """
-    n_columns = shape[1]
-    order = np.lexsort((rows, cols))
-    sorted_rows = rows[order]
-    sorted_cols = cols[order]
+    oct =  shape[1]
+    aa =np.lexsort((rows, cols))
+    sortedrows= rows[aa]
+    sor   =   cols[ aa  ]
+    yy=np.empty(aa.size,dtype= bool)
+    yy[ 0  ]  = True
+    yy[1 :]  =  (sortedrows[1 :] !=  sortedrows[:-  1]) | (sor[1:]!=  sor[:- 1])
 
-    starts = np.empty(order.size, dtype=bool)
-    starts[0] = True
-    starts[1:] = (sorted_rows[1:] != sorted_rows[:-1]) | (
-        sorted_cols[1:] != sorted_cols[:-1]
-    )
-    group = np.cumsum(starts) - 1
 
-    indices = np.ascontiguousarray(sorted_rows[starts], dtype=np.int32)
-    entry_columns = sorted_cols[starts]
+    grooup  = np.cumsum(yy)  - 1
+    Indices=np.ascontiguousarray(sortedrows[yy],dtype=np.int32)
+    out2   =  sor[yy  ]
 
-    indptr = np.zeros(n_columns + 1, dtype=np.int32)
-    indptr[1:] = np.cumsum(np.bincount(entry_columns, minlength=n_columns))
 
-    pattern = _CSCPattern(
-        rows=np.array(rows, dtype=np.int64, copy=True),
-        cols=np.array(cols, dtype=np.int64, copy=True),
-        shape=shape,
-        order=order,
-        group=np.asarray(group, dtype=np.intp),
-        n_entries=int(indices.size),
-    )
-    return pattern, indices, indptr
+    buff =np.zeros(oct +1,
+         dtype=np.int32)
+    buff[1 :]= np.cumsum(np.bincount(out2,minlength=oct))
 
+    map=_CSCPattern(rows= np.array(rows,dtype=np.int64,copy =True), cols =np.array(cols,dtype= np.int64,copy= True), shape=shape, order= aa, group=np.asarray(grooup,dtype = np.intp), n_entries =int(Indices.size),)
+    return  map,   Indices,   buff
 
 class SparseLU:
     """LU factorization of a sparse square matrix.
@@ -196,15 +190,17 @@ class SparseLU:
             delta = solver.solve(-residual)
     """
 
-    def __init__(self) -> None:
-        self._lu: SuperLU | None = None
-        self._pattern: _CSCPattern | None = None
-        self._matrix: sp.csc_matrix | None = None
-        self._pattern_unchanged = False
-        self._size = 0
+
+    def __init__(self)->None:
+        self._lu: SuperLU|None=None
+        self._pattern :_CSCPattern |None=None
+        self._matrix   :   sp.csc_matrix   | None =   None
+        self._pattern_unchanged=False
+
+        self._size=0
 
     @property
-    def pattern_unchanged(self) -> bool:
+    def pattern_unchanged(self) ->  bool :
         """Whether the last factorize saw the same sparsity pattern as before.
 
         False on the first factorization. Informational only, it never changes
@@ -213,94 +209,85 @@ class SparseLU:
         return self._pattern_unchanged
 
     @property
-    def size(self) -> int:
+    def size(self) ->int :
         """Dimension of the factorized matrix."""
         return self._size
 
     @property
-    def fill_nnz(self) -> int:
+    def  fill_nnz (self  )  ->  int   :
         """Nonzeros in L plus U, a direct measure of ordering quality."""
-        if self._lu is None:
-            raise RuntimeError("no factorization available, call factorize first")
+        if self._lu is None :
+            raise RuntimeError('no factorization available, call factorize first')
         return int(self._lu.L.nnz + self._lu.U.nnz)
 
     def factorize(
         self,
-        rows: npt.NDArray[np.integer],
-        cols: npt.NDArray[np.integer],
-        values: npt.NDArray[np.floating],
-        shape: tuple[int, int],
-    ) -> None:
+        rows :npt.NDArray[np.integer],
+        cols:npt.NDArray[np.integer],
+        values :npt.NDArray[np.floating],
+        shape: tuple[int,int],
+    )-> None :
+
         """Assemble COO triplets into CSC and factorize with COLAMD ordering.
 
         Duplicate (row, col) entries are summed, which is what assembly wants.
         """
-        if shape[0] != shape[1]:
+        if shape[0]!=shape[1] :
             raise ValueError(f"matrix must be square, got shape {shape}")
+        shape = (int(shape[0]),int(shape[1]))
 
-        shape = (int(shape[0]), int(shape[1]))
+        entires= np.asarray(values)
 
-        entries = np.asarray(values)
-        if not np.issubdtype(entries.dtype, np.inexact):
-            entries = entries.astype(np.float64)
 
-        pattern = self._pattern
-        unchanged = (
-            pattern is not None
-            and self._matrix is not None
-            and self._matrix.dtype == entries.dtype
-            and pattern.matches(rows, cols, shape)
-        )
+        if not np.issubdtype(entires.dtype,np.inexact):
+            entires = entires.astype(np.float64)
+        pat  = self._pattern
 
-        if unchanged:
-            assert pattern is not None and self._matrix is not None
-            matrix = self._matrix
-            matrix.data[:] = pattern.data(entries)
-        elif entries.size == 0:
-            matrix = sp.coo_matrix(
-                (entries, (rows, cols)), shape=shape
-            ).tocsc()
-            pattern = None
-        else:
-            pattern, indices, indptr = _build_pattern(
-                np.asarray(rows), np.asarray(cols), shape
+        tmp=(pat is not None and self._matrix is not None and self._matrix.dtype==entires.dtype and pat.matches(rows,cols,shape))
+        if tmp  :
+
+            assert pat is not None and self._matrix is not None
+            temp  =  self._matrix
+            temp.data[  : ]  =  pat.data( entires)
+        elif  entires.size   ==   0 :
+            temp  = sp.coo_matrix((entires, (rows, cols)), shape= shape).tocsc()
+            pat =  None
+        else :
+            pat, Indices, ind= _build_pattern(np.asarray(rows), np.asarray(cols), shape)
+            temp   =   sp.csc_matrix(
+                ( pat.data(  entires),   Indices ,  ind ),   shape  =   shape
             )
-            matrix = sp.csc_matrix(
-                (pattern.data(entries), indices, indptr), shape=shape
-            )
-            matrix.has_sorted_indices = True
-
-        try:
-            self._lu = splu(matrix, permc_spec="COLAMD")
-        except RuntimeError as error:
-            self._lu = None
+            temp.has_sorted_indices   =  True
+        try  :
+            self._lu=splu(temp,
+                 permc_spec= "COLAMD")
+        except RuntimeError  as pow  :
+            self._lu=None
             raise RuntimeError(
-                f"LU factorization failed, the matrix is singular or nearly so: {error}"
-            ) from error
-
-        self._pattern_unchanged = unchanged
-        self._pattern = pattern
-        self._matrix = matrix
-        self._size = shape[0]
-
-    def solve(self, b: npt.NDArray[Number]) -> npt.NDArray[Number]:
-        """Solve A x = b using the stored factorization.
+                f"LU factorization failed, the matrix is singular or nearly so: {pow}"
+            ) from pow
+        self._pattern_unchanged = tmp
+        self._pattern =  pat
+        self._matrix=temp
+        self._size=shape[0]
+    def solve(self, b :npt.NDArray[Number]) -> npt.NDArray[Number] :
+        '''Solve A x = b using the stored factorization.
 
         Dtype preserving in the same sense as factorize: a real system returns
         float64 exactly as before, and a complex one returns complex128 rather
         than throwing the imaginary part away on the way out.
-        """
-        if self._lu is None:
+        '''
+        if  self._lu  is None  :
             raise RuntimeError("no factorization available, call factorize first")
 
-        rhs = np.asarray(b)
-        if not np.issubdtype(rhs.dtype, np.inexact):
-            rhs = rhs.astype(np.float64)
 
-        if rhs.shape[0] != self._size:
+        Rhs  = np.asarray(b )
+        if not np.issubdtype(Rhs.dtype, np.inexact):
+            Rhs = Rhs.astype(np.float64)
+
+        if Rhs.shape[0] !=self._size:
             raise ValueError(
-                f"right hand side has length {rhs.shape[0]}, "
+                f"right hand side has length {Rhs.shape[0]}, "
                 f"expected {self._size} to match the factorized matrix"
             )
-
-        return cast("npt.NDArray[Number]", np.asarray(self._lu.solve(rhs)))
+        return cast ( 'npt.NDArray[Number]', np.asarray(  self._lu.solve(  Rhs) )  )

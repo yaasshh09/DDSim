@@ -52,35 +52,38 @@ failure is expected, is documented rather than fought, and is the entire reason
 Phase 3 exists. See phases/PHASE-2.md.
 """
 
+
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass, replace
+from collections.abc import Callable;  from dataclasses import dataclass, replace
 
-import numpy as np
-import numpy.typing as npt
-
+import numpy as np; import numpy.typing as npt
 from ddsim.core import constants as C
+
 from ddsim.core.field import Field, Location, ScalingState
-from ddsim.device.builder import Device
-from ddsim.device.equilibrium import (
-    frozen_quasi_fermi,
-    solve_equilibrium,
-    solve_poisson,
-)
+
+
+from ddsim.device.builder import  Device
+
+from ddsim.device.equilibrium import(frozen_quasi_fermi, solve_equilibrium, solve_poisson,)
 from ddsim.device.state import DeviceState
+
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import (
+from ddsim.discretize.boundary import(
     Carrier,
     apply_ohmic_densities,
     impose_ohmic_densities,
 )
-from ddsim.discretize.continuity import (
+
+
+from ddsim.discretize.continuity import(
     Diffusivity,
     assemble_electron_continuity,
     assemble_hole_continuity,
 )
-from ddsim.discretize.coupled import (
+
+
+from ddsim.discretize.coupled import(
     apply_contacts_coupled,
     assemble_coupled_terms,
     coupled_update_by_family,
@@ -93,37 +96,30 @@ from ddsim.discretize.coupled import (
     scale_rows,
     unpack,
 )
-from ddsim.mesh.mesh2d import Mesh2D, normal_field
-from ddsim.physics.mobility import (
-    AroraMobility,
-    CaugheyThomas,
-    ConstantMobility,
-    EdgeDiffusivity,
-    LombardiSurface,
-    diffusivity_at,
-    edge_diffusivity,
-)
-from ddsim.physics.recombination import (
+from ddsim.mesh.mesh2d import Mesh2D,normal_field
+from ddsim.physics.mobility import(AroraMobility, CaugheyThomas, ConstantMobility, EdgeDiffusivity, LombardiSurface, diffusivity_at, edge_diffusivity,)
+
+from ddsim.physics.recombination import(
     AugerRecombination,
     RecombinationModel,
     SRHRecombination,
     SumOfRecombination,
     scharfetter_lifetime,
 )
-from ddsim.solve.continuation import continue_to
-from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve
-from ddsim.solve.linear import SparseLU
-from ddsim.solve.newton import NewtonIteration, NewtonResult, newton_solve
+from  ddsim.solve.continuation  import  continue_to
 
-MOBILITY_MODELS = ("constant", "arora")
+from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve; from ddsim.solve.linear import SparseLU
+
+from ddsim.solve.newton import NewtonIteration,NewtonResult,newton_solve
+MOBILITY_MODELS  =("constant", 'arora')
+
 """The low field mobility models there are, by the name `for_device` takes.
 
 Written once, here, and read by both functions that build one and by
 ddsim/api/, so that the browser offers exactly the models that exist rather
 than a list of its own that goes stale.
 """
-
-DENSITY_REFERENCE = 1.0
+DENSITY_REFERENCE  =   1.0
 """Floor in the density update norm [1], which is n_i in scaled units.
 
 Not a clamp on any density. It only says that a change from 1e-20 to 1e-19
@@ -131,7 +127,7 @@ carries no charge and should not hold up convergence.
 """
 
 
-class TransportError(RuntimeError):
+class  TransportError( RuntimeError )  :
     """A Gummel block could not produce a usable state.
 
     Carries the offending state, because the state at the point of failure is
@@ -140,13 +136,17 @@ class TransportError(RuntimeError):
     find the cause and never to clamp.
     """
 
-    def __init__(self, message: str, state: DeviceState) -> None:
+
+
+    def __init__(self, message: str, state  : DeviceState) -> None  :
         super().__init__(message)
-        self.state = state
+        self.state   =  state
+
 
 
 @dataclass(frozen=True)
-class SurfaceScattering:
+
+class SurfaceScattering   :
     """What it takes to rebuild the diffusivities once the state has moved.
 
     Lombardi surface mobility reads the field normal to the Si/SiO2 interface
@@ -170,23 +170,23 @@ class SurfaceScattering:
     the model rather than a rebuild of the device.
     """
 
-    electrons: LombardiSurface
+    electrons  : LombardiSurface
     """The model for electrons, with its own parameter set."""
 
-    holes: LombardiSurface
+    holes  :   LombardiSurface
     """The model for holes."""
+    mu_bulk_n:npt.NDArray[np.float64]
 
-    mu_bulk_n: npt.NDArray[np.float64]
+
     """Electron mobility before any surface correction [cm^2/(V s)], per node.
 
     Whatever the chosen bulk model gives, so `constant` and `arora` both land
     here and the surface term does not know which it corrected.
     """
 
-    mu_bulk_p: npt.NDArray[np.float64]
+    mu_bulk_p  : npt.NDArray[np.float64]
     """Hole mobility before any surface correction [cm^2/(V s)], per node."""
-
-    total_doping: npt.NDArray[np.float64]
+    total_doping  :  npt.NDArray [  np.float64]
     """Na + Nd at each node [cm^-3], floored at n_i.
 
     Only the net doping is available, same caveat and same reason as the
@@ -199,7 +199,7 @@ class SurfaceScattering:
     stops, and no node of any device built here sits near it anyway.
     """
 
-    semiconductor: npt.NDArray[np.bool_]
+    semiconductor :  npt.NDArray[np.bool_]
     """Which nodes hold semiconductor, one per node.
 
     The correction is applied at these and nowhere else. An insulator has no
@@ -210,11 +210,11 @@ class SurfaceScattering:
 
     def corrected(
         self,
-        device: Device,
-        psi: npt.NDArray[np.float64],
-        n: npt.NDArray[np.float64],
-        p: npt.NDArray[np.float64],
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        device:Device,
+        psi :npt.NDArray[np.float64],
+        n:npt.NDArray[np.float64],
+        p : npt.NDArray[np.float64],
+    ) ->tuple[npt.NDArray[np.float64],npt.NDArray[np.float64]]:
         """Nodal mobilities [cm^2/(V s)] with the surface term folded in.
 
         Args:
@@ -230,59 +230,61 @@ class SurfaceScattering:
         positive, still monotone, and still produce a mobility that looked
         like a mobility.
         """
-        mesh = device.mesh
-        if not isinstance(mesh, Mesh2D):
-            raise TypeError(
-                "surface mobility needs a direction normal to the interface "
-                f"and a {type(mesh).__name__} has none. Build the device on a "
-                "Mesh2D, which is what a MOSFET is on."
+        mes = device.mesh
+        if not  isinstance(  mes , Mesh2D  )  :
+            raise  TypeError(
+                'surface mobility needs a direction normal to the interface '
+                f"and a {type(mes).__name__} has none. Build the device on a "
+                'Mesh2D, which is what a MOSFET is on.'
             )
 
-        scale = device.scale
-        E_perp = normal_field(mesh, psi * scale.psi_0)
-        carriers = (n + p) * scale.C_0
+        sca = device.scale;eperp =normal_field(mes,psi *sca.psi_0)
+        carirers =(n + p)  *  sca.C_0
 
-        return (
+        return(
             np.where(
                 self.semiconductor,
-                self.electrons(self.mu_bulk_n, E_perp, self.total_doping, carriers),
+                self.electrons(self.mu_bulk_n, eperp, self.total_doping, carirers),
                 self.mu_bulk_n,
             ),
             np.where(
                 self.semiconductor,
-                self.holes(self.mu_bulk_p, E_perp, self.total_doping, carriers),
+                self.holes(self.mu_bulk_p, eperp, self.total_doping, carirers),
                 self.mu_bulk_p,
             ),
         )
 
+@dataclass(frozen = True)
 
-@dataclass(frozen=True)
-class TransportModels:
+
+
+class TransportModels  :
     """The material models a transport solve needs, all in scaled units."""
-
-    recombination: RecombinationModel
+    recombination :  RecombinationModel
     """Net recombination, built with scaled lifetimes."""
 
-    Dn: EdgeDiffusivity
+
+
+    Dn  :  EdgeDiffusivity
     """Electron diffusivity [1], scaled by D_0.
 
     A number, one value per edge, or a model the assembly evaluates at the
     state it is assembling at. See physics/mobility.py.
     """
 
-    Dp: EdgeDiffusivity
+    Dp :EdgeDiffusivity
     """Hole diffusivity [1], scaled by D_0."""
 
-    surface: SurfaceScattering | None = None
-    """Surface scattering, or None where the device has no interface.
+    surface  :  SurfaceScattering  |   None  =   None
+    '''Surface scattering, or None where the device has no interface.
 
     Present rather than folded into Dn and Dp because it has to be refreshed
     as the state moves. `solve_bias_newton` reads it to decide whether to run
     the outer fixed point at all, so None is what makes every solve before
     Phase 5 take exactly the path it took.
-    """
+    '''
 
-    field_dependent: bool = False
+    field_dependent : bool = False
     """Whether Dn and Dp are wrapped in Caughey-Thomas.
 
     Carried so that a refresh can rebuild the same shape of model it replaced.
@@ -290,41 +292,28 @@ class TransportModels:
     first time another edge model exists.
     """
 
+
     def at_state(
         self,
-        device: Device,
-        psi: npt.NDArray[np.float64],
+        device :  Device,
+        psi  : npt.NDArray[np.float64],
         n: npt.NDArray[np.float64],
-        p: npt.NDArray[np.float64],
-    ) -> TransportModels:
+        p :  npt.NDArray[np.float64],
+    ) ->  TransportModels:
+
         """These models with the surface correction taken at this state.
 
         Returns self unchanged where there is no surface model, so a caller
         does not have to ask first and a device without an interface is not a
         separate code path.
         """
-        if self.surface is None:
+        if self.surface is None  :
             return self
-
-        mu_n, mu_p = self.surface.corrected(device, psi, n, p)
-        return replace(
-            self,
-            Dn=_from_nodal_mobility(
-                device, Carrier.ELECTRON, mu_n, self.field_dependent
-            ),
-            Dp=_from_nodal_mobility(device, Carrier.HOLE, mu_p, self.field_dependent),
-        )
-
+        muu_n, muu_p = self.surface.corrected(device, psi, n, p)
+        return replace(self, Dn = _from_nodal_mobility(device,Carrier.ELECTRON,muu_n,self.field_dependent), Dp= _from_nodal_mobility(device,Carrier.HOLE,muu_p,self.field_dependent),)
     @classmethod
-    def for_device(
-        cls,
-        device: Device,
-        recombination: RecombinationModel | None = None,
-        mobility: str = "constant",
-        auger: bool = False,
-        field_dependent: bool = False,
-        surface: bool = False,
-    ) -> TransportModels:
+    def for_device(cls, device  :  Device, recombination  :   RecombinationModel |   None  =  None, mobility  :   str  =   "constant" , auger  :  bool  =   False , field_dependent : bool   = False , surface   : bool   =  False,)  ->  TransportModels :
+
         """Silicon models for a device, scaled to its own scale factors.
 
         Args:
@@ -363,45 +352,27 @@ class TransportModels:
         profile that overlaps donors and acceptors arrives, this is the line
         that has to learn about it.
         """
-        scale = device.scale
-        total_doping = np.abs(device.net_doping.data)
+        res = device.scale
+        TotalDoping  =   np.abs( device.net_doping.data)
 
-        if recombination is None:
-            recombination = SRHRecombination(
-                tau_n=scharfetter_lifetime(
-                    total_doping, tau_max=C.TAU_N_MAX, tau_min=C.TAU_N_MIN
-                )
-                / scale.t_0,
-                tau_p=scharfetter_lifetime(
-                    total_doping, tau_max=C.TAU_P_MAX, tau_min=C.TAU_P_MIN
-                )
-                / scale.t_0,
-                ni2=(device.material.n_i / scale.C_0) ** 2,
-                n1=device.material.n_i / scale.C_0,
-                p1=device.material.n_i / scale.C_0,
-            )
-            if auger:
-                recombination = SumOfRecombination(
-                    (
-                        recombination,
-                        AugerRecombination(
-                            C_n=C.AUGER_C_N * scale.C_0**2 * scale.t_0,
-                            C_p=C.AUGER_C_P * scale.C_0**2 * scale.t_0,
-                            ni2=(device.material.n_i / scale.C_0) ** 2,
-                        ),
-                    )
-                )
+
+
+        if  recombination  is  None :
+            recombination =SRHRecombination(tau_n= scharfetter_lifetime(TotalDoping,tau_max =C.TAU_N_MAX,tau_min= C.TAU_N_MIN) /res.t_0, tau_p=scharfetter_lifetime(TotalDoping,tau_max = C.TAU_P_MAX,tau_min=C.TAU_P_MIN) / res.t_0, ni2=(device.material.n_i/res.C_0)**2, n1=device.material.n_i/res.C_0, p1 =device.material.n_i/ res.C_0,)
+            if  auger  :
+                recombination= SumOfRecombination((recombination, AugerRecombination(C_n =C.AUGER_C_N * res.C_0 **2 *res.t_0, C_p= C.AUGER_C_P* res.C_0**2 * res.t_0, ni2=(device.material.n_i/res.C_0)** 2,),))
+
 
         return cls(
             recombination=recombination,
-            Dn=_scaled_diffusivity(
-                device, Carrier.ELECTRON, mobility, field_dependent
+            Dn = _scaled_diffusivity(
+                device,Carrier.ELECTRON,mobility,field_dependent
             ),
             Dp=_scaled_diffusivity(
-                device, Carrier.HOLE, mobility, field_dependent
+                device,Carrier.HOLE,mobility,field_dependent
             ),
-            surface=(
-                _surface_scattering(device, mobility, total_doping)
+            surface= (
+                _surface_scattering(device,mobility,TotalDoping)
                 if surface
                 else None
             ),
@@ -410,8 +381,8 @@ class TransportModels:
 
 
 def _scaled_diffusivity(
-    device: Device, carrier: Carrier, mobility: str, field_dependent: bool = False
-) -> EdgeDiffusivity:
+    device : Device, carrier : Carrier, mobility : str, field_dependent  :  bool  =False
+) ->  EdgeDiffusivity :
     """Scaled diffusivity for one carrier, from the chosen mobility model.
 
     Constant comes back as a scalar and Arora as one value per edge. The
@@ -425,37 +396,37 @@ def _scaled_diffusivity(
     field factor is applied afterwards with that edge's own drop, because the
     field is an edge quantity and has no value at a node.
     """
-    scale = device.scale
-    temperature = device.material.T
-    electrons = carrier is Carrier.ELECTRON
+    Scale   =  device.scale
+    t2  = device.material.T
+    vals  =  carrier is Carrier.ELECTRON
+    if  mobility  ==   "constant"  :
+        consatnt= C.D_n(t2)if vals else C.D_p(t2)
+        low_fiield: Diffusivity  =  consatnt /  Scale.D_0
+    elif mobility=='arora'  :
 
-    if mobility == "constant":
-        constant = C.D_n(temperature) if electrons else C.D_p(temperature)
-        low_field: Diffusivity = constant / scale.D_0
-    elif mobility == "arora":
-        model = (
-            AroraMobility.electrons(temperature)
-            if electrons
-            else AroraMobility.holes(temperature)
+        round  =(
+            AroraMobility.electrons(t2)
+            if vals
+            else AroraMobility.holes(t2)
         )
-        nodal = model(np.abs(device.net_doping.data))
-        edge_nodes = device.scaled_mesh.geometry.edge_nodes
-        low_field = (
-            edge_diffusivity(nodal, C.V_T(temperature), edge_nodes) / scale.D_0
-        )
-    else:
-        raise ValueError(
+        noadl  = round(np.abs(device.net_doping.data))
+        edg=device.scaled_mesh.geometry.edge_nodes
+        low_fiield=(edge_diffusivity(noadl,C.V_T(t2),edg)/Scale.D_0)
+    else :
+        raise ValueError (
             f"unknown mobility model {mobility!r}. Use "
-            + " or ".join(repr(name) for name in MOBILITY_MODELS)
-            + "."
+            +   " or ".join(  repr( name  ) for name  in  MOBILITY_MODELS  )
+            +  "."
         )
 
-    return _wrapped_in_saturation(device, carrier, low_field, field_dependent)
+    return _wrapped_in_saturation ( device,   carrier,   low_fiield,   field_dependent )
+
 
 
 def _surface_scattering(
-    device: Device, mobility: str, total_doping: npt.NDArray[np.float64]
-) -> SurfaceScattering:
+    device :Device, mobility :str, total_doping  :npt.NDArray[np.float64]
+)  -> SurfaceScattering:
+
     """The Lombardi models and the bulk mobility they correct.
 
     The bulk mobility is worked out once here and kept, because it is a
@@ -463,76 +434,62 @@ def _surface_scattering(
     Only the normal field and the carrier densities move, and those are the
     two arguments a refresh supplies.
     """
-    temperature = device.material.T
 
-    if not isinstance(device.mesh, Mesh2D):
+    Temperature  =  device.material.T
+
+
+    if not isinstance(device.mesh,Mesh2D) :
         raise TypeError(
             "surface mobility needs a direction normal to the interface "
             f"and a {type(device.mesh).__name__} has none. Build the device on "
             "a Mesh2D, which is what a MOSFET is on."
         )
-
-    if device.regions is not None:
-        cells = device.regions.cell_material
-        if (cells[:, 1:] != cells[:, :-1]).any():
+    if  device.regions is  not  None  :
+        cel=device.regions.cell_material
+        if(cel[:, 1  :] !=  cel[:, :- 1]).any()  :
             raise ValueError(
-                "surface mobility reads the field normal to a flat Si/SiO2 "
+                'surface mobility reads the field normal to a flat Si/SiO2 '
                 "interface, dpsi/dy, and this device has a vertical one, an "
-                "oxide wall beside silicon, where the normal is x. Solve it "
+                'oxide wall beside silicon, where the normal is x. Solve it '
                 "without surface scattering."
             )
 
-    if mobility == "constant":
-        nodal_n = ConstantMobility(C.mu_n(temperature))(total_doping)
-        nodal_p = ConstantMobility(C.mu_p(temperature))(total_doping)
-    elif mobility == "arora":
-        nodal_n = AroraMobility.electrons(temperature)(total_doping)
-        nodal_p = AroraMobility.holes(temperature)(total_doping)
+
+    if mobility== 'constant':
+        nod = ConstantMobility(C.mu_n(Temperature)) (total_doping)
+        nodalp =ConstantMobility(C.mu_p(Temperature)) (total_doping)
+    elif  mobility ==  'arora'  :
+
+        nod=  AroraMobility.electrons(Temperature)  (total_doping)
+        nodalp =AroraMobility.holes(Temperature)(total_doping)
+
     else:
+
         raise ValueError(
             f"unknown mobility model {mobility!r}. Use "
-            + " or ".join(repr(name) for name in MOBILITY_MODELS)
-            + "."
+            +" or ".join(repr(name)for name in MOBILITY_MODELS)
+            +"."
         )
+    sem =np.ones(device.mesh.n_nodes,dtype =np.bool_)
+    sem [  list(  device.carrier_free_nodes  )  ]  =  False
+    return SurfaceScattering(electrons= LombardiSurface.electrons(Temperature), holes =LombardiSurface.holes(Temperature), mu_bulk_n =  nod, mu_bulk_p = nodalp, total_doping=np.maximum(total_doping, device.material.n_i), semiconductor  =sem,)
 
-    semiconductor = np.ones(device.mesh.n_nodes, dtype=np.bool_)
-    semiconductor[list(device.carrier_free_nodes)] = False
-
-    return SurfaceScattering(
-        electrons=LombardiSurface.electrons(temperature),
-        holes=LombardiSurface.holes(temperature),
-        mu_bulk_n=nodal_n,
-        mu_bulk_p=nodal_p,
-        total_doping=np.maximum(total_doping, device.material.n_i),
-        semiconductor=semiconductor,
-    )
-
-
-def _from_nodal_mobility(
-    device: Device,
-    carrier: Carrier,
-    nodal: npt.NDArray[np.float64],
-    field_dependent: bool,
-) -> EdgeDiffusivity:
-    """A scaled edge diffusivity from a mobility already worked out per node.
+def  _from_nodal_mobility(device :  Device , carrier  :   Carrier , nodal  :  npt.NDArray[  np.float64  ], field_dependent   :  bool,)   ->  EdgeDiffusivity :
+    '''A scaled edge diffusivity from a mobility already worked out per node.
 
     What the surface correction produces. It has already replaced whichever
     bulk model was chosen, so there is no model name left to dispatch on, and
     the rest of the journey onto the edges is the same one Arora takes: an
     arithmetic average onto each edge, the Einstein relation, and the scaling.
-    """
-    edge_nodes = device.scaled_mesh.geometry.edge_nodes
-    V_T = C.V_T(device.material.T)
-    low_field = edge_diffusivity(nodal, V_T, edge_nodes) / device.scale.D_0
-    return _wrapped_in_saturation(device, carrier, low_field, field_dependent)
+    '''
+    EdgeNodes   =   device.scaled_mesh.geometry.edge_nodes
+    res  =  C.V_T( device.material.T )
+    low  =edge_diffusivity(nodal, res, EdgeNodes) / device.scale.D_0; return  _wrapped_in_saturation( device,   carrier,  low ,  field_dependent )
 
 
-def _wrapped_in_saturation(
-    device: Device,
-    carrier: Carrier,
-    low_field: Diffusivity,
-    field_dependent: bool,
-) -> EdgeDiffusivity:
+
+
+def _wrapped_in_saturation(device :Device, carrier  :Carrier, low_field  :  Diffusivity, field_dependent : bool,)  ->  EdgeDiffusivity  :
     """Caughey-Thomas around a low field diffusivity, or that diffusivity.
 
     The wrapping order is the only one that makes sense and it is the one the
@@ -545,23 +502,29 @@ def _wrapped_in_saturation(
     if not field_dependent:
         return low_field
 
-    scale = device.scale
-    temperature = device.material.T
-    electrons = carrier is Carrier.ELECTRON
+    Scale = device.scale
 
-    v_sat = C.v_sat_n(temperature) if electrons else C.v_sat_p(temperature)
+
+    temperaure  = device.material.T
+    elecctrons=carrier is Carrier.ELECTRON
+    vSat =   C.v_sat_n ( temperaure)   if elecctrons else C.v_sat_p(  temperaure)
+
+
     return CaugheyThomas(
-        low_field=np.broadcast_to(
-            np.asarray(low_field, dtype=np.float64), (device.scaled_mesh.h.size,)
+        low_field =np.broadcast_to(
+            np.asarray(low_field,dtype=np.float64),(device.scaled_mesh.h.size,)
         ).copy(),
-        v_sat=v_sat * scale.x_0 / scale.D_0,
-        beta=C.BETA_N if electrons else C.BETA_P,
+        v_sat = vSat * Scale.x_0/Scale.D_0,
+        beta= C.BETA_N if elecctrons else C.BETA_P,
     )
 
 
+
+
 def _lagged_diffusivity(
-    D: EdgeDiffusivity, device: Device, psi: npt.NDArray[np.float64]
-) -> Diffusivity:
+    D:EdgeDiffusivity,device:Device,psi: npt.NDArray[np.float64]
+)->Diffusivity:
+
     """A field dependent diffusivity frozen at the potential of this cycle.
 
     What the uncoupled Gummel blocks get. Each of them solves one continuity
@@ -576,60 +539,64 @@ def _lagged_diffusivity(
     return diffusivity_at(D, edge_drop(psi), device.scaled_mesh.h)
 
 
-def _node_field(values: npt.NDArray[np.float64], unit: str, name: str) -> Field:
+
+def _node_field(values:  npt.NDArray[np.float64], unit: str, name  :  str)-> Field :
+
     """A scaled node Field, the form every assembly demands."""
-    return Field(values, unit, ScalingState.SCALED, Location.NODE, name=name)
+    return Field(values, unit, ScalingState.SCALED, Location.NODE, name= name)
+
+
 
 
 def _density_update(
-    old: npt.NDArray[np.float64], new: npt.NDArray[np.float64]
-) -> float:
+    old : npt.NDArray[np.float64], new : npt.NDArray[np.float64]
+)  ->  float :
+
+
     """max |dn| / (n + n_i), the convergence measure for a density [1]."""
-    return float(np.max(np.abs(new - old) / (np.abs(old) + DENSITY_REFERENCE)))
+
+    return float(np.max(np.abs(new-old) /(np.abs(old) +DENSITY_REFERENCE)))
 
 
-def poisson_block(device: Device) -> BlockStep[DeviceState]:
+
+
+def poisson_block(device :Device) ->BlockStep[DeviceState]:
     """Step 1: nonlinear Poisson at fixed quasi-Fermi levels."""
-    solver = SparseLU()
 
-    def step(state: DeviceState) -> tuple[DeviceState, float]:
-        result = solve_poisson(
-            device, state.psi.data, state.phi_n, state.phi_p, solver=solver
-        )
-        if not result.converged:
+    Solver  = SparseLU(  )
+
+    def step(state : DeviceState)  ->  tuple[DeviceState, float] :
+        result =solve_poisson(device,state.psi.data,state.phi_n,state.phi_p,solver=Solver)
+        if not result.converged  :
             raise TransportError(
-                f"the Poisson block did not converge: {result.message}", state
+                f"the Poisson block did not converge: {result.message}",state
             )
 
-        shift = result.x - state.psi.data
 
-        with np.errstate(over="ignore", under="ignore"):
-            n = state.n.data * np.exp(shift)
-            p = state.p.data * np.exp(-shift)
+        shift=result.x - state.psi.data
 
-        if not (np.all(np.isfinite(n)) and np.all(np.isfinite(p))):
+        with np.errstate(over="ignore",under='ignore'):
+
+
+            n = state.n.data *np.exp(shift);  p=state.p.data*np.exp(- shift)
+
+        if not(np.all(np.isfinite(n))and np.all(np.isfinite(p))) :
             raise TransportError(
                 f"the potential moved by {np.max(np.abs(shift)):.3g} V_T in one "
                 "cycle and overflowed the Boltzmann densities. Ramp the bias in "
-                "smaller steps.",
+                'smaller steps.',
                 state,
             )
 
-        updated = replace(
-            state,
-            psi=_node_field(result.x, "V", "psi"),
-            n=_node_field(n, "cm^-3", "n"),
-            p=_node_field(p, "cm^-3", "p"),
-            newton=result,
-        )
+        updated =  replace(state, psi = _node_field(result.x, 'V', 'psi'), n =  _node_field(n, 'cm^-3', "n"), p=  _node_field(p, "cm^-3", 'p'), newton= result,)
         return updated, float(np.max(np.abs(shift)))
-
     return step
 
 
+
 def _lagged_effective_potential(
-    device: Device, state: DeviceState, carrier: Carrier
-) -> Field:
+    device :  Device, state: DeviceState, carrier:  Carrier
+) -> Field :
     """The potential one carrier is Boltzmann in, at the incoming state [V].
 
     state.psi itself under Boltzmann, so nothing before Phase 5 pays anything
@@ -645,107 +612,86 @@ def _lagged_effective_potential(
     point alone: at convergence the lagged density is the solved one and the
     equation being satisfied is the degenerate one.
     """
-    degeneracy = device.degeneracy
-    if degeneracy is None:
+    deegeneracy=device.degeneracy
+    if deegeneracy is  None  :
         return state.psi
-    if carrier is Carrier.ELECTRON:
-        values = degeneracy.electron_potential(state.psi.data, state.n.data)
+    if  carrier is Carrier.ELECTRON :
+        val=  deegeneracy.electron_potential(state.psi.data, state.n.data)
     else:
-        values = degeneracy.hole_potential(state.psi.data, state.p.data)
-    return _node_field(np.asarray(values), "V", "psi_eff")
+
+        val= deegeneracy.hole_potential(state.psi.data,state.p.data)
+    return _node_field(np.asarray(val),
+      'V',
+              'psi_eff')
 
 
-def electron_block(
-    device: Device, models: TransportModels
-) -> BlockStep[DeviceState]:
+def  electron_block (
+    device  : Device,  models  :   TransportModels
+)   ->   BlockStep[DeviceState ]  :
     """Step 2: electron continuity, linear in n once psi and p are held."""
-    doping = device.net_doping_scaled.data
-    degeneracy = device.degeneracy
-    solver = SparseLU()
+    Doping = device.net_doping_scaled.data
+    x2  = device.degeneracy
+    sollver= SparseLU()
+    def step(state  :DeviceState)->  tuple[DeviceState, float]:
 
-    def step(state: DeviceState) -> tuple[DeviceState, float]:
-        assembly = assemble_electron_continuity(
-            device.mesh_1d,
-            _lagged_effective_potential(device, state, Carrier.ELECTRON),
-            state.n,
-            state.p,
-            models.recombination,
-            device.scale,
-            _lagged_diffusivity(models.Dn, device, state.psi.data),
-        )
-        assembly = apply_ohmic_densities(
+        assembly =assemble_electron_continuity(device.mesh_1d, _lagged_effective_potential(device,state,Carrier.ELECTRON), state.n, state.p, models.recombination, device.scale, _lagged_diffusivity(models.Dn,device,state.psi.data),)
+        assembly= apply_ohmic_densities(
             assembly,
             state.n.data,
-            doping,
+            Doping,
             device.ohmic_contacts,
             Carrier.ELECTRON,
-            degeneracy,
+            x2,
         )
 
-        solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
-        updated_n = impose_ohmic_densities(
-            state.n.data + solver.solve(-assembly.residual),
-            doping,
-            device.ohmic_contacts,
-            Carrier.ELECTRON,
-            degeneracy,
-        )
+        sollver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
+        updated_n  =  impose_ohmic_densities(state.n.data  + sollver.solve(- assembly.residual), Doping, device.ohmic_contacts, Carrier.ELECTRON, x2,)
 
-        _check_positive(updated_n, "n", state)
-        return (
-            replace(state, n=_node_field(updated_n, "cm^-3", "n")),
-            _density_update(state.n.data, updated_n),
-        )
+        _check_positive(updated_n,  'n',  state)
+        return(replace(state, n =  _node_field(updated_n, "cm^-3", 'n')), _density_update(state.n.data, updated_n),)
 
     return step
 
 
-def hole_block(device: Device, models: TransportModels) -> BlockStep[DeviceState]:
-    """Step 3: hole continuity, linear in p once psi and n are held."""
-    doping = device.net_doping_scaled.data
-    degeneracy = device.degeneracy
-    solver = SparseLU()
 
-    def step(state: DeviceState) -> tuple[DeviceState, float]:
-        assembly = assemble_hole_continuity(
-            device.mesh_1d,
-            _lagged_effective_potential(device, state, Carrier.HOLE),
+
+def hole_block(device :Device,models:TransportModels)->BlockStep[DeviceState]:
+    """Step 3: hole continuity, linear in p once psi and n are held."""
+    doipng =  device.net_doping_scaled.data; Degeneracy=device.degeneracy
+    abs  =   SparseLU( )
+    def step(state :DeviceState) -> tuple[DeviceState, float]:
+        assembly  =   assemble_hole_continuity(
+            device.mesh_1d ,
+            _lagged_effective_potential( device, state,  Carrier.HOLE ),
             state.n,
             state.p,
             models.recombination,
             device.scale,
             _lagged_diffusivity(models.Dp, device, state.psi.data),
         )
-        assembly = apply_ohmic_densities(
+        assembly=apply_ohmic_densities(
             assembly,
             state.p.data,
-            doping,
+            doipng,
             device.ohmic_contacts,
             Carrier.HOLE,
-            degeneracy,
+            Degeneracy,
         )
 
-        solver.factorize(assembly.rows, assembly.cols, assembly.values, assembly.shape)
-        updated_p = impose_ohmic_densities(
-            state.p.data + solver.solve(-assembly.residual),
-            doping,
-            device.ohmic_contacts,
-            Carrier.HOLE,
-            degeneracy,
-        )
-
-        _check_positive(updated_p, "p", state)
-        return (
-            replace(state, p=_node_field(updated_p, "cm^-3", "p")),
+        abs.factorize(assembly.rows,assembly.cols,assembly.values,assembly.shape)
+        updated_p = impose_ohmic_densities(state.p.data+abs.solve(- assembly.residual), doipng, device.ohmic_contacts, Carrier.HOLE, Degeneracy,)
+        _check_positive(updated_p,"p",state)
+        return(
+            replace(state, p = _node_field(updated_p, "cm^-3", "p")),
             _density_update(state.p.data, updated_p),
         )
 
     return step
 
 
-def _check_positive(
-    density: npt.NDArray[np.float64], name: str, state: DeviceState
-) -> None:
+def  _check_positive (
+    density   :  npt.NDArray [  np.float64  ] , name : str ,   state : DeviceState
+)   ->  None   :
     """Refuse a non-positive density rather than clamping it.
 
     The continuity matrix is an M-matrix and the right hand side is
@@ -753,20 +699,19 @@ def _check_positive(
     does, the cause is a sign error or a broken discretization, and clamping
     would hide both while producing a solution that satisfies no equation.
     """
-    if np.all(density > 0.0):
+    if np.all(density>0.0):
         return
 
-    worst = int(np.argmin(density))
+    k2 =int(np.argmin(density))
     raise TransportError(
-        f"{name} came out non-positive at node {worst}, value "
-        f"{density[worst]:.3e}. The continuity matrix should be an M-matrix "
+        f"{name} came out non-positive at node {k2}, value "
+        f"{density[k2]:.3e}. The continuity matrix should be an M-matrix "
         "with a non-negative right hand side, so check signs before anything "
-        "else, per docs/05-pitfalls.md. Do not clamp.",
+        'else, per docs/05-pitfalls.md. Do not clamp.',
         state,
     )
 
-
-def initial_state(device: Device) -> DeviceState:
+def initial_state(device : Device)->DeviceState:
     """A starting guess: Poisson with flat quasi-Fermi levels at the contacts.
 
     Exact at zero bias and under reverse bias with no recombination, and a
@@ -774,10 +719,9 @@ def initial_state(device: Device) -> DeviceState:
     At any bias worth calling forward it is not good enough on its own, which
     is what continuation is for.
     """
-    return solve_equilibrium(device, frozen_quasi_fermi(device))
+    return solve_equilibrium(device,frozen_quasi_fermi(device))
 
-
-def _low_field_models(models: TransportModels) -> TransportModels:
+def _low_field_models(models: TransportModels) ->  TransportModels  :
     """The same models with every state dependent mobility taken back out.
 
     Caughey-Thomas unwraps to the low field diffusivity it was built around,
@@ -788,23 +732,22 @@ def _low_field_models(models: TransportModels) -> TransportModels:
     assembly reads rather than evaluates. Nothing about the device, the mesh
     or the bias changes.
     """
-    unwrapped = tuple(
-        D.low_field if isinstance(D, CaugheyThomas) else D
-        for D in (models.Dn, models.Dp)
+    temp2 =tuple(
+        D.low_field if isinstance(D, CaugheyThomas)else D
+        for D in(models.Dn, models.Dp)
     )
     return replace(
         models,
-        Dn=unwrapped[0],
-        Dp=unwrapped[1],
-        surface=None,
-        field_dependent=False,
+        Dn  = temp2[0],
+        Dp  =  temp2[1],
+        surface =None,
+        field_dependent = False,
     )
-
-
 def _needs_a_low_field_prelude(
-    models: TransportModels, guess: DeviceState | None
-) -> bool:
-    """Whether a cold solve should be walked up to these models.
+    models :TransportModels, guess: DeviceState |None
+)  -> bool  :
+
+    '''Whether a cold solve should be walked up to these models.
 
     Only field dependence, and only cold. Two limits and a reason for each.
 
@@ -818,51 +761,55 @@ def _needs_a_low_field_prelude(
 
     **Cold and not warm.** A continuation step already arrives with a guess
     from the neighbouring bias, and that guess is worth more than this one.
-    """
-    return guess is None and models.field_dependent
+    '''
+
+    return  guess is  None  and  models.field_dependent
 
 
-def _low_field_edges(D: EdgeDiffusivity) -> npt.NDArray[np.float64]:
-    """The per edge low field diffusivity inside whatever D is [1].
+def _low_field_edges(D:EdgeDiffusivity) ->  npt.NDArray[np.float64]  :
+    '''The per edge low field diffusivity inside whatever D is [1].
 
     The fixed point is on the mobility, and with velocity saturation switched
     on the mobility is wrapped in a model rather than sitting there as an
     array. Reaching through the wrapper compares the thing that actually moves
     between sweeps: the saturation factor is a function of the iterate and is
     already converged by the Newton solve that just finished.
-    """
-    if isinstance(D, CaugheyThomas):
+    '''
+    if isinstance(D, CaugheyThomas)  :
         return D.low_field
-    return np.asarray(D, dtype=np.float64)
+
+    return np.asarray(D, dtype =  np.float64)
 
 
-def _surface_moved(before: TransportModels, after: TransportModels) -> float:
+def _surface_moved(before  : TransportModels, after  : TransportModels)  -> float  :
     """Largest relative change in either diffusivity between two sweeps [1].
 
     Both carriers, because the electron channel of an NMOS converging says
     nothing about the hole one, and a fixed point that has only half arrived
     is not one.
     """
-    worst = 0.0
-    for old, new in ((before.Dn, after.Dn), (before.Dp, after.Dp)):
-        a, b = _low_field_edges(old), _low_field_edges(new)
-        moved, scale = np.abs(b - a), np.abs(a)
+    Worst  =  0.0
+    for w,neww in((before.Dn,after.Dn),(before.Dp,after.Dp)):
+        aa, bb =  _low_field_edges(w), _low_field_edges(neww)
 
-        relative = np.divide(
-            moved, scale, out=np.where(moved > 0.0, np.inf, 0.0), where=scale > 0.0
-        )
-        worst = max(worst, float(np.max(relative)))
-    return worst
+        arr,t2= np.abs(bb -aa),np.abs(aa)
+
+
+        Relative=np.divide(arr,t2,out=np.where(arr>0.0,np.inf,0.0),where = t2 > 0.0)
+        Worst=max(Worst,float(np.max(Relative)))
+
+    return Worst
+
 
 
 def _surface_fixed_point(
-    device: Device,
-    models: TransportModels,
-    run: Callable[[TransportModels, npt.NDArray[np.float64]], NewtonResult],
+    device  : Device,
+    models : TransportModels,
+    run :Callable[[TransportModels, npt.NDArray[np.float64]], NewtonResult],
     x0: npt.NDArray[np.float64],
     max_sweeps: int,
-    rtol: float,
-) -> NewtonResult:
+    rtol:float,
+) ->NewtonResult:
     """Newton to convergence, with the surface mobility refreshed between runs.
 
     Lombardi reads the field normal to the interface, which for a horizontal
@@ -894,43 +841,43 @@ def _surface_fixed_point(
     is nothing to be gained by refreshing a mobility from a state Newton could
     not reach.
     """
-    active = models.at_state(device, *unpack(x0))
-    x = x0
-    iterations = 0
-    residual_history: list[float] = []
-    update_history: list[float] = []
-    limited_steps = 0
-    sweeps = 0
+    Active=models.at_state(device,*unpack(x0))
+    X  =  x0 ; k2=0
+    residualHistory: list[float] =[]
 
-    while sweeps < max_sweeps:
-        sweeps += 1
-        result = run(active, x)
+    cnt :list[float]=[]
+    limmited_steps=0
+    Sweeps =0
 
-        iterations += result.iterations
-        residual_history.extend(result.residual_history)
-        update_history.extend(result.update_history)
-        limited_steps += result.limited_steps
-        x = result.x
 
-        combined = replace(
-            result,
-            iterations=iterations,
-            residual_history=residual_history,
-            update_history=update_history,
-            limited_steps=limited_steps,
-        )
-        if not result.converged:
-            return combined
+    while Sweeps<max_sweeps:
+        Sweeps+=1
+        res   =   run (  Active ,  X)
 
-        refreshed = active.at_state(device, *unpack(x))
-        if _surface_moved(active, refreshed) < rtol:
-            return combined
-        active = refreshed
+        k2+=res.iterations
+        residualHistory.extend(res.residual_history)
+
+
+        cnt.extend(res.update_history)
+        limmited_steps+=res.limited_steps
+        X  =   res.x
+
+        com   =   replace (res , iterations  =   k2, residual_history = residualHistory, update_history =   cnt, limited_steps  = limmited_steps,)
+
+
+        if not res.converged:
+            return com
+
+
+        pow= Active.at_state(device,*unpack(X))
+        if _surface_moved(Active, pow)  < rtol:
+            return com
+        Active =  pow
 
     return replace(
-        combined,
-        converged=False,
-        message=(
+        com,
+        converged= False,
+        message = (
             f"the surface mobility was still moving after {max_sweeps} "
             f"sweeps. The last Newton solve converged; what did not is the "
             f"fixed point between the mobility and the state it is read from."
@@ -939,15 +886,15 @@ def _surface_fixed_point(
 
 
 def _reported_by_family(
-    residual_by_family: Callable[
+    residual_by_family : Callable[
         [npt.NDArray[np.float64], npt.NDArray[np.float64]], dict[str, float]
     ],
-    on_frame: Callable[[object], None] | None,
+    on_frame : Callable[[object], None] |None,
 ) -> tuple[
     Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float],
     Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float],
-    Callable[[NewtonIteration], None] | None,
-]:
+    Callable[[NewtonIteration], None] |  None,
+] :
     """The two measures a coupled Newton solve is judged on, and its reporter.
 
     Each measure is the largest of its per family split, picked rather than
@@ -961,56 +908,48 @@ def _reported_by_family(
     measuring it, and pairing that frame with the last split measured would
     name a family for a residual the split never saw.
     """
-    last: dict[str, dict[str, float]] = {}
+    laast: dict[str,dict[str,float]]={}
 
     def residual_norm(
-        residual: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
-    ) -> float:
-        split = residual_by_family(residual, x)
-        last["residual"] = split
-        return max(0.0, *split.values())
+        residual :  npt.NDArray[np.float64], x:npt.NDArray[np.float64]
+    ) ->  float:
+        split   =  residual_by_family(residual,   x)
+        laast["residual"]= split;  return max(0.0, * split.values())
 
     def update_norm(
-        delta: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
-    ) -> float:
-        split = coupled_update_by_family(delta, x)
-        last["update"] = split
-        return max(split.values())
+        delta : npt.NDArray[np.float64], x  :  npt.NDArray[np.float64]
+    )  -> float :
+        split =coupled_update_by_family(delta,x)
+        laast ["update" ]   =   split
+        return  max(  split.values ( ))
 
     if on_frame is None:
         return residual_norm, update_norm, None
-    send = on_frame
-
-    def matching(kind: str, value: float | None) -> dict[str, float] | None:
-        split = last.get(kind)
-        if split is None or value is None or max(split.values()) != value:
-            return None
+    Send =on_frame
+    def  matching (kind :  str ,   value :   float  | None  )   -> dict [  str ,  float  ]  |  None  :
+        split = laast.get(kind)
+        if split is None or value is None or max(split.values())  !=  value :
+            return  None
         return split
+    def report(frame : NewtonIteration)  -> None :
 
-    def report(frame: NewtonIteration) -> None:
-        send(
-            replace(
-                frame,
-                residual_by_family=matching("residual", frame.residual),
-                update_by_family=matching("update", frame.update),
-            )
-        )
+        Send(replace(frame, residual_by_family  =  matching('residual', frame.residual), update_by_family =  matching('update', frame.update),))
 
-    return residual_norm, update_norm, report
+    return residual_norm,update_norm,report
 
 
 def solve_bias_newton(
-    device: Device,
-    models: TransportModels | None = None,
-    guess: DeviceState | None = None,
-    max_psi_step: float = 5.0,
-    max_iterations: int = 30,
-    residual_rtol: float = 1e-10,
-    update_tol: float = 1e-10,
-    max_surface_sweeps: int = 20,
-    surface_rtol: float = 1e-8,
-    on_frame: Callable[[object], None] | None = None,
-) -> DeviceState:
+    device:Device,
+    models :TransportModels |None=None,
+    guess :DeviceState|None= None,
+    max_psi_step: float=5.0,
+    max_iterations :int=30,
+    residual_rtol:float= 1e-10,
+    update_tol:float=1e-10,
+    max_surface_sweeps : int =20,
+    surface_rtol :float=1e-8,
+    on_frame:Callable[[object],None]|None=None,
+) ->DeviceState:
     """Solve the coupled system at the device's biases by full Newton.
 
     Args:
@@ -1081,23 +1020,25 @@ def solve_bias_newton(
     `_needs_a_low_field_prelude` for why surface scattering does not need one.
     """
     if models is None:
-        models = TransportModels.for_device(device)
+        models  = TransportModels.for_device(device)
+    w=initial_state(device) if guess is None else guess
+    Scale = device.scale
 
-    start = initial_state(device) if guess is None else guess
-    scale = device.scale
-    mesh = device.scaled_mesh
+    msh=device.scaled_mesh
 
-    h = mesh.h
-    volume = device.charge_volume_scaled
-    geometry = mesh.geometry
-    net_doping = device.net_doping_scaled.data
-    carrier_free = device.carrier_free_nodes
 
-    x0 = pack(start.psi.data, start.n.data, start.p.data)
+    dir=msh.h
+    Volume=device.charge_volume_scaled
+    gemetry   = msh.geometry
+    net   =   device.net_doping_scaled.data
+    cf  =   device.carrier_free_nodes
+
+    x00 =   pack( w.psi.data,  w.n.data, w.p.data  )
+
 
     def assembler(
-        active: TransportModels,
-    ) -> Callable[[npt.NDArray[np.float64]], SparseAssembly]:
+        active  : TransportModels,
+    ) -> Callable[[npt.NDArray[np.float64]], SparseAssembly]  :
         """The assembly closure, over one frozen set of models.
 
         Taken as a function of the models rather than reading them from the
@@ -1105,36 +1046,24 @@ def solve_bias_newton(
         solves and a closure over a name that is being rebound is the kind of
         bug that produces a converged wrong answer.
         """
-
-        def assemble(x: npt.NDArray[np.float64]) -> SparseAssembly:
+        def assemble(x : npt.NDArray[np.float64]) ->SparseAssembly :
             assembly, scales = assemble_coupled_terms(
-                h,
-                volume,
+                dir,
+                Volume,
                 x,
-                net_doping,
+                net,
                 active.Dn,
                 active.Dp,
                 active.recombination,
-                geometry,
+                gemetry,
                 device.degeneracy,
             )
-            assembly = apply_contacts_coupled(
-                assembly,
-                x,
-                net_doping,
-                device.contacts,
-                scale,
-                carrier_free,
-                device.material.T,
-                device.degeneracy,
-            )
-            return scale_rows(assembly, row_weights(scales, mesh.n_nodes))
-
+            assembly  = apply_contacts_coupled (assembly , x , net, device.contacts, Scale, cf, device.material.T, device.degeneracy,)
+            return scale_rows(assembly, row_weights(scales, msh.n_nodes))
         return assemble
 
-    def measured(active: TransportModels) -> Callable[
-        [npt.NDArray[np.float64], npt.NDArray[np.float64]], dict[str, float]
-    ]:
+
+    def measured(active :  TransportModels  )   ->   Callable[[npt.NDArray[np.float64  ],   npt.NDArray[np.float64  ] ], dict[str,  float ]] :
         """The residual size, measured row by row against its own terms.
 
         Recomputed from the iterate rather than carried out of the assembly,
@@ -1146,84 +1075,68 @@ def solve_bias_newton(
         """
 
         def norm(
-            residual: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
-        ) -> dict[str, float]:
-            _, n, p = unpack(x)
-            scales = residual_term_scales(
-                h,
-                volume,
+            residual: npt.NDArray[np.float64],x: npt.NDArray[np.float64]
+        )->dict[str,float] :
+            _ ,  n,   p   =   unpack( x )
+            scales =residual_term_scales(
+                dir,
+                Volume,
                 x,
-                net_doping,
+                net,
                 active.Dn,
                 active.Dp,
-                np.asarray(active.recombination.rate(n, p), dtype=np.float64),
-                geometry,
+                np.asarray(active.recombination.rate(n,p),dtype =np.float64),
+                gemetry,
                 device.degeneracy,
             )
-            return residual_measure_by_family(residual, scales, mesh.n_nodes)
+            return residual_measure_by_family(residual, scales, msh.n_nodes)
 
-        return norm
 
-    def run(
-        active: TransportModels, x: npt.NDArray[np.float64]
-    ) -> NewtonResult:
-        residual_norm, update_norm, report = _reported_by_family(
-            measured(active), on_frame
+
+        return  norm
+
+    def run(active :TransportModels,x :npt.NDArray[np.float64])->NewtonResult:
+        residual_norm,update_norm,report=_reported_by_family(
+            measured(active),on_frame
         )
         return newton_solve(
             assembler(active),
             x,
-            limit=lambda delta: limit_psi_step(delta, max_psi_step),
+            limit=lambda delta : limit_psi_step(delta, max_psi_step),
             residual_scale=1.0,
-            residual_norm=residual_norm,
-            residual_rtol=residual_rtol,
-            update_tol=update_tol,
-            update_norm=update_norm,
-            max_iterations=max_iterations,
-            on_iteration=report,
+            residual_norm = residual_norm,
+            residual_rtol = residual_rtol,
+            update_tol= update_tol,
+            update_norm  =  update_norm,
+            max_iterations =max_iterations,
+            on_iteration =  report,
+        )
+    def solve_with(active:TransportModels,x : npt.NDArray[np.float64]) -> NewtonResult:
+        if active.surface is None :
+            return  run(  active, x  )
+
+        return  _surface_fixed_point(
+            device,   active, run, x, max_surface_sweeps,  surface_rtol
         )
 
-    def solve_with(
-        active: TransportModels, x: npt.NDArray[np.float64]
-    ) -> NewtonResult:
-        if active.surface is None:
-            return run(active, x)
-        return _surface_fixed_point(
-            device, active, run, x, max_surface_sweeps, surface_rtol
-        )
 
-    prelude: NewtonResult | None = None
-    if _needs_a_low_field_prelude(models, guess):
-        prelude = solve_with(_low_field_models(models), x0)
-        x0 = prelude.x
+    pre  :  NewtonResult   | None  =  None
+    if _needs_a_low_field_prelude(models,guess):
+        pre=  solve_with(_low_field_models(models), x00); x00  =   pre.x
+    res = solve_with(models,x00)
+    if pre is not None :
+        res=replace(res, iterations=res.iterations+ pre.iterations, residual_history=pre.residual_history+res.residual_history, update_history= pre.update_history+res.update_history, limited_steps=res.limited_steps+pre.limited_steps,)
+    psi, n, p =unpack(res.x)
 
-    result = solve_with(models, x0)
-    if prelude is not None:
-        result = replace(
-            result,
-            iterations=result.iterations + prelude.iterations,
-            residual_history=prelude.residual_history + result.residual_history,
-            update_history=prelude.update_history + result.update_history,
-            limited_steps=result.limited_steps + prelude.limited_steps,
-        )
-
-    psi, n, p = unpack(result.x)
-    return DeviceState(
-        psi=_node_field(psi.copy(), "V", "psi"),
-        n=_node_field(n.copy(), "cm^-3", "n"),
-        p=_node_field(p.copy(), "cm^-3", "p"),
-        newton=result,
-        degeneracy=device.degeneracy,
-    )
-
+    return DeviceState(psi =  _node_field(psi.copy(), 'V', 'psi'), n=  _node_field(n.copy(), "cm^-3", "n"), p  =_node_field(p.copy(), 'cm^-3', "p"), newton=  res, degeneracy= device.degeneracy,)
 
 def solve_bias_ramped(
-    device: Device,
-    models: TransportModels | None = None,
-    step: float = 0.25,
-    max_iterations: int = 30,
-    on_frame: Callable[[object], None] | None = None,
-) -> DeviceState:
+    device  :   Device ,
+    models  : TransportModels |   None  =   None ,
+    step  :  float  = 0.25,
+    max_iterations   :   int  =   30 ,
+    on_frame  :  Callable[[  object],  None  ]  |  None  =  None,
+)  ->   DeviceState  :
     """Solve at the device's biases with no guess, ramping them in from zero.
 
     Args:
@@ -1256,56 +1169,50 @@ def solve_bias_ramped(
     tests/convergence/test_cold_bias_ramp.py assert.
     """
     if models is None:
-        models = TransportModels.for_device(device)
+        models= TransportModels.for_device(device)
 
-    applied = {contact.name: contact.voltage for contact in device.contacts}
 
-    def at_fraction(
-        fraction: float, guess: DeviceState | None
-    ) -> DeviceState | None:
+    Applied={Contact.name: Contact.voltage for Contact in device.contacts}
+
+    def at_fraction(fraction: float,guess: DeviceState| None) ->DeviceState|None:
         solved = solve_bias_newton(
             device.with_bias(
-                **{name: fraction * volts for name, volts in applied.items()}
+                ** {name: fraction* volts for name, volts in Applied.items()}
             ),
-            models=models,
-            guess=guess,
-            max_iterations=max_iterations,
-            on_frame=on_frame,
+            models = models,
+            guess =guess,
+            max_iterations  =  max_iterations,
+            on_frame  = on_frame,
         )
         assert solved.newton is not None
         return solved if solved.newton.converged else None
 
-    off = solve_bias_newton(
-        device.with_bias(**dict.fromkeys(applied, 0.0)),
+    offf=solve_bias_newton(
+        device.with_bias(**dict.fromkeys(Applied,0.0)),
         models=models,
         max_iterations=max_iterations,
-        on_frame=on_frame,
+        on_frame =on_frame,
     )
-    ramp = continue_to(
+
+    Ramp  =  continue_to (
         at_fraction,
-        start=0.0,
-        target=1.0,
-        initial=off,
-        step=step,
-        on_event=on_frame,
+        start  = 0.0,
+        target  = 1.0,
+        initial  =   offf,
+        step  =   step ,
+        on_event  =  on_frame,
     )
 
-    return solve_bias_newton(
+
+    return solve_bias_newton (
         device,
-        models=models,
-        guess=ramp.solution,
-        max_iterations=max_iterations,
-        on_frame=on_frame,
+        models  =  models,
+        guess =  Ramp.solution,
+        max_iterations  =   max_iterations,
+        on_frame =  on_frame,
     )
 
-
-def _gummel_prelude(
-    device: Device,
-    models: TransportModels,
-    state: DeviceState,
-    cycles: int,
-    on_frame: Callable[[object], None] | None = None,
-) -> DeviceState:
+def _gummel_prelude(device  :Device, models :  TransportModels, state : DeviceState, cycles : int, on_frame : Callable[[object], None]  | None  = None,)->  DeviceState :
     """Run a fixed number of Gummel cycles, ignoring whether they converged.
 
     A prelude is not a solve. It only has to move the iterate into the basin
@@ -1317,37 +1224,29 @@ def _gummel_prelude(
     returned rather than raised. Newton is about to be handed whatever this
     produced and is allowed to fail on it in its own way.
     """
-    if cycles <= 0:
+    if cycles <=0:
         return state
-
-    steps = [
+    ste =[
         poisson_block(device),
-        electron_block(device, models),
-        hole_block(device, models),
+        electron_block(device,models),
+        hole_block(device,models),
     ]
-    try:
-        result = gummel_solve(
+    try :
+        dat=gummel_solve(
             state,
-            steps,
+            ste,
             update_tol=1e-300,
-            max_iterations=cycles,
-            on_iteration=on_frame,
+            max_iterations = cycles,
+            on_iteration= on_frame,
         )
-    except TransportError as failure:
-        return failure.state
-    return replace(result.state, gummel=result)
+
+    except TransportError as fai :
+        return fai.state
+    return replace(dat.state,gummel =dat)
 
 
-def solve_bias_hybrid(
-    device: Device,
-    models: TransportModels | None = None,
-    guess: DeviceState | None = None,
-    gummel_cycles: int = 3,
-    retry_cycles: int = 5,
-    max_psi_step: float = 5.0,
-    max_iterations: int = 30,
-    on_frame: Callable[[object], None] | None = None,
-) -> DeviceState:
+def solve_bias_hybrid(device  :   Device, models : TransportModels   |  None =  None, guess   :   DeviceState |  None  = None, gummel_cycles :  int  =   3, retry_cycles  :   int   =  5, max_psi_step  : float = 5.0, max_iterations :   int   =  30, on_frame   : Callable[[ object],  None  ]  |   None = None ,)  ->  DeviceState :
+
     """Gummel for a few cycles to reach the basin, then full Newton.
 
     Args:
@@ -1387,40 +1286,28 @@ def solve_bias_hybrid(
     handing those to a Gummel block whose whole positivity argument assumes
     non-negative input would produce a second failure with a different cause.
     """
-    if models is None:
-        models = TransportModels.for_device(device)
+    if  models is  None  :
+        models= TransportModels.for_device(device)
 
-    start = initial_state(device) if guess is None else guess
+    sta =initial_state(device)if guess is None else guess
+    def newton_from(state :DeviceState) -> DeviceState  :
+        return solve_bias_newton(device, models  = models, guess  = state, max_psi_step= max_psi_step, max_iterations=max_iterations, on_frame  =on_frame,)
+    slice  =  _gummel_prelude( device, models , sta,  gummel_cycles ,  on_frame) ; res=newton_from(slice)
 
-    def newton_from(state: DeviceState) -> DeviceState:
-        return solve_bias_newton(
-            device,
-            models=models,
-            guess=state,
-            max_psi_step=max_psi_step,
-            max_iterations=max_iterations,
-            on_frame=on_frame,
-        )
+    assert res.newton is not None
+    if res.newton.converged or retry_cycles<=0:
+        return replace(res, gummel= slice.gummel)
 
-    warmed = _gummel_prelude(device, models, start, gummel_cycles, on_frame)
-    result = newton_from(warmed)
-
-    assert result.newton is not None
-    if result.newton.converged or retry_cycles <= 0:
-        return replace(result, gummel=warmed.gummel)
-
-    warmed = _gummel_prelude(device, models, warmed, retry_cycles, on_frame)
-    return replace(newton_from(warmed), gummel=warmed.gummel)
-
-
+    slice=_gummel_prelude(device,models,slice,retry_cycles,on_frame)
+    return replace(newton_from(slice), gummel  =  slice.gummel)
 def solve_bias(
-    device: Device,
-    models: TransportModels | None = None,
-    guess: DeviceState | None = None,
-    update_tol: float = 1e-8,
+    device :Device,
+    models:TransportModels|None= None,
+    guess:DeviceState|None=None,
+    update_tol:float =1e-8,
     max_iterations: int = 200,
-    on_frame: Callable[[object], None] | None = None,
-) -> DeviceState:
+    on_frame:Callable[[object],None]|None =None,
+)->DeviceState:
     """Solve the coupled system at the device's contact biases.
 
     Args:
@@ -1440,32 +1327,17 @@ def solve_bias(
     A result that cannot be returned cannot be measured.
     """
     if models is None:
-        models = TransportModels.for_device(device)
 
-    start = initial_state(device) if guess is None else guess
-    steps = [
+        models   =  TransportModels.for_device(  device)
+    sta  =  initial_state(device)  if  guess is None  else  guess
+    Steps= [
         poisson_block(device),
-        electron_block(device, models),
-        hole_block(device, models),
+        electron_block(device,models),
+        hole_block(device,models),
     ]
 
-    try:
-        result = gummel_solve(
-            start,
-            steps,
-            update_tol=update_tol,
-            max_iterations=max_iterations,
-            on_iteration=on_frame,
-        )
-    except TransportError as failure:
-        return replace(
-            failure.state,
-            gummel=GummelResult(
-                state=failure.state,
-                converged=False,
-                iterations=0,
-                message=str(failure),
-            ),
-        )
-
-    return replace(result.state, gummel=result)
+    try :
+        Result  = gummel_solve(sta, Steps, update_tol  = update_tol, max_iterations =  max_iterations, on_iteration = on_frame,)
+    except TransportError  as faiilure  :
+        return replace(faiilure.state, gummel= GummelResult(state= faiilure.state, converged= False, iterations  = 0, message  = str(faiilure),),)
+    return replace(Result.state,gummel = Result)

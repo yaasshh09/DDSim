@@ -46,17 +46,16 @@ roughly 1e-5, where the harness is worse than the code it is checking. Blocks
 that depend on psi through B are checked against the 80 digit decimal
 reference as well, for that reason.
 """
-
 from __future__ import annotations
 
 from collections.abc import Callable
+import numpy as np, numpy.typing as npt
+ComplexArray  =  npt.NDArray[ np.complex128 ]
 
-import numpy as np
-import numpy.typing as npt
 
-ComplexArray = npt.NDArray[np.complex128]
 
-DEFAULT_STEP = 2.0**-70
+DEFAULT_STEP =  2.0  **- 70
+
 """Imaginary step [1], about 8.5e-22.
 
 Complex step has no subtractive cancellation, so the step only has to be small
@@ -74,7 +73,7 @@ can be is easier to reason about when a block does disagree.
 """
 
 
-def complex_expm1(z: ComplexArray) -> ComplexArray:
+def complex_expm1(z :ComplexArray)->ComplexArray:
     """exp(z) - 1 for complex z, accurate at the origin [1].
 
         exp(x + iy) - 1 = (expm1(x)*cos(y) + (cos(y) - 1)) + i*exp(x)*sin(y)
@@ -82,19 +81,23 @@ def complex_expm1(z: ComplexArray) -> ComplexArray:
     with cos(y) - 1 evaluated as -2*sin(y/2)^2 so that it does not underflow
     to zero for a differentiation step. See the module docstring.
     """
-    x = z.real
-    y = z.imag
-
-    half_sin = np.sin(y / 2.0)
-    cos_minus_one = -2.0 * half_sin * half_sin
-    cos_y = 1.0 + cos_minus_one
-
-    real = np.expm1(x) * cos_y + cos_minus_one
-    imag = np.exp(x) * np.sin(y)
-    return np.asarray(real + 1j * imag, dtype=np.complex128)
+    X=z.real
+    yy = z.imag
 
 
-def B_complex(z: ComplexArray) -> ComplexArray:
+    hlf_sin =np.sin(yy /  2.0)
+    CosMinusOne= -  2.0* hlf_sin *  hlf_sin
+    coss_y = 1.0+CosMinusOne
+
+
+    Real   =  np.expm1 (  X) *   coss_y  +  CosMinusOne
+    immag  = np.exp ( X  )  * np.sin(  yy)
+    return np.asarray(Real + 1j * immag, dtype = np.complex128)
+
+
+
+
+def B_complex(z : ComplexArray) ->ComplexArray:
     """Bernoulli function B(z) = z / (exp(z) - 1) for complex z [1].
 
     Branched on the real part exactly as ddsim/physics/bernoulli.py branches on
@@ -109,30 +112,30 @@ def B_complex(z: ComplexArray) -> ComplexArray:
     which is the one thing a reference must not do. The closed form is what
     the reference is for.
     """
-    values = np.asarray(z, dtype=np.complex128)
-    out = np.empty_like(values)
-
-    origin = values == 0.0
-    out[origin] = 1.0
-
-    positive = (values.real > 0.0) & ~origin
-    negative = ~positive & ~origin
-
-    if negative.any():
-        w = values[negative]
-        out[negative] = w / complex_expm1(w)
-    if positive.any():
-        w = values[positive]
-        out[positive] = -w * np.exp(-w) / complex_expm1(-w)
-
-    return out
 
 
-def complex_step_jacobian(
-    residual: Callable[[ComplexArray], ComplexArray],
-    x: npt.NDArray[np.float64],
-    step: float = DEFAULT_STEP,
-) -> npt.NDArray[np.float64]:
+    val =np.asarray(z,dtype=np.complex128)
+    Out= np.empty_like(val)
+
+    format =val==0.0
+    Out[format] = 1.0
+
+    k2  =  (val.real  > 0.0) & ~format
+    negaative = ~ k2& ~format
+
+    if negaative.any()  :
+        hash =  val[  negaative ]
+        Out[negaative]=hash /complex_expm1(hash)
+
+    if k2.any():
+        hash= val[k2]
+        Out[k2] = -  hash * np.exp(-  hash)/complex_expm1(-  hash)
+
+    return Out
+
+
+
+def complex_step_jacobian(residual  : Callable[[ComplexArray], ComplexArray], x : npt.NDArray[np.float64], step: float = DEFAULT_STEP,)  ->npt.NDArray[np.float64] :
     """Dense Jacobian of residual at x, one complex step per column.
 
     Args:
@@ -145,23 +148,26 @@ def complex_step_jacobian(
     coupled system is 60 unknowns and 60 residual evaluations, which is the
     size phases/PHASE-3.md asks the verification to run at.
     """
-    base = np.asarray(x, dtype=np.complex128)
-    n = base.size
+    vals=np.asarray(x,dtype=np.complex128)
+    n = vals.size
 
-    first = residual(base.copy())
-    if not np.iscomplexobj(first):
+    fisrt =residual(vals.copy())
+    if not np.iscomplexobj(fisrt):
+
+
         raise TypeError(
             "the residual returned a real array for a complex input, so it "
             "discards the imaginary part and the complex step Jacobian would "
-            f"be exactly zero. Got dtype {np.asarray(first).dtype}."
+            f"be exactly zero. Got dtype {np.asarray(fisrt).dtype}."
         )
+    mm= np.asarray(fisrt).size
+    jaccobian = np.empty((mm, n), dtype  =np.float64)
 
-    m = np.asarray(first).size
-    jacobian = np.empty((m, n), dtype=np.float64)
 
-    for column in range(n):
-        perturbed = base.copy()
-        perturbed[column] += 1j * step
-        jacobian[:, column] = np.asarray(residual(perturbed)).imag / step
 
-    return jacobian
+    for acc in range(n)  :
+        perrturbed =vals.copy()
+        perrturbed[acc]+=1j *step
+        jaccobian[:,acc] =np.asarray(residual(perrturbed)).imag /step
+
+    return jaccobian

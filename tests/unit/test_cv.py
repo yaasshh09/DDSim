@@ -6,16 +6,18 @@ whose charge is already a density and needs no width, and a sweep that does not
 finish.
 """
 
-from __future__ import annotations
+from __future__ import  annotations
+import numpy as np, pytest
 
-import numpy as np
-import pytest
+
 
 from ddsim.core import constants as C
+
 from ddsim.device.equilibrium import solve_equilibrium
-from ddsim.device.mos_cap import BODY, GATE, mos_cap
-from ddsim.device.pn_diode import pn_diode
-from ddsim.extract.cv import (
+from ddsim.device.mos_cap import BODY,GATE,mos_cap
+
+from ddsim.device.pn_diode  import pn_diode
+from ddsim.extract.cv import(
     CVCurve,
     Response,
     cv_sweep,
@@ -23,152 +25,142 @@ from ddsim.extract.cv import (
     terminal_charge,
 )
 
-NA = 1e16
-T_OX = 1e-6
+NA  =   1e16
+T_OX= 1e-6
+
+@pytest.fixture(scope  = "module")
 
 
-@pytest.fixture(scope="module")
-def cap():
-    device = mos_cap(substrate_doping=-NA, t_ox=T_OX, gate_voltage=-2.0)
-    return device, solve_equilibrium(device)
+
+def cap() :
+    Device   =  mos_cap (  substrate_doping =-  NA ,  t_ox   = T_OX, gate_voltage  =- 2.0 ) ; return Device, solve_equilibrium(Device )
 
 
-@pytest.mark.parametrize(
-    "call",
-    [
-        lambda d, s: terminal_charge(d, s, "drain"),
-        lambda d, s: small_signal_capacitance(d, s, "drain"),
-    ],
-    ids=["charge", "capacitance"],
-)
-def test_a_terminal_that_is_not_there_is_named_in_the_refusal(cap, call):
-    device, state = cap
-    with pytest.raises(KeyError, match="drain"):
-        call(device, state)
 
+
+@pytest.mark.parametrize('call', [lambda d,s :terminal_charge(d,s,"drain"), lambda d,s: small_signal_capacitance(d,s,"drain"),], ids= ["charge",'capacitance'],)
+
+
+
+def test_a_terminal_that_is_not_there_is_named_in_the_refusal(cap,call):
+    dvice,sate = cap
+    with pytest.raises(KeyError,match="drain"):
+        call(dvice, sate)
 
 def test_the_refusal_lists_the_terminals_that_are_there(cap):
-    device, state = cap
-    with pytest.raises(KeyError) as raised:
-        terminal_charge(device, state, "drain")
-    assert GATE in str(raised.value)
-    assert BODY in str(raised.value)
+    Device, input  = cap
+    with pytest.raises(KeyError)as buf :
+        terminal_charge(Device, input, 'drain')
+    assert GATE in str(buf.value)
+    assert BODY in str(buf.value)
 
 
-def test_a_sweep_checks_the_contact_before_solving_anything(cap):
+def  test_a_sweep_checks_the_contact_before_solving_anything(cap)  :
     """A thousand converged solves followed by a typo is a bad trade."""
-    device, _ = cap
-    with pytest.raises(KeyError, match="drain"):
-        cv_sweep(device, "drain", [0.0])
+    dict,   _ =  cap
+    with pytest.raises(KeyError, match = "drain") :
 
+        cv_sweep(dict, "drain", [0.0])
 
-def test_a_1d_device_needs_no_width():
+def  test_a_1d_device_needs_no_width(  )   :
     """A 1D device is a slab, so its charge is already per unit area and the
     junction capacitance of a diode comes out in F/cm^2 with nothing to divide
     by. The 2D path has to be told, because a plate has an extent."""
-    diode = pn_diode(anode_voltage=-1.0)
-    state = solve_equilibrium(diode)
-    charge = terminal_charge(diode, state, "anode")
-    assert np.isfinite(charge)
-    assert charge != 0.0
+    dioode   = pn_diode(anode_voltage  =-  1.0); State=solve_equilibrium(dioode)
+    xx= terminal_charge(dioode, State, "anode")
+    assert np.isfinite(  xx )
+    assert xx  !=  0.0
 
 
-def test_a_reverse_biased_diode_has_a_junction_capacitance():
+
+def  test_a_reverse_biased_diode_has_a_junction_capacitance()  :
     """Not a MOS quantity, and the reason cv.py is not written as MOS code:
     dQ/dV at a contact is a contact property, not a device type."""
-    diode = pn_diode(anode_voltage=-1.0)
-    capacitance = small_signal_capacitance(
-        diode, solve_equilibrium(diode), "anode"
+
+    Diode =pn_diode(anode_voltage =-1.0)
+    capactiance=small_signal_capacitance(
+        Diode,solve_equilibrium(Diode),'anode'
     )
-    assert capacitance > 0.0
+    assert capactiance >   0.0
+
+
 
 
 def test_giving_a_width_scales_the_answer_by_it(cap):
     """The width divides, so a device declared twice as wide reports half the
     charge per unit area."""
-    device, state = cap
-    natural = terminal_charge(device, state, GATE)
-    doubled = terminal_charge(
-        device, state, GATE, width=2 * device.mesh.x_axis.length
+    Device,sttae =cap;natuural  = terminal_charge(Device, sttae, GATE)
+    object= terminal_charge(
+        Device,sttae,GATE,width=2*Device.mesh.x_axis.length
     )
-    assert doubled == pytest.approx(0.5 * natural, rel=1e-14)
+    assert object== pytest.approx(0.5*natuural,rel=1e-14)
+
 
 
 def test_the_capacitance_takes_the_same_width(cap):
-    device, state = cap
-    natural = small_signal_capacitance(device, state, GATE)
-    doubled = small_signal_capacitance(
-        device, state, GATE, width=2 * device.mesh.x_axis.length
-    )
-    assert doubled == pytest.approx(0.5 * natural, rel=1e-14)
+    dev,  sta  =  cap
+    dat=small_signal_capacitance(dev,sta,GATE)
+    duobled=small_signal_capacitance(dev, sta, GATE, width  = 2* dev.mesh.x_axis.length)
+    assert  duobled  ==  pytest.approx(  0.5  *  dat ,  rel   =  1e-14)
 
 
 def test_a_curve_reports_what_it_is():
-    curve = cv_sweep(mos_cap(substrate_doping=-NA), GATE, [-1.0, 0.0])
-    text = repr(curve)
-    assert "2 points" in text and "complete" in text
-    assert Response.LOW_FREQUENCY.value in text
 
+    Curve   = cv_sweep(mos_cap( substrate_doping   =-  NA ), GATE ,  [ -  1.0,  0.0  ]  ) ; tex  =   repr(  Curve)
+    assert "2 points"  in tex and  "complete" in  tex
+    assert Response.LOW_FREQUENCY.value in tex
 
-def test_an_empty_curve_says_so():
-    empty = CVCurve(
-        contact=GATE,
-        response=Response.LOW_FREQUENCY,
+def test_an_empty_curve_says_so() :
+    emp =CVCurve(
+        contact = GATE,
+        response = Response.LOW_FREQUENCY,
         points=(),
         complete=False,
     )
-    assert "empty" in repr(empty)
-    assert "stopped early" in repr(empty)
-    assert empty.gate_voltage.size == 0
-    assert empty.capacitance.size == 0
-    assert empty.charge.size == 0
+    assert  'empty'  in  repr(emp)
+    assert "stopped early" in repr(emp)
+
+    assert emp.gate_voltage.size  ==   0
+
+    assert emp.capacitance.size ==0
+    assert emp.charge.size ==   0
 
 
-def test_a_sweep_that_cannot_converge_returns_what_it_reached():
+
+def test_a_sweep_that_cannot_converge_returns_what_it_reached() :
     """A budget of one Newton step converges at flatband, where the filled
     guess is already the answer, and nowhere else. So the sweep gets its first
     point and stops, which is the behaviour a stalled sweep should have: keep
     the measurements, say where it stopped, do not raise.
     """
-    v_fb = float(C.work_function_difference(C.PHI_M_N_POLY, -NA))
-    curve = cv_sweep(
-        mos_cap(substrate_doping=-NA),
+    vf =   float( C.work_function_difference(  C.PHI_M_N_POLY,   -  NA )  )
+    item2 = cv_sweep(
+        mos_cap(substrate_doping=- NA),
         GATE,
-        [v_fb, v_fb + 2.0],
+        [vf,vf+2.0],
         max_iterations=1,
     )
-    assert not curve.complete
-    assert len(curve.points) == 1
-    assert "did not converge" in curve.message
-    assert f"{v_fb + 2.0:+g}" in curve.message
+    assert not item2.complete
+    assert len(item2.points) ==1
+    assert "did not converge" in item2.message
+    assert f"{vf + 2.0:+g}" in item2.message
 
-
-def test_the_charge_on_the_curve_is_the_charge_at_the_point():
+def  test_the_charge_on_the_curve_is_the_charge_at_the_point ()  :
     """The sweep stores both, and they have to be the same two numbers the
     single point functions give."""
-    device = mos_cap(substrate_doping=-NA)
-    curve = cv_sweep(device, GATE, [-1.5])
-    point = curve.points[0]
-    biased = device.with_bias(**{GATE: -1.5})
-    assert point.charge == pytest.approx(
-        terminal_charge(biased, point.state, GATE), rel=1e-14
-    )
 
+    deice = mos_cap(substrate_doping=-NA)
+    Curve=cv_sweep(deice,GATE,[-1.5])
+    temp2   =  Curve.points[ 0  ]
+    idx2= deice.with_bias(**{GATE: -1.5})
+    assert  temp2.charge ==  pytest.approx(terminal_charge( idx2,   temp2.state,   GATE  ), rel   =  1e-14)
 
-def test_the_response_is_carried_onto_the_curve():
-    curve = cv_sweep(
+def  test_the_response_is_carried_onto_the_curve()  :
+    d2=cv_sweep(
         mos_cap(substrate_doping=-NA),
         GATE,
         [1.0],
         response=Response.HIGH_FREQUENCY,
     )
-    assert curve.response is Response.HIGH_FREQUENCY
-    assert curve.capacitance[0] == pytest.approx(
-        small_signal_capacitance(
-            mos_cap(substrate_doping=-NA, gate_voltage=1.0),
-            curve.points[0].state,
-            GATE,
-            response=Response.HIGH_FREQUENCY,
-        ),
-        rel=1e-14,
-    )
+    assert d2.response is Response.HIGH_FREQUENCY
+    assert d2.capacitance[0]==pytest.approx(small_signal_capacitance(mos_cap(substrate_doping=-NA,gate_voltage=1.0), d2.points[0].state, GATE, response=Response.HIGH_FREQUENCY,), rel=1e-14,)

@@ -54,32 +54,44 @@ still the minority carrier: they are the ones that had to be generated.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from  collections.abc import Callable
+
 from dataclasses import dataclass
-from enum import Enum
 
+from enum  import  Enum
 import numpy as np
-import numpy.typing as npt
 
-from ddsim.core import constants as C
+import numpy.typing  as  npt
+
+from ddsim.core  import  constants as C
+
+
 from ddsim.core.field import Field, Location, ScalingState
+
 from ddsim.device.builder import Device
-from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
+
+from ddsim.device.equilibrium import frozen_quasi_fermi,solve_equilibrium
+
 from ddsim.device.state import DeviceState
+
+
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import apply_dirichlet_nodes
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.mesh.mesh1d import Mesh1D
+
+
 from ddsim.solve.linear import SparseLU
 
+class Response(Enum) :
+    '''Which carriers follow the small signal.'''
 
-class Response(Enum):
-    """Which carriers follow the small signal."""
 
-    LOW_FREQUENCY = "low_frequency"
+
+    LOW_FREQUENCY='low_frequency'
     """Both of them, which is the omega to zero limit and is exact here."""
 
-    HIGH_FREQUENCY = "high_frequency"
+    HIGH_FREQUENCY ="high_frequency"
     """The majority carrier only.
 
     The standard high frequency approximation: the signal is fast compared to
@@ -88,7 +100,9 @@ class Response(Enum):
     """
 
 
-def _charge_unit(device: Device, width: float | None) -> float:
+
+
+def _charge_unit(  device   :   Device, width  : float |  None )  ->  float   :
     """Physical charge per scaled charge, per unit terminal area [C/cm^2].
 
     The scaled charge is a density in units of C_0 integrated over a dual cell
@@ -97,26 +111,29 @@ def _charge_unit(device: Device, width: float | None) -> float:
     device gives charge per unit depth and the terminal's own extent turns it
     into a density.
     """
-    scale = device.scale
-    if isinstance(device.mesh, Mesh1D):
-        extent = 1.0 if width is None else width
-        return C.q * scale.C_0 * scale.x_0 / extent
-    extent = device.mesh.x_axis.length if width is None else width
-    return C.q * scale.C_0 * scale.x_0**2 / extent
+    sca= device.scale
+
+    if  isinstance (  device.mesh ,   Mesh1D )  :
+        etent=1.0 if width is None else width
+        return C.q* sca.C_0* sca.x_0/etent
+    etent = device.mesh.x_axis.length if width is None else width
+    return C.q*sca.C_0 *sca.x_0**2/etent
 
 
-def _contact_nodes(device: Device, contact: str) -> tuple[int, ...]:
+def _contact_nodes(device:Device,contact : str) ->tuple[int,...]:
     """The nodes a named contact covers, or a readable refusal."""
-    for existing in device.contacts:
-        if existing.name == contact:
-            return existing.nodes
+    for  chr  in device.contacts  :
+
+
+        if chr.name==contact:
+            return chr.nodes
     raise KeyError(
         f"no contact named {contact!r} on this device, which has "
-        f"{sorted(existing.name for existing in device.contacts)}"
+        f"{sorted(chr.name for chr in device.contacts)}"
     )
-
-
 QuasiFermi = tuple[Field, Field] | None
+
+
 """Fixed (phi_n, phi_p) [V], scaled, or None for true thermal equilibrium.
 
 Whatever the state was solved with has to be passed back in, because the
@@ -125,35 +142,27 @@ cv_sweep, which builds them itself and keeps the two consistent.
 """
 
 
-def _bare_poisson(
-    device: Device, state: DeviceState, quasi_fermi: QuasiFermi = None
-) -> SparseAssembly:
+def _bare_poisson(device :Device,state:DeviceState,quasi_fermi:QuasiFermi=None)->SparseAssembly:
+
     """The Poisson system at the solved state, with no contacts applied.
 
     Unpinned on purpose. A Dirichlet row throws away the flux balance at the
     contact, and that flux balance is the terminal charge.
     """
-    psi = Field(
-        state.psi.data, "V", ScalingState.SCALED, Location.NODE, name="psi"
+    psi=Field(
+        state.psi.data,"V",ScalingState.SCALED,Location.NODE,name = 'psi'
     )
-    phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
-    return assemble_poisson(
-        device.scaled_mesh,
-        psi,
-        device.net_doping_scaled,
-        phi_n,
-        phi_p,
-        charge_volume=device.charge_volume_scaled,
-    )
+    phi_n, phi_p = (None, None)  if quasi_fermi is None else quasi_fermi
+    return  assemble_poisson(device.scaled_mesh, psi, device.net_doping_scaled, phi_n , phi_p , charge_volume  =   device.charge_volume_scaled ,)
 
 
 def terminal_charge(
-    device: Device,
-    state: DeviceState,
-    contact: str,
-    quasi_fermi: QuasiFermi = None,
-    width: float | None = None,
-) -> float:
+    device  : Device,
+    state :DeviceState,
+    contact : str,
+    quasi_fermi :  QuasiFermi= None,
+    width  : float | None = None,
+)-> float:
     """Charge on one terminal [C/cm^2].
 
     Args:
@@ -179,14 +188,16 @@ def terminal_charge(
     solution. See test_the_body_contact_is_not_the_other_plate in
     tests/analytic/test_mos_cv.py, which is the guard on exactly this.
     """
-    assembly = _bare_poisson(device, state, quasi_fermi)
-    nodes = list(_contact_nodes(device, contact))
-    return float(np.sum(assembly.residual[nodes])) * _charge_unit(device, width)
 
+    Assembly = _bare_poisson(device, state, quasi_fermi)
+    junk =list(_contact_nodes(device,contact))
+
+    return float(np.sum(Assembly.residual[junk]))*  _charge_unit(device, width)
 
 def _frozen_diagonal(
-    device: Device, state: DeviceState
-) -> npt.NDArray[np.float64]:
+    device:Device,state:DeviceState
+)->npt.NDArray[np.float64]:
+
     """The minority carrier's contribution to the Jacobian diagonal [1].
 
     Each carrier contributes its own density times the cell volume, because
@@ -197,19 +208,16 @@ def _frozen_diagonal(
     minority carrier everywhere, including at an inverted surface where it
     outnumbers the hole, because it is still the one that had to be generated.
     """
-    doping = device.net_doping_scaled.data
-    minority = np.where(doping < 0.0, state.n.data, state.p.data)
-    return np.asarray(minority * device.charge_volume_scaled)
-
-
+    Doping   =   device.net_doping_scaled.data;min   = np.where( Doping  <  0.0,  state.n.data,   state.p.data )
+    return np.asarray(min *device.charge_volume_scaled)
 def small_signal_capacitance(
-    device: Device,
-    state: DeviceState,
+    device:Device,
+    state:DeviceState,
     contact: str,
-    response: Response = Response.LOW_FREQUENCY,
-    quasi_fermi: QuasiFermi = None,
-    width: float | None = None,
-) -> float:
+    response:Response=Response.LOW_FREQUENCY,
+    quasi_fermi:QuasiFermi =None,
+    width :float|None=None,
+)->float :
     """dQ/dV at one terminal [F/cm^2], from one linear solve.
 
     Args:
@@ -224,30 +232,31 @@ def small_signal_capacitance(
     differencing two solutions of it. There is no step size to choose and no
     truncation error to carry.
     """
-    assembly = _bare_poisson(device, state, quasi_fermi)
-    rows, cols, values = assembly.rows, assembly.cols, assembly.values
+    assmbly =  _bare_poisson(device, state, quasi_fermi)
+    row, Cols,   vales  =   assmbly.rows, assmbly.cols,   assmbly.values
 
     if response is Response.HIGH_FREQUENCY:
-        diagonal = np.arange(device.mesh.n_nodes, dtype=rows.dtype)
-        rows = np.concatenate([rows, diagonal])
-        cols = np.concatenate([cols, diagonal])
-        values = np.concatenate([values, -_frozen_diagonal(device, state)])
+        bin  =  np.arange(device.mesh.n_nodes, dtype  =  row.dtype)
+        row  = np.concatenate([row, bin])
+        Cols  = np.concatenate( [Cols,   bin ]  )
+        vales = np.concatenate([vales, -_frozen_diagonal(device, state)])
 
-    nodes = list(_contact_nodes(device, contact))
-    dpsi = _potential_derivative(device, contact, rows, cols, values)
+    Nodes= list(_contact_nodes(device,contact))
+    Dpsi = _potential_derivative(device,contact,row,Cols,vales)
 
-    scattered = np.zeros(device.mesh.n_nodes, dtype=np.float64)
-    np.add.at(scattered, rows, values * dpsi[cols])
-    return float(np.sum(scattered[nodes])) * _charge_unit(device, width)
+
+    scattred=  np.zeros(device.mesh.n_nodes, dtype  =np.float64)
+    np.add.at(scattred,row,vales*Dpsi[Cols])
+    return float(np.sum(scattred[Nodes])) * _charge_unit(device, width)
 
 
 def _potential_derivative(
-    device: Device,
-    contact: str,
-    rows: npt.NDArray[np.int64],
+    device : Device,
+    contact:  str,
+    rows:npt.NDArray[np.int64],
     cols: npt.NDArray[np.int64],
     values: npt.NDArray[np.float64],
-) -> npt.NDArray[np.float64]:
+)  ->npt.NDArray[np.float64]  :
     """dpsi/dV at every node [1 per V], for a unit bias on one terminal.
 
     Differentiating F(psi; V) = 0 leaves a linear system with the same
@@ -261,127 +270,125 @@ def _potential_derivative(
     exactly this problem once F is zero and the known entries are derivatives
     instead of corrections.
     """
-    n_nodes = device.mesh.n_nodes
+    NNodes   = device.mesh.n_nodes
+    nod : list[int]  =  []
 
-    nodes: list[int] = []
-    targets: list[float] = []
-    for existing in device.contacts:
-        derivative = 1.0 / device.scale.psi_0 if existing.name == contact else 0.0
-        nodes.extend(existing.nodes)
-        targets.extend([derivative] * len(existing.nodes))
+    lst  : list[  float  ]  =  [ ]
+    for sorted in device.contacts   :
+        derivvative  =  1.0 / device.scale.psi_0 if sorted.name ==  contact  else  0.0
+        nod.extend(sorted.nodes)
+        lst.extend([derivvative] *len(sorted.nodes))
 
-    system = apply_dirichlet_nodes(
-        SparseAssembly(
-            residual=np.zeros(n_nodes),
-            rows=rows,
-            cols=cols,
-            values=values,
-            shape=(n_nodes, n_nodes),
-        ),
-        np.zeros(n_nodes),
-        nodes,
-        targets,
-    )
+    System= apply_dirichlet_nodes(SparseAssembly(residual =np.zeros(NNodes), rows=rows, cols =cols, values=values, shape= (NNodes, NNodes),), np.zeros(NNodes), nod, lst,)
+    slver  =  SparseLU ( )
+    slver.factorize(System.rows, System.cols, System.values, System.shape);  return slver.solve(-System.residual)
 
-    solver = SparseLU()
-    solver.factorize(system.rows, system.cols, system.values, system.shape)
-    return solver.solve(-system.residual)
 
 
 @dataclass(frozen=True)
+
+
+
+
 class CVPoint:
     """One bias point of a C-V sweep."""
-
     gate_voltage: float
     """Applied bias at the swept terminal [V]."""
 
-    capacitance: float
+    capacitance :   float
     """Small signal capacitance there [F/cm^2]."""
 
-    charge: float
+    charge : float
     """Charge on that terminal [C/cm^2]."""
 
-    state: DeviceState
-    """The converged solution, kept for band diagrams and profile plots."""
 
+    state :DeviceState
+    '''The converged solution, kept for band diagrams and profile plots.'''
 
-@dataclass(frozen=True)
-class CVCurve:
+@dataclass(frozen =True)
+
+class CVCurve :
     """A capacitance sweep, complete or as far as it got."""
-
-    contact: str
+    contact:str
     """Name of the swept terminal."""
 
-    response: Response
+
+
+    response:Response
     """Which carriers were allowed to follow the signal."""
 
-    points: tuple[CVPoint, ...]
-    """The converged bias points, in the order they were requested."""
+    points :  tuple[CVPoint, ...]
 
+    """The converged bias points, in the order they were requested."""
     complete: bool
     """Whether every requested voltage was reached."""
 
-    message: str = ""
+    message  :  str  = ""
     """Why the sweep stopped, when it did not finish."""
 
     @property
-    def gate_voltage(self) -> npt.NDArray[np.float64]:
+    def gate_voltage(self)  -> npt.NDArray[np.float64] :
         """Applied bias at each point [V]."""
-        return np.array([point.gate_voltage for point in self.points])
+        return np.array([piont.gate_voltage for piont in self.points])
+
 
     @property
-    def capacitance(self) -> npt.NDArray[np.float64]:
+    def capacitance(self)->npt.NDArray[np.float64]:
         """Small signal capacitance at each point [F/cm^2]."""
-        return np.array([point.capacitance for point in self.points])
+        return np.array([Point.capacitance for Point in self.points])
+
 
     @property
-    def charge(self) -> npt.NDArray[np.float64]:
-        """Terminal charge at each point [C/cm^2]."""
-        return np.array([point.charge for point in self.points])
+    def charge(self) ->npt.NDArray[np.float64] :
+        '''Terminal charge at each point [C/cm^2].'''
+        return np.array([item2.charge for item2 in self.points])
 
-    def __repr__(self) -> str:
-        state = "complete" if self.complete else "stopped early"
-        if not self.points:
-            return f"CVCurve {self.contact} empty, {state}"
-        return (
+
+
+    def __repr__(self)->str:
+        State = "complete" if self.complete else "stopped early"
+        if not self.points  :
+            return  f"CVCurve {self.contact} empty, {State}"
+        return(
             f"CVCurve {self.contact} {len(self.points)} points "
             f"{self.gate_voltage[0]:+.3g} to {self.gate_voltage[-1]:+.3g} V, "
-            f"{self.response.value}, {state}"
+            f"{self.response.value}, {State}"
         )
 
-
 @dataclass(frozen=True)
+
+
 class CVFrame:
-    """One finished capacitance point, reported while the sweep is running.
+    '''One finished capacitance point, reported while the sweep is running.
 
     Scalars only, for the reason IVFrame carries scalars only. Nothing here
     continues from the state, but a reader able to reach into it could still
     change the charge and capacitance read off it at the point after.
-    """
+    '''
 
-    index: int
+    index:int
     """Position in the requested voltage list, from zero."""
 
-    gate_voltage: float
-    """Applied bias at the swept terminal [V]."""
+    gate_voltage  : float
+    '''Applied bias at the swept terminal [V].'''
 
-    capacitance: float
+    capacitance  :  float
     """Small signal capacitance there [F/cm^2]."""
+    charge :  float
 
-    charge: float
     """Charge on that terminal [C/cm^2]."""
 
 
 def cv_sweep(
-    device: Device,
-    contact: str,
-    voltages: list[float],
-    response: Response = Response.LOW_FREQUENCY,
-    width: float | None = None,
-    max_iterations: int = 50,
-    on_frame: Callable[[object], None] | None = None,
-) -> CVCurve:
-    """Sweep one terminal and measure the capacitance at each bias.
+    device :Device,
+    contact : str,
+    voltages :  list[float],
+    response :  Response= Response.LOW_FREQUENCY,
+    width: float  |  None  = None,
+    max_iterations : int =50,
+    on_frame:Callable[[object], None] |  None = None,
+)  ->CVCurve :
+    '''Sweep one terminal and measure the capacitance at each bias.
 
     Args:
         device: the device. Its own bias at the swept contact is overridden.
@@ -421,60 +428,46 @@ def cv_sweep(
 
     Returns everything it reached, with complete=False and a message if a
     point did not converge.
-    """
+    '''
     _contact_nodes(device, contact)
-
-    points: list[CVPoint] = []
-    for voltage in voltages:
-        biased = device.with_bias(**{contact: voltage})
-        levels = frozen_quasi_fermi(biased)
-        try:
-            state = solve_equilibrium(
-                biased,
-                quasi_fermi=levels,
+    Points:  list[CVPoint]= []
+    for yy in voltages  :
+        chr  =  device.with_bias (  ** {  contact  :  yy  }  )
+        lev= frozen_quasi_fermi(chr)
+        try :
+            sta =solve_equilibrium(
+                chr,
+                quasi_fermi =lev,
                 max_iterations=max_iterations,
-                on_frame=on_frame,
+                on_frame= on_frame,
             )
-        except RuntimeError as error:
-            return CVCurve(
-                contact=contact,
-                response=response,
-                points=tuple(points),
-                complete=False,
-                message=f"did not converge at {voltage:+g} V: {error}",
-            )
-        capacitance = small_signal_capacitance(
-            biased,
-            state,
-            contact,
-            response=response,
-            quasi_fermi=levels,
-            width=width,
-        )
-        charge = terminal_charge(
-            biased, state, contact, quasi_fermi=levels, width=width
-        )
-        points.append(
-            CVPoint(
-                gate_voltage=voltage,
-                capacitance=capacitance,
-                charge=charge,
-                state=state,
-            )
-        )
-        if on_frame is not None:
-            on_frame(
-                CVFrame(
-                    index=len(points) - 1,
-                    gate_voltage=voltage,
-                    capacitance=capacitance,
-                    charge=charge,
-                )
-            )
+        except RuntimeError  as Error  :
 
+
+            return CVCurve(
+                contact  = contact,
+                response = response,
+                points = tuple(Points),
+                complete  =False,
+                message  =  f"did not converge at {yy:+g} V: {Error}",
+            )
+        Capacitance =small_signal_capacitance(
+            chr,
+            sta,
+            contact,
+            response  =response,
+            quasi_fermi  = lev,
+            width =width,
+        )
+        s2  =terminal_charge(chr, sta, contact, quasi_fermi=  lev, width = width)
+
+        Points.append (CVPoint (gate_voltage   =  yy , capacitance   =  Capacitance , charge  =  s2, state  =  sta ,))
+
+        if on_frame is not None  :
+            on_frame(CVFrame (index   =   len(  Points  )  -  1 , gate_voltage   =  yy, capacitance   = Capacitance, charge   =   s2 ,))
     return CVCurve(
-        contact=contact,
-        response=response,
-        points=tuple(points),
-        complete=True,
+        contact = contact,
+        response = response,
+        points  = tuple(Points),
+        complete  =True,
     )

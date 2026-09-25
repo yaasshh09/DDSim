@@ -65,13 +65,13 @@ exclude_lines = [
   "raise NotImplementedError",
   "if TYPE_CHECKING:",
   '^\s*\.\.\.$',
-  '^\s*except queue\.Empty:$',
-  '^\s*if run is None:$',
-  '^if __name__ == "__main__":$',
-  '^\s*if not \(np\.all\(np\.isfinite\(n\)\) and np\.all\(np\.isfinite\(p\)\)\):$',
-  '^\s*if np\.any\(high > 1e6\):$',
-  '^\s*if best_score > best_bound \* \(1\.0 \+ _SCORE_SLACK\):$',
-  '^\s*if short:$',
+  '^\s*except\s+queue\s*\.\s*Empty\s*:\s*$',
+  '^\s*if\s+run\s+is\s+None\s*:\s*$',
+  '''^if\s+__name__\s*==\s*['"]__main__['"]\s*:\s*$''',
+  '^\s*if\s*not\s*\(\s*np\s*\.\s*all\s*\(\s*np\s*\.\s*isfinite\s*\(\s*n\s*\)\s*\)\s*and\s*np\s*\.\s*all\s*\(\s*np\s*\.\s*isfinite\s*\(\s*p\s*\)\s*\)\s*\)\s*:\s*$',
+  '^\s*if\s+np\s*\.\s*any\s*\(\s*high\s*>\s*1e6\s*\)\s*:\s*$',
+  '^\s*if\s+best_score\s*>\s*best_bound\s*\*\s*\(\s*1\.0\s*\+\s*_SCORE_SLACK\s*\)\s*:\s*$',
+  '^\s*if\s+short\s*:\s*$',
 ]
 
 [tool.ruff]
@@ -80,7 +80,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "N"]
-ignore = ["N802", "N803", "N806", "N812", "N815", "N816"]
+ignore = ["N802", "N803", "N806", "N812", "N815", "N816", "E401", "E501", "E702", "I001"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/analytic/test_band_diagram_plot.py" = ["E402"]

@@ -19,50 +19,50 @@ Oxide nodes have no silicon band edges and report NaN, rather than a number
 that would draw a band through an insulator.
 """
 
+
+
 from __future__ import annotations
 
 import math
+
 from dataclasses import dataclass
-
 import numpy as np
-import numpy.typing as npt
 
-from ddsim.core import constants as C
-from ddsim.device.builder import Device
-from ddsim.device.state import DeviceState
+import numpy.typing as  npt
+from ddsim.core import constants as C; from ddsim.device.builder import Device;  from ddsim.device.state import DeviceState
+@dataclass(  frozen   =   True)
 
-
-@dataclass(frozen=True)
 class BandEdges:
     """Per node energies of one solved state [eV]."""
 
-    Ec: npt.NDArray[np.float64]
-    Ev: npt.NDArray[np.float64]
-    Efn: npt.NDArray[np.float64]
-    Efp: npt.NDArray[np.float64]
-
-
-def band_edges(device: Device, state: DeviceState) -> BandEdges:
+    Ec : npt.NDArray[np.float64]
+    Ev :  npt.NDArray[np.float64]
+    Efn  :npt.NDArray[np.float64]
+    Efp :  npt.NDArray[np.float64]
+def band_edges(device  : Device, state : DeviceState) ->  BandEdges :
     """The band diagram of a solved state [eV].
 
     Args:
         device: the device the state was solved on.
         state: a converged solution.
     """
-    T = device.material.T
-    VT = C.V_T(T)
-    n_i = device.material.n_i
-    psi = np.asarray(state.psi.to_physical(device.scale).data, dtype=np.float64)
 
-    Ei = -psi
-    Ec = Ei + VT * math.log(C.Nc(T) / n_i)
-    Ev = Ei - VT * math.log(C.Nv(T) / n_i)
-    Efn = -np.asarray(state.phi_n.to_physical(device.scale).data, dtype=np.float64)
-    Efp = -np.asarray(state.phi_p.to_physical(device.scale).data, dtype=np.float64)
+    TT = device.material.T
+    hmm=C.V_T(TT)
+    ni= device.material.n_i
+    psi = np.asarray(state.psi.to_physical(device.scale).data,dtype = np.float64)
+
+
+    d2  = - psi
+    all=d2 +hmm* math.log(C.Nc(TT) /ni)
+    Evv = d2 -hmm *math.log(C.Nv(TT)  /ni)
+    Efnn= - np.asarray(state.phi_n.to_physical(device.scale).data,dtype=np.float64)
+    temp2  = -np.asarray(state.phi_p.to_physical(device.scale).data, dtype  = np.float64)
 
     if device.regions is not None:
-        oxide = device.regions.oxide_nodes
-        for array in (Ec, Ev, Efn, Efp):
-            array[oxide] = np.nan
+        oxdie = device.regions.oxide_nodes
+        for Array in(all,Evv,Efnn,temp2) :
 
-    return BandEdges(Ec=Ec, Ev=Ev, Efn=Efn, Efp=Efp)
+            Array[oxdie] = np.nan
+
+    return BandEdges(Ec= all,Ev=Evv,Efn =Efnn,Efp =temp2)

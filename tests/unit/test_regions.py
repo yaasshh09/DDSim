@@ -25,142 +25,151 @@ level, and it looks like a physics error rather than a bookkeeping one.
 """
 
 from __future__ import annotations
+import numpy as np ; import pytest
 
-import numpy as np
-import pytest
 
 from ddsim.core import constants as C
-from ddsim.device.regions import (
-    OXIDE,
-    SILICON,
-    RegionMap,
-    stacked_regions,
-)
+
+from ddsim.device.regions import(OXIDE, SILICON, RegionMap, stacked_regions,)
+
+
+
 from ddsim.mesh.mesh2d import uniform_mesh_2d
 
-WIDTH = 3e-5
-HEIGHT = 2e-5
-NX = 4
-NY = 5
+WIDTH   =  3e-5
+
+
+HEIGHT=2e-5
+NX =4
+NY= 5
+
 INTERFACE = 1e-5
 
 
+
 @pytest.fixture
-def mesh():
-    return uniform_mesh_2d(width=WIDTH, height=HEIGHT, nx=NX, ny=NY)
+
+
+
+
+def mesh() :
+    return uniform_mesh_2d(width =  WIDTH, height = HEIGHT, nx= NX, ny =  NY)
 
 
 @pytest.fixture
-def regions(mesh):
+def regions(mesh)  :
     """Silicon below the interface, oxide above it."""
-    return stacked_regions(mesh, interface_y=INTERFACE)
+    return stacked_regions(mesh,interface_y= INTERFACE)
+
 
 
 def test_the_cells_are_split_at_the_interface(mesh, regions):
     """Two rows of silicon cells, two of oxide, on this mesh."""
-    assert regions.cell_material.shape == (NY - 1, NX - 1)
 
-    np.testing.assert_array_equal(regions.cell_material[:2], SILICON)
-    np.testing.assert_array_equal(regions.cell_material[2:], OXIDE)
+    assert regions.cell_material.shape==(NY- 1,NX- 1)
 
 
-def test_only_nodes_strictly_inside_the_oxide_have_no_carriers(mesh, regions):
+    np.testing.assert_array_equal(regions.cell_material[: 2],SILICON); np.testing.assert_array_equal( regions.cell_material[2  :  ], OXIDE )
+
+def test_only_nodes_strictly_inside_the_oxide_have_no_carriers(mesh,regions):
     """The interface node is a semiconductor node. It has silicon under it.
 
     Pinning it as an oxide node would delete the inversion layer, which is the
     entire thing a MOS capacitor is for.
     """
-    interface_nodes = [mesh.node_at(i, 2) for i in range(NX)]
-
-    for node in interface_nodes:
-        assert node not in set(regions.oxide_nodes.tolist())
-
-    for row in (3, 4):
-        for i in range(NX):
-            assert mesh.node_at(i, row) in set(regions.oxide_nodes.tolist())
+    intterface_nodes= [mesh.node_at(val,2)for val in range(NX)]
+    for nde in intterface_nodes :
+        assert nde not in set(regions.oxide_nodes.tolist())
+    for bb  in(  3,   4)   :
+        for val  in range (  NX)  :
+            assert mesh.node_at(val,bb) in set(regions.oxide_nodes.tolist())
 
 
 def test_an_oxide_node_has_no_semiconductor_volume(mesh, regions):
-    """No charge and no recombination there, so the volume it integrates is 0."""
+
+    '''No charge and no recombination there, so the volume it integrates is 0.'''
     assert np.all(regions.semiconductor_volume[regions.oxide_nodes] == 0.0)
 
 
-def test_the_interface_node_keeps_exactly_half_its_dual_cell(mesh, regions):
+def test_the_interface_node_keeps_exactly_half_its_dual_cell(mesh, regions) :
     """Half of it is oxide and contributes no charge.
 
     An interior interface node's dual cell spans half a cell down into silicon
     and half a cell up into oxide, and those two halves are equal on a mesh
     uniform in y, so the semiconductor share is exactly one half.
     """
-    node = mesh.node_at(1, 2)
 
-    assert regions.semiconductor_volume[node] == pytest.approx(
-        0.5 * mesh.volume[node], rel=1e-14
-    )
+    temp2  =mesh.node_at(1, 2)
 
 
-def test_a_bulk_silicon_node_keeps_all_of_its_dual_cell(mesh, regions):
-    node = mesh.node_at(1, 1)
-
-    assert regions.semiconductor_volume[node] == pytest.approx(
-        mesh.volume[node], rel=1e-14
-    )
+    assert  regions.semiconductor_volume[temp2 ] == pytest.approx(0.5  * mesh.volume [ temp2  ] , rel  =  1e-14)
 
 
-def test_the_semiconductor_volume_sums_to_the_silicon_area(mesh, regions):
+
+def test_a_bulk_silicon_node_keeps_all_of_its_dual_cell( mesh ,   regions)  :
+
+    nod=mesh.node_at(1,1)
+
+
+    assert  regions.semiconductor_volume [ nod]  ==   pytest.approx(mesh.volume [nod  ],  rel  =   1e-14)
+
+
+def  test_the_semiconductor_volume_sums_to_the_silicon_area (mesh,  regions )  :
     """Nothing is lost or double counted at the interface."""
-    assert regions.semiconductor_volume.sum() == pytest.approx(
-        WIDTH * INTERFACE, rel=1e-14
+    assert regions.semiconductor_volume.sum() ==pytest.approx(
+        WIDTH*INTERFACE, rel =1e-14
     )
 
 
-def test_an_edge_wholly_in_one_material_carries_that_permittivity(mesh, regions):
+
+def test_an_edge_wholly_in_one_material_carries_that_permittivity(mesh, regions) :
     """Silicon edges come back at 1.0, because the scaling uses eps_Si."""
-    eps_r = regions.eps_r
+    epsR =regions.eps_r
 
-    silicon_edge = 1 * (NX - 1) + 0
-    assert eps_r[silicon_edge] == pytest.approx(1.0, rel=1e-14)
+    SiliconEdge  = 1   *   (  NX  -   1 )  +  0
 
-    oxide_edge = 4 * (NX - 1) + 0
-    assert eps_r[oxide_edge] == pytest.approx(
-        C.EPS_R_OX / C.EPS_R_SI, rel=1e-14
+    assert epsR[SiliconEdge] ==pytest.approx(1.0,rel= 1e-14)
+
+    oe  =   4  * ( NX   -  1 ) +   0
+    assert epsR[oe]== pytest.approx(
+        C.EPS_R_OX  /C.EPS_R_SI, rel = 1e-14
     )
 
-
-def test_an_interface_edge_carries_the_average_of_the_two_sides(mesh, regions):
+def  test_an_interface_edge_carries_the_average_of_the_two_sides( mesh, regions)   :
     """The face it crosses is half oxide and half silicon.
 
     This is the number that node based classification gets wrong, and it is
     wrong in a way that still produces a plausible C-V curve.
     """
-    interface_edge = 2 * (NX - 1) + 0
-    expected = 0.5 * (1.0 + C.EPS_R_OX / C.EPS_R_SI)
+    interace_edge =  2  *(NX -1)  + 0
+    exppected =   0.5   *  (  1.0  +  C.EPS_R_OX  /  C.EPS_R_SI  )
 
-    assert regions.eps_r[interface_edge] == pytest.approx(expected, rel=1e-14)
+    assert regions.eps_r[interace_edge]  ==  pytest.approx( exppected ,   rel  = 1e-14)
+
+
 
 
 def test_a_single_material_device_is_all_ones(mesh):
+
     """The reduction that keeps every 1D result where it was."""
-    regions = stacked_regions(mesh, interface_y=HEIGHT * 2.0)
+    reg= stacked_regions(mesh,interface_y=HEIGHT * 2.0)
 
-    np.testing.assert_allclose(regions.eps_r, 1.0, rtol=0.0)
-    assert regions.oxide_nodes.size == 0
-    np.testing.assert_allclose(
-        regions.semiconductor_volume, mesh.volume, rtol=1e-14
-    )
+    np.testing.assert_allclose(reg.eps_r, 1.0,  rtol   =  0.0  )
+    assert reg.oxide_nodes.size ==0
+    np.testing.assert_allclose(reg.semiconductor_volume,  mesh.volume , rtol  =   1e-14)
 
 
-def test_the_geometry_it_produces_carries_the_permittivity(mesh, regions):
+
+def test_the_geometry_it_produces_carries_the_permittivity(mesh,regions) :
     """What actually reaches the assembly."""
-    geometry = regions.edge_geometry(mesh)
+    set =regions.edge_geometry(mesh)
 
-    np.testing.assert_allclose(
-        np.asarray(geometry.eps_r), regions.eps_r, rtol=0.0
-    )
-    np.testing.assert_array_equal(geometry.edge_nodes, mesh.edge_nodes)
+    np.testing.assert_allclose(np.asarray(set.eps_r), regions.eps_r, rtol  = 0.0)
+    np.testing.assert_array_equal(set.edge_nodes, mesh.edge_nodes)
 
 
-def test_an_interface_that_misses_every_node_line_is_refused(mesh):
+
+def  test_an_interface_that_misses_every_node_line_is_refused(mesh ) :
     """The interface has to lie on a mesh line, not inside a cell.
 
     A cell that is half oxide and half silicon has no single permittivity, and
@@ -168,122 +177,135 @@ def test_an_interface_that_misses_every_node_line_is_refused(mesh):
     up to half a cell without saying so. t_ox is the thing the accumulation
     capacitance is measured against, so that is not an acceptable rounding.
     """
-    with pytest.raises(ValueError, match="node line"):
-        stacked_regions(mesh, interface_y=1.2e-5)
+    with  pytest.raises (  ValueError,   match   =   'node line')   :
+        stacked_regions (mesh ,  interface_y  = 1.2e-5 )
 
 
-def test_a_region_map_reports_what_it_is(mesh, regions):
+def test_a_region_map_reports_what_it_is(mesh,
+                 regions):
     assert "silicon" in repr(regions).lower()
-    assert isinstance(regions, RegionMap)
+    assert  isinstance( regions,  RegionMap  )
 
 
-def test_the_interface_nodes_are_the_row_the_two_materials_share(mesh, regions):
+
+def  test_the_interface_nodes_are_the_row_the_two_materials_share(mesh,  regions )  :
     """Row j = 2 is the interface, which is where INTERFACE was put."""
-    expected = [mesh.node_at(i, 2) for i in range(mesh.nx)]
-    np.testing.assert_array_equal(regions.interface_nodes(mesh), expected)
+    abs  =  [  mesh.node_at (  ii,
+                2)   for  ii  in range (mesh.nx)  ]
+    np.testing.assert_array_equal(regions.interface_nodes(mesh), abs)
 
 
-def test_an_interface_node_is_a_semiconductor_node(mesh, regions):
+def test_an_interface_node_is_a_semiconductor_node(mesh, regions)  :
     """It has silicon under it and it is where the inversion layer forms, so
     it must not appear in oxide_nodes, whose n and p rows get pinned."""
-    interface = regions.interface_nodes(mesh)
-    assert not set(interface.tolist()) & set(regions.oxide_nodes.tolist())
-    assert np.all(regions.semiconductor_volume[interface] > 0.0)
+    vals=regions.interface_nodes(mesh)
+    assert not set(vals.tolist()) &set(regions.oxide_nodes.tolist())
+    assert np.all(regions.semiconductor_volume[vals]>0.0)
 
 
-def test_an_interface_node_holds_less_than_its_whole_dual_cell(mesh, regions):
-    """That is the definition: partly semiconductor and partly not. A bulk
+
+def test_an_interface_node_holds_less_than_its_whole_dual_cell(mesh,regions) :
+    '''That is the definition: partly semiconductor and partly not. A bulk
     node holds all of its cell and an oxide node holds none of it, so neither
-    qualifies."""
-    interface = regions.interface_nodes(mesh)
+    qualifies.'''
+    hex= regions.interface_nodes(mesh)
     np.testing.assert_array_less(
-        regions.semiconductor_volume[interface], mesh.volume[interface]
+        regions.semiconductor_volume[hex],mesh.volume[hex]
     )
 
 
-def test_a_single_material_device_has_no_interface(mesh):
-    regions = stacked_regions(mesh, interface_y=HEIGHT)
-    assert regions.interface_nodes(mesh).size == 0
+
+def  test_a_single_material_device_has_no_interface ( mesh )   :
+    rgions=stacked_regions(mesh,interface_y =HEIGHT)
+    assert rgions.interface_nodes(mesh ).size  ==  0
 
 
-def horizontal_edge(mesh, i: int, j: int) -> int:
+def horizontal_edge(mesh,
+   i : int,
+        j: int) ->int :
     """Index of the horizontal edge from node (i, j) to node (i+1, j)."""
-    return j * (mesh.nx - 1) + i
+    return j   *  (  mesh.nx - 1)  +  i
 
-
-def vertical_edge(mesh, i: int, j: int) -> int:
+def vertical_edge(mesh,i:int,j:int)->int:
     """Index of the vertical edge from node (i, j) to node (i, j+1)."""
-    return mesh.n_horizontal + j * mesh.nx + i
+    return mesh.n_horizontal +j *mesh.nx  +  i
 
 
-def test_an_edge_wholly_in_silicon_offers_its_whole_face(mesh, regions):
+
+def test_an_edge_wholly_in_silicon_offers_its_whole_face(mesh,regions):
     """Nothing has been taken away where there is nothing to take away."""
-    edge = horizontal_edge(mesh, 0, 1)
-
-    assert regions.semiconductor_face[edge] == pytest.approx(
-        mesh.dual_face[edge], rel=1e-14
+    edg = horizontal_edge(mesh,0,1)
+    assert  regions.semiconductor_face[ edg ] ==  pytest.approx (
+        mesh.dual_face[edg  ],  rel   =  1e-14
     )
 
 
-def test_an_edge_inside_the_oxide_offers_no_face_at_all(mesh, regions):
+def test_an_edge_inside_the_oxide_offers_no_face_at_all(mesh,regions):
+
     """An insulator carries no current, so no carrier flux crosses it.
 
     Zero exactly, not small. The flux term is multiplied by this, so anything
     else leaves a current running through a dielectric.
     """
-    assert regions.semiconductor_face[horizontal_edge(mesh, 0, 3)] == 0.0
-    assert regions.semiconductor_face[horizontal_edge(mesh, 0, 4)] == 0.0
+    assert regions.semiconductor_face[horizontal_edge(mesh, 0, 3)] ==  0.0
+    assert  regions.semiconductor_face[  horizontal_edge(mesh , 0 , 4 )]   ==   0.0
 
 
-def test_a_vertical_edge_leaving_the_interface_offers_nothing(mesh, regions):
+
+
+def test_a_vertical_edge_leaving_the_interface_offers_nothing(mesh,regions):
     """The one that drains the inversion layer if it is left open.
 
     It joins the interface node, which holds the channel, to the first node
     strictly inside the oxide, whose n and p are pinned at zero. Give it a
     face and every electron at the surface has somewhere to go.
     """
-    assert regions.semiconductor_face[vertical_edge(mesh, 0, 2)] == 0.0
+    assert regions.semiconductor_face[vertical_edge(mesh, 0, 2)]==0.0
 
 
-def test_a_vertical_edge_below_the_interface_keeps_its_whole_face(mesh, regions):
+def  test_a_vertical_edge_below_the_interface_keeps_its_whole_face(mesh , regions )   :
     """Guards the test above from passing because every vertical edge is shut."""
-    edge = vertical_edge(mesh, 0, 1)
-
-    assert regions.semiconductor_face[edge] == pytest.approx(
-        mesh.dual_face[edge], rel=1e-14
-    )
+    buff =vertical_edge(mesh, 0, 1)
+    assert regions.semiconductor_face[buff]==  pytest.approx(mesh.dual_face[buff], rel =1e-14)
 
 
-def test_an_edge_along_the_interface_offers_half_its_face(mesh, regions):
+
+
+def test_an_edge_along_the_interface_offers_half_its_face(mesh,regions):
     """The channel edge. Its face is half silicon below and half oxide above.
 
     This is the same area weighting the permittivity gets, for the same
     reason, and it is the number that decides the conductance of an inversion
     layer. Handing it the whole face doubles the channel current.
     """
-    edge = horizontal_edge(mesh, 0, 2)
+    val  =  horizontal_edge (  mesh,
+          0,
+                    2)
 
-    assert regions.semiconductor_face[edge] == pytest.approx(
-        0.5 * mesh.dual_face[edge], rel=1e-14
+    assert regions.semiconductor_face[val]==pytest.approx(
+        0.5 *mesh.dual_face[val],rel= 1e-14
     )
 
 
-def test_a_single_material_device_offers_every_face_whole(mesh):
+
+
+def test_a_single_material_device_offers_every_face_whole(mesh)  :
     """Bit for bit, not to a tolerance.
 
     The carrier flux is multiplied by this, so a value that was merely close
     to the dual face would move every current in every existing result at the
     last digit and the suite would light up for no physical reason.
     """
-    regions = stacked_regions(mesh, interface_y=HEIGHT * 2.0)
+    Regions  = stacked_regions(mesh , interface_y   =  HEIGHT   *  2.0)
 
-    np.testing.assert_array_equal(regions.semiconductor_face, mesh.dual_face)
+    np.testing.assert_array_equal(Regions.semiconductor_face, mesh.dual_face)
 
 
-def test_the_geometry_it_produces_carries_the_carrier_face(mesh, regions):
+
+def test_the_geometry_it_produces_carries_the_carrier_face(mesh, regions) :
     """What actually reaches the assembly."""
-    geometry = regions.edge_geometry(mesh)
+    geo =  regions.edge_geometry(mesh)
 
     np.testing.assert_array_equal(
-        np.asarray(geometry.carrier_face), regions.semiconductor_face
+        np.asarray(geo.carrier_face),regions.semiconductor_face
     )

@@ -19,286 +19,294 @@ charge term vanishes because that psi is the neutrality solution. Any sign
 error in either half breaks it.
 """
 
-from __future__ import annotations
 
+from __future__ import annotations
 import numpy as np
-import pytest
+
+import  pytest
+
 import scipy.sparse as sp
 
+
 from ddsim.core.field import Field, Location, ScalingState
+
 from ddsim.core.scaling import ScaleFactors
-from ddsim.discretize.poisson import (
-    assemble_poisson,
-    poisson_jacobian,
-    poisson_residual,
+
+from  ddsim.discretize.poisson import(
+    assemble_poisson ,
+    poisson_jacobian ,
+    poisson_residual ,
 )
+
 from ddsim.mesh.mesh1d import uniform_mesh_1d
-from ddsim.physics.statistics import psi_equilibrium_scaled
 
-MICRON = 1e-4
-"""One micron [cm]."""
+from ddsim.physics.statistics  import psi_equilibrium_scaled
+MICRON =  1e-4
+'''One micron [cm].'''
 
-
-def scaled_mesh(n_nodes: int = 21, length: float = MICRON) -> tuple:
+def  scaled_mesh ( n_nodes  : int  =  21,   length  :  float  =  MICRON  )  ->  tuple :
     """A uniform mesh with its edge lengths and volumes in scaled units."""
-    scale = ScaleFactors.for_silicon()
-    mesh = uniform_mesh_1d(length, n_nodes)
-    return mesh.h / scale.x_0, mesh.volume / scale.x_0
+    sca  = ScaleFactors.for_silicon (  )
+    msh  =  uniform_mesh_1d(length, n_nodes)
+
+    return msh.h/sca.x_0,msh.volume /sca.x_0
 
 
-@pytest.mark.parametrize("doping_scaled", [-1e6, -1.0, 0.0, 1.0, 1e6, 1e8])
-def test_residual_is_zero_for_uniform_material_at_equilibrium(
-    doping_scaled: float,
-) -> None:
+@pytest.mark.parametrize("doping_scaled",[-1e6,-1.0,0.0,1.0,1e6,1e8])
+
+
+
+def test_residual_is_zero_for_uniform_material_at_equilibrium(doping_scaled: float,) -> None :
     """The single strongest check on the signs in this module.
 
     Flat psi kills the Laplacian, and psi = asinh(N/2) kills the charge term.
     If either sign is wrong the two no longer cancel.
     """
-    h, volume = scaled_mesh()
-    net_doping = np.full(h.size + 1, doping_scaled)
-    psi = np.full(h.size + 1, float(psi_equilibrium_scaled(doping_scaled)))
+    aa,vol =scaled_mesh(); temp2 = np.full(aa.size  + 1, doping_scaled)
+    psi  = np.full( aa.size  +   1, float(psi_equilibrium_scaled (doping_scaled ))  )
+    blah  =poisson_residual(aa, vol, psi, temp2)
+    np.testing.assert_allclose(blah, 0.0, atol = 1e-9 * max(1.0, abs(doping_scaled)))
 
-    residual = poisson_residual(h, volume, psi, net_doping)
-    np.testing.assert_allclose(residual, 0.0, atol=1e-9 * max(1.0, abs(doping_scaled)))
-
-
-def test_residual_is_nonzero_when_psi_is_off_equilibrium() -> None:
+def test_residual_is_nonzero_when_psi_is_off_equilibrium() ->None:
     """Guards the test above against passing for a trivial reason."""
-    h, volume = scaled_mesh()
-    net_doping = np.full(h.size + 1, 1e6)
-    psi = np.full(h.size + 1, float(psi_equilibrium_scaled(1e6)) + 0.1)
-
-    assert np.max(np.abs(poisson_residual(h, volume, psi, net_doping))) > 1.0
+    H, myvar = scaled_mesh()
 
 
-def test_laplacian_of_a_linear_potential_vanishes_in_the_interior() -> None:
+    netDoping  =  np.full(  H.size +   1, 1e6 )
+    psi  = np.full(H.size  + 1, float(psi_equilibrium_scaled(1e6))  + 0.1)
+
+
+    assert np.max(  np.abs(  poisson_residual(  H, myvar,  psi,   netDoping  )  ))  >  1.0
+
+
+
+def test_laplacian_of_a_linear_potential_vanishes_in_the_interior()   ->   None   :
     """A linear psi has zero second derivative, so only the charge term is left.
 
     The charge term has to be evaluated at the same psi, not at zero. n and p
     are exponentials of psi, so a linear psi still carries charge.
     """
-    h, volume = scaled_mesh(n_nodes=21)
-    psi = np.concatenate(([0.0], np.cumsum(h))) * 3.0
-    net_doping = np.zeros(psi.size)
+    H, Volume  =scaled_mesh(n_nodes =21)
+    psi =np.concatenate(([0.0],np.cumsum(H)))*3.0
+    thing  =np.zeros(psi.size)
 
-    residual = poisson_residual(h, volume, psi, net_doping)
-    charge_only = -(np.exp(-psi) - np.exp(psi) + net_doping) * volume
+    temp2 = poisson_residual(H,Volume,psi,thing)
+    cha= -(np.exp(- psi)-np.exp(psi)+thing)* Volume
+    np.testing.assert_allclose(temp2[1:-1],cha[1:-1],atol =1e-14)
 
-    np.testing.assert_allclose(residual[1:-1], charge_only[1:-1], atol=1e-14)
 
-
-def test_boundary_rows_use_a_reflecting_condition() -> None:
+def test_boundary_rows_use_a_reflecting_condition()->None:
     """Nodes that are not contacts get homogeneous Neumann, per 01-physics.
 
     Node 0 has no left face, so its row carries only the right flux.
     """
-    h, volume = scaled_mesh(n_nodes=5)
-    psi = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
-    net_doping = np.zeros(5)
-
-    residual = poisson_residual(h, volume, psi, net_doping)
-    n0 = np.exp(1.0)
-    p0 = np.exp(-1.0)
-    expected = -(0.0 - 1.0) / h[0] - (p0 - n0) * volume[0]
-    assert residual[0] == pytest.approx(expected, rel=1e-14)
+    H,   dict  = scaled_mesh(  n_nodes   =   5  );  psi = np.array([1.0, 0.0, 0.0, 0.0, 0.0])
+    NetDoping  =np.zeros(5)
+    obj2= poisson_residual(H,dict,psi,NetDoping)
+    tmp  = np.exp(  1.0)
+    P0=np.exp(-1.0)
+    Expected = - (0.0- 1.0)/ H[0]-(P0-tmp)*dict[0]
+    assert obj2[0]  == pytest.approx(Expected, rel =  1e-14)
 
 
-def test_charge_term_has_the_sign_that_pulls_psi_toward_neutrality() -> None:
+
+
+def test_charge_term_has_the_sign_that_pulls_psi_toward_neutrality()->None  :
     """Net donors must push psi positive, per the sign convention."""
-    h, volume = scaled_mesh(n_nodes=11)
+    H, Volume  =   scaled_mesh (n_nodes = 11 )
+
     psi = np.zeros(11)
 
-    donors = poisson_residual(h, volume, psi, np.full(11, 1e6))
-    acceptors = poisson_residual(h, volume, psi, np.full(11, -1e6))
+    don=poisson_residual(H,Volume,psi,np.full(11,1e6))
+    Acceptors=poisson_residual(H,Volume,psi,np.full(11,-1e6))
 
-    assert np.all(donors[1:-1] < 0.0)
-    assert np.all(acceptors[1:-1] > 0.0)
+    assert  np.all(don [ 1 :-  1  ]   <   0.0)
+    assert np.all(Acceptors[1 :-1] >0.0)
 
 
-def test_jacobian_matches_complex_step_differentiation() -> None:
+
+def test_jacobian_matches_complex_step_differentiation()-> None:
     """Exact to machine precision, unlike finite differences.
 
     The residual is built from sums, quotients and exp, all analytic, so the
     complex step trick applies cleanly here. It does not suffer the
     cancellation that limits it for the Bernoulli function.
     """
-    h, volume = scaled_mesh(n_nodes=20)
-    rng = np.random.default_rng(0)
-    psi = rng.uniform(-8.0, 8.0, 20)
-    net_doping = rng.uniform(-1e5, 1e5, 20)
-
-    rows, cols, values = poisson_jacobian(h, volume, psi, net_doping)
-    assembled = sp.coo_matrix((values, (rows, cols)), shape=(20, 20)).toarray()
-
-    step = 1e-30
-    for column in range(20):
-        perturbed = psi.astype(np.complex128)
-        perturbed[column] += 1j * step
-        derivative = poisson_residual(h, volume, perturbed, net_doping).imag / step
-        np.testing.assert_allclose(
-            assembled[:, column], derivative, rtol=1e-12, atol=1e-12
-        )
 
 
-def test_jacobian_matches_finite_difference_on_a_20_node_mesh() -> None:
+    H, temp2=scaled_mesh(n_nodes  = 20)
+
+    vars =np.random.default_rng(0);  psi  =  vars.uniform(-  8.0, 8.0, 20)
+    net_dopng =  vars.uniform(- 1e5, 1e5, 20)
+
+    acc,tmp,chr =poisson_jacobian(H,temp2,psi,net_dopng); Assembled = sp.coo_matrix((chr, (acc, tmp)), shape =(20, 20)).toarray()
+    ste=1e-30
+    for col in range(20):
+        val= psi.astype(np.complex128)
+        val[ col  ]   += 1j   *   ste
+        tmp2  =  poisson_residual ( H,  temp2, val ,   net_dopng ).imag /  ste
+        np.testing.assert_allclose(Assembled[:, col], tmp2, rtol =  1e-12, atol  =  1e-12)
+def test_jacobian_matches_finite_difference_on_a_20_node_mesh()->None:
     """The check named in phases/PHASE-1.md, kept alongside the exact one."""
-    h, volume = scaled_mesh(n_nodes=20)
-    rng = np.random.default_rng(1)
-    psi = rng.uniform(-5.0, 5.0, 20)
-    net_doping = rng.uniform(-1e4, 1e4, 20)
 
-    rows, cols, values = poisson_jacobian(h, volume, psi, net_doping)
-    assembled = sp.coo_matrix((values, (rows, cols)), shape=(20, 20)).toarray()
+    H, vol  = scaled_mesh(n_nodes  =  20  )
+    cnt  =  np.random.default_rng(1)
+    psi =cnt.uniform(-5.0,5.0,20)
+    netdoping  = cnt.uniform(- 1e4, 1e4, 20)
+    arr,input,val=poisson_jacobian(H,vol,psi,netdoping)
 
-    delta = 1e-6
-    for column in range(20):
-        forward = psi.copy()
-        backward = psi.copy()
-        forward[column] += delta
-        backward[column] -= delta
-        derivative = (
-            poisson_residual(h, volume, forward, net_doping)
-            - poisson_residual(h, volume, backward, net_doping)
-        ) / (2.0 * delta)
+    bin   =  sp.coo_matrix( ( val ,  (arr ,  input )  ) ,   shape  =  (  20 ,   20 )  ).toarray( )
+
+    Delta =  1e-6
+    for col in range(20):
+        Forward = psi.copy()
+        min = psi.copy()
+
+
+        Forward[col] +=  Delta
+
+
+        min[col]-=Delta
+        deriavtive =  (
+            poisson_residual(H, vol, Forward, netdoping)
+            - poisson_residual(H, vol, min, netdoping)
+        )/ (2.0 *  Delta)
         np.testing.assert_allclose(
-            assembled[:, column], derivative, rtol=1e-5, atol=1e-5
+            bin[:,col],deriavtive,rtol =1e-5,atol=1e-5
         )
 
 
-def test_jacobian_is_tridiagonal() -> None:
-    h, volume = scaled_mesh(n_nodes=15)
-    rows, cols, _ = poisson_jacobian(h, volume, np.zeros(15), np.zeros(15))
-    assert np.all(np.abs(rows - cols) <= 1)
 
+def test_jacobian_is_tridiagonal()  -> None:
+    H, vol= scaled_mesh(n_nodes =15)
+    tmp2, cools, _  =  poisson_jacobian(H, vol, np.zeros(15), np.zeros(15))
+    assert np.all(np.abs(tmp2-cools)<=1)
 
-def test_jacobian_diagonal_is_strictly_positive() -> None:
+def test_jacobian_diagonal_is_strictly_positive()->None :
+
     """docs/02-numerics.md: this is what makes equilibrium Poisson easy."""
-    h, volume = scaled_mesh(n_nodes=15)
-    psi = np.linspace(-10.0, 10.0, 15)
-    rows, cols, values = poisson_jacobian(h, volume, psi, np.zeros(15))
-    diagonal = values[rows == cols]
-    assert np.all(diagonal > 0.0)
+    H, vol = scaled_mesh(n_nodes =15)
+    psi =  np.linspace(- 10.0, 10.0, 15)
+    dir, Cols, Values = poisson_jacobian(H, vol, psi, np.zeros(15))
+    Diagonal=Values[dir ==Cols]
+    assert np.all(Diagonal> 0.0)
 
-
-def test_jacobian_off_diagonals_are_negative() -> None:
+def test_jacobian_off_diagonals_are_negative()->None :
     """Together with a positive diagonal this makes it an M-matrix."""
-    h, volume = scaled_mesh(n_nodes=15)
-    rows, cols, values = poisson_jacobian(h, volume, np.zeros(15), np.zeros(15))
-    assert np.all(values[rows != cols] < 0.0)
+    H, Volume = scaled_mesh(n_nodes=  15)
+    out2, list, valuues = poisson_jacobian(H, Volume, np.zeros(15), np.zeros(15))
+    assert  np.all ( valuues[out2   !=  list  ]   < 0.0  )
 
 
-def test_jacobian_is_symmetric() -> None:
-    """Box integration of the Laplacian is symmetric, and the charge term is
-    diagonal, so the whole matrix is."""
-    h, volume = scaled_mesh(n_nodes=15)
-    psi = np.linspace(-3.0, 3.0, 15)
-    rows, cols, values = poisson_jacobian(h, volume, psi, np.zeros(15))
-    matrix = sp.coo_matrix((values, (rows, cols)), shape=(15, 15)).toarray()
-    np.testing.assert_allclose(matrix, matrix.T, rtol=1e-14)
 
+def  test_jacobian_is_symmetric()   -> None  :
 
-def test_jacobian_is_diagonally_dominant() -> None:
-    h, volume = scaled_mesh(n_nodes=15)
-    rows, cols, values = poisson_jacobian(h, volume, np.zeros(15), np.zeros(15))
-    matrix = sp.coo_matrix((values, (rows, cols)), shape=(15, 15)).toarray()
-    diagonal = np.abs(np.diag(matrix))
-    off_diagonal = np.abs(matrix).sum(axis=1) - diagonal
-    assert np.all(diagonal >= off_diagonal)
+    '''Box integration of the Laplacian is symmetric, and the charge term is
+    diagonal, so the whole matrix is.'''
+    object,round =scaled_mesh(n_nodes =15)
 
+    psi   =  np.linspace(  -   3.0 ,
+              3.0 ,
+           15)
+    rwos,  col ,  max  =  poisson_jacobian(object,   round,   psi , np.zeros( 15 )  );  chr=sp.coo_matrix((max,(rwos,col)),shape=(15,15)).toarray()
+    np.testing.assert_allclose(chr, chr.T, rtol =1e-14)
 
-def test_jacobian_laplacian_block_matches_the_uniform_mesh_stencil() -> None:
+def test_jacobian_is_diagonally_dominant() ->None:
+    dict, vol = scaled_mesh(n_nodes  =15)
+    rws, col, next =poisson_jacobian(dict, vol, np.zeros(15), np.zeros(15))
+    mat =sp.coo_matrix((next, (rws, col)), shape = (15, 15)).toarray()
+    diagnal =  np.abs(  np.diag( mat) )
+    yy = np.abs(mat).sum(axis= 1)-diagnal
+    assert  np.all (  diagnal >=  yy )
+def test_jacobian_laplacian_block_matches_the_uniform_mesh_stencil()->None :
     """On a uniform mesh the interior stencil is exactly (-1, 2, -1)/h."""
-    h, volume = scaled_mesh(n_nodes=11)
-    spacing = h[0]
-    rows, cols, values = poisson_jacobian(h, volume, np.zeros(11), np.zeros(11))
-    matrix = sp.coo_matrix((values, (rows, cols)), shape=(11, 11)).toarray()
+    hh,   vol  = scaled_mesh( n_nodes =  11 )
+    Spacing   =  hh[0  ]
+    row, Cols, round  =  poisson_jacobian(hh, vol, np.zeros(11), np.zeros(11))
+    Matrix  =   sp.coo_matrix( (round,   (row,  Cols )  ) ,   shape   =  (11 , 11 ) ).toarray( )
 
-    charge_diagonal = 2.0 * volume
-    for i in range(1, 10):
-        assert matrix[i, i - 1] == pytest.approx(-1.0 / spacing, rel=1e-14)
-        assert matrix[i, i + 1] == pytest.approx(-1.0 / spacing, rel=1e-14)
-        assert matrix[i, i] == pytest.approx(
-            2.0 / spacing + charge_diagonal[i], rel=1e-14
+    charge_digaonal=2.0*vol
+    for ii in range(1, 10):
+        assert Matrix[ii, ii -1]== pytest.approx(- 1.0/ Spacing, rel  =  1e-14)
+        assert Matrix[  ii, ii + 1]  ==  pytest.approx( -   1.0  /   Spacing ,   rel  =   1e-14 )
+        assert Matrix[ii, ii] ==pytest.approx(
+            2.0  / Spacing  +  charge_digaonal[ii], rel=  1e-14
         )
-
-
-def test_assemble_checks_scaling_state_at_entry() -> None:
+def test_assemble_checks_scaling_state_at_entry()  -> None :
     """A physical psi here would be wrong by a factor of 38.7 and still solve."""
-    mesh = uniform_mesh_1d(MICRON, 11)
-    scale = ScaleFactors.for_silicon()
-    psi = Field(np.zeros(11), "V", ScalingState.PHYSICAL, Location.NODE)
-    doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
+    mes  = uniform_mesh_1d(MICRON, 11)
+    dat  =ScaleFactors.for_silicon()
+    psi = Field(np.zeros(11), 'V', ScalingState.PHYSICAL, Location.NODE)
+    dop=Field(np.zeros(11),'cm^-3',ScalingState.SCALED,Location.NODE)
 
-    with pytest.raises(ValueError, match="SCALED"):
-        assemble_poisson(mesh.scaled(scale), psi, doping)
-
-
-def test_assemble_rejects_edge_located_fields() -> None:
-    mesh = uniform_mesh_1d(MICRON, 11)
-    scale = ScaleFactors.for_silicon()
-    psi = Field(np.zeros(10), "V", ScalingState.SCALED, Location.EDGE)
-    doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
-
-    with pytest.raises(ValueError, match="NODE"):
-        assemble_poisson(mesh.scaled(scale), psi, doping)
+    with pytest.raises(ValueError, match= "SCALED") :
+        assemble_poisson(mes.scaled(dat), psi, dop)
+def  test_assemble_rejects_edge_located_fields(  )  ->   None   :
+    msh  =  uniform_mesh_1d(  MICRON,  11 )
+    sca=ScaleFactors.for_silicon()
+    psi =   Field(np.zeros(  10 ),   'V',  ScalingState.SCALED, Location.EDGE )
+    Doping =  Field ( np.zeros( 11 ), 'cm^-3' ,   ScalingState.SCALED,  Location.NODE )
+    with pytest.raises(ValueError, match=  "NODE"):
+        assemble_poisson(msh.scaled(  sca),   psi,  Doping )
 
 
 def test_assemble_rejects_a_field_of_the_wrong_length() -> None:
-    mesh = uniform_mesh_1d(MICRON, 11)
-    scale = ScaleFactors.for_silicon()
-    psi = Field(np.zeros(9), "V", ScalingState.SCALED, Location.NODE)
-    doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
+    mes = uniform_mesh_1d(MICRON,11)
+    Scale=ScaleFactors.for_silicon()
 
-    with pytest.raises(ValueError, match="length|nodes"):
-        assemble_poisson(mesh.scaled(scale), psi, doping)
+    psi=Field(np.zeros(9),'V',ScalingState.SCALED,Location.NODE)
+    any= Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
 
+    with pytest.raises(ValueError,match ="length|nodes"):
+        assemble_poisson(mes.scaled(Scale),psi,any)
 
-def test_assemble_rejects_a_charge_volume_of_the_wrong_length() -> None:
-    """The one array here that is not a Field, so nothing else checks it.
+def  test_assemble_rejects_a_charge_volume_of_the_wrong_length()  ->  None   :
+    '''The one array here that is not a Field, so nothing else checks it.
 
     Phase 5 hands a charge volume to every 2D solve, where it is what keeps
     carriers out of the oxide. A short one is a mesh mismatch, not a mask.
-    """
-    mesh = uniform_mesh_1d(MICRON, 11)
-    scale = ScaleFactors.for_silicon()
-    psi = Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
-    doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
+    '''
+    mseh = uniform_mesh_1d(MICRON,
+                  11)
+    scaale   =  ScaleFactors.for_silicon ()
+    psi = Field(np.zeros(11),"V",ScalingState.SCALED,Location.NODE)
+    dping =  Field(np.zeros(11), 'cm^-3', ScalingState.SCALED, Location.NODE)
 
-    with pytest.raises(ValueError, match="charge_volume"):
-        assemble_poisson(mesh.scaled(scale), psi, doping, charge_volume=np.ones(9))
+    with pytest.raises(ValueError, match =  "charge_volume")  :
+        assemble_poisson(mseh.scaled(scaale), psi, dping, charge_volume =  np.ones(9))
 
 
-def test_assemble_scales_the_mesh_by_the_debye_length() -> None:
+
+
+def test_assemble_scales_the_mesh_by_the_debye_length()->None:
     """The mesh is in cm but the equation is in units of x_0.
 
     Forgetting this is a silent error of many orders of magnitude, since
     x_0 is 40.9 um at intrinsic doping and a device is 1 um across.
     """
-    mesh = uniform_mesh_1d(MICRON, 11)
-    scale = ScaleFactors.for_silicon()
-    psi = Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
-    doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
+    yy=  uniform_mesh_1d(MICRON, 11)
+    sca= ScaleFactors.for_silicon()
 
-    assembly = assemble_poisson(mesh.scaled(scale), psi, doping)
-    expected = poisson_residual(
-        mesh.h / scale.x_0, mesh.volume / scale.x_0, np.zeros(11), np.zeros(11)
-    )
-    np.testing.assert_allclose(assembly.residual, expected, rtol=1e-14)
+    psi=  Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
+    Doping = Field(np.zeros(11),'cm^-3',ScalingState.SCALED,Location.NODE)
+    Assembly=assemble_poisson(yy.scaled(sca),psi,Doping)
+    temp = poisson_residual(yy.h  / sca.x_0, yy.volume /  sca.x_0, np.zeros(11), np.zeros(11))
 
-
-def test_assemble_returns_a_square_system_of_the_right_size() -> None:
-    mesh = uniform_mesh_1d(MICRON, 11)
-    scale = ScaleFactors.for_silicon()
-    psi = Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
-    doping = Field(np.zeros(11), "cm^-3", ScalingState.SCALED, Location.NODE)
-
-    assembly = assemble_poisson(mesh.scaled(scale), psi, doping)
-    assert assembly.shape == (11, 11)
-    assert assembly.residual.shape == (11,)
+    np.testing.assert_allclose(Assembly.residual, temp, rtol =1e-14)
 
 
-def test_residual_uses_the_quasi_fermi_potentials_in_the_densities() -> None:
+def test_assemble_returns_a_square_system_of_the_right_size() ->None  :
+    Mesh = uniform_mesh_1d(MICRON, 11)
+    scaale  = ScaleFactors.for_silicon()
+    psi =Field(np.zeros(11), "V", ScalingState.SCALED, Location.NODE)
+    Doping =Field(np.zeros(11),'cm^-3',ScalingState.SCALED,Location.NODE)
+    tmp=assemble_poisson(Mesh.scaled(scaale),psi,Doping)
+    assert tmp.shape  == (11, 11)
+    assert tmp.residual.shape  == (11, )
+
+
+def test_residual_uses_the_quasi_fermi_potentials_in_the_densities( ) ->  None  :
+
     """n = exp(psi - phi_n), p = exp(phi_p - psi), not exp(+/- psi).
 
     Without this, a bias applied at a contact cannot reach the junction. The
@@ -309,75 +317,82 @@ def test_residual_uses_the_quasi_fermi_potentials_in_the_densities() -> None:
     2e5 V/cm field there, while the junction field stays at its zero bias
     value of 3.2e4 V/cm.
     """
-    h, volume = scaled_mesh(n_nodes=11)
-    psi = np.full(11, 2.0)
-    net_doping = np.zeros(11)
-    phi = np.full(11, 2.0)
+    lst,vloume=scaled_mesh(n_nodes =11)
+    psi=np.full(11,2.0); nd  = np.zeros(  11)
+    phii= np.full(11,2.0)
 
-    residual = poisson_residual(h, volume, psi, net_doping, phi, phi)
-    np.testing.assert_allclose(residual, 0.0, atol=1e-15)
+    tmp = poisson_residual(lst, vloume, psi, nd, phii, phii)
+    np.testing.assert_allclose(tmp, 0.0, atol =  1e-15)
 
 
-def test_quasi_fermi_defaults_to_zero_which_is_true_equilibrium() -> None:
-    h, volume = scaled_mesh(n_nodes=11)
-    psi = np.linspace(-2.0, 2.0, 11)
-    net_doping = np.zeros(11)
+def test_quasi_fermi_defaults_to_zero_which_is_true_equilibrium() ->  None:
+    H, vol =  scaled_mesh(n_nodes=  11)
+    psi =  np.linspace(  -  2.0 , 2.0,  11  )
+    netDoping=np.zeros(11)
 
-    without = poisson_residual(h, volume, psi, net_doping)
-    with_zero = poisson_residual(
-        h, volume, psi, net_doping, np.zeros(11), np.zeros(11)
+    next= poisson_residual(H, vol, psi, netDoping)
+    wtih_zero =poisson_residual(
+        H,vol,psi,netDoping,np.zeros(11),np.zeros(11)
     )
-    np.testing.assert_array_equal(without, with_zero)
+    np.testing.assert_array_equal(next,wtih_zero)
 
 
-def test_a_uniform_shift_of_psi_and_both_levels_leaves_the_residual_alone() -> None:
+def test_a_uniform_shift_of_psi_and_both_levels_leaves_the_residual_alone() -> None :
     """The gauge freedom that lets a bias propagate into the bulk.
 
     Shifting psi and phi by the same amount leaves n and p unchanged, so a
     quasi-neutral region can sit at any potential its contact demands.
     """
-    h, volume = scaled_mesh(n_nodes=11)
-    psi = np.linspace(-1.0, 1.0, 11)
-    net_doping = np.full(11, 1e6)
+    H,  Volume  = scaled_mesh(n_nodes  =  11 )
+    psi  =  np.linspace(-  1.0, 1.0, 11)
+    net  =  np.full (11, 1e6 )
 
-    base = poisson_residual(
-        h, volume, psi, net_doping, np.zeros(11), np.zeros(11)
+    Base=poisson_residual(
+        H,Volume,psi,net,np.zeros(11),np.zeros(11)
     )
-    shifted = poisson_residual(
-        h, volume, psi + 38.7, net_doping, np.full(11, 38.7), np.full(11, 38.7)
+
+
+    sihfted = poisson_residual(
+        H,Volume,psi+38.7,net,np.full(11,38.7),np.full(11,38.7)
     )
-    np.testing.assert_allclose(shifted, base, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(sihfted, Base, rtol = 1e-12, atol = 1e-12)
 
+def  test_jacobian_with_quasi_fermi_matches_complex_step( )   -> None :
+    H,  Volume =  scaled_mesh( n_nodes   =  20)
+    rngg =   np.random.default_rng( 7)
+    psi   =  rngg.uniform( - 6.0 , 6.0 ,   20)
+    tmp=rngg.uniform(- 1e5, 1e5, 20)
+    phi_n  =   rngg.uniform( -   3.0,
+                   3.0,
+                 20)
+    phi_p = rngg.uniform(-  3.0, 3.0, 20)
 
-def test_jacobian_with_quasi_fermi_matches_complex_step() -> None:
-    h, volume = scaled_mesh(n_nodes=20)
-    rng = np.random.default_rng(7)
-    psi = rng.uniform(-6.0, 6.0, 20)
-    net_doping = rng.uniform(-1e5, 1e5, 20)
-    phi_n = rng.uniform(-3.0, 3.0, 20)
-    phi_p = rng.uniform(-3.0, 3.0, 20)
-
-    rows, cols, values = poisson_jacobian(
-        h, volume, psi, net_doping, phi_n, phi_p
+    row,Cols,Values=poisson_jacobian(
+        H,Volume,psi,tmp,phi_n,phi_p
     )
-    assembled = sp.coo_matrix((values, (rows, cols)), shape=(20, 20)).toarray()
+    ass   =  sp.coo_matrix( (  Values,  ( row,  Cols)  ) ,  shape   = (  20,   20 )  ).toarray(  )
 
-    step = 1e-30
-    for column in range(20):
-        perturbed = psi.astype(np.complex128)
-        perturbed[column] += 1j * step
-        derivative = (
+
+    Step  =  1e-30
+    for Column in range(20):
+
+        Perturbed  =  psi.astype ( np.complex128 )
+
+        Perturbed[ Column]  +=   1j  *   Step
+        bar = (
             poisson_residual(
-                h, volume, perturbed, net_doping, phi_n, phi_p
+                H,Volume,Perturbed,tmp,phi_n,phi_p
             ).imag
-            / step
-        )
-        np.testing.assert_allclose(
-            assembled[:, column], derivative, rtol=1e-12, atol=1e-12
+            / Step
         )
 
 
-def test_an_insulator_node_contributes_no_charge_however_large_psi_gets():
+        np.testing.assert_allclose(ass[:, Column], bar, rtol =  1e-12, atol= 1e-12)
+
+
+def test_an_insulator_node_contributes_no_charge_however_large_psi_gets( )  :
+
+
     """A zero charge volume has to mean no carriers, not carriers times zero.
 
     `assemble_poisson` documents `charge_volume` as "zero in the oxide", which
@@ -391,54 +406,65 @@ def test_an_insulator_node_contributes_no_charge_however_large_psi_gets():
     Scaled psi of 800 is exp overflow. That is 20.7 V, which is an ordinary
     gate bias on a thick oxide.
     """
-    n_nodes = 5
-    h = np.full(n_nodes - 1, 0.5)
-    volume = np.full(n_nodes, 0.5)
-    volume[-2:] = 0.0
 
-    psi = np.array([0.0, 10.0, 100.0, 500.0, 800.0])
-    net_doping = np.zeros(n_nodes)
 
-    residual = poisson_residual(h, volume, psi, net_doping)
-    assert np.all(np.isfinite(residual)), (
-        "an insulator node produced a non finite residual, so its carrier "
-        f"term was inf * 0: {residual}"
+    nnodes= 5
+    hh  =  np.full (nnodes   - 1 ,  0.5  )
+    voolume=np.full(nnodes,0.5)
+    voolume[  -  2  :  ]  =   0.0
+
+
+    psi =np.array([0.0,10.0,100.0,500.0,800.0])
+    sum= np.zeros(nnodes)
+
+
+    residuual =poisson_residual(hh,voolume,psi,sum)
+
+
+    assert np.all(np.isfinite(residuual)), (
+        'an insulator node produced a non finite residual, so its carrier '
+        f"term was inf * 0: {residuual}"
     )
 
-    rows, cols, values = poisson_jacobian(h, volume, psi, net_doping)
-    assert np.all(np.isfinite(values)), (
-        f"an insulator node produced a non finite Jacobian entry: {values}"
+    obj2,col,val=poisson_jacobian(hh,voolume,psi,sum)
+
+    assert  np.all( np.isfinite (  val  ) ), (
+        f"an insulator node produced a non finite Jacobian entry: {val}"
     )
 
 
-def test_the_insulator_rows_are_exactly_the_laplacian():
+def test_the_insulator_rows_are_exactly_the_laplacian() :
+
     """Not merely finite. The charge term has to be gone, not small.
 
     Checked against the box integrated Laplacian written out by hand on the
     insulator rows, which is what those rows are supposed to reduce to once
     the carriers are absent.
     """
-    n_nodes = 5
-    h = np.full(n_nodes - 1, 0.5)
-    volume = np.full(n_nodes, 0.5)
-    volume[-2:] = 0.0
+    n_noddes  =  5
+    hh =np.full(n_noddes-1, 0.5)
+    voluume=np.full(n_noddes,0.5)
+    voluume[- 2:]= 0.0
 
-    psi = np.array([0.0, 10.0, 100.0, 500.0, 800.0])
-    net_doping = np.zeros(n_nodes)
-    residual = poisson_residual(h, volume, psi, net_doping)
 
-    for node in (3, 4):
-        laplacian = 0.0
-        if node > 0:
-            laplacian += (psi[node] - psi[node - 1]) / h[node - 1]
-        if node < n_nodes - 1:
-            laplacian -= (psi[node + 1] - psi[node]) / h[node]
-        assert residual[node] == pytest.approx(laplacian, rel=1e-14), (
-            f"insulator node {node} carries a charge term it should not"
+    psi = np.array(  [0.0,   10.0, 100.0,   500.0 ,  800.0]  );nd  =   np.zeros( n_noddes  )
+    Residual=poisson_residual(hh,voluume,psi,nd)
+
+
+    for tmp in(3,4):
+        format   = 0.0
+
+        if tmp  >  0:
+
+
+            format+= (psi[tmp]-psi[tmp- 1])/hh[tmp -1]
+        if  tmp  <   n_noddes - 1   :
+
+            format -= (psi[tmp +1]- psi[tmp]) / hh[tmp]
+        assert Residual[tmp]==pytest.approx(format,rel= 1e-14),(
+            f"insulator node {tmp} carries a charge term it should not"
         )
-
-
-def test_complex_step_survives_the_insulator_mask():
+def test_complex_step_survives_the_insulator_mask() :
     """The mask must not break the dtype contract this module documents.
 
     `_carrier_densities` promises it "does not force a dtype, so a complex
@@ -448,25 +474,25 @@ def test_complex_step_survives_the_insulator_mask():
     made of one material, where the mask is all true and never exercises that
     path, so it is checked here on a mesh that has an insulator in it.
     """
-    n_nodes = 5
-    h = np.full(n_nodes - 1, 0.5)
-    volume = np.full(n_nodes, 0.5)
-    volume[-2:] = 0.0
-    net_doping = np.zeros(n_nodes)
-    psi = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+    n_noddes   =  5
+    hh = np.full(n_noddes  - 1, 0.5)
+    Volume = np.full(n_noddes, 0.5)
+    Volume[-2:]= 0.0
+    str =np.zeros(n_noddes)
+    psi   =  np.array ([ 0.0 , 1.0,  2.0 , 3.0,   4.0 ]  )
 
-    rows, cols, values = poisson_jacobian(h, volume, psi, net_doping)
-    assembled = sp.coo_matrix(
-        (values, (rows, cols)), shape=(n_nodes, n_nodes)
-    ).toarray()
+    vals,col,max =poisson_jacobian(hh,Volume,psi,str)
+    ass   =  sp.coo_matrix((  max,  (  vals, col )  ),   shape  =  ( n_noddes,  n_noddes  )).toarray()
 
-    step = 1e-30
-    for column in range(n_nodes):
-        perturbed = psi.astype(np.complex128)
-        perturbed[column] += 1j * step
-        derivative = (
-            poisson_residual(h, volume, perturbed, net_doping).imag / step
+
+    iter = 1e-30
+    for tmp2 in range(n_noddes):
+        per = psi.astype(np.complex128)
+        per[tmp2] +=  1j * iter
+
+        item2  = (
+            poisson_residual(hh, Volume, per, str).imag  /iter
         )
         np.testing.assert_allclose(
-            assembled[:, column], derivative, rtol=1e-12, atol=1e-12
+            ass[:, tmp2], item2, rtol= 1e-12, atol=  1e-12
         )

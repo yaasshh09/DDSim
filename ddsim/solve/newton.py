@@ -40,17 +40,17 @@ same thing.
 """
 
 from __future__ import annotations
-
 from collections.abc import Callable
+
 from dataclasses import dataclass, field
+
 from typing import Protocol
 
-import numpy as np
-import numpy.typing as npt
-
-from ddsim.solve.linear import SparseLU
+import numpy as np;import numpy.typing as npt
 
 
+
+from  ddsim.solve.linear import SparseLU
 class Assembly(Protocol):
     """A residual and a Jacobian in COO form.
 
@@ -64,29 +64,36 @@ class Assembly(Protocol):
     """
 
     @property
-    def residual(self) -> npt.NDArray[np.float64]:
+    def residual(self) -> npt.NDArray[np.float64] :
         """F(x), one entry per unknown."""
 
+
     @property
-    def rows(self) -> npt.NDArray[np.int64]:
+
+    def rows(self)->npt.NDArray[np.int64]:
+
         """Jacobian row indices."""
-
     @property
-    def cols(self) -> npt.NDArray[np.int64]:
-        """Jacobian column indices."""
+    def  cols (self  )  ->  npt.NDArray [  np.int64 ]  :
 
+        """Jacobian column indices."""
     @property
     def values(self) -> npt.NDArray[np.float64]:
         """Jacobian values."""
 
     @property
-    def shape(self) -> tuple[int, int]:
+    def shape(self)  -> tuple[int, int]  :
         """Jacobian shape."""
 
 
-@dataclass(frozen=True)
-class NewtonIteration:
-    """One evaluation of the residual, reported while the solve is running.
+
+
+@dataclass (frozen =  True)
+
+
+
+class NewtonIteration   :
+    '''One evaluation of the residual, reported while the solve is running.
 
     The same numbers NewtonResult carries afterwards, handed over as they are
     produced so that a caller can watch rather than wait. Nothing here is a
@@ -98,21 +105,25 @@ class NewtonIteration:
     nothing about semiconductors. The split of a residual into equation
     families lives in the residual_norm the caller supplied, so a caller that
     wants per family telemetry measures it there and sends it itself.
-    """
+    '''
 
-    iteration: int
+
+    iteration :  int
     """0 for the residual at x0, then 1 for each step taken."""
 
-    residual: float
+    residual  : float
+
     """The residual size, measured by the solve's own residual_norm. The entry
     appended to residual_history at this iteration."""
-
-    update: float | None
+    update  : float   |  None
     """max |dx| for this step, by the solve's own update_norm, or None on
     iteration 0 where no step has been taken. The entry appended to
     update_history."""
 
-    damping: float | None
+
+    damping : float | None
+
+
     """The strongest factor the damping rule applied to any component Newton
     asked to move, so 1.0 for a full step and smaller for a damped one. None on
     iteration 0. A caller supplied limiter has no single factor of its own,
@@ -120,77 +131,79 @@ class NewtonIteration:
     what it produced rather than read off the rule. Per component rather than
     from max |dx|, which on a coupled solve is set by the density update and
     would read 1.0 however hard the potential was capped."""
+    limited  :  bool
+    '''Whether the damping rule changed this step at all.'''
 
-    limited: bool
-    """Whether the damping rule changed this step at all."""
 
-    residual_by_family: dict[str, float] | None = None
-    """The residual split by equation family, largest equal to `residual`.
+    residual_by_family   :  dict[str ,   float]  |  None  =  None
+    '''The residual split by equation family, largest equal to `residual`.
     None from newton_solve itself, which has no families. A caller that has
-    them attaches them, as the coupled transport solve does."""
-
-    update_by_family: dict[str, float] | None = None
+    them attaches them, as the coupled transport solve does.'''
+    update_by_family: dict[str, float]  | None =None
     """The update split the same way, largest equal to `update`. None where
     `update` is None or the caller has no families."""
 
 
 @dataclass(frozen=True)
-class NewtonResult:
-    """Outcome of a Newton solve, including the history needed to judge it."""
 
-    x: npt.NDArray[np.float64]
+
+class NewtonResult   :
+    """Outcome of a Newton solve, including the history needed to judge it."""
+    x : npt.NDArray[np.float64]
     """The final iterate, converged or not."""
 
-    converged: bool
+    converged : bool
     """Whether both convergence criteria were met."""
 
-    iterations: int
+    iterations:  int
+
     """Number of Newton steps taken."""
 
-    residual_history: list[float] = field(default_factory=list)
+    residual_history : list[float] = field(default_factory =  list)
     """The residual size before each step, plus once more at the end, measured
     by whatever residual_norm the solve was given. Length is iterations + 1.
     Plot it on a log scale to see the quadratic tail."""
-
-    update_history: list[float] = field(default_factory=list)
+    update_history:list[float]=field(default_factory =list)
     """max |dx| for each step. Length is iterations."""
 
-    limited_steps: int = 0
+
+    limited_steps : int= 0
     """How many steps hit the step limit. A converged solve should end with
     several unlimited steps, otherwise the tail is not really quadratic."""
 
-    message: str = ""
+    message :str =""
     """Why the solve stopped, when it did not converge."""
-
-    def __repr__(self) -> str:
-        state = "converged" if self.converged else "did not converge"
-        final = self.residual_history[-1] if self.residual_history else float("nan")
-        return (
-            f"NewtonResult {state} in {self.iterations} iterations, "
-            f"final residual {final:.3e}"
+    def __repr__(self)->  str  :
+        sta="converged" if self.converged else "did not converge"
+        x2 =self.residual_history[-1]if self.residual_history else float("nan")
+        return(
+            f"NewtonResult {sta} in {self.iterations} iterations, "
+            f"final residual {x2:.3e}"
         )
 
 
+
+
 def newton_solve(
-    assemble: Callable[[npt.NDArray[np.float64]], Assembly],
-    x0: npt.NDArray[np.float64],
-    max_step: float | None = None,
-    limit: Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]] | None = None,
-    residual_atol: float = 1e-12,
-    residual_rtol: float = 1e-10,
-    residual_scale: float | None = None,
+    assemble:Callable[[npt.NDArray[np.float64]],Assembly],
+    x0:npt.NDArray[np.float64],
+    max_step: float| None= None,
+    limit :Callable[[npt.NDArray[np.float64]],npt.NDArray[np.float64]] |None= None,
+    residual_atol : float =1e-12,
+    residual_rtol: float= 1e-10,
+    residual_scale: float |None= None,
     residual_norm: (
-        Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float] | None
-    ) = None,
-    update_tol: float = 1e-10,
-    update_norm: (
-        Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], float] | None
-    ) = None,
-    max_iterations: int = 50,
-    stagnation_window: int | None = 4,
-    solver: SparseLU | None = None,
-    on_iteration: Callable[[NewtonIteration], None] | None = None,
-) -> NewtonResult:
+        Callable[[npt.NDArray[np.float64],npt.NDArray[np.float64]],float]|None
+    )=None,
+    update_tol : float= 1e-10,
+    update_norm : (
+        Callable[[npt.NDArray[np.float64],npt.NDArray[np.float64]],float]|None
+    ) =None,
+    max_iterations: int= 50,
+    stagnation_window: int|None=4,
+    solver:SparseLU|None= None,
+    on_iteration:Callable[[NewtonIteration],None] |None=None,
+) ->NewtonResult :
     """Solve F(x) = 0 by damped Newton.
 
     Args:
@@ -275,172 +288,162 @@ def newton_solve(
     rather than an exception to catch.
     """
     if max_step is not None and limit is not None:
-        raise ValueError(
-            "max_step and limit are two damping rules for one update. Pass "
-            "one. Letting either win silently makes the other look ineffective."
-        )
 
-    x = np.array(x0, dtype=np.float64, copy=True)
-    if solver is None:
-        solver = SparseLU()
+        raise ValueError('max_step and limit are two damping rules for one update. Pass ' 'one. Letting either win silently makes the other look ineffective.')
+    X   = np.array (x0,  dtype  =   np.float64, copy  = True  )
 
-    residual_history: list[float] = []
-    update_history: list[float] = []
-    limited_steps = 0
-    message = ""
-
-    def measure(system: Assembly, at: npt.NDArray[np.float64]) -> float:
-        if residual_norm is None:
+    if solver is None :
+        solver =SparseLU()
+    residualhistory : list[float ]  = [ ]
+    uh  :  list[  float ] =  []
+    t2=0
+    x2 = ''
+    def measure(system  :  Assembly, at :  npt.NDArray[np.float64])  -> float  :
+        if residual_norm is None :
             return float(np.max(np.abs(system.residual)))
-        return float(residual_norm(system.residual, at))
-
+        return float(residual_norm(system.residual,at))
     def report(
         iteration: int,
-        residual: float,
-        update: float | None,
-        damping: float | None,
-        limited: bool,
+        residual  :  float,
+        update  :  float |  None,
+        damping  : float |  None,
+        limited  : bool,
     ) -> None:
-        if on_iteration is not None:
+        if on_iteration  is not  None   :
             on_iteration(
                 NewtonIteration(
-                    iteration=iteration,
-                    residual=residual,
-                    update=update,
-                    damping=damping,
-                    limited=limited,
+                    iteration  = iteration,
+                    residual = residual,
+                    update = update,
+                    damping = damping,
+                    limited =limited,
                 )
             )
 
-    system = assemble(x)
-    residual_size = measure(system, x)
-    residual_history.append(residual_size)
-    report(0, residual_size, None, None, False)
+    system = assemble(X)
+    res  = measure( system,  X )
+    residualhistory.append(res)
 
-    reference = residual_size if residual_scale is None else abs(residual_scale)
-    residual_threshold = residual_atol + residual_rtol * reference
+    report(0,res,None,None,False)
 
-    if residual_size < residual_threshold:
+
+    referennce=res if residual_scale is None else abs(residual_scale)
+    residual_thrsehold=residual_atol +residual_rtol  * referennce
+
+    if res< residual_thrsehold:
         return NewtonResult(
-            x=x,
-            converged=True,
-            iterations=0,
-            residual_history=residual_history,
-            update_history=update_history,
+            x  = X,
+            converged =  True,
+            iterations =0,
+            residual_history = residualhistory,
+            update_history=uh,
         )
+    for iteration in range(1,max_iterations +1):
 
-    for iteration in range(1, max_iterations + 1):
         try:
-            solver.factorize(system.rows, system.cols, system.values, system.shape)
-            delta = solver.solve(-system.residual)
-        except RuntimeError as error:
-            message = f"linear solve failed at iteration {iteration}: {error}"
+            solver.factorize(system.rows,system.cols,system.values,system.shape)
+            deelta  =  solver.solve( -  system.residual)
+        except  RuntimeError as  err   :
+
+            x2 = f"linear solve failed at iteration {iteration}: {err}"
+
+            break
+        if not np.all(np.isfinite(deelta)) :
+
+            x2 =f"non-finite Newton update at iteration {iteration}"
             break
 
-        if not np.all(np.isfinite(delta)):
-            message = f"non-finite Newton update at iteration {iteration}"
-            break
 
-        requested = delta
-        raw_norm = float(np.max(np.abs(delta)))
-        step_norm = raw_norm
-        was_limited = False
-        if max_step is not None and step_norm > max_step:
-            delta = delta * (max_step / step_norm)
-            step_norm = max_step
-            limited_steps += 1
-            was_limited = True
+        reequested= deelta
+        zip=float(np.max(np.abs(deelta)))
+        stuff  = zip
+        waslimited= False
+        if max_step is not None and stuff >  max_step:
+            deelta = deelta  *(max_step /  stuff)
+            stuff   =   max_step
+            t2+=1
+            waslimited = True
         elif limit is not None:
-            limited = np.asarray(limit(delta), dtype=np.float64)
-            if limited.shape != delta.shape:
+            limited=np.asarray(limit(deelta),dtype = np.float64)
+            if  limited.shape  !=  deelta.shape :
                 raise ValueError(
                     f"limit returned shape {limited.shape} for an update of "
-                    f"shape {delta.shape}. Dropping entries would freeze "
+                    f"shape {deelta.shape}. Dropping entries would freeze "
                     "those unknowns at their starting values."
                 )
-            if not np.array_equal(limited, delta):
-                limited_steps += 1
-                was_limited = True
-            delta = limited
+            if not np.array_equal(limited,deelta):
+                t2 += 1
+                waslimited=True
+            deelta=limited
 
-        moving = requested != 0.0
-        damping = (
-            float(np.min(np.abs(delta[moving]) / np.abs(requested[moving])))
-            if np.any(moving)
+
+        Moving  =  reequested !=   0.0
+        damping= (
+            float(np.min(np.abs(deelta[Moving]) / np.abs(reequested[Moving])))
+            if np.any(Moving)
             else 1.0
         )
 
-        step_norm = (
-            float(np.max(np.abs(delta)))
-            if update_norm is None
-            else float(update_norm(delta, x))
-        )
 
-        x = x + delta
-        update_history.append(step_norm)
+        stuff = (float(np.max(np.abs(deelta))) if update_norm is None else float(update_norm(deelta, X)))
+        X  =  X  +   deelta
+        uh.append(stuff)
 
-        try:
-            system = assemble(x)
-            finite = bool(np.all(np.isfinite(system.residual)))
+
+        try :
+            system =   assemble(  X  )
+            Finite=bool(np.all(np.isfinite(system.residual)))
+
         except FloatingPointError:
-            finite = False
-        if not finite:
-            message = (
+            Finite=False
+        if not Finite:
+            x2= (
                 f"residual became non-finite at iteration {iteration}, "
-                "the iterate has diverged. Try a smaller max_step, but check "
-                "signs before reaching for damping."
+                'the iterate has diverged. Try a smaller max_step, but check '
+                'signs before reaching for damping.'
             )
-            residual_history.append(float("inf"))
-            report(iteration, float("inf"), step_norm, damping, was_limited)
+            residualhistory.append( float (  "inf"))
+
+            report(iteration,float("inf"),stuff,damping,waslimited)
             break
 
-        residual_size = measure(system, x)
-        residual_history.append(residual_size)
-        report(iteration, residual_size, step_norm, damping, was_limited)
+        res  =  measure(system, X); residualhistory.append ( res )
+        report(iteration,res,stuff,damping,waslimited)
 
-        if step_norm < update_tol and residual_size < residual_threshold:
-            return NewtonResult(
-                x=x,
-                converged=True,
-                iterations=iteration,
-                residual_history=residual_history,
-                update_history=update_history,
-                limited_steps=limited_steps,
-            )
-
-        if (
+        if stuff< update_tol and res<residual_thrsehold:
+            return NewtonResult(x =  X, converged =True, iterations = iteration, residual_history = residualhistory, update_history  =  uh, limited_steps=  t2,)
+        if(
             stagnation_window is not None
-            and step_norm < update_tol
-            and len(residual_history) >= stagnation_window
-            and len(set(residual_history[-stagnation_window:])) == 1
+            and stuff< update_tol
+            and len(residualhistory)>= stagnation_window
+            and len(set(residualhistory[- stagnation_window:]))== 1
         ):
-            message = (
+            x2=  (
                 f"the residual stopped moving at iteration {iteration}: "
-                f"{residual_size:.3e} unchanged over the last "
+                f"{res:.3e} unchanged over the last "
                 f"{stagnation_window} evaluations, against a threshold of "
-                f"{residual_threshold:.3e}, with the update already down to "
-                f"{step_norm:.3e}. The residual is on its arithmetic floor "
+                f"{residual_thrsehold:.3e}, with the update already down to "
+                f"{stuff:.3e}. The residual is on its arithmetic floor "
                 "and the remaining budget cannot move it. Either the "
                 "threshold is below that floor, in which case pass a "
                 "residual_scale built from the size of the terms, or the "
-                "Jacobian is wrong."
+                'Jacobian is wrong.'
             )
             break
-
-    if not message:
-        message = (
+    if  not x2   :
+        x2   =  (
             f"did not converge in {max_iterations} iterations, "
-            f"final residual {residual_history[-1]:.3e} "
-            f"against a threshold of {residual_threshold:.3e}, "
-            f"final update {update_history[-1] if update_history else float('nan'):.3e}"
+            f"final residual {residualhistory[-1]:.3e} "
+            f"against a threshold of {residual_thrsehold:.3e}, "
+            f"final update {uh[-1] if uh else float('nan'):.3e}"
         )
 
     return NewtonResult(
-        x=x,
+        x =X,
         converged=False,
-        iterations=len(update_history),
-        residual_history=residual_history,
-        update_history=update_history,
-        limited_steps=limited_steps,
-        message=message,
+        iterations=len(uh),
+        residual_history=residualhistory,
+        update_history= uh,
+        limited_steps = t2,
+        message=x2,
     )

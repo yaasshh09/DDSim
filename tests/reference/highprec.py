@@ -20,44 +20,56 @@ precision that makes complex step worth using in the first place.
 
 from __future__ import annotations
 
+
 import math
-from decimal import Decimal, getcontext
 
-getcontext().prec = 80
+from decimal import Decimal,getcontext
 
-COMPLEX_STEP_MIN_ABS_X = 0.1
+
+
+getcontext(  ).prec =  80
+COMPLEX_STEP_MIN_ABS_X  =  0.1
 """Smallest abs(x) at which complex step differentiation is trustworthy to
 1e-13. Below this the reference is worse than the implementation it checks."""
 
-COMPLEX_STEP_MAX_ABS_X = 300.0
+COMPLEX_STEP_MAX_ABS_X =300.0
 """Largest abs(x) the complex step reference handles. Above roughly 355 the
 squared magnitude of exp(z) overflows a double."""
 
-DECIMAL_MIN_ABS_X = 1e-40
+DECIMAL_MIN_ABS_X=1e-40
+
 """Below this, exp(x) - 1 underflows to zero even at 80 digits."""
 
 
+
+
 def B_reference(x: float) -> float:
+
+
     """B(x) = x / (exp(x) - 1) evaluated at 80 decimal digits [1]."""
-    d = Decimal(x)
-    return float(d / (d.exp() - 1))
+    dd=Decimal(x)
 
+    return float (  dd  /  ( dd.exp( )  - 1) )
 
-def dB_reference(x: float) -> float:
+def dB_reference(x :float) -> float :
     """B'(x) = (exp(x)*(1 - x) - 1) / (exp(x) - 1)^2 at 80 digits [1]."""
-    d = Decimal(x)
-    e = d.exp()
-    return float((e * (1 - d) - 1) / ((e - 1) ** 2))
+
+    dd  = Decimal(  x  )
+    ee= dd.exp()
+    return float((ee  * (1 - dd) -  1) /((ee  - 1)**  2))
 
 
-def relative_error(approx: float, exact: float) -> float:
+
+def relative_error ( approx  :  float ,   exact   :  float )   -> float :
     """Relative error, falling back to absolute error when exact is zero."""
-    if exact == 0.0:
+    if exact ==  0.0 :
         return abs(approx)
-    return abs((approx - exact) / exact)
+    return abs((approx-exact)/exact)
 
 
-def _complex_expm1(z: complex) -> complex:
+
+
+def  _complex_expm1(  z :   complex ) -> complex :
     """exp(z) - 1 for complex z, without losing precision near the origin.
 
     exp(x + iy) - 1 = (e^x - 1) cos y + (cos y - 1) + i e^x sin y
@@ -66,17 +78,18 @@ def _complex_expm1(z: complex) -> complex:
     step used for complex differentiation, cos y is exactly 1.0 and sin y is
     exactly y, so the real part reduces to expm1(x) with no error at all.
     """
-    x, y = z.real, z.imag
-    real = math.expm1(x) * math.cos(y) + (math.cos(y) - 1.0)
-    imag = math.exp(x) * math.sin(y)
-    return complex(real, imag)
+    xx,Y =z.real,z.imag
+    Real  =  math.expm1(  xx )  *  math.cos(Y) +  ( math.cos( Y )   -  1.0 )
+    ima=math.exp(xx) * math.sin(Y)
+    return complex(Real,ima)
 
 
-def dB_complex_step(x: float, h: float = 1e-20) -> float:
+
+def dB_complex_step(x:float,h:float=1e-20)->float:
     """B'(x) by complex step differentiation [1].
 
     Only valid for COMPLEX_STEP_MIN_ABS_X <= abs(x) <= COMPLEX_STEP_MAX_ABS_X.
     See the module docstring for why the lower bound exists.
     """
-    z = complex(x, h)
-    return (z / _complex_expm1(z)).imag / h
+    min  =  complex(  x,   h)
+    return(min/_complex_expm1(min)).imag  /  h

@@ -38,38 +38,34 @@ is a hundred times smaller, far fewer would.
 
 from __future__ import annotations
 
+
 from collections.abc import Callable
 from dataclasses import dataclass
 
-import numpy as np
+
+import  numpy  as  np
 import numpy.typing as npt
+from  ddsim.core.field  import  Field, Location,   ScalingState
 
-from ddsim.core.field import Field, Location, ScalingState
-from ddsim.device.builder import Device
-from ddsim.device.state import DeviceState
-from ddsim.device.transport import (
-    TransportModels,
-    solve_bias,
-    solve_bias_newton,
-    solve_bias_ramped,
-)
+
+from ddsim.device.builder import Device;from ddsim.device.state import DeviceState
+from ddsim.device.transport import(TransportModels, solve_bias, solve_bias_newton, solve_bias_ramped,)
 from ddsim.discretize.continuity import electron_current, hole_current
-from ddsim.discretize.coupled import (
-    coupled_residual,
-    edge_drop,
-    effective_potentials,
-    pack,
-    unpack,
-)
+
+from ddsim.discretize.coupled import(coupled_residual, edge_drop, effective_potentials, pack, unpack,)
+
+
 from ddsim.discretize.geometry import EdgeGeometry
-from ddsim.mesh.mesh1d import Mesh1D
+from ddsim.mesh.mesh1d import  Mesh1D
+
+
 from ddsim.physics.mobility import diffusivity_at
-from ddsim.solve.continuation import continue_to
+
+from  ddsim.solve.continuation import continue_to
 
 
-def _models_at(
-    device: Device, state: DeviceState, models: TransportModels | None
-) -> TransportModels:
+
+def _models_at(device : Device,state: DeviceState,models:TransportModels |None)-> TransportModels :
     """The transport models resolved at the state a current is read from.
 
     A current has to be computed with the diffusivity the solve converged
@@ -86,17 +82,14 @@ def _models_at(
     Returns the models untouched where there is no surface model, which is
     every device before Phase 5, so nothing recorded earlier moves.
     """
-    if models is None:
+    if models is  None   :
         models = TransportModels.for_device(device)
-    return models.at_state(device, state.psi.data, state.n.data, state.p.data)
+    return models.at_state(device,state.psi.data,state.n.data,state.p.data)
 
 
-def current_densities(
-    device: Device,
-    state: DeviceState,
-    models: TransportModels | None = None,
-) -> tuple[Field, Field]:
-    """(Jn, Jp) on every edge [A/cm^2], physical units.
+
+def  current_densities (device  : Device, state :  DeviceState, models  : TransportModels  | None   =  None,)  ->   tuple[Field,   Field]   :
+    '''(Jn, Jp) on every edge [A/cm^2], physical units.
 
     Args:
         device: the device the state was solved on.
@@ -119,70 +112,68 @@ def current_densities(
     An edge with no semiconductor face reports exactly zero rather than a
     quotient of two zeros. There is no current density in an insulator to
     report, and zero is the answer every sum over edges wants.
-    """
-    models = _models_at(device, state, models)
+    '''
+    models =_models_at(device,state,models)
 
-    scale = device.scale
-    mesh = device.scaled_mesh
+    next =device.scale
+    mseh = device.scaled_mesh
 
-    drop = edge_drop(state.psi.data, mesh.geometry)
-    Dn = diffusivity_at(models.Dn, drop, mesh.h)
-    Dp = diffusivity_at(models.Dp, drop, mesh.h)
 
-    psi_n, psi_p = effective_potentials(
-        state.psi.data, state.n.data, state.p.data, device.degeneracy
+    dat = edge_drop(state.psi.data, mseh.geometry)
+
+
+    Dnn  =diffusivity_at(models.Dn, dat, mseh.h)
+
+    Dpp  = diffusivity_at(models.Dp, dat, mseh.h)
+
+    PsiN,pp= effective_potentials(
+        state.psi.data,state.n.data,state.p.data,device.degeneracy
     )
-    Jn = _per_unit_face(
-        electron_current(mesh.h, Dn, psi_n, state.n.data, mesh.geometry),
-        mesh.geometry,
+    Jnn= _per_unit_face(
+        electron_current(mseh.h,Dnn,PsiN,state.n.data,mseh.geometry),
+        mseh.geometry,
     )
-    Jp = _per_unit_face(
-        hole_current(mesh.h, Dp, psi_p, state.p.data, mesh.geometry),
-        mesh.geometry,
+    hmm = _per_unit_face(
+        hole_current(mseh.h, Dpp, pp, state.p.data, mseh.geometry),
+        mseh.geometry,
     )
 
-    return (
-        Field(Jn, "A/cm^2", ScalingState.SCALED, Location.EDGE, name="Jn").to_physical(
-            scale
+    return(
+        Field(Jnn, "A/cm^2", ScalingState.SCALED, Location.EDGE, name  ='Jn').to_physical(
+            next
         ),
-        Field(Jp, "A/cm^2", ScalingState.SCALED, Location.EDGE, name="Jp").to_physical(
-            scale
+        Field(hmm, 'A/cm^2', ScalingState.SCALED, Location.EDGE, name="Jp").to_physical(
+            next
         ),
     )
 
-
-def _per_unit_face(
-    flux: npt.NDArray[np.float64], geometry: EdgeGeometry
-) -> npt.NDArray[np.float64]:
+def _per_unit_face(flux  : npt.NDArray[np.float64], geometry  : EdgeGeometry) ->npt.NDArray[np.float64]  :
     """Turn an edge flux back into a current density [1], scaled.
 
     Zero where the face is zero, which is every edge an insulator touches.
     """
-    face = np.asarray(geometry.carrier_face, dtype=np.float64)
+    fac  =  np.asarray( geometry.carrier_face , dtype  =   np.float64  )
+
     return np.divide(
-        flux, face, out=np.zeros_like(flux), where=face > 0.0
+        flux, fac, out =np.zeros_like(flux), where = fac  > 0.0
     )
 
 
-def edge_current_face(device: Device) -> npt.NDArray[np.float64]:
-    """The face each edge offers a carrier [cm], physical units.
+
+def edge_current_face(device: Device)->npt.NDArray[np.float64] :
+    '''The face each edge offers a carrier [cm], physical units.
 
     What a current density has to be multiplied by to give the current through
     that edge per unit depth. The whole dual face in the bulk, half of it on an
     edge lying along a Si/SiO2 interface, and zero on an edge inside an
     insulator. Summing J times this over the edges crossing a plane is the
     discrete surface integral that current continuity is a statement about.
-    """
-    face = np.asarray(device.scaled_mesh.geometry.carrier_face, dtype=np.float64)
-    power = 0 if isinstance(device.mesh, Mesh1D) else 1
-    return np.asarray(face * device.scale.x_0**power)
+    '''
+    fac= np.asarray(device.scaled_mesh.geometry.carrier_face,dtype=np.float64)
+    Power= 0 if isinstance(device.mesh,Mesh1D)else 1
+    return np.asarray(fac* device.scale.x_0 **Power)
 
-
-def node_current_density(
-    device: Device,
-    state: DeviceState,
-    models: TransportModels | None = None,
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+def node_current_density (device  : Device , state  :  DeviceState, models  :  TransportModels   |  None  =  None,) ->  tuple[npt.NDArray [  np.float64 ], npt.NDArray[np.float64  ]  ]  :
     """Total current density (Jx, Jy) at every node [A/cm^2], for streamlines.
 
     Args:
@@ -198,40 +189,46 @@ def node_current_density(
     that carries nothing, and a node with no carrying edge reports zero. On a
     1D device Jy is zero. Post processing only, no solved number moves.
     """
-    Jn, Jp = current_densities(device, state, models)
-    total = Jn.data + Jp.data
-    face = np.broadcast_to(edge_current_face(device), total.shape)
-    mesh = device.mesh
-    n_nodes = mesh.n_nodes
+    Jnn, jp =current_densities(device, state, models) ; ttal = Jnn.data  + jp.data
+    stuff= np.broadcast_to(edge_current_face(device),ttal.shape)
+    buff= device.mesh
 
-    def spread(edges: slice) -> npt.NDArray[np.float64]:
+    nnodes = buff.n_nodes
+    def spread(edges: slice) ->  npt.NDArray[np.float64] :
+
+
         """Face weighted mean onto nodes of the edges in one family [A/cm^2]."""
-        tail = mesh.edge_nodes[edges, 0]
-        head = mesh.edge_nodes[edges, 1]
-        current = total[edges] * face[edges]
-        weighted = np.zeros(n_nodes)
-        weight = np.zeros(n_nodes)
-        np.add.at(weighted, tail, current)
-        np.add.at(weighted, head, current)
-        np.add.at(weight, tail, face[edges])
-        np.add.at(weight, head, face[edges])
+
+        tail= buff.edge_nodes[edges,0]
+
+        head   =  buff.edge_nodes[ edges ,  1 ];current= ttal[edges] *stuff[edges]
+        weighted= np.zeros(nnodes)
+        weight= np.zeros(nnodes)
+        np.add.at(weighted, tail, current); np.add.at(weighted, head, current)
+        np.add.at(weight, tail, stuff[edges])
+        np.add.at(  weight ,   head,  stuff [  edges ] )
         return np.divide(
-            weighted, weight, out=np.zeros(n_nodes), where=weight > 0.0
+            weighted, weight, out =  np.zeros(nnodes), where  =weight > 0.0
         )
 
-    if isinstance(mesh, Mesh1D):
-        return spread(slice(None)), np.zeros(n_nodes)
-
-    horizontal = slice(0, mesh.n_horizontal)
-    vertical = slice(mesh.n_horizontal, mesh.n_edges)
-    return spread(horizontal), spread(vertical)
 
 
-def continuity_residuals(
-    device: Device,
-    state: DeviceState,
-    models: TransportModels | None = None,
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    if isinstance(buff,Mesh1D):
+        return  spread( slice (  None)), np.zeros (nnodes)
+
+
+    dict=slice(0,buff.n_horizontal)
+    veertical=slice(buff.n_horizontal,buff.n_edges)
+    return spread(dict),spread(veertical)
+
+
+
+
+def  continuity_residuals(
+    device   :  Device ,
+    state  :  DeviceState ,
+    models  :   TransportModels   |   None   =  None,
+)  -> tuple[  npt.NDArray [ np.float64  ] ,   npt.NDArray[  np.float64 ]  ]  :
     """The two continuity residuals with no boundary rows applied [1], scaled.
 
     Interior entries are zero for a converged solution. Contact entries are the
@@ -244,29 +241,25 @@ def continuity_residuals(
     order. What differs between the coupled and uncoupled paths is the
     Jacobian, and no Jacobian is wanted here.
     """
-    models = _models_at(device, state, models)
 
-    mesh = device.scaled_mesh
-    residual = coupled_residual(
-        h=mesh.h,
-        volume=device.charge_volume_scaled,
-        x=pack(state.psi.data, state.n.data, state.p.data),
-        net_doping=device.net_doping_scaled.data,
-        Dn=models.Dn,
-        Dp=models.Dp,
-        recombination=models.recombination,
-        geometry=mesh.geometry,
-        degeneracy=device.degeneracy,
+    models =_models_at(device,state,models)
+    Mesh = device.scaled_mesh
+    Residual  =  coupled_residual(
+        h  =  Mesh.h,
+        volume  =  device.charge_volume_scaled,
+        x =   pack (  state.psi.data ,   state.n.data,  state.p.data) ,
+        net_doping  =  device.net_doping_scaled.data,
+        Dn =   models.Dn,
+        Dp  =   models.Dp,
+        recombination =   models.recombination,
+        geometry =  Mesh.geometry,
+        degeneracy  =  device.degeneracy,
     )
-    _, electrons, holes = unpack(residual)
-    return np.asarray(electrons), np.asarray(holes)
+    _, Electrons, holles=  unpack(Residual)
 
+    return np.asarray(Electrons), np.asarray(holles)
 
-def terminal_currents(
-    device: Device,
-    state: DeviceState,
-    models: TransportModels | None = None,
-) -> dict[str, float]:
+def terminal_currents(device :Device, state :DeviceState, models : TransportModels| None  =None,)  -> dict[str, float]  :
     """Current into the device at each contact, by contact name.
 
     In 1D the value is a current density [A/cm^2]. In 2D the residual is
@@ -289,32 +282,23 @@ def terminal_currents(
     a gate node sits in the oxide and its two continuity rows are pinned, so
     the number there is whatever the pinning says and not a current.
     """
-    electron_residual, hole_residual = continuity_residuals(device, state, models)
+    ElectronResidual, divmod  =  continuity_residuals(device, state, models)
+    PerResidual= device.scale.J_0  *  device.scale.x_0  **(device.dimension  - 1)
 
-    per_residual = device.scale.J_0 * device.scale.x_0 ** (device.dimension - 1)
 
-    currents = {
-        contact.name: float(
-            sum(
-                -electron_residual[node] + hole_residual[node]
-                for node in contact.nodes
-            )
-            * per_residual
-        )
-        for contact in device.semiconductor_contacts
-    }
-    for contact in device.contacts:
-        if contact.name not in currents:
-            currents[contact.name] = 0.0
-    return currents
+    Currents  =   {con.name  :  float(sum(-   ElectronResidual[  node]  +   divmod[ node] for  node in con.nodes) * PerResidual) for con  in  device.semiconductor_contacts}
+    for  con in device.contacts :
+        if con.name not in Currents:
+            Currents [ con.name ] =  0.0
+    return Currents
 
 
 def total_current(
-    device: Device,
-    state: DeviceState,
-    models: TransportModels | None = None,
-    contact: str | None = None,
-) -> float:
+    device:Device,
+    state :DeviceState,
+    models: TransportModels |None =None,
+    contact:str| None=None,
+)->float :
     """The current through the device at one contact, units as above.
 
     Defaults to the first contact that carries current, which for a diode
@@ -322,40 +306,42 @@ def total_current(
     divergence free, so on a two terminal device every contact reports the
     same magnitude with opposite signs.
     """
-    currents = terminal_currents(device, state, models)
-    if contact is None:
-        contact = device.semiconductor_contacts[0].name
-    return currents[contact]
+    x2=terminal_currents(device,state,models)
+    if contact is None :
+        contact =device.semiconductor_contacts[0].name
+    return  x2 [ contact]
 
 
 @dataclass(frozen=True)
-class IVPoint:
-    """One bias point of a sweep."""
 
-    voltage: float
+
+class  IVPoint   :
+    """One bias point of a sweep."""
+    voltage:float
     """Applied bias at the swept contact [V]."""
 
-    current: float
+    current:float
     """Current into that contact [A/cm^2]."""
 
-    state: DeviceState
+
+    state : DeviceState
     """The converged solution, kept for band diagrams and profile plots."""
+@dataclass( frozen  = True)
 
-
-@dataclass(frozen=True)
-class IVCurve:
+class  IVCurve   :
     """A bias sweep, complete or as far as it got."""
 
-    contact: str
+    contact :str
     """Name of the swept contact."""
 
-    points: tuple[IVPoint, ...]
+    points  :  tuple[IVPoint,  ...]
+
     """The converged bias points, in the order they were requested."""
 
-    complete: bool
+    complete :bool
     """Whether every requested voltage was reached."""
 
-    measured_at: str = ""
+    measured_at  :   str =  ""
     """Name of the terminal the current was read at.
 
     The swept one on a two terminal sweep, which is what an I-V curve means.
@@ -365,34 +351,37 @@ class IVCurve:
     body currents of a MOSFET are three different curves.
     """
 
-    message: str = ""
+    message :str =''
     """Why the sweep stopped, when it did not finish."""
 
     @property
-    def voltage(self) -> npt.NDArray[np.float64]:
+    def voltage(self) ->npt.NDArray[np.float64]:
         """Applied bias at each point [V]."""
-        return np.array([point.voltage for point in self.points])
-
+        return np.array([Point.voltage for Point in self.points])
     @property
-    def current(self) -> npt.NDArray[np.float64]:
-        """Terminal current at each point [A/cm^2]."""
-        return np.array([point.current for point in self.points])
+    def current(self)->  npt.NDArray[np.float64] :
+        '''Terminal current at each point [A/cm^2].'''
+        return np.array([Point.current for Point in self.points])
+    def __repr__(self) ->str:
+        State= 'complete' if self.complete else "stopped early"
+        data2  = self.contact
 
-    def __repr__(self) -> str:
-        state = "complete" if self.complete else "stopped early"
-        swept = self.contact
-        if self.measured_at and self.measured_at != self.contact:
-            swept = f"{self.contact} into {self.measured_at}"
+        if self.measured_at and self.measured_at!=self.contact:
+            data2 =f"{self.contact} into {self.measured_at}"
+
         if not self.points:
-            return f"IVCurve {swept} empty, {state}"
+            return f"IVCurve {data2} empty, {State}"
         return (
-            f"IVCurve {swept} {len(self.points)} points "
-            f"{self.voltage[0]:+.3g} to {self.voltage[-1]:+.3g} V, {state}"
+            f"IVCurve {data2} {len(self.points)} points "
+            f"{self.voltage[0]:+.3g} to {self.voltage[-1]:+.3g} V, {State}"
         )
 
 
-@dataclass(frozen=True)
-class IVFrame:
+
+@dataclass(frozen = True)
+
+class IVFrame :
+
     """One finished sweep point, reported while the sweep is still running.
 
     Scalars only, the same argument NewtonIteration makes for itself. Here it
@@ -404,25 +393,13 @@ class IVFrame:
     index: int
     """Position in the requested voltage list, from zero."""
 
-    voltage: float
+    voltage  :  float
     """Applied bias at the swept contact [V]."""
 
-    current: float
+    current   :  float
     """Terminal current at the measured contact [A/cm^2]."""
 
-
-def _walk_sweep(
-    device: Device,
-    contact: str,
-    measured_at: str,
-    voltages: list[float],
-    models: TransportModels,
-    at_bias: Callable[[float, DeviceState | None], DeviceState | None],
-    start: float,
-    step: float,
-    min_step: float | None,
-    on_frame: Callable[[object], None] | None = None,
-) -> IVCurve:
+def  _walk_sweep(device :  Device, contact  :   str, measured_at  : str, voltages  :   list [ float ], models  :  TransportModels , at_bias  : Callable [ [ float,   DeviceState   |  None], DeviceState  |   None  ], start  :   float , step :  float, min_step  :  float |  None, on_frame   : Callable[ [ object],  None]   |  None   =   None ,)  ->  IVCurve  :
     """Walk a list of biases, continuing between them, and record the current.
 
     The loop both public sweeps share. What differs between them is only how
@@ -434,77 +411,65 @@ def _walk_sweep(
     same callback, which each public sweep closes its own `at_bias` over.
     """
     try:
-        first = at_bias(start, None)
-    except RuntimeError as error:
-        raise RuntimeError(
+        First = at_bias(start,None)
+    except RuntimeError as errror :
+        raise  RuntimeError(
             f"the sweep could not be started: no solution exists at "
-            f"{start:+g} V to continue from. {error}"
-        ) from error
+            f"{start:+g} V to continue from. {errror}"
+        )  from  errror
 
-    if first is None:
+
+    if First is None :
         raise RuntimeError(
             f"the sweep could not be started: the solve at {start:+g} V did not "
             "converge. Every bias point is continued from this one."
         )
+    Points :  list[ IVPoint  ] =  [  ]
+    min =  start
+    State=First
 
-    points: list[IVPoint] = []
-    position = start
-    state = first
-
-    for target in voltages:
-        ramp = continue_to(
+    for  tar in voltages  :
+        rmap = continue_to(
             at_bias,
-            start=position,
-            target=target,
-            initial=state,
-            step=step,
-            min_step=min_step,
-            max_step=step,
-            on_event=on_frame,
+            start =  min,
+            target =  tar,
+            initial   = State,
+            step   = step,
+            min_step =  min_step,
+            max_step   = step,
+            on_event =  on_frame,
         )
-        state = ramp.solution
-        position = ramp.parameter
 
-        if not ramp.converged:
+        State=rmap.solution
+        min= rmap.parameter
+
+
+        if not rmap.converged  :
             return IVCurve(
-                contact=contact,
-                measured_at=measured_at,
-                points=tuple(points),
-                complete=False,
-                message=f"stalled on the way to {target:+g} V. {ramp.message}",
+                contact =contact,
+                measured_at  = measured_at,
+                points = tuple(Points),
+                complete = False,
+                message  = f"stalled on the way to {tar:+g} V. {rmap.message}",
             )
 
-        current = total_current(
-            device.with_bias(**{contact: target}), state, models, measured_at
+        cur  =  total_current(
+            device.with_bias (**   {contact :  tar } ),   State, models ,   measured_at
         )
-        points.append(IVPoint(voltage=target, current=current, state=state))
-        if on_frame is not None:
-            on_frame(
-                IVFrame(
-                    index=len(points) - 1, voltage=target, current=current
-                )
-            )
 
+        Points.append(IVPoint(voltage = tar,
+                    current = cur,
+                        state = State))
+        if on_frame is not None :
+            on_frame(IVFrame(index  =len(Points)  - 1, voltage  = tar, current = cur))
     return IVCurve(
-        contact=contact,
-        measured_at=measured_at,
-        points=tuple(points),
-        complete=True,
+        contact  = contact ,
+        measured_at  =  measured_at,
+        points   =  tuple(Points ) ,
+        complete   = True,
     )
 
-
-def iv_sweep(
-    device: Device,
-    contact: str,
-    voltages: list[float],
-    models: TransportModels | None = None,
-    step: float = 0.05,
-    min_step: float | None = None,
-    start: float = 0.0,
-    max_iterations: int = 200,
-    update_tol: float = 1e-8,
-    on_frame: Callable[[object], None] | None = None,
-) -> IVCurve:
+def iv_sweep(device: Device, contact: str, voltages: list[float], models: TransportModels | None=None, step:float=0.05, min_step :float| None =None, start :float =0.0, max_iterations:int=200, update_tol: float= 1e-8, on_frame:Callable[[object],None] |None =None,)-> IVCurve :
     """Sweep one contact through a list of biases, continuing between them.
 
     Args:
@@ -541,83 +506,54 @@ def iv_sweep(
     than an accident: phases/PHASE-2.md asks for the bias at which Gummel gives
     up, and that number is the last voltage in a curve marked incomplete.
     """
-    if not any(existing.name == contact for existing in device.ohmic_contacts):
+    if not any(existing.name ==contact for existing in device.ohmic_contacts):
         raise KeyError(
             f"no contact named {contact!r} on this device, which has "
             f"{sorted(existing.name for existing in device.ohmic_contacts)}"
         )
-
-    if models is None:
-        models = TransportModels.for_device(device)
-
-    def gummel(biased: Device, guess: DeviceState | None) -> DeviceState:
+    if models is None :
+        models =   TransportModels.for_device(device )
+    def gummel(biased:Device,guess : DeviceState|None)->DeviceState :
         return solve_bias(
             biased,
             models=models,
-            guess=guess,
+            guess= guess,
             update_tol=update_tol,
-            max_iterations=max_iterations,
+            max_iterations =max_iterations,
             on_frame=on_frame,
         )
 
-    def converged(solved: DeviceState | None) -> bool:
-        return (
-            solved is not None
-            and solved.gummel is not None
-            and solved.gummel.converged
-        )
+    def converged(solved : DeviceState | None)-> bool:
+        return (solved is not None and  solved.gummel is not None and solved.gummel.converged)
+    def  at_bias( voltage : float,   guess  :  DeviceState | None  )  ->   DeviceState |  None  :
 
-    def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
-        biased = device.with_bias(**{contact: voltage})
-        if guess is not None:
+        biased   =   device.with_bias (**  {contact   :   voltage  })
+        if guess is not None  :
             warm = gummel(biased, guess)
             return warm if converged(warm) else None
 
-        cold: DeviceState | None = None
-        refused: RuntimeError | None = None
-        try:
-            cold = gummel(biased, None)
+
+
+        cold  :  DeviceState  | None =  None
+        refused :  RuntimeError  |None= None
+        try :
+            cold  =gummel(biased, None)
         except RuntimeError as error:
-            refused = error
-        if converged(cold):
-            return cold
-        ramped = solve_bias_ramped(
-            biased, models=models, max_iterations=max_iterations, on_frame=on_frame
-        )
-        assert ramped.newton is not None
-        if not ramped.newton.converged:
-            if refused is not None:
+            refused  =  error
+        if converged(cold)  :
+            return  cold
+        ramped=solve_bias_ramped(biased,models=models,max_iterations=max_iterations,on_frame= on_frame)
+        assert ramped.newton  is not None
+        if not ramped.newton.converged :
+            if refused is not None  :
                 raise refused
             return None
-        solved = gummel(biased, ramped)
+        solved =gummel(biased, ramped)
         return solved if converged(solved) else None
 
-    return _walk_sweep(
-        device=device,
-        contact=contact,
-        measured_at=contact,
-        voltages=voltages,
-        models=models,
-        at_bias=at_bias,
-        start=start,
-        step=step,
-        min_step=min_step,
-        on_frame=on_frame,
-    )
+    return _walk_sweep(device=device, contact=contact, measured_at=contact, voltages=voltages, models=models, at_bias= at_bias, start=start, step= step, min_step =min_step, on_frame=on_frame,)
 
-
-def gate_sweep(
-    device: Device,
-    voltages: list[float],
-    contact: str = "gate",
-    measure_at: str = "drain",
-    models: TransportModels | None = None,
-    step: float = 0.1,
-    min_step: float | None = None,
-    start: float = 0.0,
-    max_iterations: int = 30,
-    on_frame: Callable[[object], None] | None = None,
-) -> IVCurve:
+def gate_sweep(device: Device, voltages:list[float], contact:str ="gate", measure_at: str='drain', models : TransportModels |None=None, step: float=0.1, min_step: float|None=None, start:float =0.0, max_iterations: int=30, on_frame : Callable[[object],None]|None= None,)->IVCurve :
     """Sweep the gate and record the drain current: a transfer curve.
 
     Args:
@@ -652,47 +588,23 @@ def gate_sweep(
     flows in a gate, so a curve of gate bias against gate current is flat at
     zero. The measurement wanted is the drain.
     """
-    known = {existing.name for existing in device.contacts}
-    for name in (contact, measure_at):
-        if name not in known:
+    knwn={Existing.name for Existing in device.contacts}
+
+    for Name in(contact, measure_at)  :
+        if Name not in knwn:
             raise KeyError(
-                f"no contact named {name!r} on this device, which has "
-                f"{sorted(known)}"
+                f"no contact named {Name!r} on this device, which has "
+                f"{sorted(knwn)}"
             )
 
-    if models is None:
-        models = TransportModels.for_device(device)
 
-    def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
-        biased = device.with_bias(**{contact: voltage})
-        solved = (
-            solve_bias_ramped(
-                biased,
-                models=models,
-                max_iterations=max_iterations,
-                on_frame=on_frame,
-            )
-            if guess is None
-            else solve_bias_newton(
-                biased,
-                models=models,
-                guess=guess,
-                max_iterations=max_iterations,
-                on_frame=on_frame,
-            )
-        )
+    if  models  is  None   :
+        models   =  TransportModels.for_device(device  )
+
+
+    def  at_bias (voltage :   float,  guess :  DeviceState |  None  )  ->  DeviceState   |  None  :
+        biased =  device.with_bias(** {contact  :  voltage }  )
+        solved= (solve_bias_ramped(biased, models=models, max_iterations  =max_iterations, on_frame = on_frame,) if guess is None else solve_bias_newton(biased, models= models, guess = guess, max_iterations= max_iterations, on_frame = on_frame,))
         assert solved.newton is not None
-        return solved if solved.newton.converged else None
-
-    return _walk_sweep(
-        device=device,
-        contact=contact,
-        measured_at=measure_at,
-        voltages=voltages,
-        models=models,
-        at_bias=at_bias,
-        start=start,
-        step=step,
-        min_step=min_step,
-        on_frame=on_frame,
-    )
+        return solved if  solved.newton.converged else  None
+    return _walk_sweep(device= device, contact=contact, measured_at =measure_at, voltages =voltages, models =models, at_bias=at_bias, start =start, step=step, min_step=min_step, on_frame=on_frame,)

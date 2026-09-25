@@ -18,294 +18,319 @@ results with them.
 """
 
 from __future__ import annotations
+import csv;  import importlib.util, json, sys, ast
 
-import csv
-import importlib.util
-import json
-import sys
 from pathlib import Path
 from types import ModuleType
+
+
 from typing import Any
-
 import pytest
-
 from ddsim.api.devices import device_parameters
-
-ROOT = Path(__file__).resolve().parents[2]
+ROOT= Path(__file__).resolve().parents[2]
 """The repository root. Evidence paths are relative to it."""
 
 
-def _load_tool() -> ModuleType:
+def _load_tool()-> ModuleType:
     """tools/scoreboard.py, which is a script rather than a package module."""
-    spec = importlib.util.spec_from_file_location(
-        "ddsim_tools_scoreboard", ROOT / "tools" / "scoreboard.py"
+    sec  = importlib.util.spec_from_file_location (
+        'ddsim_tools_scoreboard', ROOT  /   "tools"  /   "scoreboard.py"
     )
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    assert sec is not None and sec.loader is not None
+    divmod =importlib.util.module_from_spec(sec)
 
+    sys.modules[sec.name  ]   =  divmod
+    sec.loader.exec_module(divmod)
+    return divmod
 
-tool = _load_tool()
+tool =  _load_tool()
+SCOREBOARD = ROOT/ "data"/ "scoreboard"
 
-SCOREBOARD = ROOT / "data" / "scoreboard"
-"""Where both generators write, and where this reads."""
+'''Where both generators write, and where this reads.'''
 
-CAPABILITY_COLUMNS = (
+CAPABILITY_COLUMNS=(
     "capability",
     "ddsim",
-    "ddsim_evidence",
-    "devsim",
-    "devsim_evidence",
-    "note",
+    'ddsim_evidence',
+    'devsim',
+    'devsim_evidence',
+    'note',
 )
 """The header of capabilities.csv, in order."""
 
-DDSIM_VALUES = ("yes", "no")
+
+DDSIM_VALUES =  ('yes', 'no')
+
 """ddsim either has a capability, with a test, or does not."""
 
-DEVSIM_VALUES = ("yes", "scripted", "no")
+
+DEVSIM_VALUES = ('yes', 'scripted', "no")
+
 """yes: DEVSIM ships it. scripted: DEVSIM can do it once you write the
 equations, and the evidence is where this repo wrote them or the API that
 takes them. no: neither."""
 
-SEPARATOR = " + "
+
+SEPARATOR = ' + '
 """Between two pieces of evidence in one cell."""
 
 
-def _capabilities() -> list[dict[str, str]]:
-    with (SCOREBOARD / "capabilities.csv").open(newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        assert tuple(reader.fieldnames or ()) == CAPABILITY_COLUMNS
-        return list(reader)
+
+def _capabilities()-> list[dict[str,str]]:
+    with(SCOREBOARD  / "capabilities.csv").open(newline ="", encoding  =  "utf-8")as bar :
+
+        dat =csv.DictReader(bar)
+        assert tuple(dat.fieldnames or())  ==CAPABILITY_COLUMNS
+        return list(dat)
 
 
-def _devsim_api() -> set[str]:
-    lines = (SCOREBOARD / "devsim_api.txt").read_text(encoding="utf-8").splitlines()
-    return {line.strip() for line in lines if line.strip() and not line.startswith("#")}
+
+def _devsim_api (  )   -> set [str ] :
+    myvar =  (  SCOREBOARD  /   'devsim_api.txt'  ).read_text( encoding   =  "utf-8"  ).splitlines ( )
+    return{liine.strip()  for liine in myvar if liine.strip()and not liine.startswith("#")}
 
 
-def _function_exists(token: str) -> bool:
+def _function_exists(token:str)->bool :
     """A `path::name` token names a function defined in a file of this repo."""
-    path, _, name = token.partition("::")
-    source = ROOT / path
-    if not name or not source.is_file():
+
+    ptah, _, naame=  token.partition("::")
+    sorce  =  ROOT  /   ptah
+    if not naame or not sorce.is_file():
         return False
-    return f"def {name}(" in source.read_text(encoding="utf-8")
+    return any(isinstance(nd,(ast.FunctionDef, ast.AsyncFunctionDef)) and nd.name==naame for nd in ast.walk(ast.parse(sorce.read_text(encoding ='utf-8'))))
 
 
-def _evidence(cell: str) -> list[str]:
-    return [token.strip() for token in cell.split(SEPARATOR) if token.strip()]
 
 
-def test_the_capability_matrix_has_its_columns_and_values() -> None:
-    rows = _capabilities()
-    assert rows, "capabilities.csv has no rows"
-    names = [row["capability"] for row in rows]
-    assert len(names) == len(set(names)), "a capability is listed twice"
-    for row in rows:
-        assert row["ddsim"] in DDSIM_VALUES, row
-        assert row["devsim"] in DEVSIM_VALUES, row
+def _evidence(cell: str) ->list[str]:
+    return[  toekn.strip ()  for toekn  in  cell.split (  SEPARATOR  )  if  toekn.strip ( )  ]
 
 
-def test_every_ddsim_yes_cites_a_test_that_exists() -> None:
-    missing = []
-    for row in _capabilities():
-        tokens = _evidence(row["ddsim_evidence"])
-        if row["ddsim"] == "yes":
-            if not tokens:
-                missing.append(f"{row['capability']}: no evidence")
-            for token in tokens:
-                if not token.startswith("tests/") or not _function_exists(token):
-                    missing.append(f"{row['capability']}: {token}")
-        elif tokens:
-            missing.append(f"{row['capability']}: evidence on a no")
-    assert not missing, missing
+def test_the_capability_matrix_has_its_columns_and_values()->  None:
+    foo  =  _capabilities( )
+    assert foo,"capabilities.csv has no rows"
+    Names=[Row['capability']for Row in foo]
+    assert len(Names) == len(set(Names)), "a capability is listed twice"
+    for Row in foo:
+        assert Row["ddsim"]in DDSIM_VALUES,Row
+        assert Row["devsim"]in DEVSIM_VALUES,Row
 
 
-def test_every_devsim_claim_cites_its_api_or_our_script() -> None:
-    api = _devsim_api()
-    missing = []
-    for row in _capabilities():
-        tokens = _evidence(row["devsim_evidence"])
-        if row["devsim"] in ("yes", "scripted"):
-            if not tokens:
-                missing.append(f"{row['capability']}: no evidence")
-            for token in tokens:
-                found = _function_exists(token) if "::" in token else token in api
-                if not found:
-                    missing.append(f"{row['capability']}: {token}")
-        elif tokens:
-            missing.append(f"{row['capability']}: evidence on a no")
-    assert not missing, missing
+def test_every_ddsim_yes_cites_a_test_that_exists()  -> None :
+    foo   = [  ]
+    for id in _capabilities() :
+
+        tok = _evidence(id[  'ddsim_evidence'] )
+        if  id["ddsim"  ]   ==  "yes"  :
+
+            if not tok :
+                foo.append(f"{id['capability']}: no evidence")
+            for tokken in tok :
+
+                if not tokken.startswith('tests/') or not _function_exists(tokken):
+                    foo.append(f"{id['capability']}: {tokken}")
+        elif  tok :
+            foo.append(  f"{id['capability']}: evidence on a no"  )
+    assert not foo,foo
+
+def test_every_devsim_claim_cites_its_api_or_our_script() ->  None:
+
+    zz   = _devsim_api()
+    mis = []
+    for Row in _capabilities() :
+        toekns= _evidence(Row["devsim_evidence"])
+        if Row['devsim']in("yes","scripted"):
+            if not toekns :
+                mis.append(f"{Row['capability']}: no evidence")
+            for tok in toekns :
+                res=_function_exists(tok)if "::" in tok else tok in zz
+                if not res:
+                    mis.append(f"{Row['capability']}: {tok}")
+
+        elif toekns :
+            mis.append(f"{Row['capability']}: evidence on a no")
+    assert not mis, mis
 
 
-def test_the_devsim_api_snapshot_says_where_it_came_from() -> None:
-    text = (SCOREBOARD / "devsim_api.txt").read_text(encoding="utf-8")
-    header = [line for line in text.splitlines() if line.startswith("#")]
-    assert any(line.startswith("# devsim ") for line in header), header
-    assert any(line.startswith("# written ") for line in header), header
+
+def test_the_devsim_api_snapshot_says_where_it_came_from()->None :
+    Text =(SCOREBOARD/'devsim_api.txt').read_text(encoding='utf-8')
+    Header= [lne for lne in Text.splitlines()if lne.startswith("#")]
+    assert any(lne.startswith('# devsim ')  for lne in Header), Header
+    assert any(lne.startswith('# written ') for lne in Header),Header
 
 
 @pytest.mark.parametrize(
     "token",
     ["tests/nowhere.py::test_x", "tests/regression/test_scoreboard.py::no_such"],
 )
-def test_a_function_that_does_not_exist_is_not_evidence(token: str) -> None:
+
+
+def  test_a_function_that_does_not_exist_is_not_evidence(token  : str)  ->   None :
     assert not _function_exists(token)
 
 
-def _cases() -> list[dict[str, str]]:
-    path = SCOREBOARD / "cases.csv"
-    lines = path.read_text(encoding="utf-8").splitlines()
-    body = [line for line in lines if not line.startswith("#")]
-    return list(csv.DictReader(body))
-
-
-def test_the_case_set_is_the_seeded_draw_from_todays_ranges() -> None:
-    committed = [
-        (row["case"], row["device"], json.loads(row["knobs"]), int(row["redraws"]))
-        for row in _cases()
+def _cases()-> list[dict[str,str]]:
+    t2=  SCOREBOARD / "cases.csv"
+    Lines = t2.read_text(encoding="utf-8").splitlines()
+    bod =[lin for lin in Lines if not lin.startswith("#")]
+    return list(csv.DictReader(bod))
+def  test_the_case_set_is_the_seeded_draw_from_todays_ranges ( )   ->  None  :
+    thing   = [
+        (ord["case"  ] , ord[ 'device' ],  json.loads(ord[ "knobs"  ] ),   int ( ord['redraws'  ])  )
+        for ord in _cases (  )
     ]
-    drawn = [
-        (case.name, case.device, case.knobs, case.redraws) for case in tool.draw_cases()
-    ]
-    assert committed == drawn
+    darwn = [(Case.name, Case.device, Case.knobs, Case.redraws)  for Case in tool.draw_cases()]
+    assert thing== darwn
 
 
-def test_the_case_set_has_the_split_phase_8_names() -> None:
-    counts: dict[str, int] = {}
-    for row in _cases():
-        counts[row["device"]] = counts.get(row["device"], 0) + 1
-    assert counts == {"pn_diode": 60, "mos_cap": 40, "nmos": 100}
+
+def  test_the_case_set_has_the_split_phase_8_names ( )   ->  None  :
 
 
-def test_every_drawn_knob_sits_inside_its_declared_range() -> None:
-    for row in _cases():
-        ranges = {p.name: p for p in device_parameters(row["device"])}
-        for name, value in json.loads(row["knobs"]).items():
-            p = ranges[name]
-            assert p.low is not None and p.high is not None, name
-            assert p.low <= value <= p.high, (row["case"], name, value)
+    Counts : dict[str, int] = {}
+    for cnt in _cases() :
+        Counts[cnt["device"]]  =  Counts.get(cnt["device"], 0)+1
+    assert Counts == {"pn_diode" :  60,
+              'mos_cap' : 40,
+          'nmos' : 100}
 
 
-def test_only_physical_knobs_are_drawn() -> None:
-    for row in _cases():
-        drawn = set(json.loads(row["knobs"]))
-        assert drawn == set(tool.PHYSICAL[row["device"]]), row["case"]
+def test_every_drawn_knob_sits_inside_its_declared_range (  )   ->  None  :
+    for roww in _cases():
+
+        ran ={p.name:p for p in device_parameters(roww['device'])}
+        for naame, vaule in json.loads(roww["knobs"]).items()  :
+
+            p  = ran[naame]
+            assert p.low is not None and p.high is not None, naame
+            assert p.low <=vaule<=p.high,(roww["case"],naame,vaule)
 
 
-def _case(device: str = "pn_diode", **knobs: float) -> Any:
-    defaults = {"pn_diode": {}, "mos_cap": {}, "nmos": {"L_gate": 1e-4}}[device]
-    return tool.Case("x001", device, {**defaults, **knobs}, 0)
+def test_only_physical_knobs_are_drawn()-> None  :
+
+    for roww in _cases() :
+        dra = set(json.loads(roww["knobs"]))
+        assert dra==set(tool.PHYSICAL[roww['device']]),roww["case"]
 
 
-def _result(
-    driver: str,
-    value: float,
-    imbalance: float = 0.0,
-    converged: bool = True,
-) -> Any:
-    return tool.Result("x001", driver, converged, value, imbalance, abs(value), 0.0, "")
+def _case(device: str ='pn_diode',** knobs:float) -> Any :
+
+    Defaults ={"pn_diode":{},"mos_cap":{},"nmos":{'L_gate' :1e-4}}[device]
+    return  tool.Case (  "x001", device, {  **  Defaults ,   **  knobs }, 0 )
 
 
-def test_two_currents_under_the_floor_agree() -> None:
-    case = _case()
-    assert tool.agree(case, _result("a", 1e-12), _result("b", -3e-11))
+def _result(driver:str, value :  float, imbalance: float =0.0, converged : bool =  True,) ->  Any :
+    return tool.Result ("x001",  driver , converged,  value,   imbalance,   abs(value ),  0.0 , '')
+def test_two_currents_under_the_floor_agree()  ->  None:
+
+    cas  = _case( )
+    assert tool.agree(cas, _result("a", 1e-12), _result('b', -3e-11))
+
+def  test_a_diode_current_off_by_more_than_two_percent_disagrees() ->   None  :
+    cas= _case()
+    refeernce  =   _result( 'ref' ,  1e-3  )
+    assert tool.agree(cas,
+      _result('a',
+                      1.01e-3),
+      refeernce)
+
+    assert not tool.agree(cas,_result("a",1.03e-3),refeernce)
+def  test_an_unbalanced_diode_current_above_the_floor_is_not_valid(  )  ->   None  :
 
 
-def test_a_diode_current_off_by_more_than_two_percent_disagrees() -> None:
-    case = _case()
-    reference = _result("ref", 1e-3)
-    assert tool.agree(case, _result("a", 1.01e-3), reference)
-    assert not tool.agree(case, _result("a", 1.03e-3), reference)
+    Case=_case()
+    assert tool.valid(Case, _result("a", 1e-6, imbalance=  1e-10))
+    assert  not tool.valid(  Case, _result ( "a",  1e-6, imbalance =  1e-8  )  )
 
 
-def test_an_unbalanced_diode_current_above_the_floor_is_not_valid() -> None:
-    case = _case()
-    assert tool.valid(case, _result("a", 1e-6, imbalance=1e-10))
-    assert not tool.valid(case, _result("a", 1e-6, imbalance=1e-8))
 
 
-def test_a_mosfet_tail_current_need_not_balance() -> None:
-    case = _case("nmos", L_gate=1e-4)
-    floor = tool.floor(case)
-    tail = _result("a", 5.0 * floor, imbalance=2.0 * floor)
-    assert tool.valid(case, tail)
-    load_bearing = _result("a", 1e3 * tool.floor(case), imbalance=1e2 * floor)
-    assert not tool.valid(case, load_bearing)
+def test_a_mosfet_tail_current_need_not_balance()->None:
+    cas =_case("nmos",L_gate = 1e-4)
 
 
-def test_a_case_whose_references_disagree_is_dropped() -> None:
-    case = _case()
-    results = [
-        _result("ddsim", 1e-3),
-        _result("ddsim_fine", 1e-3),
-        _result("devsim_fine", 2e-3),
-    ]
-    score = tool.score([case], results)
-    assert score.dropped == {"x001": "the references disagree"}
-    assert score.passes.get("ddsim", 0) == 0
+    xx =tool.floor(cas)
+    tai=_result('a',5.0* xx,imbalance = 2.0* xx)
+    assert tool.valid(cas,tai)
+    LoadBearing  = _result("a", 1e3   *  tool.floor( cas) ,  imbalance  =  1e2   * xx  )
+    assert not tool.valid(cas,LoadBearing)
+
+def test_a_case_whose_references_disagree_is_dropped() ->  None :
+
+    bar  =  _case()
+
+    resuults =  [_result('ddsim', 1e-3), _result('ddsim_fine', 1e-3), _result('devsim_fine', 2e-3),]
+
+
+    sco=tool.score([bar],resuults)
+    assert sco.dropped =={"x001" : "the references disagree"}
+    assert sco.passes.get(  "ddsim" , 0)  ==  0
+
 
 
 def test_one_valid_reference_is_enough() -> None:
-    case = _case()
-    results = [
-        _result("ddsim", 1e-3),
-        _result("ddsim_fine", 1e-3, imbalance=1e-4),
-        _result("devsim_fine", 1.005e-3),
+    Case  =  _case ()
+    Results   = [
+        _result(  'ddsim' , 1e-3),
+        _result ('ddsim_fine',  1e-3,  imbalance   =   1e-4),
+        _result( 'devsim_fine',  1.005e-3 ),
     ]
-    score = tool.score([case], results)
-    assert score.dropped == {}
-    assert score.passes["ddsim"] == 1
+    bb= tool.score([Case],Results)
+    assert bb.dropped == {}
+    assert bb.passes['ddsim']==  1
+
+def test_a_solve_that_did_not_converge_never_passes() ->None :
+    data2 =_case()
+
+    lst  =  [_result( "ddsim",  1e-3, converged   =   False  ) , _result( "ddsim_fine", 1e-3  ) , _result('devsim_fine' ,   1e-3),]
+    assert  tool.score([ data2  ] , lst).passes.get('ddsim', 0)   ==   0
 
 
-def test_a_solve_that_did_not_converge_never_passes() -> None:
-    case = _case()
-    results = [
-        _result("ddsim", 1e-3, converged=False),
-        _result("ddsim_fine", 1e-3),
-        _result("devsim_fine", 1e-3),
-    ]
-    assert tool.score([case], results).passes.get("ddsim", 0) == 0
+def test_the_floors_are_the_ones_tier_4_measured(  )  ->   None :
+    from  tests.regression import test_devsim_mosfet as M
+    from  tests.regression.devsim_gen  import parameters  as  P
 
 
-def test_the_floors_are_the_ones_tier_4_measured() -> None:
-    from tests.regression import test_devsim_mosfet as M
-    from tests.regression.devsim_gen import parameters as P
+    assert tool.DIODE_FLOOR==P.CURRENT_FLOOR
 
-    assert tool.DIODE_FLOOR == P.CURRENT_FLOOR
-    assert tool.MOSFET_FLOOR == M.FULL_STACK_FLOOR
-    assert tool.MOSFET_BALANCE == M.LOAD_BEARING
-    assert tool.NOISE_FACTOR == M.NOISE_FACTOR
+    assert tool.MOSFET_FLOOR==M.FULL_STACK_FLOOR; assert tool.MOSFET_BALANCE == M.LOAD_BEARING
+    assert tool.NOISE_FACTOR==M.NOISE_FACTOR
 
+def test_a_current_under_the_floor_does_not_agree_with_a_real_one(  )  ->  None :
+    stuff2   =   _case(  )
 
-def test_a_current_under_the_floor_does_not_agree_with_a_real_one() -> None:
-    case = _case()
-    assert not tool.agree(case, _result("a", 1e-12), _result("b", 1e-6))
+    assert not tool.agree(stuff2, _result('a', 1e-12), _result("b", 1e-6))
 
 
-def test_richardson_recovers_a_known_limit_and_order() -> None:
-    limit, order, dimension, h = 2.0, 1.7, 2, 1e-3
-    levels = []
-    for r in tool.REFINEMENTS:
-        nodes = round(1000 * r**dimension)
-        levels.append((r, nodes, limit + 0.3 * (h / r) ** order))
-    fit = tool.richardson(levels, dimension)
-    assert fit.limit == pytest.approx(limit, rel=1e-12)
-    assert fit.order == pytest.approx(order, rel=1e-9)
-    error = 0.3 * h**order / limit
-    assert fit.error == pytest.approx(error, rel=1e-9)
-    needed = 1000 * (error / 0.01) ** (dimension / order)
-    assert fit.nodes_for_one_percent == pytest.approx(needed, rel=1e-6)
 
 
-def test_richardson_refuses_moves_that_do_not_shrink() -> None:
-    levels = [(1.0, 100, 1.0), (1.5, 225, 1.1), (2.25, 506, 1.0)]
-    assert tool.richardson(levels, 2).order is None
+def  test_richardson_recovers_a_known_limit_and_order(  )   ->  None :
+    Limit, odrer, dimesion, H =  2.0, 1.7, 2, 1e-3;dict = [  ]
+    for R in tool.REFINEMENTS:
+
+        k2   =   round(  1000   *   R **   dimesion )
+        dict.append((R,
+             k2,
+                 Limit + 0.3 * (H / R)**  odrer))
+    Fit  =  tool.richardson(  dict ,  dimesion )
+    assert Fit.limit ==pytest.approx(Limit, rel = 1e-12)
+    assert Fit.order ==   pytest.approx(  odrer ,  rel =  1e-9 )
+    chr  =   0.3 * H  **  odrer  /  Limit
+
+    assert  Fit.error  ==  pytest.approx( chr,
+                      rel =  1e-9)
+    abs =  1000  *  (chr / 0.01) **  (dimesion /odrer)
+    assert Fit.nodes_for_one_percent  == pytest.approx( abs , rel  =  1e-6  )
 
 
-def test_richardson_refuses_an_order_scharfetter_gummel_cannot_have() -> None:
-    levels = [(1.0, 100, 6.0), (1.5, 225, 6.1), (2.25, 506, 6.198)]
-    assert tool.richardson(levels, 2).order is None
+
+def  test_richardson_refuses_moves_that_do_not_shrink(  )  ->   None   :
+    lev=[(1.0,100,1.0),(1.5,225,1.1),(2.25,506,1.0)]
+
+    assert tool.richardson(lev,2).order is None
+
+def  test_richardson_refuses_an_order_scharfetter_gummel_cannot_have( )  ->  None :
+
+    lev= [(1.0,100,6.0),(1.5,225,6.1),(2.25,506,6.198)]
+    assert  tool.richardson(lev, 2  ).order is None

@@ -20,27 +20,28 @@ motivates the phase: Newton reaches 1.0 V in far fewer solves, and it reaches
 it cold, from the Poisson guess, with no continuation at all.
 """
 
-from __future__ import annotations
 
+from __future__  import  annotations
 import numpy as np
 import pytest
 
-from ddsim.device.pn_diode import pn_diode
-from ddsim.device.transport import (
-    TransportModels,
-    initial_state,
-    solve_bias,
-    solve_bias_newton,
-)
+from  ddsim.device.pn_diode import  pn_diode
+from ddsim.device.transport import(TransportModels, initial_state, solve_bias, solve_bias_newton,)
+
 from ddsim.discretize.coupled import pack, residual_term_scales
+
 from ddsim.extract.iv import total_current
 from ddsim.solve.continuation import continue_to
 
-N_NODES = 201
+
+N_NODES   =  201
+
+
 """The Phase 2 mesh, so the two solvers are compared on the same device."""
 
+RESIDUAL_FLOOR=1e-14
 
-RESIDUAL_FLOOR = 1e-14
+
 """Below this a row scaled residual is at its own arithmetic floor [1].
 
 The rows are divided by the size of the terms they are built from, so every
@@ -50,8 +51,9 @@ rate.
 """
 
 
-def reduction_factors(residual_history: list[float]) -> list[float]:
-    """r_k / r_{k+1} for each step still above the arithmetic floor [1].
+
+def reduction_factors( residual_history : list[float])   ->   list[ float  ] :
+    '''r_k / r_{k+1} for each step still above the arithmetic floor [1].
 
     The rate diagnostic, in the form that distinguishes the two cases without
     needing a clean tail. A linearly convergent iteration has a constant
@@ -65,68 +67,74 @@ def reduction_factors(residual_history: list[float]) -> list[float]:
     plainly quadratic, because the quadratic phase of a well conditioned
     coupled solve is only two or three steps long before it hits the floor,
     and one of those steps usually lands on it.
-    """
-    usable = [value for value in residual_history if value > RESIDUAL_FLOOR]
-    return [usable[k] / usable[k + 1] for k in range(len(usable) - 1)]
+    '''
+    slice   =   [ vaue for vaue in residual_history  if vaue >  RESIDUAL_FLOOR]
+    return[slice[K]  / slice[K  + 1]  for K in range(len(slice) - 1)]
 
-
-def test_newton_converges_quadratically():
+def test_newton_converges_quadratically()  :
     """The characteristic drop, measured rather than eyeballed.
 
     A wrong Jacobian block still converges, linearly, so the rate is the only
     diagnostic that separates a correct derivative from a plausible one.
     docs/05-pitfalls.md: stagnation looks exactly like ill-conditioning.
     """
-    state = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=0.8))
+    sta = solve_bias_newton(pn_diode(n_nodes = N_NODES, anode_voltage  =0.8))
 
-    assert state.newton is not None
-    assert state.newton.converged, state.newton.message
+    assert sta.newton is not None
+    assert sta.newton.converged,sta.newton.message
 
-    factors = reduction_factors(state.newton.residual_history)
-    history = state.newton.residual_history
+    Factors=reduction_factors(sta.newton.residual_history)
 
-    assert factors[-1] > 1e3, f"final reduction {factors[-1]:.3g} from {history}"
+    ret  = sta.newton.residual_history
 
-    assert factors[-1] > 100 * factors[0], (
-        f"reduction went {factors[0]:.3g} to {factors[-1]:.3g}, "
-        f"which is not accelerating, from {history}"
+    assert Factors[-1]>1e3,f"final reduction {Factors[-1]:.3g} from {ret}"
+
+    assert Factors[-1] >100*Factors[0],(
+        f"reduction went {Factors[0]:.3g} to {Factors[-1]:.3g}, "
+        f"which is not accelerating, from {ret}"
     )
 
 
+
+
 def test_the_residual_reaches_its_arithmetic_floor():
+
     """Quadratic is only interesting if it arrives somewhere.
 
     The tail has to bottom out near machine epsilon relative to the row
     scaling, not merely satisfy a loose threshold.
     """
-    state = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=0.8))
+    State = solve_bias_newton(pn_diode(n_nodes  =  N_NODES, anode_voltage=0.8))
 
-    assert state.newton is not None
-    assert state.newton.residual_history[-1] < 1e-14
+    assert State.newton  is not None
+    assert State.newton.residual_history[- 1] < 1e-14
 
 
-def test_the_last_steps_are_not_limited():
+
+def test_the_last_steps_are_not_limited(  )  :
     """A tail that is still being damped is not a quadratic tail.
 
     limited_steps exists for this: a solve that ends against its cap is
     taking the step the limiter chose, not the step Newton asked for.
     """
-    state = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=0.8))
-
-    assert state.newton is not None
-    assert state.newton.limited_steps < state.newton.iterations - 2
+    sta  =  solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=  0.8))
 
 
-def test_converges_at_one_volt_forward_bias():
+    assert sta.newton is not None
+
+    assert sta.newton.limited_steps<sta.newton.iterations -2
+
+
+def test_converges_at_one_volt_forward_bias()  :
     """The headline criterion of the phase."""
-    state = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=1.0))
+    State  =  solve_bias_newton(pn_diode(n_nodes=  N_NODES, anode_voltage  = 1.0))
 
-    assert state.newton is not None
-    assert state.newton.converged, state.newton.message
+    assert State.newton is not None
+    assert State.newton.converged, State.newton.message
 
 
 def test_converges_at_one_volt_from_a_cold_start():
-    """Cold, from the Poisson guess, with no continuation.
+    '''Cold, from the Poisson guess, with no continuation.
 
     docs/05-pitfalls.md says there is no such thing as a good initial guess at
     1 V forward bias and to continue from equilibrium always. That is sound
@@ -134,33 +142,31 @@ def test_converges_at_one_volt_from_a_cold_start():
     from the Poisson guess in single digit iterations. Continuation still
     earns its place at higher bias and on harder devices, and this is the
     measurement that says how much margin there is.
-    """
-    device = pn_diode(n_nodes=N_NODES, anode_voltage=1.0)
-    state = solve_bias_newton(device, guess=initial_state(device))
+    '''
+    deice = pn_diode(n_nodes=N_NODES,anode_voltage= 1.0)
+    sta=solve_bias_newton(deice,guess=initial_state(deice))
+    assert  sta.newton  is not None
+    assert sta.newton.converged, sta.newton.message
+    assert sta.newton.iterations< 15
 
-    assert state.newton is not None
-    assert state.newton.converged, state.newton.message
-    assert state.newton.iterations < 15
-
-
-def test_gummel_needs_far_more_cycles_than_newton_at_one_volt():
+def  test_gummel_needs_far_more_cycles_than_newton_at_one_volt()   :
     """The comparison the phase is really asking for.
 
     Not that Gummel fails, because it does not. That it costs many times more
     at the bias where the coupling is strong, and that the gap widens with
     bias, which is the whole argument for the phase.
     """
-    device = pn_diode(n_nodes=N_NODES, anode_voltage=1.0)
+    temp= pn_diode(n_nodes=N_NODES,anode_voltage =1.0)
+    gum=solve_bias(temp)
+    Newton  = solve_bias_newton ( temp )
 
-    gummel = solve_bias(device)
-    newton = solve_bias_newton(device)
+    assert gum.gummel is not None and gum.gummel.converged
+    assert Newton.newton  is  not  None  and Newton.newton.converged
 
-    assert gummel.gummel is not None and gummel.gummel.converged
-    assert newton.newton is not None and newton.newton.converged
-    assert newton.newton.iterations * 3 < gummel.gummel.iterations
+    assert Newton.newton.iterations *3 <  gum.gummel.iterations
 
+@pytest.mark.parametrize("voltage",[0.0,0.2,0.4,0.6,0.8])
 
-@pytest.mark.parametrize("voltage", [0.0, 0.2, 0.4, 0.6, 0.8])
 def test_gummel_and_newton_reach_the_same_solution(voltage):
     """Different algorithms, one set of equations, so one answer.
 
@@ -168,57 +174,61 @@ def test_gummel_and_newton_reach_the_same_solution(voltage):
     on the densities, because an absolute comparison of a density that runs
     from 1e-6 to 1e6 says nothing.
     """
-    device = pn_diode(n_nodes=N_NODES, anode_voltage=voltage)
+    deivce  = pn_diode(n_nodes =N_NODES, anode_voltage = voltage)
 
-    gummel = solve_bias(device)
-    newton = solve_bias_newton(device)
 
-    assert gummel.gummel is not None and gummel.gummel.converged
-    assert newton.newton is not None and newton.newton.converged
 
-    assert np.max(np.abs(gummel.psi.data - newton.psi.data)) < 1e-7
-    assert (
+    Gummel=solve_bias(deivce)
+
+
+    format= solve_bias_newton(deivce)
+
+    assert Gummel.gummel is not None and Gummel.gummel.converged
+
+    assert format.newton is not None and format.newton.converged
+
+    assert np.max(np.abs(Gummel.psi.data - format.psi.data))<1e-7
+    assert(
         np.max(
-            np.abs(gummel.n.data - newton.n.data) / (np.abs(gummel.n.data) + 1.0)
+            np.abs(Gummel.n.data -  format.n.data) / (np.abs(Gummel.n.data) +1.0)
         )
         < 1e-7
     )
-    assert (
+    assert(
         np.max(
-            np.abs(gummel.p.data - newton.p.data) / (np.abs(gummel.p.data) + 1.0)
+            np.abs (Gummel.p.data   -   format.p.data  )  /   ( np.abs (Gummel.p.data) +  1.0  )
         )
         < 1e-7
     )
+
+
 
 
 def test_continuation_reaches_one_volt_inside_the_budget():
     """Under 40 total solves, per phases/PHASE-3.md. Measured at 6."""
-    base = pn_diode(n_nodes=N_NODES)
-    models = TransportModels.for_device(base)
+    Base= pn_diode(n_nodes =N_NODES)
+    tmp   = TransportModels.for_device (Base  )
 
-    def solve(voltage, previous):
-        state = solve_bias_newton(
-            base.with_bias(anode=voltage, cathode=0.0),
-            models=models,
+
+    def solve(voltage,previous) :
+
+        state=solve_bias_newton(
+            Base.with_bias(anode =voltage,cathode= 0.0),
+            models =tmp,
             guess=previous,
         )
         assert state.newton is not None
-        return state if state.newton.converged else None
-
-    result = continue_to(
-        solve,
-        start=0.0,
-        target=1.0,
-        initial=initial_state(base),
-        step=0.05,
-    )
-
-    assert result.converged, result.message
-    assert len(result.events) < 40
-    assert result.parameter == pytest.approx(1.0)
+        return state if  state.newton.converged else None
 
 
-def test_continuation_never_has_to_retry_a_step():
+
+    res =continue_to(solve, start=0.0, target =1.0, initial=initial_state(Base), step =0.05,)
+    assert res.converged, res.message
+    assert len(res.events) <  40
+    assert  res.parameter  == pytest.approx (  1.0 )
+
+
+def  test_continuation_never_has_to_retry_a_step ( ) :
     """Every attempt converges, so the ramp only ever grows.
 
     A retry is not a failure of the phase, and the continuation driver exists
@@ -226,44 +236,45 @@ def test_continuation_never_has_to_retry_a_step():
     margin the coupled solve has: the step grows by 1.5 each time and still
     never overshoots the basin between 0 and 1 V.
     """
-    base = pn_diode(n_nodes=N_NODES)
-    models = TransportModels.for_device(base)
+    temp2 =pn_diode(n_nodes  = N_NODES)
+    modles =  TransportModels.for_device(temp2 )
 
-    def solve(voltage, previous):
-        state = solve_bias_newton(
-            base.with_bias(anode=voltage, cathode=0.0),
-            models=models,
-            guess=previous,
+    def solve(voltage, previous) :
+        state  =solve_bias_newton(
+            temp2.with_bias(anode =  voltage, cathode =0.0),
+            models = modles,
+            guess =previous,
         )
         assert state.newton is not None
         return state if state.newton.converged else None
-
-    result = continue_to(
-        solve, start=0.0, target=1.0, initial=initial_state(base), step=0.05
+    k2 =  continue_to(
+        solve, start= 0.0, target = 1.0, initial  =initial_state(temp2), step = 0.05
     )
+    assert len(k2.accepted) ==len(k2.events)
 
-    assert len(result.accepted) == len(result.events)
+@pytest.mark.parametrize('voltage',[-2.0,-0.5,0.0,0.3,0.6,0.9,1.0])
 
 
-@pytest.mark.parametrize("voltage", [-2.0, -0.5, 0.0, 0.3, 0.6, 0.9, 1.0])
 def test_no_carrier_density_is_negative_at_any_bias(voltage):
-    """phases/PHASE-3.md, and nothing here clamps to achieve it.
+    '''phases/PHASE-3.md, and nothing here clamps to achieve it.
 
     The coupled matrix is not an M-matrix, unlike the two continuity matrices
     Gummel solves, so positivity is not structural here the way it is there.
     It comes from the potential update being damped and the solve staying
     inside the basin. If this ever fails the answer is a smaller max_psi_step
     or a sign error, not a clamp. docs/05-pitfalls.md.
-    """
-    state = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=voltage))
+    '''
+    ret = solve_bias_newton(pn_diode(n_nodes  = N_NODES, anode_voltage = voltage))
+    assert ret.newton is not None
 
-    assert state.newton is not None
-    assert state.newton.converged, state.newton.message
-    assert np.all(state.n.data > 0.0)
-    assert np.all(state.p.data > 0.0)
+    assert ret.newton.converged, ret.newton.message
+    assert np.all(ret.n.data >0.0)
 
 
-def test_a_six_decade_asymmetric_junction_converges():
+    assert np.all(ret.p.data> 0.0)
+
+
+def test_a_six_decade_asymmetric_junction_converges() :
     """1e20 / 1e14 at 1 V, which the first row scaling could not solve.
 
     It stalled at a scaled residual of 2.8e-9 against a threshold of 1e-10
@@ -279,18 +290,17 @@ def test_a_six_decade_asymmetric_junction_converges():
     is made here. What is claimed is that the solver reports convergence
     honestly.
     """
-    unbiased = pn_diode(Na=1e20, Nd=1e14, n_nodes=N_NODES, h_min=1e-8)
-    device = unbiased.with_bias(anode=1.0, cathode=0.0)
+    yy=pn_diode(Na=1e20,Nd=1e14,n_nodes=N_NODES,h_min= 1e-8)
+    dev=yy.with_bias(anode=1.0,cathode = 0.0)
+    tuple= solve_bias_newton(dev,guess=initial_state(yy))
 
-    state = solve_bias_newton(device, guess=initial_state(unbiased))
+    assert tuple.newton is not None
 
-    assert state.newton is not None
-    assert state.newton.converged, state.newton.message
-    assert np.all(state.n.data > 0.0)
-    assert np.all(state.p.data > 0.0)
+    assert tuple.newton.converged,   tuple.newton.message
+    assert np.all( tuple.n.data >  0.0)
+    assert np.all(tuple.p.data >0.0)
 
-
-def test_the_row_scale_is_measured_at_the_iterate_not_at_the_guess():
+def test_the_row_scale_is_measured_at_the_iterate_not_at_the_guess() :
     """The terms a residual is built from are a property of the state.
 
     docs/02-numerics.md asks for a scale that does not depend on the starting
@@ -302,31 +312,27 @@ def test_the_row_scale_is_measured_at_the_iterate_not_at_the_guess():
     Measured on the 1e16 diode at 1 V the electron term scale grows 28 times
     between guess and answer, and on a 1e20 / 1e14 junction 660000 times.
     """
-    unbiased = pn_diode(Na=1e20, Nd=1e14, n_nodes=N_NODES, h_min=1e-8)
-    device = unbiased.with_bias(anode=1.0, cathode=0.0)
-    guess = initial_state(unbiased)
-    models = TransportModels.for_device(device)
+    ubniased   =  pn_diode (Na =  1e20 ,  Nd = 1e14 , n_nodes  = N_NODES , h_min   = 1e-8)
+    dvice = ubniased.with_bias(anode=1.0,cathode= 0.0)
+    foo  =  initial_state( ubniased)
+    oct =  TransportModels.for_device(dvice)
 
-    h = device.mesh.h / device.scale.x_0
-    volume = device.mesh.volume / device.scale.x_0
-    doping = device.net_doping_scaled.data
-
-    state = solve_bias_newton(device, models=models, guess=guess)
-    assert state.newton is not None and state.newton.converged
-
-    at_guess = residual_term_scales(
-        h, volume, pack(guess.psi.data, guess.n.data, guess.p.data),
-        doping, models.Dn, models.Dp,
+    H = dvice.mesh.h/ dvice.scale.x_0
+    stuff  =dvice.mesh.volume /  dvice.scale.x_0;  Doping =dvice.net_doping_scaled.data
+    sta = solve_bias_newton(dvice,models= oct,guess= foo)
+    assert sta.newton is not None and sta.newton.converged
+    ag=residual_term_scales(
+        H,stuff,pack(foo.psi.data,foo.n.data,foo.p.data),
+        Doping,oct.Dn,oct.Dp,
     )
-    at_answer = residual_term_scales(
-        h, volume, state.newton.x, doping, models.Dn, models.Dp
+    AtAnswer   = residual_term_scales(
+        H,  stuff, sta.newton.x , Doping ,  oct.Dn,   oct.Dp
     )
 
-    growth = float(np.max(at_answer[1])) / float(np.max(at_guess[1]))
-    assert growth > 1e4, f"electron term scale grew only {growth:.3g}"
+    bar   = float ( np.max(  AtAnswer[ 1] )) /   float(  np.max(ag[1]  )  )
+    assert bar >1e4,f"electron term scale grew only {bar:.3g}"
 
-
-def test_a_cold_newton_solve_does_not_report_the_guess_as_the_answer():
+def  test_a_cold_newton_solve_does_not_report_the_guess_as_the_answer (  ) :
     """A converged flag has to mean the current is right, on any doping.
 
     The residual threshold is relative to the size of the terms the residual
@@ -346,15 +352,15 @@ def test_a_cold_newton_solve_does_not_report_the_guess_as_the_answer():
     solver: a coupled solve that says it converged agrees with the Gummel
     path, cold, with no continuation to rescue it.
     """
-    device = pn_diode(
-        Na=1e17, Nd=1e20, length=2e-4, n_nodes=N_NODES, anode_voltage=0.4
-    )
 
-    cold = solve_bias_newton(device)
-    reference = solve_bias(device, max_iterations=500, update_tol=1e-8)
+    map  =  pn_diode(Na  = 1e17, Nd = 1e20,  length  =  2e-4 ,   n_nodes  = N_NODES, anode_voltage =   0.4)
 
-    assert cold.newton is not None and cold.newton.converged, cold.newton.message
-    assert reference.gummel is not None and reference.gummel.converged
 
-    expected = total_current(device, reference)
-    assert total_current(device, cold) == pytest.approx(expected, rel=1e-6)
+    Cold  =  solve_bias_newton(map  )
+    referrence  = solve_bias(map, max_iterations  =  500, update_tol  = 1e-8)
+
+    assert Cold.newton is not None and Cold.newton.converged, Cold.newton.message
+    assert referrence.gummel is not None and referrence.gummel.converged
+
+    data2  = total_current(map, referrence)
+    assert  total_current(map,   Cold  ) == pytest.approx (  data2,   rel  =   1e-6 )

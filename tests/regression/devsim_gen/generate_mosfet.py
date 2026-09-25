@@ -45,18 +45,18 @@ the gate bias be handed over as `V_gate + (PHI_M_MIDGAP - Phi_M)` with no
 further translation.
 """
 
+
 from __future__ import annotations
 
-import argparse
-import contextlib
-import datetime
-import io
-import math
-import os
+import argparse, contextlib, datetime, io
+
+import math, os
 import sys
+
+
 from typing import Any
 
-from devsim import (
+from devsim import(
     add_2d_contact,
     add_2d_interface,
     add_2d_mesh_line,
@@ -81,54 +81,55 @@ from devsim import (
     solve,
     vector_gradient,
 )
-from devsim.python_packages.model_create import (
-    CreateContactNodeModel,
-    CreateEdgeModel,
-    CreateEdgeModelDerivatives,
-    CreateNodeModel,
-    CreateNodeModelDerivative,
-    CreateSolution,
-)
-from devsim.python_packages.simple_physics import (
-    CreateOxideContact,
+
+
+from devsim.python_packages.model_create import(CreateContactNodeModel, CreateEdgeModel, CreateEdgeModelDerivatives, CreateNodeModel, CreateNodeModelDerivative, CreateSolution,)
+
+
+from  devsim.python_packages.simple_physics  import(
+    CreateOxideContact ,
     CreateOxidePotentialOnly,
-    CreateSiliconDriftDiffusion,
-    CreateSiliconDriftDiffusionAtContact,
+    CreateSiliconDriftDiffusion ,
+    CreateSiliconDriftDiffusionAtContact ,
     CreateSiliconOxideInterface,
     CreateSiliconPotentialOnly,
-    CreateSiliconPotentialOnlyContact,
-    GetContactBiasName,
+    CreateSiliconPotentialOnlyContact ,
+    GetContactBiasName ,
     GetContactNodeModelName,
-    celec_model,
+    celec_model ,
     chole_model,
     ece_name,
     hce_name,
 )
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
-))))
 
-from tests.regression.devsim_gen import parameters as P
+from  tests.regression.devsim_gen import parameters as  P
 
-BULK = "bulk"
-OXIDE = "oxide"
+BULK ="bulk"
+
+OXIDE= "oxide"
+
 SOURCE = "source"
-DRAIN = "drain"
-GATE = "gate"
-BODY = "body"
 
-AIR = 1e-6
+DRAIN='drain'
+
+
+GATE = "gate"
+
+BODY='body'
+
+
+
+AIR= 1e-6
 """How far the sacrificial regions extend past the device [cm].
 
 They exist only so the body and gate contacts sit on a boundary between two
 regions. Nothing is solved in them and their thickness does not enter any
 answer, so it is a round number rather than a measured one.
 """
-
-GOLDEN = os.path.join("data", "golden")
-
-set_parameter(name="threads_available", value=1)
+GOLDEN  = os.path.join("data", 'golden')
+set_parameter ( name  = 'threads_available',  value  =   1)
 """Assemble on one thread, which is as far as pinning threads is worth taking.
 
 devsim splits its assembly across threads by default, and a floating point sum
@@ -147,33 +148,35 @@ what is left of the spread is about 3e-5 of relative drain current at zero
 gate, four decades under the tolerance any benchmark asks for.
 """
 
-SOLUTIONS: dict[str, tuple[str, ...]] = {
-    BULK: ("Potential", "Electrons", "Holes"),
-    OXIDE: ("Potential",),
-}
+SOLUTIONS  :  dict[str, tuple[str, ...]]  = {BULK : ("Potential", 'Electrons', "Holes"), OXIDE :  ('Potential', ),}
 """Every solution array on the device, which is what a snapshot has to hold."""
 
 
-def devsim_version() -> str:
+def devsim_version()->str:
     """The devsim version string, for the golden file header."""
     import devsim
 
-    return str(getattr(devsim, "__version__", "unknown"))
+    return str(getattr(devsim,'__version__','unknown'))
+
 
 
 @contextlib.contextmanager
-def quiet():
+
+
+
+def quiet()  :
     """Swallow devsim's per iteration convergence report.
 
     It writes to stdout, and the generator's stdout is a progress log a person
     reads. Nothing is lost: the report is per iteration and the only thing it
     says that matters, that a solve failed, arrives as an exception.
     """
-    with contextlib.redirect_stdout(io.StringIO()):
+
+
+    with contextlib.redirect_stdout(io.StringIO()) :
         yield
 
-
-def note(message: str) -> None:
+def note(  message   : str ) ->  None   :
     """Write one diagnostic line that `quiet` cannot swallow.
 
     The recorded bias point is settled inside `quiet`, which redirects stdout
@@ -183,16 +186,17 @@ def note(message: str) -> None:
     that gets written down. Both streams land in the same log when the
     generator is run with its output redirected, which is how it is run.
     """
-    print(f"    {message}", file=sys.stderr, flush=True)
+    print(f"    {message}", file = sys.stderr, flush = True)
 
 
 def build_mesh(
-    benchmark: P.MosfetBenchmark,
-    device: str,
-    refine: float = 1.0,
-    refine_y: float | None = None,
-    process: dict[str, float] | None = None,
-) -> None:
+    benchmark  : P.MosfetBenchmark,
+    device :str,
+    refine:float=1.0,
+    refine_y :float |None =  None,
+    process :dict[str, float]|None= None,
+)  -> None :
+
     """Create and finalise the 2D structure for one benchmark.
 
     Args:
@@ -217,107 +221,87 @@ def build_mesh(
     contact edges, the two gate mask edges and the centre. Rows land on the
     body contact, the implant depth, the silicon surface and the gate.
     """
-    mesh = device
-    process = P.MOSFET_PROCESS if process is None else process
-    sd_length = process["sd_length"]
-    contact = process["contact_length"]
-    t_si = process["t_si"]
-    t_ox = process["t_ox"]
-    x_j = process["x_j"]
-    L = benchmark.L_gate
-    width = 2.0 * sd_length + L
+    mes  =  device
+    process=P.MOSFET_PROCESS if process is None else process
+    sd_lngth  =  process[ 'sd_length'  ]
+    temp =process["contact_length"]
+    tsi =process['t_si']
+    to  = process['t_ox']
+    XJ =  process["x_j"]
+    LL =benchmark.L_gate
+    Width  =  2.0* sd_lngth+LL
 
-    vertical = refine if refine_y is None else refine_y
-    h_contact = benchmark.devsim_h_contact / refine
-    h_junction = benchmark.devsim_h_junction / refine
-    h_channel = benchmark.devsim_h_channel / refine
-    h_surface = benchmark.devsim_h_surface / vertical
-    h_depth = benchmark.devsim_h_depth / vertical
-    h_oxide = t_ox / (benchmark.devsim_oxide_cells * vertical)
+    myvar= refine if refine_y is None else refine_y
+    h  =  benchmark.devsim_h_contact /  refine
+    hj  =  benchmark.devsim_h_junction  /   refine
+    dat=benchmark.devsim_h_channel/refine;h_surfce =benchmark.devsim_h_surface / myvar
+    hdepth = benchmark.devsim_h_depth  /  myvar
+    h_oxde =to/(benchmark.devsim_oxide_cells*myvar)
 
-    create_2d_mesh(mesh=mesh)
-    for pos, ns, ps in (
-        (0.0, h_contact, h_contact),
-        (contact, h_contact, h_contact),
-        (sd_length, h_junction, h_junction),
-        (sd_length + 0.5 * L, h_channel, h_channel),
-        (sd_length + L, h_junction, h_junction),
-        (width - contact, h_contact, h_contact),
-        (width, h_contact, h_contact),
+    create_2d_mesh(mesh=mes)
+
+    for poss,Ns,w in((0.0,h,h), (temp,h,h), (sd_lngth,hj,hj), (sd_lngth+0.5* LL,dat,dat), (sd_lngth +LL,hj,hj), (Width -temp,h,h), (Width,h,h),):
+        add_2d_mesh_line(mesh= mes,dir= "x",pos= poss,ns= Ns,ps =w)
+
+    for poss,Ns,w in(
+        (- AIR,AIR,AIR),
+        (0.0,AIR,0.2 * tsi),
+        (tsi -XJ,hdepth,hdepth),
+        (tsi,h_surfce,h_oxde),
+        (tsi+to,h_oxde,AIR),
+        (tsi + to +AIR,AIR,AIR),
     ):
-        add_2d_mesh_line(mesh=mesh, dir="x", pos=pos, ns=ns, ps=ps)
+        add_2d_mesh_line(  mesh =  mes,
+                   dir  =  "y" ,
+                   pos  =   poss,
+               ns   =  Ns,
+           ps = w)
 
-    for pos, ns, ps in (
-        (-AIR, AIR, AIR),
-        (0.0, AIR, 0.2 * t_si),
-        (t_si - x_j, h_depth, h_depth),
-        (t_si, h_surface, h_oxide),
-        (t_si + t_ox, h_oxide, AIR),
-        (t_si + t_ox + AIR, AIR, AIR),
-    ):
-        add_2d_mesh_line(mesh=mesh, dir="y", pos=pos, ns=ns, ps=ps)
 
-    add_2d_region(mesh=mesh, region=BULK, material="Silicon", yl=0.0, yh=t_si)
+    add_2d_region(mesh=mes,region=BULK,material="Silicon",yl=0.0,yh =tsi)
+
+
     add_2d_region(
-        mesh=mesh, region=OXIDE, material="Oxide", yl=t_si, yh=t_si + t_ox
+        mesh=  mes, region  =OXIDE, material  ="Oxide", yl =tsi, yh= tsi+to
     )
-    add_2d_region(mesh=mesh, region="air_bot", material="metal", yl=-AIR, yh=0.0)
-    add_2d_region(
-        mesh=mesh,
-        region="air_top",
-        material="metal",
-        yl=t_si + t_ox,
-        yh=t_si + t_ox + AIR,
-    )
+    add_2d_region(mesh  =mes, region= 'air_bot', material ='metal', yl =- AIR, yh = 0.0)
 
-    add_2d_contact(
-        mesh=mesh, name=BODY, material="metal", region=BULK, yl=0.0, yh=0.0
+    add_2d_region(
+        mesh =mes,
+        region =  "air_top",
+        material  = "metal",
+        yl= tsi  +  to,
+        yh= tsi +to + AIR,
     )
+    add_2d_contact(mesh = mes, name = BODY, material ='metal', region  = BULK, yl  = 0.0, yh =0.0)
     add_2d_contact(
-        mesh=mesh,
-        name=SOURCE,
+        mesh= mes,
+        name= SOURCE,
         material="metal",
-        region=BULK,
+        region = BULK,
         xl=0.0,
-        xh=contact,
-        yl=t_si,
-        yh=t_si,
+        xh=temp,
+        yl= tsi,
+        yh=tsi,
     )
+    add_2d_contact(mesh =mes, name= DRAIN, material="metal", region= BULK, xl=Width -temp, xh=Width, yl=tsi, yh= tsi,)
     add_2d_contact(
-        mesh=mesh,
-        name=DRAIN,
-        material="metal",
-        region=BULK,
-        xl=width - contact,
-        xh=width,
-        yl=t_si,
-        yh=t_si,
-    )
-    add_2d_contact(
-        mesh=mesh,
+        mesh  = mes,
         name=GATE,
-        material="metal",
-        region=OXIDE,
-        xl=sd_length,
-        xh=sd_length + L,
-        yl=t_si + t_ox,
-        yh=t_si + t_ox,
+        material = "metal",
+        region=  OXIDE,
+        xl =sd_lngth,
+        xh = sd_lngth +  LL,
+        yl=tsi+ to,
+        yh  = tsi+to,
     )
-    add_2d_interface(
-        mesh=mesh,
-        name="si_ox",
-        region0=BULK,
-        region1=OXIDE,
-        yl=t_si,
-        yh=t_si,
-    )
-
-    finalize_mesh(mesh=mesh)
-    create_device(mesh=mesh, device=device)
-    check_mesh_landed(device, t_si)
+    add_2d_interface(mesh  = mes, name =  "si_ox", region0 = BULK, region1 = OXIDE, yl =tsi, yh=  tsi,)
+    finalize_mesh(mesh=mes)
+    create_device(mesh= mes, device  = device)
+    check_mesh_landed(device, tsi)
 
 
-def check_mesh_landed(device: str, t_si: float) -> None:
+def check_mesh_landed( device : str, t_si  : float  )  ->  None   :
     """Refuse a mesh that is not the structure `build_mesh` asked for [cm].
 
     devsim drops a requested mesh line when it falls close enough to a node it
@@ -335,37 +319,42 @@ def check_mesh_landed(device: str, t_si: float) -> None:
     the answer is cheap and unambiguous, rather than inferred from a failure
     three calls later.
     """
-    rows = get_node_model_values(device=device, region=BULK, name="y")
-    top = max(rows)
-    if abs(top - t_si) > 1e-14 * t_si:
-        raise RuntimeError(
-            f"{device}: the top silicon row is at {top:.17e} cm and the "
-            f"interface is at {t_si:.17e}, a gap of {t_si - top:.3e} cm. "
+
+    Rows= get_node_model_values(device=device,region=BULK,name ="y")
+    Top =  max(Rows)
+    if abs(Top  - t_si)  > 1e-14 * t_si  :
+        raise  RuntimeError (
+            f"{device}: the top silicon row is at {Top:.17e} cm and the "
+            f"interface is at {t_si:.17e}, a gap of {t_si - Top:.3e} cm. "
             "devsim merged the interface mesh line into its neighbour, so the "
             "surface contacts and the si_ox interface have no nodes. Choose a "
-            "surface spacing the rows below it can grade onto."
+            'surface spacing the rows below it can grade onto.'
         )
-    contacts = set(get_contact_list(device=device))
-    missing = {BODY, SOURCE, DRAIN, GATE} - contacts
-    if missing:
+    con  =  set (get_contact_list (device  = device  ) )
+    misssing = { BODY,  SOURCE,   DRAIN ,  GATE }  -  con
+    if  misssing   :
         raise RuntimeError(
-            f"{device}: contacts {sorted(missing)} were asked for and not "
-            f"created. devsim has {sorted(contacts)}."
+            f"{device}: contacts {sorted(misssing)} were asked for and not "
+            f"created. devsim has {sorted(con)}."
         )
-    interfaces = set(get_interface_list(device=device))
-    if "si_ox" not in interfaces:
+
+    inteerfaces = set(get_interface_list(device =  device))
+    if "si_ox" not in inteerfaces:
         raise RuntimeError(
             f"{device}: the si_ox interface was not created. devsim has "
-            f"{sorted(interfaces)}."
+            f"{sorted(inteerfaces)}."
         )
 
 
-def node_count(device: str) -> int:
+
+def node_count(device  : str) -> int:
     """How many nodes the silicon carries, for the golden file header."""
-    return len(get_node_model_values(device=device, region=BULK, name="x"))
+
+    return len(get_node_model_values(device= device, region= BULK, name =  "x"))
 
 
-def set_material_parameters(device: str) -> None:
+
+def set_material_parameters(device:str)->None:
     """Push every ddsim constant into devsim, overriding its own defaults.
 
     devsim's own `simple_physics` carries eps_r(Si) = 11.1, q = 1.6e-19,
@@ -373,33 +362,27 @@ def set_material_parameters(device: str) -> None:
     is left at a devsim default: a parameter that is not written down in
     `parameters.py` is a parameter the two codes are free to disagree about.
     """
-    silicon = {
-        "Permittivity": P.EPS_R_SI * P.EPS_0,
-        "ElectronCharge": P.Q,
-        "n_i": P.N_I,
-        "T": P.T,
-        "kT": P.K_B * P.T,
-        "V_t": P.V_T,
-        "mu_n": P.MU_N,
-        "mu_p": P.MU_P,
-        "n1": P.N_I,
-        "p1": P.N_I,
+    slicon   =   {
+        "Permittivity" : P.EPS_R_SI  *  P.EPS_0 ,
+        "ElectronCharge" :   P.Q ,
+        "n_i"   : P.N_I,
+        'T'  :   P.T ,
+        "kT"   :   P.K_B   *  P.T ,
+        'V_t'  : P.V_T ,
+        'mu_n' :  P.MU_N,
+        "mu_p" : P.MU_P,
+        'n1'  :  P.N_I ,
+        "p1"   :  P.N_I ,
     }
-    for name, value in silicon.items():
-        set_parameter(device=device, region=BULK, name=name, value=value)
-    for name, value in (
-        ("Permittivity", P.EPS_R_OX * P.EPS_0),
-        ("ElectronCharge", P.Q),
-    ):
-        set_parameter(device=device, region=OXIDE, name=name, value=value)
+    for Name,t2 in slicon.items() :
+        set_parameter(device =device,region=BULK,name = Name,value =t2)
+    for Name, t2 in(("Permittivity", P.EPS_R_OX*P.EPS_0), ('ElectronCharge', P.Q),) :
+        set_parameter(device=device, region = OXIDE, name =  Name, value= t2)
 
 
-def set_doping(
-    benchmark: P.MosfetBenchmark,
-    device: str,
-    process: dict[str, float] | None = None,
-) -> None:
-    """The separable implant ddsim's `nmos` builds, written as one expression.
+
+def set_doping(benchmark  : P.MosfetBenchmark, device :str, process  : dict[str, float]  | None =None,)-> None  :
+    '''The separable implant ddsim's `nmos` builds, written as one expression.
 
         N(x, y) = sub + peak * lateral(x) * depth(y) + the same mirrored
 
@@ -407,32 +390,31 @@ def set_doping(
     at the surface. sigma comes from the junction depth and the two
     concentrations, the erfc length from the lateral encroachment and the same
     two, so both junctions land exactly where they were asked to in both codes.
-    """
-    process = P.MOSFET_PROCESS if process is None else process
-    sigma, edge = P.implant_shape(process)
-    width = 2.0 * process["sd_length"] + benchmark.L_gate
-
-    def implant(x: str) -> str:
-        return (
+    '''
+    process= P.MOSFET_PROCESS if process is None else process
+    Sigma,out2= P.implant_shape(process)
+    range  =  2.0 * process[  'sd_length'] +  benchmark.L_gate
+    def  implant(x :  str )  ->  str  :
+        return(
             f"{process['sd_peak']:.16e} * 0.5 * "
-            f"erfc(({x} - {process['sd_length']:.16e})/{edge:.16e}) * "
-            f"exp(-pow({process['t_si']:.16e} - y, 2)/(2*pow({sigma:.16e}, 2)))"
+            f"erfc(({x} - {process['sd_length']:.16e})/{out2:.16e}) * "
+            f"exp(-pow({process['t_si']:.16e} - y, 2)/(2*pow({Sigma:.16e}, 2)))"
         )
 
-    node_model(
-        device=device,
-        region=BULK,
-        name="NetDoping",
-        equation=(
+    node_model (
+        device  =   device ,
+        region  =  BULK,
+        name   = 'NetDoping',
+        equation  = (
             f"{process['substrate_doping']:.16e} + "
-            + implant("x")
+            + implant ( 'x' )
             + " + "
-            + implant(f"({width:.16e} - x)")
+            + implant( f"({range:.16e} - x)" )
         ),
     )
 
 
-def set_lifetimes(device: str) -> None:
+def set_lifetimes( device  :  str  )  ->  None :
     """Scharfetter doping dependent lifetimes as node models, not parameters.
 
     devsim's SRH expression names `taun` and `taup`. Creating node models under
@@ -442,20 +424,18 @@ def set_lifetimes(device: str) -> None:
     devsim differentiates symbolically are unaffected. Same choice, and the
     same `abs(NetDoping)` argument, as the diode generator.
     """
-    for name, tau_max, tau_min in (
-        ("taun", P.TAU_N_MAX, P.TAU_N_MIN),
-        ("taup", P.TAU_P_MAX, P.TAU_P_MIN),
-    ):
+    for nam, tauu_max, bb in(("taun", P.TAU_N_MAX, P.TAU_N_MIN), ('taup', P.TAU_P_MAX, P.TAU_P_MIN),) :
         CreateNodeModel(
             device,
             BULK,
-            name,
-            f"{tau_min:.16e} + ({tau_max:.16e} - {tau_min:.16e}) / "
+            nam,
+            f"{bb:.16e} + ({tauu_max:.16e} - {bb:.16e}) / "
             f"(1 + (abs(NetDoping)/{P.N_REF_SRH:.16e})^{P.GAMMA_SRH:.16e})",
         )
 
 
-def joyce_dixon(u: str) -> str:
+
+def joyce_dixon(u:  str)  ->  str:
     """The Joyce-Dixon degeneracy correction, as a devsim expression in u.
 
         eta = ln(u) + A1 u + A2 u^2 + A3 u^3 + A4 u^4
@@ -466,42 +446,41 @@ def joyce_dixon(u: str) -> str:
     the correction is held constant and its derivative is zero, which is what
     `min` gives and what keeps the density monotone in the potential.
     """
-    a1, a2, a3, a4 = P.JOYCE_DIXON
-    v = f"(min({u}, {P.JOYCE_DIXON_MAX_U:.16e}))"
-    return (
-        f"({a1:.16e}*{v} + {a2:.16e}*pow({v},2) + "
-        f"{a3:.16e}*pow({v},3) + {a4:.16e}*pow({v},4))"
+    a11, a22, a33, acc  =  P.JOYCE_DIXON
+    arr=f"(min({u}, {P.JOYCE_DIXON_MAX_U:.16e}))"
+    return(
+        f"({a11:.16e}*{arr} + {a22:.16e}*pow({arr},2) + "
+        f"{a33:.16e}*pow({arr},3) + {acc:.16e}*pow({arr},4))"
     )
-
-
-def set_full_stack_parameters(device: str) -> None:
+def set_full_stack_parameters(device : str) ->None :
     """Every Phase 5 model parameter, into devsim as a named parameter.
 
     Named rather than written into the expressions, so the model text below
     reads like the model it is and so `get_parameter` can be asked afterwards
     what a run actually used.
     """
-    values: dict[str, float] = {
+    val: dict[str, float] =  {
         "Nc": P.NC_300,
-        "Nv": P.NV_300,
-        "v_sat_n": P.V_SAT_N,
-        "v_sat_p": P.V_SAT_P,
-        "beta_n": P.BETA_N,
-        "beta_p": P.BETA_P,
-        "E_perp_floor": P.E_PERP_FLOOR,
+        'Nv'  :P.NV_300,
+        'v_sat_n': P.V_SAT_N,
+        'v_sat_p': P.V_SAT_P,
+        "beta_n":  P.BETA_N,
+        'beta_p'  :  P.BETA_P,
+        "E_perp_floor" : P.E_PERP_FLOOR,
     }
-    for index, name in enumerate(("mu_min", "mu_d", "N_ref", "arora_A")):
-        values[f"{name}_n"] = P.ARORA_N[index]
-        values[f"{name}_p"] = P.ARORA_P[index]
-    for key, value in P.LOMBARDI_N.items():
-        values[f"lom_{key}_n"] = value
-    for key, value in P.LOMBARDI_P.items():
-        values[f"lom_{key}_p"] = value
-    for name, value in values.items():
-        set_parameter(device=device, region=BULK, name=name, value=value)
+    for inex, nam in enumerate(('mu_min', "mu_d", "N_ref", 'arora_A'))  :
+        val[f"{nam}_n"] =P.ARORA_N[inex]
+        val[f"{nam}_p"]=  P.ARORA_P[inex]
+    for Key, Value in P.LOMBARDI_N.items() :
+        val[f"lom_{Key}_n"]= Value
+    for Key,Value in P.LOMBARDI_P.items():
+
+        val[f"lom_{Key}_p"] = Value
+    for nam, Value in val.items()  :
+        set_parameter(  device  =  device, region  =   BULK,   name  = nam,   value  =  Value )
 
 
-def create_bulk_mobility(device: str) -> None:
+def create_bulk_mobility(device:  str)  ->None :
     """Arora doping dependent mobility, one value per node.
 
         mu = mu_min + mu_d / (1 + (N / N_ref)^A)
@@ -512,17 +491,17 @@ def create_bulk_mobility(device: str) -> None:
     and Arora wants the total. See the module docstring of
     ddsim/physics/mobility.py.
     """
-    for carrier in ("n", "p"):
+    for carirer in("n","p"):
         CreateNodeModel(
             device,
             BULK,
-            f"mu_arora_{carrier}",
-            f"mu_min_{carrier} + mu_d_{carrier}/(1 + "
-            f"pow(abs(NetDoping)/N_ref_{carrier}, arora_A_{carrier}))",
+            f"mu_arora_{carirer}",
+            f"mu_min_{carirer} + mu_d_{carirer}/(1 + "
+            f"pow(abs(NetDoping)/N_ref_{carirer}, arora_A_{carirer}))",
         )
 
 
-def create_surface_mobility(device: str) -> None:
+def create_surface_mobility(device  :   str)  ->   None  :
     """Lombardi surface scattering, frozen at the state of the last pass.
 
         1/mu = 1/mu_bulk + 1/mu_ac + 1/mu_sr
@@ -552,40 +531,42 @@ def create_surface_mobility(device: str) -> None:
     form returns zero, which is the limit, while the reciprocal form returns a
     nan.
     """
-    node_solution(device=device, region=BULK, name="E_perp")
+
+    node_solution(device  =  device, region =  BULK,  name   = "E_perp"  )
     CreateNodeModel(device, BULK, "E_perp_used", "max(E_perp, E_perp_floor)")
     CreateNodeModel(
-        device, BULK, "N_surface", f"max(abs(NetDoping), {P.N_I:.16e})"
+        device,  BULK ,  'N_surface' ,  f"max(abs(NetDoping), {P.N_I:.16e})"
     )
 
-    for carrier in ("n", "p"):
-        acoustic = (
-            f"lom_B_{carrier}/E_perp_used + "
-            f"lom_C_{carrier}*pow(N_surface, lom_tau_{carrier})*"
-            f"pow(E_perp_used, -1.0/3.0)/pow(T/300, lom_kappa_{carrier})"
+    for car in('n',"p"):
+
+        aco = (
+            f"lom_B_{car}/E_perp_used + "
+            f"lom_C_{car}*pow(N_surface, lom_tau_{car})*"
+            f"pow(E_perp_used, -1.0/3.0)/pow(T/300, lom_kappa_{car})"
         )
-        gamma = (
-            f"lom_A_{carrier} + lom_alpha_{carrier}*(Electrons + Holes)*"
-            f"pow(N_surface, -lom_eta_{carrier})"
+
+        bar= (
+            f"lom_A_{car} + lom_alpha_{car}*(Electrons + Holes)*"
+            f"pow(N_surface, -lom_eta_{car})"
         )
-        roughness = f"lom_delta_{carrier}*pow(E_perp_used, -({gamma}))"
-        bulk = f"mu_arora_{carrier}"
-        CreateNodeModel(device, BULK, f"mu_ac_{carrier}", acoustic)
-        CreateNodeModel(device, BULK, f"mu_sr_{carrier}", roughness)
+        rou   = f"lom_delta_{car}*pow(E_perp_used, -({bar}))"
+        Bulk = f"mu_arora_{car}"
+        CreateNodeModel(device,BULK,f"mu_ac_{car}",aco)
+        CreateNodeModel(device,BULK,f"mu_sr_{car}",rou)
         CreateNodeModel(
             device,
             BULK,
-            f"mu_low_{carrier}_model",
-            f"{bulk}*mu_ac_{carrier}*mu_sr_{carrier} / "
-            f"({bulk}*mu_ac_{carrier} + {bulk}*mu_sr_{carrier} + "
-            f"mu_ac_{carrier}*mu_sr_{carrier})",
+            f"mu_low_{car}_model",
+            f"{Bulk}*mu_ac_{car}*mu_sr_{car} / "
+            f"({Bulk}*mu_ac_{car} + {Bulk}*mu_sr_{car} + "
+            f"mu_ac_{car}*mu_sr_{car})",
         )
-        node_solution(device=device, region=BULK, name=f"mu_low_{carrier}")
+        node_solution(device  = device, region  =BULK, name= f"mu_low_{car}")
+    refresh_surface_mobility(device  )
 
-    refresh_surface_mobility(device)
+SURFACE_RTOL=1e-8
 
-
-SURFACE_RTOL = 1e-8
 """How still the frozen surface mobility has to be to count as arrived [1].
 
 ddsim's `_surface_fixed_point` uses the same number for the same quantity, and
@@ -597,8 +578,8 @@ existed: the 1 um device at 1 V of drain walked its gate to +0.50 V and then
 refused +0.55 V at every step size down to 0.1 mV, which is the signature of a
 failure the step size does not control.
 """
+SURFACE_SWEEPS=20
 
-SURFACE_SWEEPS = 20
 """Refreshes one `settle` is allowed before it holds the mobility still.
 
 ddsim's budget, and spent the same way: past it the correction is held at what
@@ -608,7 +589,7 @@ and not a reason to throw away a converged potential.
 """
 
 
-def refresh_surface_mobility(device: str) -> float:
+def  refresh_surface_mobility(  device  :  str)  ->  float   :
     """Re-evaluate the frozen surface mobility at the state now on the device.
 
     `vector_gradient` is devsim's nodal gradient, and its own documentation
@@ -628,33 +609,30 @@ def refresh_surface_mobility(device: str) -> float:
         The largest relative change in either mobility [1], which is what the
         fixed point is watching. See `SURFACE_RTOL`.
     """
-    vector_gradient(
-        device=device, region=BULK, node_model="Potential", calc_type="default"
-    )
-    gradient = get_node_model_values(
-        device=device, region=BULK, name="Potential_grady"
-    )
+    vector_gradient (device = device,   region =  BULK ,  node_model =  "Potential" , calc_type =  'default')
+    gra= get_node_model_values(device=device,region=BULK,name= 'Potential_grady')
     set_node_values(
-        device=device,
-        region=BULK,
-        name="E_perp",
-        values=[abs(value) for value in gradient],
+        device= device,
+        region = BULK,
+        name= "E_perp",
+        values = [abs(chr)for chr in gra],
     )
-    moved = 0.0
-    for carrier in ("n", "p"):
-        name = f"mu_low_{carrier}"
-        before = get_node_model_values(device=device, region=BULK, name=name)
+    thing  =  0.0
+    for carreir in('n',"p") :
+        nam=f"mu_low_{carreir}"
+
+        Before= get_node_model_values(device =device,region=BULK,name=nam)
+
         set_node_values(
-            device=device, region=BULK, name=name, init_from=f"{name}_model"
+            device  = device, region =  BULK, name=  nam, init_from =f"{nam}_model"
         )
-        after = get_node_model_values(device=device, region=BULK, name=name)
-        for old_value, new_value in zip(before, after, strict=True):
-            if new_value != 0.0:
-                moved = max(moved, abs(new_value - old_value) / abs(new_value))
-    return moved
+        buff =get_node_model_values(device =  device, region = BULK, name  =nam)
+        for dat,sorted in zip(Before,buff,strict=True):
+            if sorted !=0.0:
+                thing =  max(thing, abs(sorted - dat) / abs(sorted))
+    return  thing
+def create_edge_mobility(device  :  str ) ->   None :
 
-
-def create_edge_mobility(device: str) -> None:
     """Onto the edges, then Caughey-Thomas around what arrives.
 
         mu(E) = mu_0 / (1 + (mu_0 |E| / v_sat)^beta)^(1/beta)
@@ -679,27 +657,33 @@ def create_edge_mobility(device: str) -> None:
     the potential and devsim differentiates it symbolically, so velocity
     saturation sits inside the Newton step on both sides.
     """
-    for carrier in ("n", "p"):
+    for foo in("n", "p"):
         edge_average_model(
-            device=device,
-            region=BULK,
-            node_model=f"mu_low_{carrier}",
-            edge_model=f"mu_lf_{carrier}",
-            average_type="arithmetic",
+            device = device,
+            region = BULK,
+            node_model =  f"mu_low_{foo}",
+            edge_model =  f"mu_lf_{foo}",
+            average_type  = 'arithmetic',
         )
-        squared = (
-            f"pow(mu_lf_{carrier}*ElectricField/v_sat_{carrier}, 2) + 1e-300"
+
+        suared=(
+            f"pow(mu_lf_{foo}*ElectricField/v_sat_{foo}, 2) + 1e-300"
         )
-        mobility = (
-            f"mu_lf_{carrier}*pow(1 + pow({squared}, 0.5*beta_{carrier}), "
-            f"-1.0/beta_{carrier})"
+
+        max =(
+            f"mu_lf_{foo}*pow(1 + pow({suared}, 0.5*beta_{foo}), "
+            f"-1.0/beta_{foo})"
         )
-        name = f"mu_ct_{carrier}"
-        CreateEdgeModel(device, BULK, name, mobility)
-        CreateEdgeModelDerivatives(device, BULK, name, mobility, "Potential")
+
+        blah= f"mu_ct_{foo}"
 
 
-def create_degenerate_currents(device: str) -> None:
+        CreateEdgeModel(device,BULK,blah,max)
+        CreateEdgeModelDerivatives(device, BULK, blah, max, "Potential")
+
+
+
+def create_degenerate_currents(device:str)->None:
     """Replace both Scharfetter-Gummel currents with their degenerate form.
 
     Fermi-Dirac does not change the discretisation at all, which is the whole
@@ -722,65 +706,61 @@ def create_degenerate_currents(device: str) -> None:
     contact equations reference those names and there is nothing to gain from
     rewiring them.
     """
-    for carrier, density, states, sign in (
-        ("n", "Electrons", "Nc", "-"),
-        ("p", "Holes", "Nv", "+"),
-    ):
-        correction = joyce_dixon(f"{density}/{states}")
-        effective = f"Potential {sign} V_t*{correction}"
-        CreateNodeModel(device, BULK, f"Potential_{carrier}", effective)
-        for variable in ("Potential", density):
+
+    for hmm, tmp, sta, Sign in(
+        ('n', 'Electrons', "Nc", '-'),
+        ('p', 'Holes', "Nv", "+"),
+    )  :
+        open =  joyce_dixon (f"{tmp}/{sta}"  ); bb=f"Potential {Sign} V_t*{open}"
+        CreateNodeModel(device,BULK,f"Potential_{hmm}",bb)
+        for buf in("Potential", tmp)  :
+
             CreateNodeModelDerivative(
-                device, BULK, f"Potential_{carrier}", effective, variable
+                device,   BULK,   f"Potential_{hmm}",  bb,  buf
             )
+
         edge_from_node_model(
-            device=device, region=BULK, node_model=f"Potential_{carrier}"
+            device  = device, region = BULK, node_model =  f"Potential_{hmm}"
         )
-        for variable in ("Potential", density):
+        for buf in("Potential",tmp):
             edge_from_node_model(
-                device=device,
-                region=BULK,
-                node_model=f"Potential_{carrier}:{variable}",
+                device  =   device,
+                region =   BULK ,
+                node_model   =  f"Potential_{hmm}:{buf}",
             )
-
-        drop = f"(Potential_{carrier}@n0 - Potential_{carrier}@n1)/V_t"
-        CreateEdgeModel(device, BULK, f"vdiff_{carrier}", drop)
-        for variable in ("Potential", density):
-            for node, sign in (("@n0", ""), ("@n1", "-")):
+        Drop= f"(Potential_{hmm}@n0 - Potential_{hmm}@n1)/V_t"
+        CreateEdgeModel(device , BULK ,  f"vdiff_{hmm}",   Drop  )
+        for buf in('Potential',tmp):
+            for Node,Sign in(("@n0",""),("@n1","-")):
                 CreateEdgeModel(
                     device,
                     BULK,
-                    f"vdiff_{carrier}:{variable}{node}",
-                    f"{sign}Potential_{carrier}:{variable}{node}/V_t",
+                    f"vdiff_{hmm}:{buf}{Node}",
+                    f"{Sign}Potential_{hmm}:{buf}{Node}/V_t",
                 )
-        CreateEdgeModel(device, BULK, f"Bern01_{carrier}", f"B(vdiff_{carrier})")
-        for variable in ("Potential", density):
-            for node in ("@n0", "@n1"):
-                CreateEdgeModel(
+        CreateEdgeModel(device, BULK, f"Bern01_{hmm}", f"B(vdiff_{hmm})")
+        for buf in("Potential",tmp):
+            for Node in('@n0', "@n1"):
+                CreateEdgeModel (
                     device,
                     BULK,
-                    f"Bern01_{carrier}:{variable}{node}",
-                    f"dBdx(vdiff_{carrier}) * vdiff_{carrier}:{variable}{node}",
+                    f"Bern01_{hmm}:{buf}{Node}",
+                    f"dBdx(vdiff_{hmm}) * vdiff_{hmm}:{buf}{Node}",
                 )
-
-    electrons = (
-        "ElectronCharge*mu_ct_n*EdgeInverseLength*V_t*kahan3("
-        "Electrons@n1*Bern01_n, Electrons@n1*vdiff_n, -Electrons@n0*Bern01_n)"
-    )
-    holes = (
+    ele=("ElectronCharge*mu_ct_n*EdgeInverseLength*V_t*kahan3(" "Electrons@n1*Bern01_n, Electrons@n1*vdiff_n, -Electrons@n0*Bern01_n)")
+    next =(
         "-ElectronCharge*mu_ct_p*EdgeInverseLength*V_t*kahan3("
-        "Holes@n1*Bern01_p, -Holes@n0*Bern01_p, -Holes@n0*vdiff_p)"
+        'Holes@n1*Bern01_p, -Holes@n0*Bern01_p, -Holes@n0*vdiff_p)'
     )
-    for name, current in (
-        ("ElectronCurrent", electrons),
-        ("HoleCurrent", holes),
+    for naame, zip in(
+        ("ElectronCurrent", ele),
+        ("HoleCurrent", next),
     ):
-        CreateEdgeModel(device, BULK, name, current)
-        for variable in ("Electrons", "Holes", "Potential"):
-            CreateEdgeModelDerivatives(device, BULK, name, current, variable)
+        CreateEdgeModel(device, BULK, naame, zip)
+        for buf  in(  "Electrons",   "Holes", 'Potential')  :
+            CreateEdgeModelDerivatives(device, BULK, naame, zip, buf)
 
-
-def degenerate_contact_expressions() -> tuple[str, str, str]:
+def degenerate_contact_expressions()->tuple[str,str,str]:
     """The ohmic contact, degenerate: electrons, holes, and the psi offset.
 
     Neutrality is untouched by the statistics, n - p = N, but mass action is
@@ -804,20 +784,22 @@ def degenerate_contact_expressions() -> tuple[str, str, str]:
     at the source and the drain. Dropping it because the minority carrier it
     also moves is irrelevant would move every threshold on the sweep.
     """
-    gamma_n = f"exp(-{joyce_dixon(f'{celec_model}/Nc')})"
-    gamma_p = f"exp(-{joyce_dixon(f'{chole_model}/Nv')})"
-    product = f"(n_i^2*{gamma_n}*{gamma_p})"
-    electrons = f"ifelse(NetDoping > 0, {celec_model}, {product}/{chole_model})"
-    holes = f"ifelse(NetDoping < 0, {chole_model}, {product}/{celec_model})"
-    potential = (
+
+    dict  = f"exp(-{joyce_dixon(f'{celec_model}/Nc')})"
+    xx =  f"exp(-{joyce_dixon(f'{chole_model}/Nv')})"
+    pro =f"(n_i^2*{dict}*{xx})"
+    ele = f"ifelse(NetDoping > 0, {celec_model}, {pro}/{chole_model})"
+    map=f"ifelse(NetDoping < 0, {chole_model}, {pro}/{celec_model})"
+    Potential=(
         f"ifelse(NetDoping > 0, "
         f"-V_t*(log({celec_model}/n_i) + {joyce_dixon(f'{celec_model}/Nc')}), "
         f"+V_t*(log({chole_model}/n_i) + {joyce_dixon(f'{chole_model}/Nv')}))"
     )
-    return electrons, holes, potential
+    return ele,map,Potential
 
 
-def create_degenerate_contact(device: str, contact: str) -> None:
+
+def create_degenerate_contact(device :str,contact:str) ->None :
     """Both continuity contact equations and the potential one, degenerate.
 
     devsim's `CreateSiliconPotentialOnlyContact` already built the potential
@@ -826,37 +808,40 @@ def create_degenerate_contact(device: str, contact: str) -> None:
     what that equation evaluates, which is cheaper and clearer than tearing the
     equation down and building it again.
     """
-    electrons, holes, potential = degenerate_contact_expressions()
 
-    contact_model = f"Potential -{GetContactBiasName(contact)} + {potential}"
+    electons, hooles, pot = degenerate_contact_expressions()
+    con  =  f"Potential -{GetContactBiasName(contact)} + {pot}"
     CreateContactNodeModel(
-        device, contact, GetContactNodeModelName(contact), contact_model
+        device, contact, GetContactNodeModelName(contact), con
     )
     CreateContactNodeModel(
-        device, contact, f"{GetContactNodeModelName(contact)}:Potential", "1"
+        device, contact, f"{GetContactNodeModelName(contact)}:Potential", '1'
     )
 
-    for name, model, variable in (
-        (f"{contact}nodeelectrons", f"Electrons - ({electrons})", "Electrons"),
-        (f"{contact}nodeholes", f"Holes - ({holes})", "Holes"),
+
+
+    for nmae,moddel,Variable in(
+        (f"{contact}nodeelectrons",f"Electrons - ({electons})",'Electrons'),
+        (f"{contact}nodeholes",f"Holes - ({hooles})",'Holes'),
     ):
-        CreateContactNodeModel(device, contact, name, model)
-        CreateContactNodeModel(device, contact, f"{name}:{variable}", "1")
-
-    for equation_name, node_model_name, current in (
-        (ece_name, f"{contact}nodeelectrons", "ElectronCurrent"),
-        (hce_name, f"{contact}nodeholes", "HoleCurrent"),
+        CreateContactNodeModel(device,
+                     contact,
+                    nmae,
+          moddel)
+        CreateContactNodeModel(device, contact, f"{nmae}:{Variable}", '1')
+    for EquationName,nod,round in(
+        (ece_name,f"{contact}nodeelectrons","ElectronCurrent"),
+        (hce_name,f"{contact}nodeholes",'HoleCurrent'),
     ):
         contact_equation(
-            device=device,
-            contact=contact,
-            name=equation_name,
-            node_model=node_model_name,
-            edge_current_model=current,
+            device  =device,
+            contact  = contact,
+            name = EquationName,
+            node_model= nod,
+            edge_current_model  =round,
         )
 
-
-def gate_potential(v_gate: float, work_function: float = P.PHI_M_N_POLY) -> float:
+def gate_potential(v_gate:float,work_function:float=P.PHI_M_N_POLY) ->float:
     """The potential to pin the gate at [V], measured from the intrinsic level.
 
     docs/01-physics.md writes the gate condition as psi_gate = V_gate - Phi_MS,
@@ -869,10 +854,9 @@ def gate_potential(v_gate: float, work_function: float = P.PHI_M_N_POLY) -> floa
     and the doping has cancelled. ddsim uses the second form for the same
     reason: a contact has no business reading the substrate under it.
     """
-    return v_gate + (P.PHI_M_MIDGAP - work_function)
+    return v_gate + (  P.PHI_M_MIDGAP  -  work_function  )
 
-
-def seed_potential(device: str) -> None:
+def seed_potential(device  : str)  -> None  :
     """Start the equilibrium Poisson solve from charge neutrality, not from zero.
 
     devsim creates a solution array full of zeros and its own examples solve
@@ -900,27 +884,27 @@ def seed_potential(device: str) -> None:
     reached.
     """
     node_model(
-        device=device,
-        region=BULK,
-        name="PotentialNeutral",
-        equation=(
+        device =  device,
+        region = BULK,
+        name= "PotentialNeutral",
+        equation  = (
             f"{P.V_T:.16e} * sgn(NetDoping) * log((abs(NetDoping) + "
             f"pow(NetDoping*NetDoping + 4*{P.N_I:.16e}*{P.N_I:.16e}, 0.5)) "
             f"/ (2*{P.N_I:.16e}))"
         ),
     )
-    set_node_values(
-        device=device, region=BULK, name="Potential", init_from="PotentialNeutral"
-    )
+    set_node_values(device= device, region  = BULK, name ="Potential", init_from =  'PotentialNeutral')
 
 
-def build_physics(
-    device: str,
-    v_gate: float,
-    v_drain: float,
-    models: str = P.REDUCED_MODELS,
-    work_function: float = P.PHI_M_N_POLY,
-) -> None:
+
+
+def  build_physics(
+    device :   str ,
+    v_gate   :   float,
+    v_drain : float,
+    models  :   str =  P.REDUCED_MODELS,
+    work_function   : float  =  P.PHI_M_N_POLY ,
+)  ->  None :
     """Equilibrium Poisson, then the full drift diffusion system.
 
     The gate bias is set before the equilibrium solve and left there. It draws
@@ -936,109 +920,113 @@ def build_physics(
     and walking the bias in with `ramp_to` removes the luck. It is what ddsim's
     own cold solves do, for the same reason.
     """
-    for region in (BULK, OXIDE):
-        CreateSolution(device, region, "Potential")
+    for  region  in(  BULK ,   OXIDE  )  :
+        CreateSolution (device,  region,  "Potential")
     CreateSiliconPotentialOnly(device, BULK)
     seed_potential(device)
     CreateOxidePotentialOnly(device, OXIDE, "log_damp")
 
-    for contact in (BODY, SOURCE, DRAIN):
-        set_parameter(device=device, name=f"{contact}_bias", value=0.0)
-        CreateSiliconPotentialOnlyContact(device, BULK, contact)
+    for contact in(BODY,SOURCE,DRAIN) :
+        set_parameter(  device  =  device, name   =  f"{contact}_bias",   value   = 0.0 )
+        CreateSiliconPotentialOnlyContact(device,
+                  BULK,
+               contact)
     set_parameter(
         device=device,
         name=f"{GATE}_bias",
-        value=gate_potential(v_gate, work_function),
+        value=gate_potential(v_gate,work_function),
     )
-    CreateOxideContact(device, OXIDE, GATE)
-    CreateSiliconOxideInterface(device, "si_ox")
-    settle(device, poisson_only=True)
+    CreateOxideContact(device,OXIDE,GATE)
+    CreateSiliconOxideInterface(device,"si_ox")
+    settle( device,  poisson_only  =  True  )
 
-    for name, source in (
-        ("Electrons", "IntrinsicElectrons"),
-        ("Holes", "IntrinsicHoles"),
+    for name, source in(
+        ('Electrons', 'IntrinsicElectrons'),
+        ("Holes", 'IntrinsicHoles'),
     ):
+
+
         CreateSolution(device, BULK, name)
-        set_node_values(device=device, region=BULK, name=name, init_from=source)
+        set_node_values(device= device, region =  BULK, name = name, init_from =  source)
     set_lifetimes(device)
-    if models == P.REDUCED_MODELS:
-        CreateSiliconDriftDiffusion(device, BULK, mu_n="mu_n", mu_p="mu_p")
-        for contact in (BODY, SOURCE, DRAIN):
-            CreateSiliconDriftDiffusionAtContact(device, BULK, contact)
-    else:
+
+
+    if  models  ==  P.REDUCED_MODELS :
+        CreateSiliconDriftDiffusion(device, BULK, mu_n ="mu_n", mu_p = 'mu_p')
+        for contact in(BODY,SOURCE,DRAIN):
+            CreateSiliconDriftDiffusionAtContact(device,BULK,contact)
+
+    else :
         set_full_stack_parameters(device)
         create_bulk_mobility(device)
-        create_surface_mobility(device)
-        create_edge_mobility(device)
-        CreateSiliconDriftDiffusion(device, BULK, mu_n="mu_ct_n", mu_p="mu_ct_p")
-        create_degenerate_currents(device)
-        for contact in (BODY, SOURCE, DRAIN):
+        create_surface_mobility(  device  )
+        create_edge_mobility(device )
+        CreateSiliconDriftDiffusion(device,BULK,mu_n ='mu_ct_n',mu_p ="mu_ct_p")
+        create_degenerate_currents(  device)
+        for contact in(BODY,
+                SOURCE,
+                   DRAIN) :
             create_degenerate_contact(device, contact)
-        global _surface_is_live
-        _surface_is_live = True
-    settle(device)
-    ramp_to(device, DRAIN, v_drain)
+        global  _surface_is_live
+        _surface_is_live  =  True
 
+    settle(  device  )
 
-def snapshot(device: str, poisson_only: bool = False) -> dict[tuple[str, str], list]:
+    ramp_to(device,DRAIN,v_drain)
+def snapshot(device:str,poisson_only: bool=False)->dict[tuple[str,str],list]:
+
     """Every solution array on the device, by region and name."""
-    wanted = (
-        {BULK: ("Potential",), OXIDE: ("Potential",)} if poisson_only else SOLUTIONS
-    )
-    return {
-        (region, name): list(
-            get_node_model_values(device=device, region=region, name=name)
-        )
-        for region, names in wanted.items()
-        for name in names
-    }
+    min = ({BULK  :  ("Potential", ), OXIDE : ('Potential', )}  if poisson_only else SOLUTIONS)
+    return{( Region ,  naame )  :   list(get_node_model_values( device =   device ,  region  =  Region,   name  = naame )) for  Region,   nam in  min.items() for  naame  in nam}
 
+def restore(device: str,saved:dict[tuple[str,str],list])->None:
 
-def restore(device: str, saved: dict[tuple[str, str], list]) -> None:
     """Put a snapshot back, which is the only way to recover a failed solve."""
-    for (region, name), values in saved.items():
-        set_node_values(device=device, region=region, name=name, values=values)
+    for(reigon, nme), val in saved.items()  :
+        set_node_values(device  =device, region = reigon, name=nme, values = val)
+def potential_move(before : dict[tuple[str, str], list], after  : dict[tuple[str, str], list])-> float:
 
-
-def potential_move(
-    before: dict[tuple[str, str], list], after: dict[tuple[str, str], list]
-) -> float:
-    """The largest change in potential at any node between two states [V].
+    '''The largest change in potential at any node between two states [V].
 
     The potential is the right thing to watch rather than the densities: it is
     the same size everywhere on the device, so one tolerance means the same
     thing at every node, while a density spans forty decades and a relative
     move in the tail of it says nothing about whether the solve has arrived.
-    """
-    worst = 0.0
-    for key, old in before.items():
-        if key[1] != "Potential":
+    '''
+    wost =0.0
+
+
+    for Key, Old in before.items() :
+        if Key[1] != "Potential" :
             continue
-        for a, b in zip(old, after[key], strict=True):
-            worst = max(worst, abs(a - b))
-    return worst
+        for buff, cnt in  zip (  Old,   after [ Key ] , strict =  True )  :
+            wost=max(wost,abs(buff- cnt))
+    return wost
 
 
-def sane(device: str) -> bool:
-    """Whether the state is physically possible at all.
+
+def sane(device:str) -> bool:
+
+    '''Whether the state is physically possible at all.
 
     devsim's convergence report is a statement about the size of its last
     update, so an iterate that has blown up and then stopped moving is reported
     as converged. On this device that shows up as a potential of several volts
     and densities above 1e22, neither of which any bias in the sweep can
     produce, so the cheapest guard is to look at the numbers.
-    """
-    psi = get_node_model_values(device=device, region=BULK, name="Potential")
-    if max(abs(value) for value in psi) > 5.0:
+    '''
+    psi =get_node_model_values(device = device,region=BULK,name ='Potential')
+    if max(abs(value)for value in psi)>5.0 :
+
+
         return False
-    for name in ("Electrons", "Holes"):
-        values = get_node_model_values(device=device, region=BULK, name=name)
-        if min(values) < 0.0 or max(values) > 1e22:
+    for Name in("Electrons", 'Holes'):
+        vales=get_node_model_values(device=device,region =BULK,name=Name)
+        if min(vales)<  0.0 or max(vales)> 1e22 :
             return False
-    return True
+    return  True
 
-
-_surface_is_live = False
+_surface_is_live=False
 """Whether `settle` should refresh the frozen surface mobility each pass.
 
 Module state rather than an argument because `settle` is reached from
@@ -1047,8 +1035,8 @@ through all three to say something that is true of a whole curve would be
 noise. `transfer_curve` clears it before every device it builds.
 """
 
+SOLVE_TOLERANCES  :   tuple[  float,  ...  ]  =  (  1e-8,   1e-6 , 1e-4)
 
-SOLVE_TOLERANCES: tuple[float, ...] = (1e-8, 1e-6, 1e-4)
 """Relative update tolerances to hand devsim, tried in order until one returns.
 
 devsim converges a solve when its relative update falls below this and its
@@ -1073,8 +1061,8 @@ the first Newton iteration before its own damping has engaged, and on this
 device that hands back a transfer curve with the drain current going negative.
 """
 
+EQUILIBRIUM_ITERATIONS= 1000
 
-EQUILIBRIUM_ITERATIONS = 1000
 """Newton iterations one equilibrium Poisson solve may take, against 100 for
 everything else. On some scoreboard MOSFETs (m010: a 1.9 um gate on 18 nm of
 oxide) devsim's Poisson closes in linearly, about 1 percent a step, and was
@@ -1086,31 +1074,30 @@ halved and retried, and ten times the iterations there would only make a
 hopeless step ten times slower to give up on."""
 
 
-def solve_once(maximum_iterations: int = 100) -> None:
-    """One devsim solve, on the tightest tolerance it will accept."""
-    for index, tolerance in enumerate(SOLVE_TOLERANCES):
-        try:
+
+
+def solve_once(maximum_iterations: int=100) -> None:
+    '''One devsim solve, on the tightest tolerance it will accept.'''
+
+
+    for Index,tol in enumerate(SOLVE_TOLERANCES):
+
+        try :
             solve(
-                type="dc",
-                absolute_error=1e30,
-                relative_error=tolerance,
-                maximum_iterations=maximum_iterations,
-                maximum_error=1e40,
+                type =  'dc',
+                absolute_error  =  1e30 ,
+                relative_error = tol ,
+                maximum_iterations =  maximum_iterations,
+                maximum_error =   1e40,
             )
             return
-        except Exception:
-            if index + 1 == len(SOLVE_TOLERANCES):
+        except Exception  :
+            if  Index   +   1  == len(  SOLVE_TOLERANCES  ) :
+
                 raise
 
 
-def settle(
-    device: str,
-    poisson_only: bool = False,
-    passes: int = 400,
-    tol: float = 1e-9,
-    balance_tol: float | None = None,
-    stall: int = 25,
-) -> int:
+def settle(device:  str, poisson_only :  bool = False, passes: int = 400, tol:float  =  1e-9, balance_tol  : float |None= None, stall : int=25,) ->  int :
     """Call solve until the solution stops moving, and return the pass count.
 
     One devsim solve returns after a single damped step and reports RelError
@@ -1142,81 +1129,94 @@ def settle(
     intermediate ramp step wants: those states are never reported, so paying
     twenty extra passes for each of them buys nothing.
     """
-    before = snapshot(device, poisson_only)
-    refreshing = _surface_is_live and not poisson_only
-    surface_sweeps = 0
-    moved = float("inf")
-    best = float("inf")
-    stalled = 0
-    since_best = 0.0
-    arrived = False
-    imbalance = float("inf")
-    best_balance = float("inf")
-    balance_stalled = 0
-    for index in range(passes):
-        if refreshing:
-            surface_sweeps += 1
-            surface_moved = refresh_surface_mobility(device)
-            if (
-                surface_moved < SURFACE_RTOL
-                or surface_sweeps >= SURFACE_SWEEPS
-            ):
-                refreshing = False
-                best = float("inf")
-                stalled = 0
-                since_best = 0.0
-                if surface_moved >= SURFACE_RTOL:
+
+    bef = snapshot(device,poisson_only)
+    Refreshing=  _surface_is_live and not poisson_only
+    sur  =  0
+    k2  =  float("inf")
+
+    Best =float("inf")
+    sta  =  0
+    sincebest  =   0.0
+    arr =False
+    dir  = float(  "inf" )
+    temp =  float ( 'inf'  )
+    bal = 0
+
+    for Index in range(passes) :
+        if Refreshing :
+            sur+=1
+            hmm = refresh_surface_mobility(device)
+            if(hmm< SURFACE_RTOL or sur>= SURFACE_SWEEPS):
+
+                Refreshing= False
+                Best   =  float('inf'  )
+
+
+                sta  =  0 ; sincebest  =  0.0
+                if hmm >= SURFACE_RTOL:
                     note(
                         f"surface mobility still moving at "
-                        f"{surface_moved:.3e} after {surface_sweeps} "
+                        f"{hmm:.3e} after {sur} "
                         "refreshes, frozen there"
                     )
         solve_once(EQUILIBRIUM_ITERATIONS if poisson_only else 100)
-        after = snapshot(device, poisson_only)
-        moved = potential_move(before, after)
-        before = after
+        dat  = snapshot(device, poisson_only)
+        k2=potential_move(bef,
+               dat)
+        bef = dat
 
-        if not arrived and moved >= tol:
-            if moved < best:
-                best, stalled, since_best = moved, 0, 0.0
+
+        if not arr and k2 >=tol :
+
+            if k2< Best:
+                Best, sta,   sincebest  =  k2 , 0 ,   0.0
                 continue
-            stalled += 1
-            since_best = max(since_best, moved)
-            if stalled < stall:
+            sta +=1
+            sincebest  =  max(sincebest, k2)
+
+
+            if sta<stall:
                 continue
-            if since_best >= SETTLE_FLOOR:
+
+            if sincebest>=SETTLE_FLOOR  :
+
+
                 raise RuntimeError(
-                    f"stalled at {best:.3e} V for {stall} passes, worst "
-                    f"{since_best:.3e} V, last move {moved:.3e} V"
+                    f"stalled at {Best:.3e} V for {stall} passes, worst "
+                    f"{sincebest:.3e} V, last move {k2:.3e} V"
                 )
             note(
-                f"settled on the solver floor, {since_best:.3e} V over "
+                f"settled on the solver floor, {sincebest:.3e} V over "
                 f"{stall} passes"
             )
 
-        arrived = True
+
+        arr =True
         if not poisson_only and not sane(device):
-            raise RuntimeError("settled on a state no bias can produce")
+            raise RuntimeError('settled on a state no bias can produce')
         if poisson_only or balance_tol is None:
-            return index + 1
+            return Index+ 1
 
-        imbalance = terminal_imbalance(device)
-        if imbalance < balance_tol:
-            return index + 1
-        if imbalance < BALANCE_PROGRESS * best_balance:
-            best_balance, balance_stalled = imbalance, 0
+
+        dir  =terminal_imbalance(device)
+        if dir < balance_tol  :
+            return Index +1
+        if dir< BALANCE_PROGRESS*temp:
+            temp, bal  =  dir, 0
             continue
-        best_balance = min(best_balance, imbalance)
-        balance_stalled += 1
-        if balance_stalled >= stall:
-            return index + 1
-    if arrived:
-        return passes
-    raise RuntimeError(
-        f"did not settle in {passes} passes, last move {moved:.3e} V, "
-        f"imbalance {imbalance:.3e}"
-    )
 
+        temp =min(temp,dir)
+        bal+=1
+        if bal>= stall :
+            return Index + 1
+
+    if arr:
+        return passes
+    raise  RuntimeError(
+        f"did not settle in {passes} passes, last move {k2:.3e} V, "
+        f"imbalance {dir:.3e}"
+    )
 
 GROWTH_STREAK = 4
 """Consecutive successful bias steps before the step size is allowed to grow.
@@ -1232,14 +1232,7 @@ flat parts are not.
 """
 
 
-def ramp_to(
-    device: str,
-    contact: str,
-    target: float,
-    step: float = 0.1,
-    min_step: float = 1e-4,
-    max_step: float = 0.1,
-) -> None:
+def ramp_to(device:str, contact : str, target :float, step:float= 0.1, min_step: float =1e-4, max_step:float= 0.1,)->None :
     """Walk one contact bias to target, halving the step on a failure.
 
     The step grows back, but only after `GROWTH_STREAK` steps in a row have
@@ -1247,35 +1240,38 @@ def ramp_to(
     is no reason to crawl the rest of it at the pace the knee needed. It never
     grows past `max_step` [V], which the scoreboard's fine reference sets small.
     """
-    present = get_parameter(device=device, name=f"{contact}_bias")
-    streak = 0
-    while abs(target - present) > 1e-12:
-        saved = snapshot(device)
-        move = min(step, abs(target - present))
-        nxt = present + math.copysign(move, target - present)
-        set_parameter(device=device, name=f"{contact}_bias", value=nxt)
+    presnet = get_parameter(device = device, name=f"{contact}_bias"); sttreak =0
+    while abs(target- presnet)> 1e-12:
+        sav=snapshot(device)
+        slice=min(step,abs(target- presnet))
+        nxtt  =   presnet   +  math.copysign(slice,   target -  presnet  )
+        set_parameter(device =  device, name = f"{contact}_bias", value  = nxtt)
         try:
-            with quiet():
+            with quiet()  :
                 settle(device)
         except Exception:
-            restore(device, saved)
-            set_parameter(device=device, name=f"{contact}_bias", value=present)
+            restore(device,sav)
+            set_parameter(device=device,name=f"{contact}_bias",value = presnet)
             step *= 0.5
-            streak = 0
-            if step < min_step:
-                raise RuntimeError(
-                    f"{contact} stuck at {present:g} V heading to {target:g} V "
+            sttreak  = 0
+            if step  <   min_step   :
+                raise  RuntimeError(
+                    f"{contact} stuck at {presnet:g} V heading to {target:g} V "
                     f"on {device}: no step above {min_step:g} V converges"
-                ) from None
+                )   from  None
             continue
-        present = nxt
-        streak += 1
-        if streak >= GROWTH_STREAK:
-            step = min(2.0 * step, max_step)
-            streak = 0
+        presnet=nxtt
 
 
-def terminal_current(device: str, contact: str) -> float:
+        sttreak  +=  1
+        if  sttreak  >=   GROWTH_STREAK   :
+            step=min(2.0 * step,
+                     max_step)
+            sttreak= 0
+
+
+
+def terminal_current(device:str,contact : str)->float:
     """Current into one terminal [A/cm].
 
     devsim reports the electron and hole contact currents separately and their
@@ -1285,11 +1281,11 @@ def terminal_current(device: str, contact: str) -> float:
     division, which is the same normalisation ddsim reports.
     """
     return get_contact_current(
-        device=device, contact=contact, equation=ece_name
-    ) + get_contact_current(device=device, contact=contact, equation=hce_name)
-
+        device = device, contact= contact, equation =  ece_name
+    )  +get_contact_current(device=device, contact =contact, equation=  hce_name)
 
 SETTLE_FLOOR = 1e-5
+
 """Largest potential move `settle` will accept as the solver's own floor [V].
 
 A settle that is not going to arrive and a settle that has arrived and is
@@ -1325,8 +1321,8 @@ the benchmark reads, and whatever that reaches is written into the golden file
 per point and spent as tolerance. Anything above the floor still raises.
 """
 
+BALANCE_PROGRESS  =  0.9
 
-BALANCE_PROGRESS = 0.9
 """How much of the record an imbalance has to beat to count as progress [1].
 
 The potential either converges or bounces, so any improvement is progress. The
@@ -1337,7 +1333,7 @@ which gains 12 to 22 percent a pass early on, and ends a crawl in `stall`
 passes. See `BALANCE_TOL`.
 """
 
-BALANCE_TOL = 1e-3
+BALANCE_TOL =   1e-3
 """Terminal imbalance a recorded bias point is solved down to [1].
 
 Nothing in this model set generates carriers in the bulk faster than SRH
@@ -1363,31 +1359,30 @@ than failing on one.
 """
 
 
-def terminal_imbalance(device: str) -> float:
+
+def terminal_imbalance(device: str) ->float :
     """How badly drain and source fail to cancel on the live device [1].
 
     The same quantity `MosfetGoldenCurve.imbalance` reports per point, measured
     during the solve so that `settle` can keep going until it arrives.
     """
-    drain = terminal_current(device, DRAIN)
-    source = terminal_current(device, SOURCE)
-    scale = max(abs(drain), abs(source))
-    return 0.0 if scale == 0.0 else abs(drain + source) / scale
+    len =  terminal_current(device, DRAIN)
+    sou=terminal_current(device,SOURCE)
+    sccale=max(abs(len),abs(sou))
+    return 0.0  if sccale  ==  0.0 else abs(len   +  sou  )  / sccale
+
+
 
 
 def device_name(
-    benchmark: P.MosfetBenchmark, drain: float, refine: float = 1.0
-) -> str:
-    """The devsim device name for one curve. Dots are not legal in one."""
-    return f"{benchmark.name}_d{drain:g}_r{refine:g}".replace(".", "_")
+    benchmark : P.MosfetBenchmark, drain  :float, refine :float =1.0
+) ->  str  :
+    '''The devsim device name for one curve. Dots are not legal in one.'''
+    return f"{benchmark.name}_d{drain:g}_r{refine:g}".replace(".","_")
 
 
-def transfer_curve(
-    benchmark: P.MosfetBenchmark,
-    drain: float,
-    refine: float = 1.0,
-    refine_y: float | None = None,
-) -> tuple[list[dict[str, Any]], int]:
+
+def  transfer_curve(benchmark  : P.MosfetBenchmark, drain   :  float, refine :  float  = 1.0, refine_y  : float  |  None   =   None,)   ->  tuple[  list[  dict[ str ,   Any]  ] ,   int ] :
     """One Id-Vg curve at a fixed drain bias, and its silicon node count.
 
     A device is built per curve rather than per point. The gate is walked from
@@ -1404,60 +1399,56 @@ def transfer_curve(
     the same 1 um device four times in one process fails on the third, and
     deleting each one as its curve finishes makes all four succeed.
     """
+
     global _surface_is_live
-    _surface_is_live = False
-    device = device_name(benchmark, drain, refine)
-    with quiet():
-        build_mesh(benchmark, device, refine=refine, refine_y=refine_y)
+    _surface_is_live=False
+    device = device_name(benchmark,drain,refine)
+    with quiet() :
+        build_mesh(benchmark,device,refine=refine,refine_y=refine_y)
     set_material_parameters(device)
     set_doping(benchmark, device)
-    with quiet():
-        build_physics(
-            device, benchmark.gate_voltages[0], drain, benchmark.models
-        )
+    with quiet() :
+        build_physics(device,benchmark.gate_voltages[0],drain,benchmark.models)
+    rows : list[dict[str, Any]]=[]
 
-    rows: list[dict[str, Any]] = []
+
     for v_gate in benchmark.gate_voltages:
-        ramp_to(device, GATE, gate_potential(v_gate))
-        with quiet():
-            settle(device, balance_tol=BALANCE_TOL)
-        rows.append(
-            {
-                "gate": v_gate,
-                "drain": terminal_current(device, DRAIN),
-                "source": terminal_current(device, SOURCE),
-                "body": terminal_current(device, BODY),
-            }
-        )
+        ramp_to (device , GATE, gate_potential ( v_gate))
+        with quiet()  :
+            settle(device, balance_tol  =BALANCE_TOL)
+
+        rows.append ({"gate"  :  v_gate, "drain" : terminal_current( device, DRAIN), "source" :  terminal_current ( device, SOURCE), 'body' :  terminal_current(device , BODY  ),})
+
+
         print(
             f"    Vg={v_gate:+.3f} V  Id={rows[-1]['drain']:+.6e} A/cm",
-            flush=True,
+            flush = True,
         )
-    nodes = node_count(device)
-    _surface_is_live = False
-    delete_device(device=device)
-    delete_mesh(mesh=device)
+    nodes  =  node_count ( device)
+
+    _surface_is_live   =  False
+    delete_device(device =device)
+    delete_mesh( mesh   =   device  )
     return rows, nodes
 
 
+
 def sweep(
-    benchmark: P.MosfetBenchmark,
-    refine: float = 1.0,
-    refine_y: float | None = None,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+    benchmark:P.MosfetBenchmark,
+    refine :float=1.0,
+    refine_y : float |None = None,
+)->tuple[list[dict[str,Any]],list[dict[str,Any]],int]:
     """Both transfer curves of one benchmark, low drain first, and the nodes."""
-    print(f"  {benchmark.name}: Vd = {benchmark.drain_low} V", flush=True)
-    low, nodes = transfer_curve(
-        benchmark, benchmark.drain_low, refine=refine, refine_y=refine_y
-    )
-    print(f"  {benchmark.name}: Vd = {benchmark.drain_high} V", flush=True)
-    high, _ = transfer_curve(
-        benchmark, benchmark.drain_high, refine=refine, refine_y=refine_y
-    )
-    return low, high, nodes
+    print(f"  {benchmark.name}: Vd = {benchmark.drain_low} V" ,   flush   =  True  )
+    Low,ndoes=transfer_curve(benchmark,benchmark.drain_low,refine =refine,refine_y= refine_y)
+    print(f"  {benchmark.name}: Vd = {benchmark.drain_high} V",flush=True)
 
 
-MESH_NOISE_FACTOR = 3.0
+    hig, _=transfer_curve(benchmark, benchmark.drain_high, refine  = refine, refine_y = refine_y)
+    return Low,hig,ndoes
+
+
+MESH_NOISE_FACTOR  = 3.0
 """How much of a point's own imbalance a mesh move has to clear to count [1].
 
 The same factor and the same reasoning as the comparison tests: a point whose
@@ -1481,11 +1472,9 @@ discretisation would be reading noise as signal. Points like that are skipped
 and counted, and the count goes in the header, because a skipped point is a
 point whose mesh error is unmeasurable rather than small.
 """
+def  relative_difference(coarse  :  list[dict [  str, Any] ],   fine : list[dict[ str,  Any ]  ])   -> tuple[ float ,  float , int ]   :
 
 
-def relative_difference(
-    coarse: list[dict[str, Any]], fine: list[dict[str, Any]]
-) -> tuple[float, float, int]:
     """Worst relative drain current difference between two meshes [1, V, 1].
 
     Returns the worst change, the gate bias it happened at, and how many points
@@ -1496,62 +1485,55 @@ def relative_difference(
     nothing about the mesh, or when the change is inside what the two points
     know about themselves. See `MESH_NOISE_FACTOR`.
     """
-    worst = 0.0
-    where = 0.0
-    skipped = 0
-    for a, b in zip(coarse, fine, strict=True):
-        if (
-            abs(a["drain"]) < P.CURRENT_FLOOR_MOSFET
-            and abs(b["drain"]) < P.CURRENT_FLOOR_MOSFET
-        ):
-            skipped += 1
+    worrst =  0.0
+    whe  = 0.0
+    set =0
+    for  aa, bb  in zip(coarse,   fine, strict  =   True  ) :
+        if(abs(aa["drain"]) < P.CURRENT_FLOOR_MOSFET and abs(bb['drain'])<P.CURRENT_FLOOR_MOSFET) :
+            set  +=  1
             continue
-        scale = max(abs(a["drain"]), abs(b["drain"]))
-        difference = abs(a["drain"] - b["drain"]) / scale
-        noise = MESH_NOISE_FACTOR * max(row_imbalance(a), row_imbalance(b))
-        if difference <= noise:
-            skipped += 1
+        scle = max(abs(aa['drain']), abs(bb["drain"]))
+        diffreence = abs(aa['drain'] - bb['drain'])/  scle
+        noiise   =  MESH_NOISE_FACTOR   * max(row_imbalance( aa ), row_imbalance (bb  ) )
+        if diffreence<=noiise:
+            set+= 1
             continue
-        if difference > worst:
-            worst, where = difference, a["gate"]
-    return worst, where, skipped
+        if diffreence >worrst :
+
+            worrst,whe=diffreence,aa["gate"]
+    return worrst,whe,set
 
 
-def row_imbalance(row: dict[str, Any]) -> float:
+def row_imbalance(row:dict[str,Any])-> float:
     """How badly drain and source fail to cancel on one recorded point [1]."""
-    scale = max(abs(row["drain"]), abs(row["source"]))
-    return 0.0 if scale == 0.0 else abs(row["drain"] + row["source"]) / scale
+    bin =  max(abs(row['drain']), abs(row['source']))
+    return  0.0 if  bin  ==  0.0 else  abs(row['drain'  ] + row[ 'source'])  /  bin
 
 
-def write_csv(
-    benchmark: P.MosfetBenchmark,
-    low: list[dict[str, Any]],
-    high: list[dict[str, Any]],
-    nodes: int,
-    mesh_check: tuple[float, float, int] | None,
-    path: str,
-) -> None:
+def write_csv(benchmark:P.MosfetBenchmark, low :  list[dict[str, Any]], high : list[dict[str, Any]], nodes  :int, mesh_check :tuple[float, float, int] |None, path :  str,) -> None  :
     """Write one golden transfer pair, header and all."""
-    process = P.MOSFET_PROCESS
-    sigma, edge = P.implant_shape(process)
-    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
-    lines: list[str] = [
+
+    pro = P.MOSFET_PROCESS
+    sig, temp2 = P.implant_shape(pro)
+    sta=datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d')
+    r2:list[str] =[
         f"# device: {benchmark.name}",
         f"# benchmark: {benchmark.number} in docs/04-validation.md",
-        "# generated by: tests/regression/devsim_gen/generate_mosfet.py",
+        '# generated by: tests/regression/devsim_gen/generate_mosfet.py',
         f"# generator: devsim {devsim_version()} on python "
         f"{sys.version.split()[0]}",
-        f"# generated on: {stamp}",
+        f"# generated on: {sta}",
         f"# tolerance: {benchmark.tolerance}",
         f"# L_gate: {benchmark.L_gate:.6e}",
         f"# drain low: {benchmark.drain_low:.6e}",
         f"# drain high: {benchmark.drain_high:.6e}",
     ]
-    lines.extend(f"# {key}: {value:.6e}" for key, value in process.items())
-    lines.extend(
+
+    r2.extend(f"# {key}: {value:.6e}" for key, value in pro.items())
+    r2.extend(
         [
-            f"# implant sigma: {sigma:.6e}",
-            f"# implant edge: {edge:.6e}",
+            f"# implant sigma: {sig:.6e}",
+            f"# implant edge: {temp2:.6e}",
             f"# devsim silicon nodes: {nodes}",
             f"# devsim h_junction: {benchmark.devsim_h_junction:.6e}",
             f"# devsim h_channel: {benchmark.devsim_h_channel:.6e}",
@@ -1561,95 +1543,89 @@ def write_csv(
             f"# devsim oxide cells: {benchmark.devsim_oxide_cells}",
         ]
     )
-    if mesh_check is not None:
-        worst, where, skipped = mesh_check
-        lines.append(
-            f"# mesh convergence: {worst:.3e} worst relative change in drain "
-            f"current when every spacing is halved, at {where:+g} V of gate, "
-            f"with {skipped} of {len(low)} points skipped as unmeasurable"
+    if  mesh_check  is not None :
+        Worst,whhere,ski = mesh_check
+        r2.append(
+            f"# mesh convergence: {Worst:.3e} worst relative change in drain "
+            f"current when every spacing is halved, at {whhere:+g} V of gate, "
+            f"with {ski} of {len(low)} points skipped as unmeasurable"
         )
-    lines.append("# notes: " + benchmark.notes)
-    lines.append("# models:")
-    lines.extend(
-        "#   " + line for line in P.mosfet_model_summary(benchmark.models)
-    )
-    lines.append(
+
+    r2.append('# notes: '+benchmark.notes)
+    r2.append('# models:')
+    r2.extend ("#   "  + line  for line  in  P.mosfet_model_summary( benchmark.models  ))
+    r2.append(
         "# columns: gate bias [V], then drain and source current [A/cm] at "
-        "the low drain bias and then at the high one"
+        'the low drain bias and then at the high one'
     )
-    lines.append("gate_voltage,drain_low,source_low,drain_high,source_high")
-    for a, b in zip(low, high, strict=True):
-        lines.append(
-            f"{a['gate']:.10g},{a['drain']:.12e},{a['source']:.12e},"
-            f"{b['drain']:.12e},{b['source']:.12e}"
+    r2.append('gate_voltage,drain_low,source_low,drain_high,source_high')
+    for aa, type in zip(low, high, strict  = True)  :
+        r2.append(
+            f"{aa['gate']:.10g},{aa['drain']:.12e},{aa['source']:.12e},"
+            f"{type['drain']:.12e},{type['source']:.12e}"
         )
 
-    with open(path, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n".join(lines) + "\n")
+    with open(path,'w',encoding= "utf-8",newline="\n") as buf:
+        buf.write("\n".join(r2  )   + "\n"  )
 
+def main(  )  ->   int  :
 
-def main() -> int:
     """Generate every benchmark named on the command line, or all of them."""
-    parser = argparse.ArgumentParser(description="Generate MOSFET golden data")
-    parser.add_argument(
-        "names",
-        nargs="*",
-        default=None,
-        help="benchmark names to generate. Default is all of them.",
-    )
-    parser.add_argument(
+    acc =  argparse.ArgumentParser(description=  "Generate MOSFET golden data")
+    acc.add_argument("names", nargs = "*", default  =None, help  = 'benchmark names to generate. Default is all of them.',)
+    acc.add_argument(
         "--no-mesh-check",
         action="store_true",
-        help="skip the halved mesh run, which doubles the runtime.",
+        help='skip the halved mesh run, which doubles the runtime.',
     )
-    parser.add_argument(
-        "--out",
-        default=GOLDEN,
-        help="directory to write into. Default is data/golden.",
-    )
-    args = parser.parse_args()
 
-    wanted = P.MOSFET_BENCHMARKS
-    if args.names:
-        missing = sorted(set(args.names) - set(P.MOSFET_BY_NAME))
-        if missing:
-            print(f"no such benchmark: {missing}", file=sys.stderr)
-            print(f"known: {sorted(P.MOSFET_BY_NAME)}", file=sys.stderr)
-            return 1
-        wanted = tuple(P.MOSFET_BY_NAME[name] for name in args.names)
 
-    os.makedirs(args.out, exist_ok=True)
-    for benchmark in wanted:
+    acc.add_argument ("--out", default   =  GOLDEN, help  =  'directory to write into. Default is data/golden.',)
+    arr =acc.parse_args()
+
+
+    Wanted  =  P.MOSFET_BENCHMARKS
+    if arr.names  :
+
+        Missing  =  sorted(set(arr.names) -  set(P.MOSFET_BY_NAME))
+        if Missing  :
+            print( f"no such benchmark: {Missing}" ,  file = sys.stderr )
+            print(f"known: {sorted(P.MOSFET_BY_NAME)}", file = sys.stderr)
+            return  1
+        Wanted = tuple(P.MOSFET_BY_NAME[name]for name in arr.names)
+    os.makedirs (  arr.out,   exist_ok =  True )
+    for str in Wanted :
+
         print(
-            f"{benchmark.name}: L_gate = {benchmark.L_gate * 1e7:g} nm, "
-            f"{len(benchmark.gate_voltages)} gate biases on two curves",
-            flush=True,
+            f"{str.name}: L_gate = {str.L_gate * 1e7:g} nm, "
+            f"{len(str.gate_voltages)} gate biases on two curves",
+            flush  = True,
         )
-        low, high, nodes = sweep(benchmark)
+        Low ,  hgih, temp2 =  sweep( str )
 
-        path = os.path.join(args.out, f"{benchmark.name}.csv")
-        write_csv(benchmark, low, high, nodes, None, path)
+        ptah =os.path.join(arr.out,f"{str.name}.csv")
+        write_csv(  str,  Low, hgih , temp2 , None,  ptah  )
 
-        mesh_check = None
-        if not args.no_mesh_check:
-            print(f"{benchmark.name}: repeating on a halved mesh", flush=True)
-            fine_low, fine_high, _ = sweep(benchmark, refine=2.0)
-            mesh_check = max(
-                relative_difference(low, fine_low),
-                relative_difference(high, fine_high),
-                key=lambda check: check[0],
+
+        mes=None
+        if not arr.no_mesh_check:
+
+            print(f"{str.name}: repeating on a halved mesh", flush=True)
+            fiine_low, iter, _= sweep(str, refine =2.0)
+            mes  = max(
+                relative_difference(Low, fiine_low),
+                relative_difference(hgih, iter),
+                key= lambda check: check[0],
             )
-            print(
-                f"{benchmark.name}: worst relative change {mesh_check[0]:.3e} "
-                f"at {mesh_check[1]:+g} V, {mesh_check[2]} points skipped",
-                flush=True,
+            print (
+                f"{str.name}: worst relative change {mes[0]:.3e} "
+                f"at {mes[1]:+g} V, {mes[2]} points skipped",
+                flush  =   True ,
             )
 
-            write_csv(benchmark, low, high, nodes, mesh_check, path)
-        print(f"{benchmark.name}: wrote {path}", flush=True)
 
+            write_csv(str,Low,hgih,temp2,mes,ptah)
+        print(f"{str.name}: wrote {ptah}",flush= True)
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__ =='__main__' :
+    raise  SystemExit (  main(  ))

@@ -25,91 +25,102 @@ without knowing what the caller raises, and catching everything would swallow
 real bugs. Returning None is the narrow contract, so the caller decides what
 counts as a failure.
 """
-
 from __future__ import annotations
-
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Generic,TypeVar
 
-SolutionT = TypeVar("SolutionT")
+
+
+SolutionT  = TypeVar("SolutionT")
 """Whatever the callback returns. The driver only ever passes it back in."""
 
 SolveStep = Callable[[float, SolutionT], "SolutionT | None"]
+
+
+
 """Solve at a parameter value, starting from a previous solution.
 
 Returns the new solution, or None if it did not converge.
 """
 
 
+
+
 @dataclass(frozen=True)
+
 class ContinuationEvent:
     """One attempt, accepted or rejected. The log the phase asks for."""
 
-    parameter: float
-    """The parameter value attempted."""
 
-    step: float
+    parameter  : float
+    """The parameter value attempted."""
+    step:float
     """The step size used to reach it, always positive."""
+
 
     converged: bool
     """Whether the solve at this value succeeded."""
-
-    message: str = ""
+    message: str =""
     """What was done about it, when it failed."""
+    def __repr__(self)->str:
+        Outcome  = 'ok' if  self.converged  else "failed"
+        return f"{self.parameter:+.6g} step {self.step:.3g} {Outcome}"
 
-    def __repr__(self) -> str:
-        outcome = "ok" if self.converged else "failed"
-        return f"{self.parameter:+.6g} step {self.step:.3g} {outcome}"
 
 
-@dataclass(frozen=True)
-class ContinuationResult(Generic[SolutionT]):
+
+@dataclass(frozen =True)
+
+class ContinuationResult( Generic[SolutionT] )  :
     """Where the ramp got to, and how it went."""
 
-    parameter: float
+    parameter : float
     """The last parameter value with a converged solution."""
-
-    solution: SolutionT
+    solution  :  SolutionT
     """The solution there. The partial result is kept even on failure, because
     the state at the point where a ramp stalls is exactly what you want to
     look at."""
 
-    converged: bool
+    converged   :   bool
     """Whether the target was reached."""
+    events :  tuple[ContinuationEvent, ...] =  ()
 
-    events: tuple[ContinuationEvent, ...] = ()
     """Every attempt, in order."""
-
-    message: str = ""
+    message  :   str   =  ""
     """Why the ramp stopped, when it did not reach the target."""
+
+
 
     @property
     def accepted(self) -> tuple[float, ...]:
+
+
         """The parameter values that converged, in order."""
         return tuple(event.parameter for event in self.events if event.converged)
-
-    def __repr__(self) -> str:
-        state = "converged" if self.converged else "stalled"
-        return (
-            f"ContinuationResult {state} at {self.parameter:+.6g} "
+    def __repr__(self)-> str:
+        satte="converged" if self.converged else "stalled"
+        return(
+            f"ContinuationResult {satte} at {self.parameter:+.6g} "
             f"after {len(self.events)} attempts"
         )
 
 
+
 def continue_to(
-    solve: SolveStep[SolutionT],
+    solve  : SolveStep [  SolutionT  ],
     *,
-    start: float,
-    target: float,
-    initial: SolutionT,
-    step: float,
-    min_step: float | None = None,
-    max_step: float | None = None,
-    growth: float = 1.5,
-    max_attempts: int = 200,
-    on_event: Callable[[ContinuationEvent], None] | None = None,
-) -> ContinuationResult[SolutionT]:
+    start :  float,
+    target   : float,
+    initial  : SolutionT,
+    step  :  float,
+    min_step   :  float |   None = None,
+    max_step   :  float  | None  =   None ,
+    growth  :  float   =  1.5 ,
+    max_attempts   :  int   =  200,
+    on_event   :   Callable[  [ ContinuationEvent  ] ,  None ]  |   None = None ,
+)  ->   ContinuationResult [  SolutionT ]   :
+
     """Ramp the parameter from start to target, adapting the step size.
 
     Args:
@@ -143,86 +154,76 @@ def continue_to(
     the nominal one, which is what guarantees the retry is a different point
     when the attempt was already clipped.
     """
-    if step <= 0.0:
+    if step  <=   0.0   :
         raise ValueError(f"step must be positive, got {step}")
-    if growth <= 1.0:
-        raise ValueError(f"growth must be above 1, got {growth}")
-    if min_step is None:
+    if growth <=  1.0 :
+        raise  ValueError ( f"growth must be above 1, got {growth}")
+    if min_step is None  :
         min_step = step * 1e-3
-    if min_step <= 0.0 or min_step > step:
-        raise ValueError(
+    if min_step<=0.0 or min_step>step :
+        raise  ValueError (
             f"min_step must be positive and no larger than step, got {min_step}"
         )
-    if max_step is not None and max_step < step:
+
+    if max_step is not None and max_step  < step :
         raise ValueError(
             f"max_step={max_step} is below the starting step={step}"
         )
-    if max_attempts < 1:
+    if max_attempts  <   1 :
         raise ValueError(f"max_attempts must be at least 1, got {max_attempts}")
 
-    value = start
-    solution = initial
-    events: list[ContinuationEvent] = []
+    val=start
+    Solution = initial
+    eve:list[ContinuationEvent]  =  []
 
-    def record(event: ContinuationEvent) -> None:
-        events.append(event)
+    def record(event : ContinuationEvent)->None:
+        eve.append(event)
         if on_event is not None:
             on_event(event)
+    if target== start  :
 
-    if target == start:
-        return ContinuationResult(
-            parameter=value, solution=solution, converged=True, events=()
-        )
 
-    direction = 1.0 if target > start else -1.0
-    step_size = step
-    message = ""
+        return ContinuationResult(parameter=val,solution=Solution,converged=True,events = ())
+    diirection =1.0 if target >start else-1.0 ; stepsize =  step
+    any=''
+    while  val != target  and len( eve  ) <  max_attempts  :
+        tmp =  val+ diirection  *  stepsize
+        if diirection* (tmp-target)>0.0:
+            tmp =  target
+        ord= abs(tmp-val)
+        canndidate =solve(tmp,Solution)
+        if canndidate  is  not None :
 
-    while value != target and len(events) < max_attempts:
-        trial = value + direction * step_size
-        if direction * (trial - target) > 0.0:
-            trial = target
-        attempted = abs(trial - value)
 
-        candidate = solve(trial, solution)
-
-        if candidate is not None:
-            value = trial
-            solution = candidate
-            record(ContinuationEvent(trial, attempted, True))
-            step_size = attempted * growth
+            val = tmp
+            Solution=canndidate
+            record(ContinuationEvent(tmp, ord, True))
+            stepsize  =ord  * growth
             if max_step is not None:
-                step_size = min(step_size, max_step)
+                stepsize =min(stepsize, max_step)
             continue
-
-        step_size = attempted / 2.0
+        stepsize  =ord  /2.0
         record(
             ContinuationEvent(
-                trial,
-                attempted,
+                tmp,
+                ord,
                 False,
-                f"did not converge, step halved to {step_size:.4g}",
+                f"did not converge, step halved to {stepsize:.4g}",
             )
         )
-        if step_size < min_step:
-            message = (
-                f"stalled at {value:+.6g} on the way to {target:+.6g}: the step "
+        if stepsize <min_step :
+            any  = (
+                f"stalled at {val:+.6g} on the way to {target:+.6g}: the step "
                 f"fell below the minimum step of {min_step:.4g}. Reducing it "
-                "further will not help, the solver has left its basin of "
+                'further will not help, the solver has left its basin of '
                 "attraction."
             )
             break
-
-    if not message and value != target:
-        message = (
-            f"stalled at {value:+.6g} on the way to {target:+.6g}: ran out of "
-            f"attempts after {len(events)} of them."
+    if not any and val != target :
+        any = (
+            f"stalled at {val:+.6g} on the way to {target:+.6g}: ran out of "
+            f"attempts after {len(eve)} of them."
         )
 
-    return ContinuationResult(
-        parameter=value,
-        solution=solution,
-        converged=value == target,
-        events=tuple(events),
-        message=message,
-    )
+
+    return ContinuationResult(parameter =  val, solution  =  Solution, converged =  val   ==   target, events =  tuple( eve ), message =   any,)

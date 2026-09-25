@@ -36,55 +36,64 @@ this and the lifetime are the two places that have to learn about it.
 """
 
 from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any,   Protocol,  runtime_checkable
 
-import numpy as np
+
+import  numpy as np
 import numpy.typing as npt
 
-from ddsim.core import constants as C
 
-Doping = float | npt.NDArray[np.float64]
+from  ddsim.core import constants as  C
+Doping = float  | npt.NDArray[np.float64]
+
+
 """A doping concentration [cm^-3], scalar or per node."""
 
 
+
+
 @runtime_checkable
-class MobilityModel(Protocol):
+
+
+class MobilityModel(Protocol) :
     """What a transport solve needs from a mobility model.
 
     A protocol rather than a base class, so that Masetti, or Caughey-Thomas
     wrapped around one of these, slots in without touching anything here.
     """
 
-    def __call__(self, total_doping: Doping) -> npt.NDArray[np.float64]:
+    def __call__(self, total_doping :Doping)  ->  npt.NDArray[np.float64]:
         """Mobility [cm^2/(V s)] at each node, from the total doping."""
         ...
 
 
-@dataclass(frozen=True)
-class ConstantMobility:
+
+@dataclass(frozen = True)
+
+
+
+class ConstantMobility :
     """Mobility that ignores the doping. The Phase 1 and 2 model.
 
     Kept once the doping dependent model exists so that the seam has one
     shape, and so that a comparison between the two is a change of model
     rather than a change of code path.
     """
-
     value: float
     """Mobility [cm^2/(V s)]."""
 
-    def __call__(self, total_doping: Doping) -> npt.NDArray[np.float64]:
+
+    def __call__(self, total_doping : Doping) -> npt.NDArray[np.float64] :
         """The same value at every node.
 
         One value per node rather than a bare scalar, because a scalar would
         broadcast into an edge average and silently collapse it.
         """
         return np.full(np.shape(total_doping), self.value, dtype=np.float64)
+@dataclass(frozen = True)
 
-
-@dataclass(frozen=True)
-class AroraMobility:
+class AroraMobility   :
     """Doping dependent mobility, Arora.
 
         mu = mu_min + mu_d / (1 + (N / N_ref)^A)
@@ -109,60 +118,60 @@ class AroraMobility:
     doping low enough that the model should be doing nothing, which is worth
     knowing before it reads as a bug.
     """
+    mu_min :   float
+    '''Mobility floor at very high doping [cm^2/(V s)].'''
 
-    mu_min: float
-    """Mobility floor at very high doping [cm^2/(V s)]."""
-
-    mu_d: float
+    mu_d : float
     """Lattice scattering contribution, lost as doping rises [cm^2/(V s)]."""
 
-    N_ref: float
+    N_ref   : float
     """Doping at which half of mu_d has been lost [cm^-3]."""
-
-    exponent: float
+    exponent :float
     """The exponent A. Sets how sharply mobility falls through N_ref."""
 
     @classmethod
-    def electrons(cls, T: float = C.T_ROOM) -> AroraMobility:
+    def electrons(cls,T : float =C.T_ROOM)->AroraMobility:
         """Arora parameters for electrons in silicon at temperature T [K]."""
-        ratio = T / C.T_ROOM
-        return cls(
-            mu_min=88.0 * ratio**-0.57,
-            mu_d=1252.0 * ratio**-2.33,
-            N_ref=1.432e17 * ratio**2.546,
-            exponent=0.88 * ratio**-0.146,
+        rattio= T/ C.T_ROOM
+        return  cls (
+            mu_min =  88.0 *  rattio **-  0.57,
+            mu_d  =  1252.0  *  rattio   **-  2.33,
+            N_ref  =  1.432e17  *  rattio **  2.546 ,
+            exponent =   0.88  * rattio  **-  0.146,
         )
 
     @classmethod
-    def holes(cls, T: float = C.T_ROOM) -> AroraMobility:
+    def holes(cls, T  : float= C.T_ROOM) -> AroraMobility:
         """Arora parameters for holes in silicon at temperature T [K].
 
         The mu_d exponent is -2.23 here against -2.33 for electrons. They look
         like a typo for one another and they are not; both are in the source
         table and in the literature.
         """
-        ratio = T / C.T_ROOM
+        Ratio = T/  C.T_ROOM
         return cls(
-            mu_min=54.3 * ratio**-0.57,
-            mu_d=407.0 * ratio**-2.23,
-            N_ref=2.67e17 * ratio**2.546,
-            exponent=0.88 * ratio**-0.146,
+            mu_min =54.3*Ratio **-0.57,
+            mu_d=407.0* Ratio**-2.23,
+            N_ref= 2.67e17*Ratio**2.546,
+            exponent=0.88* Ratio **-0.146,
         )
 
-    def __call__(self, total_doping: Doping) -> npt.NDArray[np.float64]:
+
+    def __call__(self, total_doping : Doping) ->  npt.NDArray[np.float64]  :
         """Mobility [cm^2/(V s)] at each node.
 
         The doping is taken in absolute value, so a net doping array can be
         passed straight in. See the module docstring on total against net.
         """
-        N = np.abs(np.asarray(total_doping, dtype=np.float64))
-        return np.asarray(
-            self.mu_min + self.mu_d / (1.0 + (N / self.N_ref) ** self.exponent)
+        x2=np.abs(np.asarray(total_doping,dtype = np.float64))
+        return  np.asarray(
+            self.mu_min   +   self.mu_d  /   ( 1.0   +  (  x2   /  self.N_ref ) **   self.exponent )
         )
 
 
 @runtime_checkable
-class EdgeMobilityModel(Protocol):
+
+class EdgeMobilityModel(Protocol)  :
     """A diffusivity that depends on the potential drop across its edge.
 
     The seam that lets field dependence into the assemblies without them
@@ -171,20 +180,16 @@ class EdgeMobilityModel(Protocol):
     state it is assembling at, instead of reading a fixed array.
     """
 
-    def __call__(
-        self, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
-    ) -> npt.NDArray[Any]:
+    def __call__(self, X :  npt.NDArray[Any  ],   h  :  npt.NDArray [  np.float64])  ->   npt.NDArray [  Any]  :
         """Diffusivity on every edge, at potential drop X across it."""
         ...
-
     def derivative(
-        self, X: npt.NDArray[np.float64], h: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+        self, X  :  npt.NDArray[np.float64], h :npt.NDArray[np.float64]
+    )-> npt.NDArray[np.float64]  :
         """dD/dX on every edge, for the Jacobian."""
         ...
 
-
-def _magnitude(X: npt.NDArray[Any]) -> npt.NDArray[Any]:
+def _magnitude(X :npt.NDArray[Any])->  npt.NDArray[Any] :
     """|X|, written so a complex step through it still differentiates.
 
     abs() of a complex number is its modulus, which is not holomorphic, so a
@@ -205,9 +210,9 @@ def _magnitude(X: npt.NDArray[Any]) -> npt.NDArray[Any]:
         return np.asarray(np.sqrt(X * X))
     return np.abs(X)
 
+@dataclass (  frozen   =   True )
 
-@dataclass(frozen=True)
-class CaugheyThomas:
+class CaugheyThomas  :
     """Field dependent mobility on mesh edges, producing velocity saturation.
 
         mu(E) = mu_0 / (1 + (mu_0 |E| / v_sat)^beta)^(1/beta)
@@ -241,44 +246,42 @@ class CaugheyThomas:
     Einstein relation the scaling was built on.
     """
 
-    low_field: npt.NDArray[np.float64]
-    """Diffusivity on every edge with no field applied. What Arora or the
-    constant model gives on the nodes, averaged to the edge."""
+    low_field  :  npt.NDArray [ np.float64]
+    '''Diffusivity on every edge with no field applied. What Arora or the
+    constant model gives on the nodes, averaged to the edge.'''
 
-    v_sat: float
+
+
+    v_sat :  float
     """Saturation velocity, in the units low_field and X/h imply."""
 
-    beta: float
-    """2 for electrons, 1 for holes."""
-
-    def __post_init__(self) -> None:
-        if self.v_sat <= 0.0:
+    beta : float
+    '''2 for electrons, 1 for holes.'''
+    def __post_init__(self)->None:
+        if self.v_sat<= 0.0 :
             raise ValueError(f"v_sat must be positive, got {self.v_sat}")
-        if self.beta <= 0.0:
+        if self.beta <=  0.0 :
+
             raise ValueError(f"beta must be positive, got {self.beta}")
 
-    def _ratio(
-        self, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
-    ) -> npt.NDArray[Any]:
+
+
+    def _ratio(self, X :  npt.NDArray[Any], h :npt.NDArray[np.float64])-> npt.NDArray[Any] :
         """mu_0 |E| / v_sat on every edge, the argument of the bracket."""
-        return np.asarray(
-            self.low_field * _magnitude(X) / (h * self.v_sat)
+        return  np.asarray(
+            self.low_field  *   _magnitude(  X) /   (  h  *  self.v_sat)
         )
 
-    def __call__(
-        self, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
-    ) -> npt.NDArray[Any]:
+    def __call__(self, X  : npt.NDArray[Any], h : npt.NDArray[np.float64]) -> npt.NDArray[Any]  :
         """Diffusivity on every edge, at potential drop X across it.
 
         Analytic in X, so a complex step through the residual differentiates
         it. See _magnitude.
         """
-        u = self._ratio(X, h)
-        return np.asarray(self.low_field / (1.0 + u**self.beta) ** (1.0 / self.beta))
+        dir=self._ratio(X,h)
+        return np.asarray(self.low_field/ (1.0+dir**self.beta)**(1.0/self.beta))
 
-    def derivative(
-        self, X: npt.NDArray[np.float64], h: npt.NDArray[np.float64]
-    ) -> npt.NDArray[np.float64]:
+    def derivative(self,X:npt.NDArray[np.float64],h :npt.NDArray[np.float64]) ->npt.NDArray[np.float64]:
         """dD/dX on every edge. Real only, like the Bernoulli tangent.
 
             dD/dX = -mu_0 k u^(beta-1) (1 + u^beta)^(-(1+beta)/beta) sign(X)
@@ -291,19 +294,22 @@ class CaugheyThomas:
         through the square root of a square returns, so the Jacobian and the
         thing that checks it agree there.
         """
-        u = self._ratio(X, h)
-        k = self.low_field / (h * self.v_sat)
+
+        U= self._ratio(X,h)
+        lst =self.low_field /  (h * self.v_sat)
         return np.asarray(
-            -np.sign(X)
-            * self.low_field
-            * k
-            * u ** (self.beta - 1.0)
-            * (1.0 + u**self.beta) ** (-(1.0 + self.beta) / self.beta)
+            - np.sign(X)
+            *  self.low_field
+            * lst
+            *  U  **(self.beta  - 1.0)
+            * (1.0 +  U ** self.beta) ** (- (1.0 +  self.beta) /self.beta)
         )
 
 
-@dataclass(frozen=True)
-class LombardiSurface:
+@dataclass(frozen = True)
+
+
+class LombardiSurface :
     """Surface scattering at the Si/SiO2 interface, by Matthiessen's rule.
 
         1/mu = 1/mu_bulk + 1/mu_ac + 1/mu_sr
@@ -355,66 +361,67 @@ class LombardiSurface:
     two a bare C meant.
     """
 
-    B: float
+
+
+    B:float
     """Coulomb term of the acoustic phonon mobility [V/s]."""
 
-    C_ac: float
+
+    C_ac :  float
     """Doping term of the acoustic phonon mobility, units to suit tau.
 
     DEVSIM calls this C_e and C_h. The suffix here says which of the two
     surface terms it belongs to, and keeps it from shadowing this module's
     alias for the constants."""
-
-    tau: float
+    tau  :  float
     """Doping exponent of the acoustic phonon term [1]."""
-
     delta: float
     """Surface roughness prefactor, units to suit gamma."""
 
-    A: float
+    A  :   float
     """Surface roughness exponent with no carriers present [1].
 
     The 1988 Lombardi model fixes the exponent at 2 and stops here. This is
     where the two models agree.
     """
-
-    alpha: float
+    alpha   :   float
     """How fast the roughness exponent grows with carrier density [cm^3]."""
-
-    eta: float
+    eta :float
     """Doping exponent damping that growth [1]."""
 
-    kappa: float
+
+
+    kappa:float
     """Temperature exponent of the acoustic phonon term [1]."""
 
-    T: float = C.T_ROOM
+    T  :   float =  C.T_ROOM
     """Lattice temperature [K]."""
 
-    E_floor: float = 1.0e2
+
+    E_floor :float=1.0e2
     """Smallest normal field the model is evaluated at [V/cm].
 
     Not a physical cutoff. Below it both terms are already so large that they
     contribute nothing through Matthiessen, and the only thing still changing
     is how close to dividing by zero the arithmetic gets.
     """
-
     @classmethod
-    def electrons(cls, T: float = C.T_ROOM) -> LombardiSurface:
+    def  electrons(  cls, T  :  float =  C.T_ROOM  )  ->   LombardiSurface :
         """Parameters for electrons, from DEVSIM's Klaassen.py."""
         return cls(
-            B=3.61e7,
-            C_ac=1.70e4,
-            tau=0.0233,
-            delta=3.58e18,
-            A=2.58,
+            B= 3.61e7,
+            C_ac =1.70e4,
+            tau= 0.0233,
+            delta= 3.58e18,
+            A = 2.58,
             alpha=6.85e-21,
-            eta=0.0767,
+            eta =0.0767,
             kappa=1.7,
-            T=T,
+            T= T,
         )
 
     @classmethod
-    def holes(cls, T: float = C.T_ROOM) -> LombardiSurface:
+    def holes(cls,T:float=C.T_ROOM)-> LombardiSurface :
         """Parameters for holes, from DEVSIM's Klaassen.py.
 
         delta is three decades below the electron value and that is not a
@@ -422,32 +429,31 @@ class LombardiSurface:
         off its roughness far less, which is why their surface mobility
         degrades more gently than their bulk mobility would suggest.
         """
+
         return cls(
             B=1.51e7,
             C_ac=4.18e3,
             tau=0.0119,
             delta=4.10e15,
-            A=2.18,
-            alpha=7.82e-21,
-            eta=0.123,
+            A =2.18,
+            alpha= 7.82e-21,
+            eta= 0.123,
             kappa=0.9,
-            T=T,
+            T = T,
         )
 
-    def _floored(self, E_perp: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-        """E_perp, refused if signed and held above the floor [V/cm]."""
-        E = np.asarray(E_perp, dtype=np.float64)
-        if np.any(E < 0.0):
-            raise ValueError(
-                "E_perp is the magnitude of the field normal to the "
-                "interface and cannot be negative. A signed difference "
-                "reached here without its absolute value."
-            )
-        return np.maximum(E, self.E_floor)
 
-    def acoustic(
-        self, E_perp: npt.NDArray[np.float64], total_doping: Doping
-    ) -> npt.NDArray[np.float64]:
+    def _floored(self,E_perp: npt.NDArray[np.float64])-> npt.NDArray[np.float64]:
+        """E_perp, refused if signed and held above the floor [V/cm]."""
+
+        EE =np.asarray(E_perp, dtype  = np.float64)
+        if np.any(EE < 0.0) :
+            raise ValueError("E_perp is the magnitude of the field normal to the " "interface and cannot be negative. A signed difference " "reached here without its absolute value.")
+
+
+        return np.maximum (  EE,
+                     self.E_floor  )
+    def acoustic(self, E_perp :  npt.NDArray[np.float64], total_doping : Doping)->npt.NDArray[np.float64] :
         """Acoustic phonon limited mobility [cm^2/(V s)].
 
             mu_ac = B/E_perp + C N^tau E_perp^(-1/3) / (T/300)^kappa
@@ -457,16 +463,12 @@ class LombardiSurface:
         takes over in inversion, which is where the doping dependence starts
         to matter.
         """
-        E = self._floored(E_perp)
-        N = np.abs(np.asarray(total_doping, dtype=np.float64))
-        temperature = (self.T / C.T_ROOM) ** self.kappa
-        return np.asarray(
-            self.B / E + self.C_ac * N**self.tau * E ** (-1.0 / 3.0) / temperature
-        )
+        all=self._floored(E_perp)
+        NN=np.abs(np.asarray(total_doping,dtype=np.float64))
+        tem= (self.T/C.T_ROOM)** self.kappa
+        return np.asarray(self.B/ all + self.C_ac  * NN** self.tau  *all **(- 1.0  /  3.0) / tem)
 
-    def gamma(
-        self, total_doping: Doping, carriers: Doping
-    ) -> npt.NDArray[np.float64]:
+    def gamma(self, total_doping: Doping, carriers: Doping) ->npt.NDArray[np.float64] :
         """Surface roughness exponent [1].
 
             gamma = A + alpha (n + p) N^(-eta)
@@ -475,17 +477,11 @@ class LombardiSurface:
         what distinguishes this from the 1988 form. A heavier inversion layer
         sits closer to the interface and sees a rougher one.
         """
-        N = np.abs(np.asarray(total_doping, dtype=np.float64))
+        NN = np.abs(np.asarray(total_doping, dtype =  np.float64))
         return np.asarray(
-            self.A + self.alpha * np.asarray(carriers, dtype=np.float64) * N**-self.eta
+            self.A  + self.alpha  * np.asarray(carriers, dtype =np.float64) * NN **-self.eta
         )
-
-    def roughness(
-        self,
-        E_perp: npt.NDArray[np.float64],
-        total_doping: Doping,
-        carriers: Doping,
-    ) -> npt.NDArray[np.float64]:
+    def roughness(self, E_perp : npt.NDArray[np.float64], total_doping : Doping, carriers  : Doping,) ->  npt.NDArray[np.float64] :
         """Surface roughness limited mobility [cm^2/(V s)].
 
             mu_sr = delta E_perp^(-gamma)
@@ -493,16 +489,15 @@ class LombardiSurface:
         The steeper of the two surface terms, and the one that ends up setting
         the inversion layer mobility at high gate bias.
         """
-        E = self._floored(E_perp)
-        return np.asarray(self.delta * E ** -self.gamma(total_doping, carriers))
-
-    def __call__(
+        EE=self._floored(E_perp)
+        return np.asarray(self.delta * EE ** - self.gamma(total_doping, carriers))
+    def  __call__ (
         self,
-        mu_bulk: npt.NDArray[np.float64],
-        E_perp: npt.NDArray[np.float64],
-        total_doping: Doping,
-        carriers: Doping,
-    ) -> npt.NDArray[np.float64]:
+        mu_bulk :   npt.NDArray[np.float64  ],
+        E_perp  :  npt.NDArray [  np.float64  ],
+        total_doping  :  Doping,
+        carriers  :  Doping ,
+    )   ->  npt.NDArray[ np.float64 ]  :
         """Mobility [cm^2/(V s)] with surface scattering folded in.
 
         Args:
@@ -515,17 +510,17 @@ class LombardiSurface:
         knows about edges; averaging onto them happens where the geometry is
         known. See device/transport.py.
         """
-        mu_ac = self.acoustic(E_perp, total_doping)
-        mu_sr = self.roughness(E_perp, total_doping, carriers)
-        bulk = np.asarray(mu_bulk, dtype=np.float64)
 
-        inverse_sr = np.divide(
-            1.0, mu_sr, out=np.full_like(mu_sr, np.inf), where=mu_sr > 0.0
+        blah = self.acoustic(E_perp, total_doping)
+        MuSr= self.roughness(E_perp, total_doping, carriers)
+        data2 = np.asarray(mu_bulk, dtype =  np.float64)
+        invverse_sr=  np.divide(
+            1.0, MuSr, out=  np.full_like(MuSr, np.inf), where= MuSr > 0.0
         )
-        return np.asarray(1.0 / (1.0 / bulk + 1.0 / mu_ac + inverse_sr))
+        return np.asarray(1.0  /(1.0  / data2  +1.0/  blah + invverse_sr))
 
+EdgeDiffusivity  = float   |  npt.NDArray[ np.float64] | EdgeMobilityModel
 
-EdgeDiffusivity = float | npt.NDArray[np.float64] | EdgeMobilityModel
 """A diffusivity, either fixed or a function of the drop across its edge.
 
 A number or an array is the state independent case, which is everything
@@ -534,25 +529,16 @@ during a solve. An EdgeMobilityModel is Caughey-Thomas, which reads the
 potential drop and so has to be evaluated at whatever state is being solved.
 """
 
-
-def diffusivity_at(
-    D: EdgeDiffusivity, X: npt.NDArray[Any], h: npt.NDArray[np.float64]
-) -> float | npt.NDArray[Any]:
+def diffusivity_at(D : EdgeDiffusivity, X :  npt.NDArray[Any], h :npt.NDArray[np.float64]) -> float |  npt.NDArray[Any]:
     """One diffusivity per edge at potential drop X across each edge [1].
 
     Dtype preserving through the model, so a complex step through a residual
     picks the field dependence up instead of silently missing it.
     """
-    if isinstance(D, EdgeMobilityModel):
+    if isinstance(D, EdgeMobilityModel) :
         return D(X, h)
     return D
-
-
-def diffusivity_tangent(
-    D: EdgeDiffusivity,
-    X: npt.NDArray[np.float64],
-    h: npt.NDArray[np.float64],
-) -> npt.NDArray[np.float64] | None:
+def diffusivity_tangent(D : EdgeDiffusivity, X:npt.NDArray[np.float64], h : npt.NDArray[np.float64],) ->npt.NDArray[np.float64]| None :
     """dD/dX on every edge [1], or None where D does not depend on X.
 
     None rather than an array of zeros, so an assembly with no field dependent
@@ -560,16 +546,16 @@ def diffusivity_tangent(
     zero is not free of consequence in a project that claims earlier results
     are unchanged bit for bit; not adding it is.
     """
-    if isinstance(D, EdgeMobilityModel):
-        return D.derivative(X, h)
+    if isinstance(D, EdgeMobilityModel) :
+        return D.derivative(X,h)
     return None
 
 
 def edge_diffusivity(
-    mobility: npt.NDArray[np.float64],
-    V_T: float,
-    edge_nodes: npt.NDArray[np.int64] | None = None,
-) -> npt.NDArray[np.float64]:
+    mobility :  npt.NDArray[np.float64],
+    V_T  :float,
+    edge_nodes  : npt.NDArray[np.int64]  |None =  None,
+)->  npt.NDArray[np.float64] :
     """Diffusivity on every edge [cm^2/s], from mobility on every node.
 
     Args:
@@ -601,7 +587,6 @@ def edge_diffusivity(
     bits whichever branch it takes. The argument is taken as a plain array
     rather than an EdgeGeometry to keep physics/ from importing discretize/.
     """
-    if edge_nodes is None:
-        return np.asarray(V_T * 0.5 * (mobility[:-1] + mobility[1:]))
-    left, right = edge_nodes[:, 0], edge_nodes[:, 1]
-    return np.asarray(V_T * 0.5 * (mobility[left] + mobility[right]))
+    if edge_nodes is None :
+        return np.asarray(V_T*  0.5* (mobility[:-  1]  +mobility[1:]))
+    Left,Right = edge_nodes[:,0],edge_nodes[:,1]; return np.asarray(  V_T  *  0.5   *  (  mobility[ Left]  +   mobility [ Right  ]) )

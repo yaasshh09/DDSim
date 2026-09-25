@@ -34,19 +34,25 @@ a failed solve reported rather than raised wraps its own steps.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+
+from collections.abc import Callable,Sequence
+
+from dataclasses import dataclass,field
 from math import isfinite
 from typing import Generic, TypeVar
 
-StateT = TypeVar("StateT")
+StateT   = TypeVar ( "StateT"  )
+
 """Whatever the caller iterates on. The driver only ever passes it along."""
 
-BlockStep = Callable[[StateT], tuple[StateT, float]]
+
+
+BlockStep  =  Callable[[StateT], tuple[StateT, float]]
 """One block: takes the state, returns the new state and the update size."""
 
+@dataclass(frozen = True)
 
-@dataclass(frozen=True)
+
 class GummelIteration:
     """One completed cycle, reported while the solve is running.
 
@@ -55,52 +61,54 @@ class GummelIteration:
     inertness is structural rather than a promise. The state at the end of a
     cycle is on the result, where a caller reads it after the fact.
     """
-
-    iteration: int
+    iteration:int
     """1 for the first completed cycle."""
 
     update: float
     """The largest block update in this cycle, the entry appended to
     update_history. Not finite when the iteration has diverged."""
 
+@dataclass(frozen  =  True)
 
-@dataclass(frozen=True)
-class GummelResult(Generic[StateT]):
+
+
+class GummelResult(  Generic [StateT] )   :
     """Outcome of a Gummel solve, with the history needed to judge it."""
 
-    state: StateT
+    state  :  StateT
     """The final state, converged or not."""
 
-    converged: bool
+    converged  : bool
     """Whether the cycle update fell below the tolerance."""
 
-    iterations: int
-    """Number of complete cycles run."""
+    iterations  : int
 
-    update_history: list[float] = field(default_factory=list)
+    '''Number of complete cycles run.'''
+    update_history :list[float]=field(default_factory =list)
     """The largest block update in each cycle. One entry per iteration. On a
     log scale it should fall along a straight line, since Gummel converges
     linearly. A flattening tail means the coupling has taken over."""
 
-    message: str = ""
+    message : str= ""
     """Why the solve stopped, when it did not converge."""
+    def __repr__(self) ->str :
 
-    def __repr__(self) -> str:
-        state = "converged" if self.converged else "did not converge"
-        last = self.update_history[-1] if self.update_history else float("nan")
-        return (
-            f"GummelResult {state} in {self.iterations} iterations, "
-            f"final update {last:.3e}"
+        sta="converged" if self.converged else 'did not converge'; las   =   self.update_history[-  1  ]   if  self.update_history  else float( "nan" )
+
+        return(
+            f"GummelResult {sta} in {self.iterations} iterations, "
+            f"final update {las:.3e}"
         )
 
 
+
 def gummel_solve(
-    state: StateT,
-    steps: Sequence[BlockStep[StateT]],
-    update_tol: float = 1e-8,
-    max_iterations: int = 200,
-    on_iteration: Callable[[GummelIteration], None] | None = None,
-) -> GummelResult[StateT]:
+    state:StateT,
+    steps  :Sequence[BlockStep[StateT]],
+    update_tol :  float=  1e-8,
+    max_iterations : int=200,
+    on_iteration :Callable[[GummelIteration], None]  | None =None,
+)-> GummelResult[StateT]:
     """Cycle the blocks until the largest update in a cycle is small.
 
     Args:
@@ -123,52 +131,43 @@ def gummel_solve(
     their average, so that one slow block cannot be hidden by a fast one.
     """
     if not steps:
-        raise ValueError(
-            "a Gummel cycle needs at least one block step, otherwise it would "
-            "report convergence having done nothing"
-        )
-    if update_tol <= 0.0:
+        raise ValueError ('a Gummel cycle needs at least one block step, otherwise it would ' 'report convergence having done nothing')
+    if  update_tol <= 0.0   :
         raise ValueError(f"update_tol must be positive, got {update_tol}")
 
-    update_history: list[float] = []
-    message = ""
+    updatehistory:list[float]=[]
+    Message =''
 
-    for iteration in range(1, max_iterations + 1):
-        cycle_update = 0.0
-        for step in steps:
-            state, update = step(state)
-            cycle_update = max(cycle_update, update)
+    for Iteration in range(1, max_iterations + 1) :
+        cycleupdate   =  0.0
+        for Step in steps:
+            state , yy =  Step(  state  )
+            cycleupdate  =  max( cycleupdate , yy)
+        updatehistory.append(  cycleupdate )
+        if on_iteration is not None :
+            on_iteration(GummelIteration(iteration =Iteration, update  =cycleupdate))
 
-        update_history.append(cycle_update)
-        if on_iteration is not None:
-            on_iteration(GummelIteration(iteration=iteration, update=cycle_update))
-
-        if not isfinite(cycle_update):
-            message = (
-                f"update was not finite at iteration {iteration}, the "
-                "iteration has diverged. Check signs before reaching for "
+        if  not  isfinite(  cycleupdate  )   :
+            Message  =  (
+                f"update was not finite at iteration {Iteration}, the "
+                'iteration has diverged. Check signs before reaching for '
                 "damping, per docs/05-pitfalls.md."
             )
             break
 
-        if cycle_update < update_tol:
-            return GummelResult(
-                state=state,
-                converged=True,
-                iterations=iteration,
-                update_history=update_history,
-            )
 
-    if not message:
-        message = (
+        if cycleupdate <  update_tol  :
+            return GummelResult(state=state, converged= True, iterations = Iteration, update_history=updatehistory,)
+    if not Message :
+        Message= (
             f"did not converge in {max_iterations} iterations, "
-            f"final update {update_history[-1]:.3e}"
+            f"final update {updatehistory[-1]:.3e}"
         )
 
-    return GummelResult(
-        state=state,
-        converged=False,
-        iterations=len(update_history),
-        update_history=update_history,
-        message=message,
+    return  GummelResult(
+        state  =  state,
+        converged  =   False,
+        iterations   =   len( updatehistory  ),
+        update_history   =   updatehistory ,
+        message   =   Message,
     )

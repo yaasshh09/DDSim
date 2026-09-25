@@ -65,18 +65,15 @@ is not a contact is reflecting.
 The array level functions are dtype preserving so that complex step
 differentiation works on them, which is how the Jacobian is verified.
 """
-
 from __future__ import annotations
 
-import numpy as np
-import numpy.typing as npt
-
-from ddsim.core.field import Field, Location, ScalingState
+import numpy as np; import numpy.typing as npt
+from  ddsim.core.field  import Field , Location ,  ScalingState
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry, ScaledMesh
-from ddsim.physics.statistics import Degeneracy
 
-CarrierDensities = tuple[
+
+from ddsim.discretize.geometry import UNIFORM_1D,EdgeGeometry,ScaledMesh ; from ddsim.physics.statistics import Degeneracy
+CarrierDensities= tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -95,12 +92,12 @@ are returned positive; the sign lives in the terms that use them.
 
 def _carrier_densities(
     psi: npt.NDArray[np.float64],
-    phi_n: npt.NDArray[np.float64] | None,
-    phi_p: npt.NDArray[np.float64] | None,
-    carriers: npt.NDArray[np.bool_] | None = None,
-    degeneracy: Degeneracy | None = None,
-) -> CarrierDensities:
-    """(n, p) and their psi derivatives at fixed quasi-Fermi levels [1].
+    phi_n:npt.NDArray[np.float64]|None,
+    phi_p :npt.NDArray[np.float64]|None,
+    carriers: npt.NDArray[np.bool_]| None = None,
+    degeneracy: Degeneracy | None=None,
+)-> CarrierDensities:
+    '''(n, p) and their psi derivatives at fixed quasi-Fermi levels [1].
 
     n = exp(psi - phi_n) and p = exp(phi_p - psi), with None meaning a level
     pinned at zero, which is true thermal equilibrium.
@@ -125,31 +122,24 @@ def _carrier_densities(
 
     Does not force a dtype, so a complex psi gives complex densities and
     complex step differentiation works through here.
-    """
-    exponent_n = psi if phi_n is None else psi - phi_n
-    exponent_p = -psi if phi_p is None else phi_p - psi
-    if carriers is not None:
-        exponent_n = np.where(carriers, exponent_n, -np.inf)
-        exponent_p = np.where(carriers, exponent_p, -np.inf)
+    '''
+    exponentN = psi if phi_n is None else psi  -phi_n
+    ExponentP = - psi if phi_p is None else phi_p - psi
+    if carriers is not None :
+
+        exponentN= np.where(carriers,exponentN,- np.inf)
+        ExponentP  =   np.where(  carriers,  ExponentP,   -  np.inf)
     if degeneracy is None:
-        n = np.exp(exponent_n)
-        p = np.exp(exponent_p)
+        n= np.exp(exponentN)
+        p = np.exp(ExponentP)
         return n, p, n, p
-    n = degeneracy.electron_density(exponent_n)
-    p = degeneracy.hole_density(exponent_p)
+    n  =   degeneracy.electron_density( exponentN)
+    p=degeneracy.hole_density(ExponentP)
     return n, p, degeneracy.dn_dpsi(n), degeneracy.dp_dpsi(p)
 
+def poisson_residual(h   :  npt.NDArray [np.float64], volume  :  npt.NDArray [  np.float64 ], psi   :  npt.NDArray[  np.float64], net_doping :   npt.NDArray [np.float64 ] , phi_n  :  npt.NDArray [np.float64]   | None  =   None, phi_p :  npt.NDArray[  np.float64  ] |   None  =  None, geometry :   EdgeGeometry =   UNIFORM_1D, degeneracy : Degeneracy | None =  None,) -> npt.NDArray [  np.float64 ] :
 
-def poisson_residual(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    psi: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    phi_n: npt.NDArray[np.float64] | None = None,
-    phi_p: npt.NDArray[np.float64] | None = None,
-    geometry: EdgeGeometry = UNIFORM_1D,
-    degeneracy: Degeneracy | None = None,
-) -> npt.NDArray[np.float64]:
+
     """Residual of the scaled nonlinear Poisson equation [1].
 
     Args:
@@ -170,24 +160,20 @@ def poisson_residual(
     Does not force a dtype, so passing a complex psi gives a complex residual
     and complex step differentiation works directly on this function.
     """
+
     return _poisson_residual(
         h,
-        volume,
+        volume ,
         psi,
         net_doping,
-        _carrier_densities(psi, phi_n, phi_p, volume > 0.0, degeneracy),
-        geometry,
+        _carrier_densities( psi,   phi_n,   phi_p ,   volume  >  0.0,  degeneracy ) ,
+        geometry ,
     )
 
 
-def _poisson_residual(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    psi: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    densities: CarrierDensities,
-    geometry: EdgeGeometry = UNIFORM_1D,
-) -> npt.NDArray[np.float64]:
+
+
+def _poisson_residual(h: npt.NDArray[np.float64], volume:npt.NDArray[np.float64], psi:npt.NDArray[np.float64], net_doping:npt.NDArray[np.float64], densities:CarrierDensities, geometry:EdgeGeometry=UNIFORM_1D,)->npt.NDArray[np.float64]:
     """poisson_residual with the densities already in hand [1].
 
     The residual and the Jacobian are built from the same n and p, and two
@@ -196,31 +182,31 @@ def _poisson_residual(
     the densities have to be the ones belonging to this psi and nothing
     outside can check that.
     """
-    n, p, _, _ = densities
 
-    residual = np.zeros_like(psi)
-    left, right = geometry.ends(h.size)
+    n,p,_,_=densities
 
-    face_flux = geometry.weight * (psi[left] - psi[right]) / h
-
-    np.add.at(residual, left, face_flux)
-    np.add.at(residual, right, -face_flux)
-
-    residual -= (p - n + net_doping) * volume
-    return residual
+    set=np.zeros_like(psi)
+    r2, rig  =  geometry.ends(h.size)
+    bar=geometry.weight *(psi[r2]-psi[rig])/h
+    np.add.at(set,
+                 r2,
+           bar)
+    np.add.at(set, rig, - bar)
 
 
-def poisson_jacobian(
-    h: npt.NDArray[np.float64],
-    volume: npt.NDArray[np.float64],
-    psi: npt.NDArray[np.float64],
-    net_doping: npt.NDArray[np.float64],
-    phi_n: npt.NDArray[np.float64] | None = None,
-    phi_p: npt.NDArray[np.float64] | None = None,
-    geometry: EdgeGeometry = UNIFORM_1D,
-    degeneracy: Degeneracy | None = None,
-) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-    """Jacobian of poisson_residual, in COO form.
+    set -=(p- n+net_doping)*volume
+    return set
+def  poisson_jacobian(
+    h  : npt.NDArray[ np.float64 ],
+    volume  : npt.NDArray[  np.float64  ] ,
+    psi   :  npt.NDArray[np.float64 ],
+    net_doping  :   npt.NDArray [  np.float64 ] ,
+    phi_n  :   npt.NDArray [np.float64 ]  |  None =  None,
+    phi_p :  npt.NDArray [ np.float64]   | None  = None,
+    geometry   : EdgeGeometry  =   UNIFORM_1D,
+    degeneracy  : Degeneracy | None =  None,
+)  ->  tuple[ npt.NDArray [ np.int64  ],  npt.NDArray[np.int64  ] ,  npt.NDArray[ np.float64  ] ]  :
+    '''Jacobian of poisson_residual, in COO form.
 
     Returns (rows, cols, values). Written term by term rather than assembled
     with a stencil helper, so that a device engineer can check each derivative
@@ -230,50 +216,54 @@ def poisson_jacobian(
     still n and dp/dpsi is still -p and the diagonal keeps its form. Under
     Fermi-Dirac each is divided by its generalized Einstein ratio, which the
     statistics hands over rather than this module deriving again.
-    """
+    '''
     return _poisson_jacobian(
         h,
         volume,
         psi.size,
-        _carrier_densities(psi, phi_n, phi_p, volume > 0.0, degeneracy),
+        _carrier_densities(psi, phi_n, phi_p, volume >  0.0, degeneracy),
         geometry,
     )
-
-
 def _poisson_jacobian(
-    h: npt.NDArray[np.float64],
+    h :npt.NDArray[np.float64],
     volume: npt.NDArray[np.float64],
-    n_nodes: int,
-    densities: CarrierDensities,
-    geometry: EdgeGeometry = UNIFORM_1D,
-) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    n_nodes :  int,
+    densities : CarrierDensities,
+    geometry :EdgeGeometry=UNIFORM_1D,
+) ->tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]] :
+
     """poisson_jacobian with the densities and their tangents already in hand."""
-    _, _, dn, dp = densities
+    _, _, Dn, dpp  =densities
 
-    nodes = np.arange(n_nodes, dtype=np.int64)
-    left, right = geometry.ends(h.size)
-    conductance = geometry.weight / h
 
-    diagonal = (dn + dp) * volume
-    np.add.at(diagonal, left, conductance)
-    np.add.at(diagonal, right, conductance)
 
-    rows = np.concatenate([nodes, left, right])
-    cols = np.concatenate([nodes, right, left])
-    values = np.concatenate([diagonal, -conductance, -conductance])
+    noeds =np.arange(n_nodes,dtype =np.int64)
+    round, range  = geometry.ends(h.size) ; conductannce =geometry.weight/h
 
-    return rows, cols, values
+
+    vals= (Dn  +dpp) * volume
+    np.add.at(vals,round,conductannce)
+
+    np.add.at(vals, range, conductannce)
+    obj2 =  np.concatenate([noeds, round, range])
+    col = np.concatenate([noeds,range,round])
+    Values= np.concatenate([vals, -  conductannce, - conductannce])
+
+    return obj2, col, Values
+
+
 
 
 def assemble_poisson(
-    mesh: ScaledMesh,
+    mesh:ScaledMesh,
     psi: Field,
-    net_doping: Field,
-    phi_n: Field | None = None,
-    phi_p: Field | None = None,
-    charge_volume: npt.NDArray[np.float64] | None = None,
-    degeneracy: Degeneracy | None = None,
-) -> SparseAssembly:
+    net_doping : Field,
+    phi_n:Field|None= None,
+    phi_p:Field|None = None,
+    charge_volume: npt.NDArray[np.float64]|None=None,
+    degeneracy:Degeneracy |None= None,
+)-> SparseAssembly:
+
     """Assemble the equilibrium Poisson system, in any dimension.
 
     Args:
@@ -302,53 +292,54 @@ def assemble_poisson(
     volume is an area and wants x_0 squared. Each mesh now answers that for
     itself. See ScaledMesh in discretize/geometry.py.
     """
-    checked = [("psi", psi), ("net_doping", net_doping)]
-    if phi_n is not None:
-        checked.append(("phi_n", phi_n))
+    che =[('psi',psi),('net_doping',net_doping)]
+    if phi_n is not None :
+        che.append(('phi_n',phi_n))
     if phi_p is not None:
-        checked.append(("phi_p", phi_p))
-
-    for name, field in checked:
-        if field.scaling is not ScalingState.SCALED:
-            raise ValueError(
-                f"{name} must be SCALED before assembly, got {field.scaling.name}. "
+        che.append(("phi_p", phi_p))
+    for Name,   fie in  che  :
+        if  fie.scaling is  not  ScalingState.SCALED  :
+            raise  ValueError(
+                f"{Name} must be SCALED before assembly, got {fie.scaling.name}. "
                 "A physical potential here is wrong by a factor of 1/V_T and "
-                "would still converge."
+                'would still converge.'
             )
-        if field.location is not Location.NODE:
-            raise ValueError(
-                f"{name} must live on NODE, got {field.location.name}."
+
+        if fie.location is not Location.NODE :
+            raise  ValueError(
+                f"{Name} must live on NODE, got {fie.location.name}."
             )
-        if field.size != mesh.n_nodes:
+        if fie.size!= mesh.n_nodes :
             raise ValueError(
-                f"{name} has length {field.size} but the mesh has "
+                f"{Name} has length {fie.size} but the mesh has "
                 f"{mesh.n_nodes} nodes."
             )
 
-    volume = mesh.volume if charge_volume is None else charge_volume
-    if volume.size != mesh.n_nodes:
+
+    q = mesh.volume if charge_volume is None else charge_volume
+    if q.size !=  mesh.n_nodes :
         raise ValueError(
-            f"charge_volume has length {volume.size} but the mesh has "
+            f"charge_volume has length {q.size} but the mesh has "
             f"{mesh.n_nodes} nodes."
         )
 
-    n_values = None if phi_n is None else phi_n.data
-    p_values = None if phi_p is None else phi_p.data
 
-    densities = _carrier_densities(
-        psi.data, n_values, p_values, volume > 0.0, degeneracy
+    nv =None if phi_n is None else phi_n.data
+
+    p_vlues  =   None if  phi_p is None  else phi_p.data
+    den =  _carrier_densities(psi.data, nv, p_vlues, q>0.0, degeneracy)
+
+    Residual=  _poisson_residual(
+        mesh.h, q, psi.data, net_doping.data, den, mesh.geometry
     )
-    residual = _poisson_residual(
-        mesh.h, volume, psi.data, net_doping.data, densities, mesh.geometry
-    )
-    rows, cols, values = _poisson_jacobian(
-        mesh.h, volume, mesh.n_nodes, densities, mesh.geometry
+    thing, Cols, data2 =_poisson_jacobian(
+        mesh.h, q, mesh.n_nodes, den, mesh.geometry
     )
 
     return SparseAssembly(
-        residual=residual,
-        rows=rows,
-        cols=cols,
-        values=values,
-        shape=(mesh.n_nodes, mesh.n_nodes),
+        residual=Residual,
+        rows =thing,
+        cols =Cols,
+        values=data2,
+        shape=(mesh.n_nodes,mesh.n_nodes),
     )

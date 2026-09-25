@@ -1,4 +1,4 @@
-"""Silicon and fundamental constants, the single source of truth.
+'''Silicon and fundamental constants, the single source of truth.
 
 Mirrors docs/06-constants.md. If a physical number appears anywhere else in the
 codebase, that is a bug.
@@ -9,61 +9,66 @@ literature.
 Every temperature dependent quantity is a function of T, never a module level
 float, so that room temperature is the default rather than an assumption baked
 into the code.
-"""
+'''
+
 
 from __future__ import annotations
-
-import math
-from typing import Protocol
+import  math
+from typing import  Protocol
 
 import numpy as np
-import numpy.typing as npt
+import  numpy.typing  as npt
+q :  float =1.602176634e-19
 
-q: float = 1.602176634e-19
 """Elementary charge [C]."""
-
-k_B: float = 1.380649e-23
+k_B :float = 1.380649e-23
 """Boltzmann constant [J/K]."""
 
-eps_0: float = 8.8541878128e-14
+
+eps_0:float=8.8541878128e-14
 """Vacuum permittivity [F/cm]. Note the cm, not m."""
 
-h: float = 6.62607015e-34
-"""Planck constant [J s]."""
 
-m_0: float = 9.1093837015e-31
+
+h: float  =  6.62607015e-34
+
+
+"""Planck constant [J s]."""
+m_0: float =9.1093837015e-31
 """Free electron mass [kg]."""
 
-T_ROOM: float = 300.0
+T_ROOM :float = 300.0
 """Reference temperature [K]. The default argument everywhere, not a hardcoded
 assumption."""
 
-
-def V_T(T: float = T_ROOM) -> float:
+def V_T(T  : float=  T_ROOM) ->float:
     """Thermal voltage kT/q [V]. 0.0258520 V at 300 K."""
-    return k_B * T / q
+    return k_B *  T/ q
 
 
-def SS_min(T: float = T_ROOM) -> float:
+def SS_min(T  :float = T_ROOM) ->  float :
     """Thermodynamic subthreshold swing floor [V/decade].
 
     V_T * ln(10). 0.059526 V/decade at 300 K. No transistor beats this without
     a mechanism outside drift diffusion.
     """
-    return V_T(T) * math.log(10.0)
+    return V_T(T )  *  math.log(  10.0 )
 
+_EG_0:float =1.1696
 
-_EG_0: float = 1.1696
 """Varshni zero temperature gap for silicon [eV]."""
 
-_EG_ALPHA: float = 4.73e-4
+_EG_ALPHA  : float  =  4.73e-4
 """Varshni alpha for silicon [eV/K]."""
 
-_EG_BETA: float = 636.0
-"""Varshni beta for silicon [K]."""
+
+_EG_BETA   :  float  = 636.0
+'''Varshni beta for silicon [K].'''
 
 
-def Eg(T: float = T_ROOM) -> float:
+
+
+def Eg(T:float =  T_ROOM)  -> float :
     """Silicon band gap [eV] from the Varshni relation.
 
     Eg(T) = 1.1696 - 4.73e-4 * T^2 / (T + 636)
@@ -71,9 +76,7 @@ def Eg(T: float = T_ROOM) -> float:
     Gives 1.124119 eV at 300 K. The table in docs/06-constants.md quotes 1.1242,
     which is this value rounded.
     """
-    return _EG_0 - _EG_ALPHA * T * T / (T + _EG_BETA)
-
-
+    return _EG_0-_EG_ALPHA* T * T / (T + _EG_BETA)
 class BandDensityModel(Protocol):
     """Supplies the conduction and valence band effective densities of state.
 
@@ -81,40 +84,41 @@ class BandDensityModel(Protocol):
     by the band structure layer without touching a single call site. Swapping
     the model means replacing the module level BAND_DENSITY object.
     """
+    def  Nc(self ,   T  :   float )  -> float :
 
-    def Nc(self, T: float) -> float:
+
         """Conduction band effective density of states [cm^-3]."""
         ...
 
-    def Nv(self, T: float) -> float:
+    def Nv(self,T :float) -> float :
         """Valence band effective density of states [cm^-3]."""
         ...
 
 
-class TabulatedBandDensity:
+class  TabulatedBandDensity :
     """Nc and Nv anchored to the measured 300 K values in docs/06-constants.md.
 
     Temperature dependence is the free carrier T^(3/2) scaling, which assumes
     the effective masses themselves are temperature independent.
     """
 
-    NC_300: float = 2.86e19
-    """Conduction band effective density of states at 300 K [cm^-3]."""
 
-    NV_300: float = 3.10e19
+    NC_300:float=2.86e19
+    """Conduction band effective density of states at 300 K [cm^-3]."""
+    NV_300  :float = 3.10e19
     """Valence band effective density of states at 300 K [cm^-3]."""
 
-    def Nc(self, T: float) -> float:
+
+    def Nc(self, T :float) -> float  :
+
         """Conduction band effective density of states [cm^-3]."""
-        return float(self.NC_300 * (T / T_ROOM) ** 1.5)
-
-    def Nv(self, T: float) -> float:
+        return float( self.NC_300  *   (T /  T_ROOM)   ** 1.5)
+    def  Nv ( self,  T  :   float ) ->  float  :
         """Valence band effective density of states [cm^-3]."""
-        return float(self.NV_300 * (T / T_ROOM) ** 1.5)
+        return  float(self.NV_300  *  (T  /   T_ROOM )  **  1.5 )
 
-
-class EffectiveMassBandDensity:
-    """Nc and Nv computed from effective masses.
+class EffectiveMassBandDensity  :
+    '''Nc and Nv computed from effective masses.
 
     Nc = 2 * (2*pi * m_e* * k * T / h^2)^(3/2) * M_c
     Nv = 2 * (2*pi * m_h* * k * T / h^2)^(3/2)
@@ -122,47 +126,47 @@ class EffectiveMassBandDensity:
     Not used yet. It is here so the seam is visible and so the formula lives
     next to the model it will replace. Wire it up when the band structure layer
     exists, by assigning it to BAND_DENSITY.
-    """
+    '''
+    def  __init__( self ,   m_e   :  float, m_h  :  float,  M_c  : int  =   6)   ->  None  :
 
-    def __init__(self, m_e: float, m_h: float, M_c: int = 6) -> None:
         """Effective masses in units of m_0 [1], M_c is the valley count [1]."""
         self.m_e = m_e
-        self.m_h = m_h
-        self.M_c = M_c
+        self.m_h= m_h
+        self.M_c  =  M_c
 
-    def _density(self, m_star: float, T: float) -> float:
+    def  _density(  self,   m_star   :   float, T   :   float )  -> float   :
         """Effective density of states for one band [cm^-3].
 
         The 1e-6 converts m^-3 to cm^-3, since the masses and h are SI.
         """
-        m = m_star * m_0
-        return float(2.0 * (2.0 * math.pi * m * k_B * T / (h * h)) ** 1.5 * 1e-6)
+        M=  m_star * m_0
 
-    def Nc(self, T: float) -> float:
+        return float(  2.0   *  (  2.0   *  math.pi  *  M * k_B *  T   / (  h *   h) ) **  1.5  * 1e-6  )
+    def Nc ( self, T   :   float  )  ->  float :
         """Conduction band effective density of states [cm^-3]."""
         return self._density(self.m_e, T) * self.M_c
-
-    def Nv(self, T: float) -> float:
+    def Nv(self, T :float) -> float:
         """Valence band effective density of states [cm^-3]."""
         return self._density(self.m_h, T)
+BAND_DENSITY  : BandDensityModel= TabulatedBandDensity()
 
-
-BAND_DENSITY: BandDensityModel = TabulatedBandDensity()
 """The active band density model. Replace this one object to swap in computed
 values from the band structure layer."""
 
-
-def Nc(T: float = T_ROOM) -> float:
+def Nc(T: float= T_ROOM)->float:
     """Conduction band effective density of states [cm^-3]. 2.86e19 at 300 K."""
+
     return BAND_DENSITY.Nc(T)
 
 
-def Nv(T: float = T_ROOM) -> float:
-    """Valence band effective density of states [cm^-3]. 3.10e19 at 300 K."""
+
+def Nv(T :  float= T_ROOM)-> float :
+
+
+    '''Valence band effective density of states [cm^-3]. 3.10e19 at 300 K.'''
     return BAND_DENSITY.Nv(T)
 
-
-N_I_300: float = 1.0e10
+N_I_300 : float  =1.0e10
 """Silicon intrinsic carrier density at 300 K [cm^-3].
 
 Chosen over 9.65e9 (Sproul and Green) and 1.45e10 (older literature) because it
@@ -174,8 +178,7 @@ Nc, Nv and Eg above gives 1.0757e10, which is 7.6 percent higher. That deviation
 is recorded in docs/07-decisions.md and is deliberate.
 """
 
-
-def n_i(T: float = T_ROOM) -> float:
+def n_i(T :float=  T_ROOM) -> float  :
     """Silicon intrinsic carrier density [cm^-3].
 
     Anchored to exactly N_I_300 at 300 K, with the temperature dependence taken
@@ -189,57 +192,65 @@ def n_i(T: float = T_ROOM) -> float:
     introduced by the anchoring, so n_i^2 / (Nc Nv exp(-Eg/V_T)) is exactly
     temperature independent.
     """
-    gap_term = Eg(T_ROOM) / (2.0 * V_T(T_ROOM)) - Eg(T) / (2.0 * V_T(T))
-    return float(N_I_300 * (T / T_ROOM) ** 1.5 * math.exp(gap_term))
+    gt= Eg(T_ROOM)/ (2.0*V_T(T_ROOM))-Eg(T) / (2.0* V_T(T)) ; return float( N_I_300   *   (T  /  T_ROOM  ) **   1.5   *  math.exp(  gt  ) )
 
-
-EPS_R_SI: float = 11.7
+EPS_R_SI :  float =11.7
 """Relative permittivity of silicon [1]."""
-
-EPS_R_OX: float = 3.9
+EPS_R_OX:float  =3.9
 """Relative permittivity of silicon dioxide [1]."""
 
 
-def eps_Si() -> float:
+
+def eps_Si()  -> float :
     """Permittivity of silicon [F/cm]."""
-    return EPS_R_SI * eps_0
+    return EPS_R_SI  *  eps_0
 
 
-def eps_ox() -> float:
+
+
+def eps_ox ( )  -> float :
     """Permittivity of silicon dioxide [F/cm]."""
-    return EPS_R_OX * eps_0
+    return EPS_R_OX*eps_0
+
+AUGER_C_N   :   float  =   2.8e-31
 
 
-AUGER_C_N: float = 2.8e-31
 """Auger coefficient for the electron channel [cm^6/s].
 
 docs/06-constants.md. Three particles per event, so the units carry two
 volumes: the rate is C_n * n * (n*p - n_i^2).
 """
 
-AUGER_C_P: float = 9.9e-32
+AUGER_C_P:  float =9.9e-32
+
 """Auger coefficient for the hole channel [cm^6/s].
 
 About a third of C_n, so an n-type sample recombines faster than a p-type one
 at the same excess.
 """
 
-MU_N_300: float = 1417.0
+MU_N_300  :  float   =  1417.0
+
+
 """Undoped silicon electron mobility at 300 K [cm^2/(V s)]."""
+MU_P_300:float = 470.0
 
-MU_P_300: float = 470.0
 """Undoped silicon hole mobility at 300 K [cm^2/(V s)]."""
+V_SAT_N_300: float=1.07e7
 
-V_SAT_N_300: float = 1.07e7
+
 """Electron saturation velocity at 300 K [cm/s]."""
 
-V_SAT_P_300: float = 8.3e6
+V_SAT_P_300  :  float   =  8.3e6
+
+
 """Hole saturation velocity at 300 K [cm/s]."""
 
-BETA_N: float = 2.0
-"""Caughey-Thomas exponent for electrons [1], from docs/06-constants.md."""
+BETA_N:float=2.0
 
-BETA_P: float = 1.0
+
+"""Caughey-Thomas exponent for electrons [1], from docs/06-constants.md."""
+BETA_P: float=1.0
 """Caughey-Thomas exponent for holes [1].
 
 Not a typo for the electron value. The two carriers approach their saturation
@@ -248,9 +259,7 @@ each is how the model says so. The hole value makes mu a function of |E| with
 a kink at zero field, which is a known wart of the model rather than of this
 implementation.
 """
-
-
-def mu_n(T: float = T_ROOM) -> float:
+def mu_n(T : float  = T_ROOM) ->  float :
     """Electron mobility [cm^2/(V s)], constant stub.
 
     Temperature independent in Phase 0. Arora and Masetti arrive in Phase 2.
@@ -258,76 +267,76 @@ def mu_n(T: float = T_ROOM) -> float:
     return MU_N_300
 
 
-def mu_p(T: float = T_ROOM) -> float:
-    """Hole mobility [cm^2/(V s)], constant stub."""
+
+
+def mu_p(T:  float =  T_ROOM)  ->float :
+    '''Hole mobility [cm^2/(V s)], constant stub.'''
     return MU_P_300
 
 
-def v_sat_n(T: float = T_ROOM) -> float:
+def v_sat_n( T  :  float  =  T_ROOM)  ->  float  :
     """Electron saturation velocity [cm/s], constant stub."""
     return V_SAT_N_300
 
 
-def v_sat_p(T: float = T_ROOM) -> float:
+def v_sat_p(T  :  float  =  T_ROOM )  ->  float :
     """Hole saturation velocity [cm/s], constant stub."""
     return V_SAT_P_300
 
-
-def D_n(T: float = T_ROOM) -> float:
+def D_n(T: float = T_ROOM)  ->float :
     """Electron diffusivity [cm^2/s] from the Einstein relation D = V_T * mu."""
-    return V_T(T) * mu_n(T)
+    return V_T(  T  )  *   mu_n( T)
 
 
-def D_p(T: float = T_ROOM) -> float:
+
+def D_p(T  : float =T_ROOM) ->float :
     """Hole diffusivity [cm^2/s] from the Einstein relation D = V_T * mu."""
-    return V_T(T) * mu_p(T)
-
-
+    return V_T(T)* mu_p(T)
 TAU_N_MAX: float = 1e-5
-"""Electron lifetime in undoped silicon [s], from docs/06-constants.md."""
 
-TAU_P_MAX: float = 3e-6
+"""Electron lifetime in undoped silicon [s], from docs/06-constants.md."""
+TAU_P_MAX: float=3e-6
 """Hole lifetime in undoped silicon [s]."""
 
-TAU_N_MIN: float = 0.0
+TAU_N_MIN  :  float  = 0.0
+
 """Electron lifetime floor at very high doping [s]."""
 
-TAU_P_MIN: float = 0.0
+TAU_P_MIN  :  float = 0.0
 """Hole lifetime floor at very high doping [s]."""
-
-N_REF_SRH: float = 5e16
+N_REF_SRH  :  float  =  5e16
 """Doping at which the Scharfetter lifetime is halfway to its floor [cm^-3]."""
-
-GAMMA_SRH: float = 1.0
+GAMMA_SRH:float=1.0
 """Sharpness of the Scharfetter lifetime transition [1]."""
 
+CHI_SI  : float =  4.05
 
-CHI_SI: float = 4.05
 """Electron affinity of silicon [eV], the conduction band edge below vacuum."""
-
-PHI_M_N_POLY: float = CHI_SI
-"""Work function of degenerate n+ polysilicon [eV].
+PHI_M_N_POLY :float=CHI_SI
+'''Work function of degenerate n+ polysilicon [eV].
 
 Its Fermi level sits at the silicon conduction band edge, so the work function
 is the electron affinity. An idealisation: real n+ poly is a few tens of meV
 into the gap, and heavy doping shifts the band edge as well.
-"""
+'''
 
-PHI_M_P_POLY: float = CHI_SI + Eg()
-"""Work function of degenerate p+ polysilicon [eV], at the valence band edge.
+PHI_M_P_POLY  :float =  CHI_SI+Eg()
+
+
+'''Work function of degenerate p+ polysilicon [eV], at the valence band edge.
 
 Frozen at 300 K, because a module level constant cannot follow temperature.
 Anything that has to move with T should compute it from Eg(T) directly. The
 same applies to PHI_M_MIDGAP.
-"""
+'''
 
-PHI_M_MIDGAP: float = CHI_SI + Eg() / 2.0
+PHI_M_MIDGAP : float =CHI_SI + Eg() / 2.0
+
 """Work function of a midgap metal [eV], the usual model for tungsten."""
 
-
 def semiconductor_work_function(
-    net_doping: float | npt.NDArray[np.float64], T: float = T_ROOM
-) -> npt.NDArray[np.float64]:
+    net_doping: float  |npt.NDArray[np.float64], T:  float  = T_ROOM
+)  ->  npt.NDArray[np.float64]  :
     """Work function of doped silicon [eV], vacuum level to Fermi level.
 
     Args:
@@ -344,17 +353,15 @@ def semiconductor_work_function(
     are exact negatives of each other. Where the log form is valid the two
     agree to twelve digits.
     """
-    phi_F = V_T(T) * np.arcsinh(
-        np.asarray(net_doping, dtype=np.float64) / (2.0 * n_i(T))
+    phiF=V_T(T)*np.arcsinh(
+        np.asarray(net_doping,dtype=np.float64)/(2.0* n_i(T))
     )
-    return np.asarray(CHI_SI + Eg(T) / 2.0 - phi_F)
+
+    return np.asarray(CHI_SI+Eg(T)/ 2.0-phiF)
 
 
-def work_function_difference(
-    metal: float,
-    net_doping: float | npt.NDArray[np.float64],
-    T: float = T_ROOM,
-) -> npt.NDArray[np.float64]:
+
+def work_function_difference(metal : float, net_doping :float | npt.NDArray[np.float64], T: float =  T_ROOM,)  -> npt.NDArray[np.float64] :
     """Phi_MS, gate metal minus semiconductor [eV, numerically volts].
 
     Args:
@@ -366,4 +373,5 @@ def work_function_difference(
     NMOS case and comes out near -0.92 V at 1e16. The sign is the easy thing
     to get wrong and it moves flatband by nearly two volts.
     """
-    return np.asarray(metal - semiconductor_work_function(net_doping, T))
+
+    return np.asarray(metal  - semiconductor_work_function(net_doping, T))

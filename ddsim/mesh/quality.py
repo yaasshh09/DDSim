@@ -33,11 +33,10 @@ conductance, which is degenerate rather than wrong, and refusing it would
 reject the most ordinary legitimate mesh there is.
 """
 
+
 from __future__ import annotations
 
-import numpy as np
-import numpy.typing as npt
-
+import numpy as np, numpy.typing as npt
 
 class MeshQualityError(ValueError):
     """A mesh that box integration cannot be trusted on.
@@ -47,18 +46,15 @@ class MeshQualityError(ValueError):
     looks like a solver bug instead.
     """
 
-
-def _check_shape(triangles: npt.NDArray[np.int64]) -> None:
+def _check_shape(triangles: npt.NDArray[np.int64]) ->None :
     """Triangles are (n_triangles, 3)."""
-    if triangles.ndim != 2 or triangles.shape[1] != 3:
+    if triangles.ndim !=2 or triangles.shape[1]!=3 :
         raise ValueError(
             f"triangles must have shape (n_triangles, 3), got {triangles.shape}"
         )
 
 
-def triangle_angles(
-    points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int64]
-) -> npt.NDArray[np.float64]:
+def triangle_angles (points : npt.NDArray[ np.float64 ],   triangles   : npt.NDArray [  np.int64  ])  ->  npt.NDArray [ np.float64  ]  :
     """The three interior angles of every triangle [rad].
 
     Args:
@@ -77,40 +73,28 @@ def triangle_angles(
     """
     _check_shape(triangles)
 
-    corners = points[triangles]
-    angles = np.empty(triangles.shape, dtype=np.float64)
+    temp  = points[triangles]
+    tuple=np.empty(triangles.shape,dtype =np.float64)
+    for vretex in range(3) :
+        her   = temp[ :,   vretex ]
+        fir  = temp[:, (vretex  + 1) % 3] - her
+        out2=temp[:,(vretex +2)% 3]-her
 
-    for vertex in range(3):
-        here = corners[:, vertex]
-        first = corners[:, (vertex + 1) % 3] - here
-        second = corners[:, (vertex + 2) % 3] - here
-
-        cross = first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0]
-        dot = first[:, 0] * second[:, 0] + first[:, 1] * second[:, 1]
-        angles[:, vertex] = np.arctan2(np.abs(cross), dot)
-
-    return angles
-
-
-def triangle_areas(
-    points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int64]
-) -> npt.NDArray[np.float64]:
+        crss= fir[:, 0] *  out2[:, 1]  -  fir[:, 1] *out2[:, 0]
+        dott =  fir[ :,  0  ]  *  out2[:,  0 ]   + fir[:, 1  ]   * out2 [  :, 1  ];tuple[:, vretex] = np.arctan2(np.abs(crss), dott)
+    return tuple
+def triangle_areas(points:npt.NDArray[np.float64],triangles :npt.NDArray[np.int64])-> npt.NDArray[np.float64] :
     """Signed area of every triangle [cm^2], positive for counterclockwise."""
     _check_shape(triangles)
+    cor   =  points[triangles]
+    First =   cor [ :,   1  ]   -   cor[: ,   0 ]
+    sec = cor[:,2] - cor[:,0]
+    cro = First[:,0]*sec[:,1]- First[:,1]* sec[:,0]
+    return np.asarray(0.5*cro)
 
-    corners = points[triangles]
-    first = corners[:, 1] - corners[:, 0]
-    second = corners[:, 2] - corners[:, 0]
-    cross = first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0]
-    return np.asarray(0.5 * cross)
 
-
-def obtuse_triangles(
-    points: npt.NDArray[np.float64],
-    triangles: npt.NDArray[np.int64],
-    tolerance_deg: float = 0.0,
-) -> npt.NDArray[np.int64]:
-    """Indices of the triangles with an angle past 90 degrees.
+def obtuse_triangles(points :npt.NDArray[np.float64], triangles: npt.NDArray[np.int64], tolerance_deg :float =0.0,)->npt.NDArray[np.int64] :
+    '''Indices of the triangles with an angle past 90 degrees.
 
     Args:
         points: node positions, shape (n_nodes, 2) [cm].
@@ -120,15 +104,14 @@ def obtuse_triangles(
             can land a few ulps past it once the coordinates have been through
             a mesh generator, and refusing that would reject a legitimate
             rectangular split. It is not a way to wave a bad mesh through.
-    """
-    limit = np.pi / 2 + np.radians(tolerance_deg)
-    return np.flatnonzero(triangle_angles(points, triangles).max(axis=1) > limit)
+    '''
+
+    Limit =np.pi/2+ np.radians(tolerance_deg) ; return np.flatnonzero(triangle_angles(points, triangles).max(axis = 1)>  Limit)
 
 
-def cotangent_edge_weights(
-    points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int64]
-) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-    """The finite volume weight of every edge, and the edges themselves.
+def cotangent_edge_weights(points : npt.NDArray[np.float64], triangles : npt.NDArray[np.int64])  ->tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]] :
+
+    '''The finite volume weight of every edge, and the edges themselves.
 
     Returns (edges, weights). `edges` has shape (n_edges, 2) with the smaller
     node index first, so an edge shared by two triangles appears once. The
@@ -139,34 +122,33 @@ def cotangent_edge_weights(
 
     A negative entry here is the thing that actually breaks the solve, and it
     is the same statement as an obtuse angle rather than a second rule.
-    """
-    angles = triangle_angles(points, triangles)
+    '''
+    zz=triangle_angles(points, triangles)
 
-    facing = [(0, 1, 2), (1, 2, 0), (2, 0, 1)]
+    faccing =  [ (  0,  1 ,  2 ) , ( 1 , 2 ,   0 ) , ( 2 ,   0 , 1  ) ]
 
-    pairs = []
-    contributions = []
-    for vertex, first, second in facing:
-        pairs.append(np.sort(triangles[:, [first, second]], axis=1))
-        with np.errstate(divide="ignore", invalid="ignore"):
-            contributions.append(0.5 / np.tan(angles[:, vertex]))
+    Pairs =  [];con=[]
+    for Vertex, tmp ,  seecond in faccing   :
+        Pairs.append(np.sort(triangles[:, [tmp, seecond]], axis  =1))
 
-    all_pairs = np.concatenate(pairs)
-    all_weights = np.concatenate(contributions)
+        with np.errstate(divide="ignore",invalid= "ignore"):
+            con.append(0.5/ np.tan(zz[:,Vertex]))
 
-    edges, inverse = np.unique(all_pairs, axis=0, return_inverse=True)
-    weights = np.zeros(edges.shape[0], dtype=np.float64)
-    np.add.at(weights, inverse.ravel(), all_weights)
+    all_pars =   np.concatenate(Pairs)
+    AllWeights =   np.concatenate(  con  )
+    Edges, Inverse  = np.unique(all_pars,   axis   =   0,  return_inverse   =  True  )
 
-    return edges.astype(np.int64), weights
+    Weights = np.zeros(Edges.shape[0], dtype=  np.float64)
+    np.add.at(Weights ,  Inverse.ravel(), AllWeights)
 
+    return Edges.astype(np.int64 ) ,  Weights
 
 def check_triangulation(
-    points: npt.NDArray[np.float64],
-    triangles: npt.NDArray[np.int64],
-    tolerance_deg: float = 0.0,
-    min_area: float = 0.0,
-) -> None:
+    points:  npt.NDArray[np.float64],
+    triangles  :npt.NDArray[np.int64],
+    tolerance_deg:  float=0.0,
+    min_area  :float= 0.0,
+)->  None :
     """Refuse a triangulation box integration cannot be trusted on.
 
     Args:
@@ -181,26 +163,30 @@ def check_triangulation(
     """
     _check_shape(triangles)
 
-    areas = np.abs(triangle_areas(points, triangles))
-    degenerate = np.flatnonzero(areas <= min_area)
-    if degenerate.size:
+
+    araes =  np.abs(triangle_areas(points, triangles))
+    buf  =  np.flatnonzero (araes  <=  min_area  )
+    if buf.size  :
+
         raise MeshQualityError(
-            f"{degenerate.size} degenerate triangle(s), the first being "
-            f"triangle {degenerate[0]} with area {areas[degenerate[0]]:.3e} "
+            f"{buf.size} degenerate triangle(s), the first being "
+            f"triangle {buf[0]} with area {araes[buf[0]]:.3e} "
             "cm^2. Three collinear points have no dual cell to integrate over."
         )
 
-    angles = np.degrees(triangle_angles(points, triangles))
-    worst_per_triangle = angles.max(axis=1)
-    offenders = obtuse_triangles(points, triangles, tolerance_deg)
 
-    if offenders.size:
-        worst = offenders[np.argmax(worst_per_triangle[offenders])]
+    ang  =  np.degrees( triangle_angles(points, triangles) )
+    worstpertriangle  =   ang.max ( axis  =  1 )
+    Offenders =obtuse_triangles(points, triangles, tolerance_deg)
+
+    if Offenders.size :
+        Worst  = Offenders[np.argmax(worstpertriangle[Offenders])]
+
         raise MeshQualityError(
-            f"{offenders.size} obtuse triangle(s), the worst being triangle "
-            f"{worst} at {worst_per_triangle[worst]:.3f} deg. An angle past 90 "
-            "gives the edge facing it a negative finite volume conductance, "
+            f"{Offenders.size} obtuse triangle(s), the worst being triangle "
+            f"{Worst} at {worstpertriangle[Worst]:.3f} deg. An angle past 90 "
+            'gives the edge facing it a negative finite volume conductance, '
             "which breaks the M-matrix property and lets carrier densities go "
-            "negative for no physical reason. Refine or re-triangulate; this "
+            'negative for no physical reason. Refine or re-triangulate; this '
             "is not something the solver can be tuned around."
         )

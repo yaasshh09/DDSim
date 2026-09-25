@@ -61,81 +61,74 @@ constant being the device height in scaled units, so the solution is identical
 while the residual is not. That is the acceptance criterion in PHASE-4.md and
 it is checked in tests/analytic.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
-import numpy.typing as npt
+import numpy as np, numpy.typing as  npt
 
 from ddsim.core.scaling import ScaleFactors
-from ddsim.discretize.geometry import EdgeGeometry, ScaledMesh
-from ddsim.mesh.mesh1d import Mesh1D, uniform_mesh_1d
+from ddsim.discretize.geometry import  EdgeGeometry ,   ScaledMesh
+from ddsim.mesh.mesh1d import Mesh1D,  uniform_mesh_1d
 
 
-@dataclass(frozen=True)
+@dataclass(frozen =  True)
 class Mesh2D:
     """A structured 2D mesh with its dual grid and edge list."""
 
-    x_axis: Mesh1D
-    """The x axis, as a 1D mesh. Carries its own dual grid."""
+    x_axis : Mesh1D
+    '''The x axis, as a 1D mesh. Carries its own dual grid.'''
 
-    y_axis: Mesh1D
+    y_axis : Mesh1D
+
     """The y axis, as a 1D mesh."""
-
-    node_x: npt.NDArray[np.float64]
+    node_x:npt.NDArray[np.float64]
     """x position of every node [cm], length n_nodes."""
-
     node_y: npt.NDArray[np.float64]
     """y position of every node [cm], length n_nodes."""
-
-    h: npt.NDArray[np.float64]
+    h :npt.NDArray[np.float64]
     """Length of every edge [cm], the distance between its two nodes."""
 
-    dual_face: npt.NDArray[np.float64]
+    dual_face  : npt.NDArray[np.float64]
     """Extent of the face every edge crosses [cm], per unit depth."""
-
-    volume: npt.NDArray[np.float64]
+    volume:  npt.NDArray[np.float64]
     """Dual cell area of every node [cm^2], per unit depth."""
 
-    edge_nodes: npt.NDArray[np.int64]
-    """Shape (n_edges, 2). The two nodes of each edge."""
 
+    edge_nodes:npt.NDArray[np.int64]
+    """Shape (n_edges, 2). The two nodes of each edge."""
     @property
-    def nx(self) -> int:
+    def nx(self)->int:
         """Nodes along x."""
         return self.x_axis.n_nodes
 
+
     @property
-    def ny(self) -> int:
+    def ny(self)-> int  :
         """Nodes along y."""
-        return self.y_axis.n_nodes
-
+        return  self.y_axis.n_nodes
     @property
-    def n_nodes(self) -> int:
+    def n_nodes(self) ->int :
         """Total nodes."""
-        return int(self.node_x.size)
+        return int ( self.node_x.size)
 
     @property
-    def n_edges(self) -> int:
+    def n_edges(  self  )  ->   int  :
         """Total edges, both families."""
-        return int(self.h.size)
-
+        return int (  self.h.size  )
     @property
-    def n_horizontal(self) -> int:
+    def n_horizontal(self)->int:
         """How many edges are in the horizontal family, which come first."""
-        return (self.nx - 1) * self.ny
-
-    def node_at(self, i: int, j: int) -> int:
+        return (  self.nx   -  1) *  self.ny
+    def node_at(self, i: int, j:  int)->  int  :
         """The node index at column i, row j."""
-        return j * self.nx + i
+        return j *self.nx + i
 
     def edge_geometry(
         self,
-        eps_r: npt.NDArray[np.float64] | float = 1.0,
-        semiconductor_face: npt.NDArray[np.float64] | None = None,
-    ) -> EdgeGeometry:
+        eps_r:npt.NDArray[np.float64] |float=1.0,
+        semiconductor_face:npt.NDArray[np.float64] |None =None,
+    )-> EdgeGeometry :
         """What the assemblies need to work on this mesh.
 
         Args:
@@ -150,18 +143,14 @@ class Mesh2D:
         the module docstring on why the power of x_0 differs between them.
         """
         return EdgeGeometry(
-            edge_nodes=self.edge_nodes,
-            dual_face=self.dual_face,
-            eps_r=eps_r,
-            semiconductor_face=semiconductor_face,
+            edge_nodes = self.edge_nodes,
+            dual_face= self.dual_face,
+            eps_r =eps_r,
+            semiconductor_face = semiconductor_face,
         )
 
-    def scaled(
-        self,
-        scale: ScaleFactors,
-        eps_r: npt.NDArray[np.float64] | float = 1.0,
-        semiconductor_face: npt.NDArray[np.float64] | None = None,
-    ) -> ScaledMesh:
+
+    def scaled(self , scale :   ScaleFactors, eps_r  :  npt.NDArray[ np.float64] | float  =  1.0, semiconductor_face  : npt.NDArray[ np.float64 ] |  None  =   None,) ->  ScaledMesh  :
         """This mesh in the units the assemblies work in.
 
         Args:
@@ -177,23 +166,12 @@ class Mesh2D:
         The two powers of x_0 differ, and that is the whole point of asking
         the mesh instead of doing it at the call site. See ScaledMesh.
         """
-        return ScaledMesh(
-            h=self.h / scale.x_0,
-            volume=self.volume / scale.x_0**2,
-            geometry=EdgeGeometry(
-                edge_nodes=self.edge_nodes,
-                dual_face=self.dual_face / scale.x_0,
-                eps_r=eps_r,
-                semiconductor_face=(
-                    None
-                    if semiconductor_face is None
-                    else semiconductor_face / scale.x_0
-                ),
-            ),
-        )
 
-    def __repr__(self) -> str:
-        return (
+        return ScaledMesh(h =self.h/scale.x_0, volume =self.volume/ scale.x_0**2, geometry =EdgeGeometry(edge_nodes=self.edge_nodes, dual_face= self.dual_face/scale.x_0, eps_r= eps_r, semiconductor_face=(None if semiconductor_face is None else semiconductor_face/ scale.x_0),),)
+
+    def __repr__(self) ->str:
+
+        return(
             f"Mesh2D {self.nx}x{self.ny} = {self.n_nodes} nodes, "
             f"{self.n_edges} edges, "
             f"{self.x_axis.length:.4e} by {self.y_axis.length:.4e} cm"
@@ -201,8 +179,8 @@ class Mesh2D:
 
 
 def normal_field(
-    mesh: Mesh2D, psi: npt.NDArray[np.float64]
-) -> npt.NDArray[np.float64]:
+    mesh  :  Mesh2D, psi  :npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64] :
     """Magnitude of the field normal to a horizontal interface, per node.
 
     Args:
@@ -244,25 +222,26 @@ def normal_field(
     normal carried per node instead, which is the shape DEVSIM uses. Nothing
     about that is cheaper and this geometry does not need it.
     """
-    if psi.size != mesh.n_nodes:
+    if psi.size   != mesh.n_nodes  :
         raise ValueError(
             f"psi has {psi.size} values but the mesh has {mesh.n_nodes} nodes"
         )
 
-    vertical = slice(mesh.n_horizontal, None)
-    below, above = mesh.edge_nodes[vertical, 0], mesh.edge_nodes[vertical, 1]
-    edge_field = (psi[above] - psi[below]) / mesh.h[vertical]
-
-    total = np.zeros(mesh.n_nodes, dtype=np.float64)
-    count = np.zeros(mesh.n_nodes, dtype=np.float64)
-    for node in (below, above):
-        np.add.at(total, node, edge_field)
-        np.add.at(count, node, 1.0)
-
-    return np.abs(total / count)
+    verttical  =  slice( mesh.n_horizontal, None )
+    bel, abo  =   mesh.edge_nodes[verttical,   0 ] , mesh.edge_nodes[verttical,  1 ]
+    edgeField= (psi[abo]  - psi[bel]) / mesh.h[verttical]
 
 
-def tensor_mesh_2d(x_axis: Mesh1D, y_axis: Mesh1D) -> Mesh2D:
+    vals=np.zeros(mesh.n_nodes,dtype=np.float64)
+    coount=  np.zeros(mesh.n_nodes, dtype  = np.float64)
+    for Node in(bel ,   abo)  :
+        np.add.at(vals, Node, edgeField)
+        np.add.at(coount,Node,1.0)
+
+    return np.abs(vals /  coount)
+
+
+def tensor_mesh_2d(x_axis :  Mesh1D, y_axis :  Mesh1D) -> Mesh2D :
     """The tensor product of two 1D meshes.
 
     Args:
@@ -271,43 +250,28 @@ def tensor_mesh_2d(x_axis: Mesh1D, y_axis: Mesh1D) -> Mesh2D:
 
     Either axis may be graded, which is how a 2D mesh resolves a junction.
     """
-    nx, ny = x_axis.n_nodes, y_axis.n_nodes
 
-    node_x = np.tile(x_axis.x, ny)
-    node_y = np.repeat(y_axis.x, nx)
-
-    columns = np.arange(nx, dtype=np.int64)
-    rows = np.arange(ny, dtype=np.int64)
-
-    h_i, h_j = np.meshgrid(columns[:-1], rows, indexing="xy")
-    h_from = (h_j * nx + h_i).ravel()
-    horizontal = np.column_stack([h_from, h_from + 1])
-    h_length = np.tile(x_axis.h, ny)
-    h_face = np.repeat(y_axis.volume, nx - 1)
-
-    v_i, v_j = np.meshgrid(columns, rows[:-1], indexing="xy")
-    v_from = (v_j * nx + v_i).ravel()
-    vertical = np.column_stack([v_from, v_from + nx])
-    v_length = np.repeat(y_axis.h, nx)
-    v_face = np.tile(x_axis.volume, ny - 1)
-
-    volume = np.outer(y_axis.volume, x_axis.volume).ravel()
-
-    return Mesh2D(
-        x_axis=x_axis,
-        y_axis=y_axis,
-        node_x=node_x,
-        node_y=node_y,
-        h=np.concatenate([h_length, v_length]),
-        dual_face=np.concatenate([h_face, v_face]),
-        volume=volume,
-        edge_nodes=np.concatenate([horizontal, vertical]).astype(np.int64),
-    )
+    Nx,Ny=x_axis.n_nodes,y_axis.n_nodes
+    NodeX= np.tile(x_axis.x,Ny);  nodeY =  np.repeat(y_axis.x, Nx)
+    Columns  = np.arange (Nx,  dtype  = np.int64 ); Rows =  np.arange ( Ny,  dtype   =  np.int64)
 
 
-def uniform_mesh_2d(width: float, height: float, nx: int, ny: int) -> Mesh2D:
+    HI ,   hJ   =   np.meshgrid(Columns [:-  1  ],   Rows ,   indexing =   "xy" );  h_fom= (hJ *Nx +HI).ravel()
+    hrizontal  =  np.column_stack([h_fom, h_fom + 1])
+    h_lenggth = np.tile (  x_axis.h, Ny)
+    hf =np.repeat(y_axis.volume, Nx -1)
+
+
+
+    VI,foo=np.meshgrid(Columns,Rows[:-1],indexing= 'xy')
+    v = (foo  *  Nx  + VI).ravel()
+    ver  =   np.column_stack(  [v ,   v  + Nx])
+    VLength  = np.repeat(y_axis.h, Nx)
+    range= np.tile(x_axis.volume, Ny - 1)
+    dat= np.outer(y_axis.volume,x_axis.volume).ravel()
+    return Mesh2D(x_axis= x_axis, y_axis=y_axis, node_x =NodeX, node_y = nodeY, h= np.concatenate([h_lenggth,VLength]), dual_face = np.concatenate([hf,range]), volume=dat, edge_nodes =np.concatenate([hrizontal,ver]).astype(np.int64),)
+
+
+def uniform_mesh_2d(width :float,height: float,nx : int,ny :int)->Mesh2D:
     """A uniformly spaced rectangle, [0, width] by [0, height] [cm]."""
-    return tensor_mesh_2d(
-        uniform_mesh_1d(length=width, n_nodes=nx),
-        uniform_mesh_1d(length=height, n_nodes=ny),
-    )
+    return tensor_mesh_2d(uniform_mesh_1d(length = width, n_nodes = nx), uniform_mesh_1d(length =  height, n_nodes= ny),)

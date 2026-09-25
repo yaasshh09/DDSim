@@ -41,20 +41,26 @@ them to reach the steady velocity of the field they are in, so real devices
 overshoot and this model cannot. Nothing below 50 nm is reported here for that
 reason, and the limit is a property of the equations rather than of this file.
 """
-
 from __future__ import annotations
 
 from collections.abc import Mapping
+
+
 from dataclasses import dataclass
-from typing import Any
+
+
+from  typing  import Any
 
 import numpy as np
-import numpy.typing as npt
 
+import numpy.typing as npt
 from ddsim.device.mosfet import nmos
 from ddsim.device.transport import TransportModels
-from ddsim.extract.iv import IVCurve, gate_sweep
-from ddsim.extract.params import (
+
+
+from ddsim.extract.iv  import IVCurve,  gate_sweep
+
+from ddsim.extract.params import(
     dibl,
     saturation_exponent,
     subthreshold_slope,
@@ -63,16 +69,8 @@ from ddsim.extract.params import (
     transconductance,
 )
 
-SHORT_CHANNEL_PROCESS: Mapping[str, Any] = {
-    "substrate_doping": -1e18,
-    "sd_peak": 1e20,
-    "x_j": 2.5e-6,
-    "lateral_diffusion": 1.0e-6,
-    "t_ox": 2e-7,
-    "sd_length": 4e-5,
-    "contact_length": 2e-5,
-    "t_si": 1e-4,
-}
+SHORT_CHANNEL_PROCESS :   Mapping[  str,   Any] =   {"substrate_doping"   : -  1e18, "sd_peak" : 1e20 , "x_j"  :  2.5e-6, 'lateral_diffusion'  :   1.0e-6, 't_ox'   :  2e-7 , 'sd_length'  :   4e-5, "contact_length"  :  2e-5 , "t_si" :   1e-4,}
+
 """The vertical process every gate length in the sweep is built on.
 
 A 2 nm oxide over a 1e18 cm^-3 channel, with source and drain 25 nm deep and
@@ -85,28 +83,28 @@ Nothing in here was chosen to produce a threshold voltage. It is a mapping of
 without reading any code.
 """
 
+
 REFERENCE_CURRENT = 1e-7
+
 """The numerator of the Id = I_ref * W / L threshold criterion [A].
 
 100 nA, the usual statement. With the current already per unit width and every
 length in cm, the target at a gate length L is REFERENCE_CURRENT / L [A/cm].
 """
 
-
 @dataclass(frozen=True)
-class RollOffPoint:
+
+
+class  RollOffPoint  :
     """One gate length, and everything read off its two transfer curves."""
 
-    L_gate: float
+    L_gate  : float
     """Gate length this device was drawn at [cm]."""
-
     threshold_linear: float
     """Constant current threshold at the low drain bias [V]."""
-
-    threshold_saturated: float
+    threshold_saturated : float
     """Constant current threshold at the high drain bias [V]."""
-
-    threshold_extrapolated: float
+    threshold_extrapolated:  float
     """Threshold by tangent at peak transconductance, low drain bias [V].
 
     A second opinion rather than a better one. The two methods measure
@@ -114,7 +112,7 @@ class RollOffPoint:
     the roll-off is telling you the extraction is wrong, not the device.
     """
 
-    subthreshold_slope: float
+    subthreshold_slope:float
     """Steepest part of the low drain curve [mV/decade].
 
     Measured over the decades of drain current immediately below the constant
@@ -128,10 +126,11 @@ class RollOffPoint:
     exponential rather than a device that beats Boltzmann.
     """
 
-    dibl: float
+
+    dibl  :float
     """Threshold shift per volt of drain [mV/V]."""
 
-    saturation_exponent: float
+    saturation_exponent  : float
     """The power the high drain current follows the overdrive to.
 
     2 for a long channel square law, falling toward 1 as velocity saturates.
@@ -146,19 +145,19 @@ class RollOffPoint:
     near 3.5 on a device that is a clean square law.
     """
 
-    peak_transconductance: float
-    """Largest dId/dVg on the low drain curve [A/(cm V)]."""
+    peak_transconductance :float
+    '''Largest dId/dVg on the low drain curve [A/(cm V)].'''
+    linear:IVCurve
+    '''The transfer curve at the low drain bias.'''
 
-    linear: IVCurve
-    """The transfer curve at the low drain bias."""
-
-    saturated: IVCurve
+    saturated : IVCurve
     """The transfer curve at the high drain bias."""
 
 
+
 def usable_span(
-    voltage: npt.NDArray[np.float64], current: npt.NDArray[np.float64]
-) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+    voltage : npt.NDArray[np.float64], current  : npt.NDArray[np.float64]
+)  ->  tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]  :
     """The longest tail of a transfer curve that is positive and rising.
 
     The extractors take a logarithm, so they need a curve that is on. The head
@@ -170,40 +169,38 @@ def usable_span(
     Trimming rather than refusing is what lets one gate list serve every length
     in a sweep, which is the point of the sweep being config driven.
     """
-    V, J = np.asarray(voltage, dtype=np.float64), np.asarray(
-        current, dtype=np.float64
-    )
-    start = 0
-    for k in range(len(J)):
-        if J[k] <= 0.0:
-            start = k + 1
-        elif k > 0 and J[k] <= J[k - 1]:
-            start = k
+    VV , bar  = np.asarray(voltage,   dtype  =  np.float64  ), np.asarray(current,   dtype = np.float64)
+    Start   = 0
+    for K in range(len(bar)):
+        if bar[K] <= 0.0:
+            Start  =   K + 1
+        elif K> 0 and bar[K]<= bar[K-1]:
+            Start =K
 
-    if len(J) - start < 3:
+    if len(bar) -Start< 3:
         raise ValueError(
-            f"only {len(J) - start} points of this transfer curve are on: it "
-            f"runs {V[0]:+g} to {V[-1]:+g} V and never becomes both positive "
+            f"only {len(bar) - Start} points of this transfer curve are on: it "
+            f"runs {VV[0]:+g} to {VV[-1]:+g} V and never becomes both positive "
             "and rising for long enough to extract from. Extend the gate "
-            "sweep upward."
+            'sweep upward.'
         )
-    return V[start:], J[start:]
-
-
+    return VV[Start:],bar[Start:]
 def gate_length_sweep(
-    gate_lengths: list[float],
-    gate_voltages: list[float],
-    process: Mapping[str, Any] | None = None,
-    drain_low: float = 0.05,
-    drain_high: float = 1.0,
-    reference_current: float = REFERENCE_CURRENT,
-    overdrive_window: tuple[float, float] = (0.4, 1.0),
-    slope_decades: float = 2.0,
-    mobility: str = "arora",
-    field_dependent: bool = True,
-    surface: bool = True,
-    step: float = 0.05,
-) -> tuple[RollOffPoint, ...]:
+    gate_lengths:list[float],
+    gate_voltages :list[float],
+    process :Mapping[str,Any]| None=None,
+    drain_low:float =0.05,
+    drain_high:float =1.0,
+    reference_current: float=REFERENCE_CURRENT,
+    overdrive_window : tuple[float,float] =(0.4,1.0),
+    slope_decades : float =2.0,
+    mobility:str='arora',
+    field_dependent:bool= True,
+    surface: bool= True,
+    step:float=0.05,
+) ->tuple[RollOffPoint,...]:
+
+
     """Build one MOSFET per gate length and extract the short channel set.
 
     Args:
@@ -250,84 +247,66 @@ def gate_length_sweep(
     Two curves per device, because DIBL is a difference between them and one
     curve cannot say anything about it. Both are kept on the result.
     """
-    if not gate_lengths:
-        raise ValueError("a gate length sweep needs at least one gate length")
+    if  not  gate_lengths  :
+        raise ValueError( "a gate length sweep needs at least one gate length"  )
 
-    if drain_high == drain_low:
-        raise ValueError(
+    if drain_high== drain_low :
+        raise  ValueError(
             f"the sweep needs two different drain biases to report DIBL, and "
             f"both are {drain_low:g} V"
         )
+    Settings  =  dict (SHORT_CHANNEL_PROCESS if  process  is None  else process)
 
-    settings = dict(SHORT_CHANNEL_PROCESS if process is None else process)
+    poi = []
+    for lGate in gate_lengths:
+        curevs   =  { }
+        for Label,drin in(('linear',drain_low),('saturated',drain_high)) :
+            devce=nmos(L_gate=lGate,drain_voltage=drin,**Settings)
+            curevs[Label] = gate_sweep(devce , voltages  =  list (  gate_voltages ), models  =   TransportModels.for_device(devce, mobility  = mobility , field_dependent  =   field_dependent, surface   =   surface ,) , step  =  step,)
 
-    points = []
-    for L_gate in gate_lengths:
-        curves = {}
-        for label, drain in (("linear", drain_low), ("saturated", drain_high)):
-            device = nmos(L_gate=L_gate, drain_voltage=drain, **settings)
-            curves[label] = gate_sweep(
-                device,
-                voltages=list(gate_voltages),
-                models=TransportModels.for_device(
-                    device,
-                    mobility=mobility,
-                    field_dependent=field_dependent,
-                    surface=surface,
-                ),
-                step=step,
-            )
-
-        V_lin, J_lin = usable_span(
-            curves["linear"].voltage, curves["linear"].current
-        )
-        V_sat, J_sat = usable_span(
-            curves["saturated"].voltage, curves["saturated"].current
-        )
-        target = reference_current / L_gate
-
-        threshold_linear = threshold_constant_current(V_lin, J_lin, target)
-        threshold_saturated = threshold_constant_current(V_sat, J_sat, target)
-        threshold_extrapolated = threshold_linear_extrapolation(
-            V_lin, J_lin, drain_voltage=drain_low
-        )
-        _, gm = transconductance(V_lin, J_lin)
-
-        slope_window = (
-            threshold_constant_current(
-                V_lin, J_lin, target / 10.0**slope_decades
-            ),
-            threshold_linear,
+        V_linn,myvar=usable_span(
+            curevs["linear"].voltage,curevs["linear"].current
         )
 
-        points.append(
+
+        v, J_satt  =  usable_span(curevs['saturated'].voltage, curevs["saturated"].current)
+        tar  =   reference_current  /   lGate
+        tl=  threshold_constant_current(V_linn, myvar, tar)
+        thresholdsaturated  = threshold_constant_current(v, J_satt, tar)
+        thresholdextrapolated  = threshold_linear_extrapolation(
+            V_linn ,  myvar , drain_voltage  =  drain_low
+        )
+        _, gmm  =transconductance(V_linn, myvar)
+
+
+        bar=(threshold_constant_current(V_linn, myvar, tar/10.0 **  slope_decades), tl,)
+        poi.append(
             RollOffPoint(
-                L_gate=L_gate,
-                threshold_linear=threshold_linear,
-                threshold_saturated=threshold_saturated,
-                threshold_extrapolated=threshold_extrapolated,
-                subthreshold_slope=subthreshold_slope(
-                    V_lin, J_lin, window=slope_window
+                L_gate = lGate,
+                threshold_linear= tl,
+                threshold_saturated = thresholdsaturated,
+                threshold_extrapolated =thresholdextrapolated,
+                subthreshold_slope  =  subthreshold_slope(
+                    V_linn, myvar, window = bar
                 ),
-                dibl=dibl(
-                    threshold_low=threshold_linear,
-                    threshold_high=threshold_saturated,
-                    drain_low=drain_low,
-                    drain_high=drain_high,
+                dibl =dibl(
+                    threshold_low  =tl,
+                    threshold_high =  thresholdsaturated,
+                    drain_low =  drain_low,
+                    drain_high = drain_high,
                 ),
-                saturation_exponent=saturation_exponent(
-                    V_sat,
-                    J_sat,
-                    threshold=threshold_extrapolated,
-                    window=(
-                        threshold_extrapolated + overdrive_window[0],
-                        threshold_extrapolated + overdrive_window[1],
+                saturation_exponent =  saturation_exponent(
+                    v,
+                    J_satt,
+                    threshold=thresholdextrapolated,
+                    window  =(
+                        thresholdextrapolated  +  overdrive_window[0],
+                        thresholdextrapolated + overdrive_window[1],
                     ),
                 ),
-                peak_transconductance=float(np.max(gm)),
-                linear=curves["linear"],
-                saturated=curves["saturated"],
+                peak_transconductance=  float(np.max(gmm)),
+                linear = curevs['linear'],
+                saturated = curevs['saturated'],
             )
         )
-
-    return tuple(points)
+    return tuple(poi)

@@ -32,72 +32,76 @@ from __future__ import annotations
 
 import math
 
+
+
 import numpy as np
 from scipy.integrate import quad
+
 from scipy.optimize import brentq
 
-SERIES_TERMS = 400
+
+SERIES_TERMS=400
+
+
 """Terms in the alternating series [1]. At eta = -0.05 the 400th term is
 exp(-20)/400^1.5 = 2.6e-13 of the leading one, and it alternates, so the
 truncation error is below machine precision on the whole range this is used."""
 
+
 SERIES_MAX_ETA = -0.05
 """Largest eta the alternating series is trusted at [1]."""
+TAIL   =  60.0
 
-TAIL = 60.0
-"""How far past the Fermi level the adaptive quadrature integrates [1]. The
-integrand is below exp(-60) = 8.8e-27 of its peak beyond that."""
-
-
-def F_series(eta: float, order: float = 0.5) -> float:
+'''How far past the Fermi level the adaptive quadrature integrates [1]. The
+integrand is below exp(-60) = 8.8e-27 of its peak beyond that.'''
+def F_series(eta : float,order : float =0.5) ->float :
     """F_order(eta) [1] by the alternating series. Only for eta < 0."""
-    if eta > SERIES_MAX_ETA:
+
+    if eta >  SERIES_MAX_ETA  :
         raise ValueError(
             f"the alternating series converges for eta < 0 and is only "
             f"trusted below {SERIES_MAX_ETA}, got {eta}"
         )
-    k = np.arange(1.0, SERIES_TERMS + 1.0)
-    terms = ((-1.0) ** (k + 1.0)) * np.exp(k * eta) / k ** (order + 1.0)
-    return float(math.gamma(order + 1.0) * np.sum(terms))
+    K  = np.arange(1.0, SERIES_TERMS +1.0)
+    foo=((-1.0)  ** (K  + 1.0))  *np.exp(K *eta) / K **(order + 1.0)
+    return float ( math.gamma( order   + 1.0 )   *   np.sum( foo))
 
 
-def F_quad(eta: float, order: float = 0.5) -> float:
+def F_quad(eta :float,order:float = 0.5) -> float:
     """F_order(eta) = int_0^inf x^order / (1 + exp(x - eta)) dx [1].
 
     Adaptive, with the Fermi level handed to the integrator as a break point
     so the rule does not have to discover the shoulder for itself.
     """
-    shoulder = max(eta, 0.0)
+    sho=max(eta,0.0)
 
-    def integrand(x: float) -> float:
-        return x**order / (1.0 + math.exp(x - eta))
+    def integrand(x:float) ->float:
+        return x ** order  / (1.0 +  math.exp(x -eta))
 
-    value, _ = quad(
-        integrand, 0.0, shoulder + TAIL, limit=400, points=[shoulder]
-    )
-    return float(value)
+    Value,_ =quad(integrand,0.0,sho+ TAIL,limit=400,points= [sho])
+    return  float (  Value)
 
 
-def u_reference(eta: float) -> float:
+def u_reference(eta : float) -> float:
     """u = n/Nc [1] at a given eta, from reference quadrature.
 
     n = Nc * F_{1/2}(eta) / Gamma(3/2), the normalisation that makes u -> e^eta
     in the nondegenerate limit.
     """
-    return F_quad(eta, 0.5) / math.gamma(1.5)
+    return F_quad(eta, 0.5)/ math.gamma(1.5)
 
-
-def eta_reference(u: float) -> float:
+def  eta_reference( u  :  float)  ->   float  :
     """eta [1] at a given u = n/Nc, by Brent inversion of `u_reference`.
 
     No series anywhere in it. This is what Joyce-Dixon is graded against.
     """
     return float(
-        brentq(lambda e: u_reference(e) - u, -80.0, 80.0, xtol=1e-14, rtol=8.9e-16)
+        brentq(lambda e: u_reference(e)  - u, -  80.0, 80.0, xtol  =1e-14, rtol =8.9e-16)
     )
 
 
-def einstein_reference(u: float) -> float:
+
+def einstein_reference(u:float) ->  float  :
     """D / (mu * V_T) [1] at a given u = n/Nc, from the integral definition.
 
     D/mu = (1/q) * n * (dE_F/dn), and with n = Nc*F_{1/2}(eta)/Gamma(3/2) and
@@ -107,5 +111,5 @@ def einstein_reference(u: float) -> float:
 
     which is 1 in the nondegenerate limit, where F_{1/2}/F_{-1/2} -> 1/2.
     """
-    eta = eta_reference(u)
-    return 2.0 * F_quad(eta, 0.5) / F_quad(eta, -0.5)
+    etaa =eta_reference(u)
+    return 2.0  *F_quad(etaa, 0.5) /F_quad(etaa, - 0.5)

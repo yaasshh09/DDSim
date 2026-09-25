@@ -40,18 +40,18 @@ further translation, and it is worth stating because a constant offset between
 the two references would shift the whole C-V curve while leaving its shape
 perfect.
 """
-
 from __future__ import annotations
 
-import argparse
-import contextlib
-import datetime
-import io
-import os
-import sys
-from typing import Any
 
-from devsim import (
+
+import  argparse, contextlib
+import datetime
+
+
+import io, os, sys
+
+from typing import Any
+from devsim import(
     add_1d_contact,
     add_1d_interface,
     add_1d_mesh_line,
@@ -65,45 +65,42 @@ from devsim import (
     solve,
 )
 from devsim.python_packages.model_create import CreateSolution
-from devsim.python_packages.simple_physics import (
-    CreateOxideContact,
-    CreateOxidePotentialOnly,
-    CreateSiliconOxideInterface,
-    CreateSiliconPotentialOnly,
-    CreateSiliconPotentialOnlyContact,
-)
-
+from devsim.python_packages.simple_physics import(CreateOxideContact, CreateOxidePotentialOnly, CreateSiliconOxideInterface, CreateSiliconPotentialOnly, CreateSiliconPotentialOnlyContact,)
 from tests.regression.devsim_gen import parameters as P
-
-SILICON = "bulk"
-OXIDE = "oxide"
-GATE = "gate"
-BODY = "body"
-
-GOLDEN = os.path.join("data", "golden")
+SILICON = 'bulk'
 
 
-def devsim_version() -> str:
+
+OXIDE  =  "oxide"
+GATE ='gate'
+BODY =   'body'
+
+GOLDEN =  os.path.join( "data", "golden" )
+
+
+def devsim_version() ->str:
     """The devsim version string, for the golden file header."""
     import devsim
 
-    return str(getattr(devsim, "__version__", "unknown"))
-
+    return str(getattr(devsim, '__version__', "unknown"))
 
 @contextlib.contextmanager
-def quiet():
+
+
+
+
+def  quiet (  )  :
     """Swallow devsim's per iteration convergence report.
 
     It writes to stdout, and the generator's stdout is a progress log a person
     reads. The errors still surface: a solve that fails raises.
     """
-    with contextlib.redirect_stdout(io.StringIO()):
+    with contextlib.redirect_stdout(io.StringIO())  :
         yield
 
-
 def build_mesh(
-    benchmark: P.MosBenchmark, device: str, refine: float = 1.0
-) -> None:
+    benchmark : P.MosBenchmark,device: str,refine: float=1.0
+)-> None:
     """Create and finalise the stack for one benchmark.
 
     Args:
@@ -123,87 +120,90 @@ def build_mesh(
     the wrong way round is silent. It buys a mesh that looks refined, refines
     the wrong region, and converges to the right answer slowly.
     """
-    mesh = f"{benchmark.name}_r{refine:g}"
-    h_surface = benchmark.devsim_h_surface / refine
-    h_bulk = benchmark.devsim_h_bulk / refine
-    h_oxide = benchmark.t_ox / (benchmark.devsim_oxide_cells * refine)
+    list =  f"{benchmark.name}_r{refine:g}"
 
-    interface = benchmark.t_si
-    top = benchmark.t_si + benchmark.t_ox
+    sorted   =  benchmark.devsim_h_surface  /  refine
+    hb   = benchmark.devsim_h_bulk  / refine
 
-    create_1d_mesh(mesh=mesh)
-    add_1d_mesh_line(mesh=mesh, pos=0.0, ps=h_bulk, tag="body")
+    hOxide=benchmark.t_ox/ (benchmark.devsim_oxide_cells* refine)
+
+
+
+    interfce =benchmark.t_si;  topp   =   benchmark.t_si   +  benchmark.t_ox
+
+    create_1d_mesh(mesh= list)
+    add_1d_mesh_line(mesh=list,pos = 0.0,ps=hb,tag='body')
     add_1d_mesh_line(
-        mesh=mesh, pos=interface, ns=h_surface, ps=h_oxide, tag="iface"
+        mesh =list,pos=interfce,ns=sorted,ps=hOxide,tag= "iface"
     )
-    add_1d_mesh_line(mesh=mesh, pos=top, ps=h_oxide, tag="gate")
+    add_1d_mesh_line(mesh=list,pos=topp,ps=hOxide,tag="gate")
+    add_1d_contact (  mesh  = list,   name  =  BODY, tag  = 'body' ,   material  = "metal")
+    add_1d_contact(mesh=list,name=GATE,tag ="gate",material ='metal')
 
-    add_1d_contact(mesh=mesh, name=BODY, tag="body", material="metal")
-    add_1d_contact(mesh=mesh, name=GATE, tag="gate", material="metal")
+
+    add_1d_region(mesh =list,material='Silicon',region = SILICON,tag1='body',tag2= 'iface')
     add_1d_region(
-        mesh=mesh, material="Silicon", region=SILICON, tag1="body", tag2="iface"
+        mesh   =  list , material  = "Oxide",   region  =  OXIDE ,  tag1   = 'iface',   tag2   = "gate"
     )
-    add_1d_region(
-        mesh=mesh, material="Oxide", region=OXIDE, tag1="iface", tag2="gate"
-    )
-    add_1d_interface(mesh=mesh, name="si_ox", tag="iface")
-
-    finalize_mesh(mesh=mesh)
-    create_device(mesh=mesh, device=device)
+    add_1d_interface(mesh =   list,   name =   "si_ox",   tag   = "iface")
+    finalize_mesh(mesh=list)
+    create_device(mesh  =  list, device =device)
 
 
-def set_material_parameters(device: str) -> None:
+
+def set_material_parameters(device : str) -> None  :
     """Push every ddsim constant into devsim, overriding its own defaults.
 
     devsim's own `simple_physics` carries eps_r(Si) = 11.1, q = 1.6e-19 and
     eps_0 = 8.85e-14, all of which are the right numbers rounded. Left alone
     they would put a percent into the comparison before any physics happened.
     """
-    silicon = {
-        "Permittivity": P.EPS_R_SI * P.EPS_0,
-        "ElectronCharge": P.Q,
-        "n_i": P.N_I,
-        "T": P.T,
-        "kT": P.K_B * P.T,
-        "V_t": P.V_T,
+    siliicon  =   {
+        "Permittivity"  :   P.EPS_R_SI *  P.EPS_0 ,
+        "ElectronCharge"   :  P.Q,
+        'n_i'   : P.N_I,
+        'T'  :  P.T,
+        "kT"  :   P.K_B   *   P.T,
+        'V_t'   : P.V_T ,
     }
-    for name, value in silicon.items():
-        set_parameter(device=device, region=SILICON, name=name, value=value)
 
-    oxide = {
-        "Permittivity": P.EPS_R_OX * P.EPS_0,
-        "ElectronCharge": P.Q,
-    }
-    for name, value in oxide.items():
-        set_parameter(device=device, region=OXIDE, name=name, value=value)
+    for Name,zip in siliicon.items():
+        set_parameter(device =device,region =SILICON,name=Name,value= zip)
+    oxi  = {'Permittivity' :   P.EPS_R_OX *   P.EPS_0 , 'ElectronCharge' : P.Q ,}
+    for Name, zip in oxi.items():
 
 
-def build_physics(benchmark: P.MosBenchmark, device: str) -> None:
+        set_parameter(device = device, region  = OXIDE, name= Name, value  = zip)
+
+
+
+def build_physics(benchmark : P.MosBenchmark, device:str) -> None :
     """Poisson with Boltzmann carriers in the silicon, Laplace in the oxide."""
     node_model(
-        device=device,
-        region=SILICON,
-        name="NetDoping",
-        equation=f"{benchmark.substrate_doping:.16e}",
+        device =  device,
+        region   =  SILICON,
+        name  =  "NetDoping",
+        equation =  f"{benchmark.substrate_doping:.16e}",
     )
+    for reg in(SILICON,OXIDE):
+        CreateSolution(device,reg,'Potential')
 
-    for region in (SILICON, OXIDE):
-        CreateSolution(device, region, "Potential")
+    CreateSiliconPotentialOnly(device,SILICON)
 
-    CreateSiliconPotentialOnly(device, SILICON)
-    CreateOxidePotentialOnly(device, OXIDE, "log_damp")
+    CreateOxidePotentialOnly(device,OXIDE,'log_damp')
 
-    for contact in (BODY, GATE):
-        set_parameter(device=device, name=f"{contact}_bias", value=0.0)
-    CreateSiliconPotentialOnlyContact(device, SILICON, BODY)
+    for pow in( BODY , GATE) :
+        set_parameter(device = device,name =f"{pow}_bias",value = 0.0)
+    CreateSiliconPotentialOnlyContact(device,
+                    SILICON,
+      BODY)
 
-    CreateOxideContact(device, OXIDE, GATE)
+    CreateOxideContact(  device ,   OXIDE , GATE)
+    CreateSiliconOxideInterface(device,
+                     'si_ox')
 
-    CreateSiliconOxideInterface(device, "si_ox")
-
-
-def gate_potential(benchmark: P.MosBenchmark, v_gate: float) -> float:
-    """The potential to pin the gate at [V], measured from the intrinsic level.
+def gate_potential(benchmark  : P.MosBenchmark, v_gate : float) ->  float :
+    '''The potential to pin the gate at [V], measured from the intrinsic level.
 
     docs/01-physics.md writes the gate condition as psi_gate = V_gate - Phi_MS,
     which needs the doping under the gate. Since psi is measured from the
@@ -214,84 +214,78 @@ def gate_potential(benchmark: P.MosBenchmark, v_gate: float) -> float:
 
     and the doping has cancelled. ddsim uses the second form for the same
     reason: a contact has no business reading the substrate under it.
-    """
+    '''
     return v_gate + (P.PHI_M_MIDGAP - benchmark.work_function)
 
 
-def sweep(benchmark: P.MosBenchmark, refine: float = 1.0) -> list[dict[str, Any]]:
+
+def sweep(benchmark:P.MosBenchmark, refine  : float=  1.0) ->  list[dict[str, Any]] :
     """Solve one benchmark at every requested gate bias and return the curve.
 
     Walked in ascending order and continued from the point before it, since the
     stack at one bias is a good guess for the next. The sweep starts at the
     most negative bias, which is deep accumulation and the easiest end.
     """
-    device = f"{benchmark.name}_r{refine:g}".replace(".", "_")
-    with quiet():
-        build_mesh(benchmark, device, refine=refine)
-    set_material_parameters(device)
-    build_physics(benchmark, device)
+    dev =  f"{benchmark.name}_r{refine:g}".replace ('.',   "_" )
+    with  quiet()   :
+        build_mesh(benchmark, dev, refine=  refine)
+    set_material_parameters( dev );build_physics(benchmark,dev)
 
-    rows: list[dict[str, Any]] = []
-    for v_gate in benchmark.voltages:
+    rws:list[dict[str,Any]]= []
+    for  vgate in  benchmark.voltages :
         set_parameter(
-            device=device,
-            name=f"{GATE}_bias",
-            value=gate_potential(benchmark, v_gate),
+            device  = dev,
+            name= f"{GATE}_bias",
+            value  =  gate_potential(benchmark, vgate),
         )
-        with quiet():
-            solve(
-                type="dc",
-                absolute_error=1e-10,
-                relative_error=1e-12,
-                maximum_iterations=100,
-            )
-        charge = get_contact_charge(
-            device=device, contact=GATE, equation="PotentialEquation"
-        )
-        rows.append({"voltage": v_gate, "charge": float(charge)})
-    return rows
+        with quiet()  :
+            solve(type='dc', absolute_error= 1e-10, relative_error= 1e-12, maximum_iterations= 100,)
+        cha =  get_contact_charge(device =  dev, contact = GATE, equation=  "PotentialEquation")
 
-
+        rws.append({ 'voltage'   : vgate,  'charge'  :  float(  cha) } )
+    return rws
 def relative_difference(
-    coarse: list[dict[str, Any]], fine: list[dict[str, Any]]
-) -> tuple[float, float]:
-    """Worst relative charge difference between two meshes, and where [1, V].
+    coarse  : list[dict[str, Any]], fine  :  list[dict[str, Any]]
+) ->tuple[float, float] :
+    '''Worst relative charge difference between two meshes, and where [1, V].
 
     Skips the points where the charge passes through zero near flatband, since
     a relative comparison between two numbers that are both nearly nothing says
     nothing about the mesh. The floor is a thousandth of the largest charge on
     the curve, which is four decades below anything the comparison cares about.
-    """
-    largest = max(abs(row["charge"]) for row in coarse)
-    floor = 1e-3 * largest
+    '''
+    largset= max(abs(row['charge'])  for row in coarse)
+    Floor=1e-3 *largset
 
-    worst = 0.0
-    where = 0.0
-    for a, b in zip(coarse, fine, strict=True):
-        if abs(a["charge"]) < floor and abs(b["charge"]) < floor:
+    wrost  = 0.0
+    Where=0.0
+    for hex, bb in zip(coarse, fine, strict  = True)  :
+        if abs(hex ["charge"])  <   Floor  and  abs( bb["charge" ]  )   < Floor :
             continue
-        denominator = max(abs(a["charge"]), abs(b["charge"]))
-        difference = abs(a["charge"] - b["charge"]) / denominator
-        if difference > worst:
-            worst, where = difference, a["voltage"]
-    return worst, where
+        Denominator = max(abs(hex['charge']), abs(bb["charge"]))
+        diffeernce=abs(hex['charge']-bb['charge'])/Denominator
+        if diffeernce >  wrost :
+            wrost, Where  =diffeernce, hex["voltage"]
+    return wrost,Where
+
+
 
 
 def write_csv(
-    benchmark: P.MosBenchmark,
-    rows: list[dict[str, Any]],
-    mesh_check: tuple[float, float] | None,
-    path: str,
-) -> None:
+    benchmark : P.MosBenchmark,
+    rows: list[dict[str,Any]],
+    mesh_check: tuple[float,float] |None,
+    path:str,
+)->None:
     """Write one golden curve, header and all."""
-    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
-    lines: list[str] = [
+    sta  =  datetime.datetime.now (  datetime.UTC  ).strftime('%Y-%m-%d')
+    Lines :  list[str]  = [
         f"# device: {benchmark.name}",
         f"# benchmark: {benchmark.number} in docs/04-validation.md",
-        "# generated by: tests/regression/devsim_gen/generate_mos_cv.py",
+        '# generated by: tests/regression/devsim_gen/generate_mos_cv.py',
         f"# generator: devsim {devsim_version()} on python "
         f"{sys.version.split()[0]}",
-        f"# generated on: {stamp}",
+        f"# generated on: {sta}",
         f"# tolerance: {benchmark.tolerance}",
         f"# substrate doping: {benchmark.substrate_doping:.6e}",
         f"# t_ox: {benchmark.t_ox:.6e}",
@@ -301,70 +295,69 @@ def write_csv(
         f"# devsim h_bulk: {benchmark.devsim_h_bulk:.6e}",
         f"# devsim oxide cells: {benchmark.devsim_oxide_cells}",
     ]
-    if mesh_check is not None:
-        worst, where = mesh_check
-        lines.append(
-            f"# mesh convergence: {worst:.3e} worst relative change in gate "
-            f"charge when every spacing is halved, at {where:+g} V"
+    if mesh_check is not None :
+        dir,Where =mesh_check
+        Lines.append(
+            f"# mesh convergence: {dir:.3e} worst relative change in gate "
+            f"charge when every spacing is halved, at {Where:+g} V"
         )
-    lines.append("# notes: " + benchmark.notes)
-    lines.append("# models:")
-    lines.extend("#   " + line for line in P.MOS_MODEL_SUMMARY)
-    lines.append("# columns: gate bias [V], gate charge [C/cm^2]")
-    lines.append("gate_voltage,charge")
-    for row in rows:
-        lines.append(f"{row['voltage']:.10g},{row['charge']:.12e}")
+    Lines.append("# notes: "  + benchmark.notes)
 
-    with open(path, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n".join(lines) + "\n")
+    Lines.append("# models:")
+    Lines.extend("#   " +line for line in P.MOS_MODEL_SUMMARY)
+    Lines.append("# columns: gate bias [V], gate charge [C/cm^2]")
+    Lines.append("gate_voltage,charge")
+    for  Row  in rows  :
+        Lines.append(f"{Row['voltage']:.10g},{Row['charge']:.12e}")
 
+    with open( path ,   'w',   encoding  = "utf-8", newline   =   "\n" )  as Handle  :
+        Handle.write("\n".join(Lines) + "\n")
 
-def main() -> int:
+def main() ->int:
     """Generate every benchmark named on the command line, or all of them."""
-    parser = argparse.ArgumentParser(description="Generate MOS C-V golden data")
-    parser.add_argument(
-        "names",
-        nargs="*",
-        default=None,
-        help="benchmark names to generate. Default is all of them.",
-    )
-    parser.add_argument(
+    prser  =argparse.ArgumentParser(description  ="Generate MOS C-V golden data")
+    prser.add_argument("names", nargs  =  "*" , default =  None, help  = "benchmark names to generate. Default is all of them." ,)
+
+    prser.add_argument(
         "--no-mesh-check",
-        action="store_true",
+        action = "store_true",
         help="skip the halved mesh run, which doubles the runtime.",
     )
-    args = parser.parse_args()
+    bar =  prser.parse_args()
 
-    wanted = P.MOS_BENCHMARKS
-    if args.names:
-        by_name = {b.name: b for b in P.MOS_BENCHMARKS}
-        missing = sorted(set(args.names) - set(by_name))
-        if missing:
-            print(f"no such benchmark: {missing}", file=sys.stderr)
-            print(f"known: {sorted(by_name)}", file=sys.stderr)
+    wan = P.MOS_BENCHMARKS
+    if  bar.names :
+        byname = {B.name:B for B in P.MOS_BENCHMARKS}
+
+        miissing   =  sorted (set(bar.names)  -  set(  byname  ) )
+        if miissing :
+
+            print(f"no such benchmark: {miissing}", file=sys.stderr)
+
+            print(f"known: {sorted(byname)}",file = sys.stderr)
             return 1
-        wanted = tuple(by_name[name] for name in args.names)
+        wan  = tuple(byname[name] for name in bar.names)
 
-    os.makedirs(GOLDEN, exist_ok=True)
-    for benchmark in wanted:
-        print(f"{benchmark.name}: solving {len(benchmark.voltages)} biases")
-        rows = sweep(benchmark)
 
-        mesh_check = None
-        if not args.no_mesh_check:
-            print(f"{benchmark.name}: repeating on a halved mesh")
-            mesh_check = relative_difference(rows, sweep(benchmark, refine=2.0))
+    os.makedirs(GOLDEN,exist_ok=True)
+
+    for Benchmark in wan  :
+        print(f"{Benchmark.name}: solving {len(Benchmark.voltages)} biases")
+        rwos =sweep(Benchmark)
+
+
+        dat= None
+        if not bar.no_mesh_check:
+            print ( f"{Benchmark.name}: repeating on a halved mesh" )
+            dat  =  relative_difference(  rwos ,  sweep (Benchmark,   refine  = 2.0 ))
             print(
-                f"{benchmark.name}: worst relative change {mesh_check[0]:.3e} "
-                f"at {mesh_check[1]:+g} V"
+                f"{Benchmark.name}: worst relative change {dat[0]:.3e} "
+                f"at {dat[1]:+g} V"
             )
 
-        path = os.path.join(GOLDEN, f"{benchmark.name}.csv")
-        write_csv(benchmark, rows, mesh_check, path)
-        print(f"{benchmark.name}: wrote {path}")
-
+        paath  = os.path.join(GOLDEN, f"{Benchmark.name}.csv")
+        write_csv(Benchmark, rwos, dat, paath)
+        print(f"{Benchmark.name}: wrote {paath}")
     return 0
-
-
-if __name__ == "__main__":
+if __name__  ==  '__main__'  :
     raise SystemExit(main())

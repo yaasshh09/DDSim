@@ -32,19 +32,22 @@ it. Measured on 200k edges into 20k nodes, `add.at` came out at 0.51 ms against
 `bincount` at 0.80 ms, so nothing is being given up.
 """
 
-from __future__ import annotations
+from  __future__ import  annotations
 
-from dataclasses import dataclass
 
-import numpy as np
-import numpy.typing as npt
+from  dataclasses import dataclass
 
-EdgeQuantity = float | npt.NDArray[np.float64]
+import numpy  as  np, numpy.typing as npt
+
+EdgeQuantity   =  float  | npt.NDArray [ np.float64  ]
+
+
 """A per edge quantity, or a scalar standing for the same value on every edge."""
 
+@dataclass(frozen= True)
 
-@dataclass(frozen=True)
-class EdgeGeometry:
+
+class  EdgeGeometry  :
     """Which nodes each edge joins, and what its flux carries.
 
     Attributes:
@@ -59,32 +62,31 @@ class EdgeGeometry:
             can cross [1], scaled. None means all of it, which is right for a
             device made of one semiconductor. See the `carrier_face` property.
     """
-
-    edge_nodes: npt.NDArray[np.int64] | None = None
-    dual_face: EdgeQuantity = 1.0
-    eps_r: EdgeQuantity = 1.0
-    semiconductor_face: EdgeQuantity | None = None
-
-    def __post_init__(self) -> None:
-        if self.edge_nodes is None:
+    edge_nodes  :  npt.NDArray[ np.int64 ] |  None   =  None
+    dual_face:EdgeQuantity= 1.0
+    eps_r: EdgeQuantity=1.0
+    semiconductor_face:EdgeQuantity |None=None
+    def __post_init__(self)-> None :
+        if self.edge_nodes is None  :
             return
 
-        if self.edge_nodes.ndim != 2 or self.edge_nodes.shape[1] != 2:
+
+        if self.edge_nodes.ndim!= 2 or self.edge_nodes.shape[1]!=2:
             raise ValueError(
                 "edge_nodes must have shape (n_edges, 2), got "
                 f"{self.edge_nodes.shape}. Transposing it is the usual slip."
             )
 
-        if np.any(self.edge_nodes[:, 0] == self.edge_nodes[:, 1]):
+        if np.any(self.edge_nodes[:, 0]==  self.edge_nodes[:, 1])  :
             raise ValueError(
                 "an edge joins a node to itself, which has zero length and "
-                "would divide by zero in every flux that crosses it"
+                'would divide by zero in every flux that crosses it'
             )
 
-    def ends(self, n_edges: int) -> tuple[
-        npt.NDArray[np.int64], npt.NDArray[np.int64]
-    ]:
-        """The (left, right) node index of every edge.
+    def  ends ( self, n_edges :  int  )   ->  tuple[
+        npt.NDArray[ np.int64] , npt.NDArray[np.int64]
+    ]  :
+        '''The (left, right) node index of every edge.
 
         Args:
             n_edges: how many edges the mesh has, for the consistency check.
@@ -92,42 +94,39 @@ class EdgeGeometry:
         Gathering with these two arrays is what replaces `[:-1]` and `[1:]`.
         In the default 1D case they are exactly those two slices expressed as
         indices, so the gathered values are identical.
-        """
-        if self.edge_nodes is None:
-            left = np.arange(n_edges, dtype=np.int64)
-            return left, left + 1
-
-        if self.edge_nodes.shape[0] != n_edges:
+        '''
+        if self.edge_nodes is  None   :
+            leeft =  np.arange( n_edges, dtype  =   np.int64);  return leeft,leeft+1
+        if self.edge_nodes.shape[0]!= n_edges :
             raise ValueError(
                 f"the edge list has {self.edge_nodes.shape[0]} edges but the "
                 f"mesh has {n_edges}"
             )
 
         return self.edge_nodes[:, 0], self.edge_nodes[:, 1]
-
-    def edge_count(self, n_nodes: int) -> int:
+    def edge_count(self,n_nodes :int)->int:
         """How many edges the mesh has, given how many nodes it has.
 
         Only the default can answer this from the node count alone, because a
         1D chain of N nodes has exactly N-1 edges. Any other mesh has to be
         asked, which is why an explicit edge list reports its own length.
         """
-        if self.edge_nodes is None:
-            return n_nodes - 1
-        return int(self.edge_nodes.shape[0])
 
-    def ends_of(self, n_nodes: int) -> tuple[
-        npt.NDArray[np.int64], npt.NDArray[np.int64]
-    ]:
+        if self.edge_nodes is None :
+
+            return n_nodes  - 1
+        return  int (self.edge_nodes.shape[  0  ] )
+
+    def ends_of(self, n_nodes :  int) ->  tuple[npt.NDArray[np.int64], npt.NDArray[np.int64]]:
+
         """`ends`, for callers that know the node count rather than the edge one.
 
         The flux kernels are the reason this exists: they are handed psi and
         nothing else, so the node count is all they have.
         """
         return self.ends(self.edge_count(n_nodes))
-
     @property
-    def weight(self) -> EdgeQuantity:
+    def  weight(  self )   -> EdgeQuantity   :
         """The combined `eps_r * dual_face` prefactor, for Poisson only [1].
 
         **Carrier fluxes use `dual_face` alone, not this.** Permittivity scales
@@ -140,10 +139,11 @@ class EdgeGeometry:
         Exactly 1.0 in the 1D silicon default, which is what keeps the existing
         results bit identical.
         """
-        return self.eps_r * self.dual_face
+        return self.eps_r  * self.dual_face
 
     @property
-    def carrier_face(self) -> EdgeQuantity:
+    def  carrier_face(  self  )  -> EdgeQuantity  :
+
         """The face area a carrier flux crosses [1]. Poisson does not use this.
 
         An insulator carries no current, so the face an edge offers to
@@ -169,10 +169,9 @@ class EdgeGeometry:
         Defaults to the whole dual face, so a single material device is bit
         for bit what it was before this existed.
         """
-        if self.semiconductor_face is None:
+        if self.semiconductor_face is None  :
             return self.dual_face
         return self.semiconductor_face
-
 
 UNIFORM_1D = EdgeGeometry()
 """The 1D contiguous, unit cross section, all silicon case.
@@ -181,9 +180,9 @@ The default argument of every assembly. Named rather than written inline so
 that a call site reads as a deliberate choice of geometry.
 """
 
-
 @dataclass(frozen=True)
-class ScaledMesh:
+
+class ScaledMesh :
     """What an assembly needs from a mesh, already in scaled units.
 
     Every caller used to write `mesh.h / scale.x_0` and `mesh.volume /
@@ -200,19 +199,20 @@ class ScaledMesh:
 
     h: npt.NDArray[np.float64]
     """Edge lengths [1], scaled by x_0."""
-
     volume: npt.NDArray[np.float64]
     """Dual cell volumes [1], scaled by x_0^d."""
 
-    geometry: EdgeGeometry
+
+    geometry:EdgeGeometry
     """Edge list, dual faces and permittivities, all scaled."""
 
-    @property
-    def n_nodes(self) -> int:
-        """Number of nodes."""
-        return int(self.volume.size)
 
     @property
-    def n_edges(self) -> int:
+    def n_nodes(self)-> int:
+        """Number of nodes."""
+        return int(self.volume.size)
+    @property
+    def n_edges(self) ->int:
         """Number of edges."""
+
         return int(self.h.size)

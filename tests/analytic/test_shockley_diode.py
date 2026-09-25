@@ -23,57 +23,71 @@ region recombination and lowers diffusion injection at the same time, and the
 n = 2 region appears without a single fitted number changing. Both are measured
 here, because the contrast is the actual physics.
 """
-
 from __future__ import annotations
-
 import math
-
 import numpy as np
 import pytest
 
 from ddsim.core import constants as C
-from ddsim.device.pn_diode import pn_diode
+
+from  ddsim.device.pn_diode import pn_diode
+
 from ddsim.device.transport import solve_bias
+
 from ddsim.extract.iv import iv_sweep, total_current
-from ddsim.extract.params import ideality_factor, saturation_current
+from ddsim.extract.params import ideality_factor,saturation_current
+
+
 from ddsim.physics.recombination import scharfetter_lifetime
 
-MICRON = 1e-4
+
+MICRON =1e-4
+
+
+
 """One micron [cm]."""
 
-LENGTH = 12 * MICRON
+LENGTH= 12* MICRON
+
+
 """Device length [cm]. Long enough to have genuinely neutral bulk at 1e16."""
 
-JUNCTION = 6 * MICRON
-"""Junction position [cm]."""
+JUNCTION =6*MICRON
 
 
-def diode(doping: float = 1e16, n_nodes: int = 201):
+'''Junction position [cm].'''
+
+def diode(doping :  float =  1e16, n_nodes: int = 201) :
     """A symmetric abrupt junction diode at the stated doping."""
+
     return pn_diode(
-        Na=doping,
+        Na= doping,
         Nd=doping,
         length=LENGTH,
         junction=JUNCTION,
         n_nodes=n_nodes,
-        h_min=5e-7 if doping <= 1e16 else 2e-7,
+        h_min= 5e-7 if doping <= 1e16 else 2e-7,
     )
 
 
-def built_in_potential(Na: float, Nd: float) -> float:
+
+
+def built_in_potential(Na :  float, Nd:float) ->float:
     """V_bi = V_T ln(Na Nd / n_i^2) [V]."""
-    return C.V_T() * math.log(Na * Nd / C.n_i() ** 2)
+    return C.V_T()*  math.log(Na * Nd/ C.n_i() **2)
 
 
-def depletion_width(Na: float, Nd: float, bias: float) -> float:
+
+
+def depletion_width(Na : float, Nd :  float, bias  :  float) -> float :
+
     """Depletion approximation width [cm] at an applied bias [V]."""
-    potential = built_in_potential(Na, Nd) - bias
+    pottential=built_in_potential(Na,Nd)-bias
     return math.sqrt(
-        2.0 * C.eps_Si() * potential / C.q * (1.0 / Na + 1.0 / Nd)
+        2.0* C.eps_Si()*  pottential/C.q  * (1.0 / Na  + 1.0 /  Nd)
     )
 
-
-def analytic_saturation_current(doping: float, bias: float) -> float:
+def analytic_saturation_current(  doping  :  float,  bias :  float )   ->  float   :
     """I_s [A/cm^2] for a short based symmetric diode, from the configured models.
 
     The general result, before any short or long base limit is taken:
@@ -88,44 +102,48 @@ def analytic_saturation_current(doping: float, bias: float) -> float:
     relation evaluated at this doping, which at 1e16 gives 8.33 us for
     electrons and 2.5 us for holes.
     """
-    tau_n = float(scharfetter_lifetime(doping, tau_max=C.TAU_N_MAX))
-    tau_p = float(scharfetter_lifetime(doping, tau_max=C.TAU_P_MAX))
-    Dn, Dp = C.D_n(), C.D_p()
-    Ln, Lp = math.sqrt(Dn * tau_n), math.sqrt(Dp * tau_p)
-
-    edge = 0.5 * depletion_width(doping, doping, bias)
-    W_p = JUNCTION - edge
-    W_n = (LENGTH - JUNCTION) - edge
-
-    return (
-        C.q
-        * C.n_i() ** 2
-        * (
-            Dp / (Lp * doping) / math.tanh(W_n / Lp)
-            + Dn / (Ln * doping) / math.tanh(W_p / Ln)
-        )
-    )
+    tauN  =  float(  scharfetter_lifetime(doping, tau_max   = C.TAU_N_MAX)  )
+    TauP= float(scharfetter_lifetime(doping,tau_max=C.TAU_P_MAX))
+    Dnn, Dpp  =   C.D_n( ) ,   C.D_p()
+    Lnn ,  val  = math.sqrt( Dnn *  tauN ) ,  math.sqrt (Dpp  *  TauP)
 
 
-@pytest.fixture(scope="module")
+    eddge = 0.5*  depletion_width(doping, doping, bias)
+    filter = JUNCTION-eddge
+    buf = (  LENGTH  -  JUNCTION) -   eddge
+
+    return(C.q *  C.n_i()  ** 2 * (Dpp/ (val*doping) / math.tanh(buf / val) +  Dnn /  (Lnn  *  doping) /  math.tanh(filter  /  Lnn)))
+
+
+
+@pytest.fixture(scope=  'module')
+
+
+
 def forward_curve():
     """One forward sweep of the 1e16 diode, reused by several tests."""
-    voltages = [round(0.05 * step, 3) for step in range(1, 13)]
-    curve = iv_sweep(diode(), "anode", voltages, step=0.05)
-    assert curve.complete, curve.message
-    return curve
+    vol=  [round(0.05 * sttep, 3) for sttep in range(1, 13)]
+    chr   =  iv_sweep(  diode(),   "anode",  vol,  step = 0.05 )
+    assert  chr.complete,  chr.message; return chr
 
 
-@pytest.fixture(scope="module")
-def recombination_curve():
+
+@pytest.fixture(scope = 'module')
+
+
+
+
+def  recombination_curve( ) :
     """The 1e18 diode, where depletion recombination is strong enough to see."""
-    voltages = [round(0.04 * step, 3) for step in range(1, 16)]
-    curve = iv_sweep(diode(1e18, n_nodes=301), "anode", voltages, step=0.04)
-    assert curve.complete, curve.message
-    return curve
+    vol  =[round(0.04*ret,
+                 3) for ret in range(1,
+                   16)]
+    cur= iv_sweep(diode(1e18, n_nodes =301), 'anode', vol, step = 0.04)
+    assert cur.complete, cur.message
+    return cur
 
 
-def test_saturation_current_matches_the_analytic_value(forward_curve) -> None:
+def test_saturation_current_matches_the_analytic_value(forward_curve)  ->  None:
     """docs/04-validation.md asks for 10 percent. This lands inside 3.
 
     Measured with the ideality held at 1, which is what diffusion theory says
@@ -133,17 +151,17 @@ def test_saturation_current_matches_the_analytic_value(forward_curve) -> None:
     slope from 0.45 V back to zero and turn a half percent slope error into a
     20 percent error in I_s.
     """
-    measured, _ = saturation_current(
-        forward_curve.voltage, forward_curve.current, window=(0.4, 0.5), ideality=1.0
+    q,_=saturation_current(
+        forward_curve.voltage,forward_curve.current,window=(0.4,0.5),ideality=1.0
     )
-    analytic = analytic_saturation_current(1e16, 0.45)
+    junk =analytic_saturation_current(1e16,0.45)
 
-    assert abs(measured - analytic) / analytic < 0.10, (
-        f"I_s: simulated {measured:.4e}, analytic {analytic:.4e}"
+    assert abs(q - junk) /junk < 0.10,(
+        f"I_s: simulated {q:.4e}, analytic {junk:.4e}"
     )
 
 
-def test_the_short_base_correction_is_what_makes_it_agree(forward_curve) -> None:
+def test_the_short_base_correction_is_what_makes_it_agree(  forward_curve)   ->   None   :
     """Guards the test above against agreeing for the wrong reason.
 
     The long base expression, q n_i^2 (Dp/(Lp Nd) + Dn/(Ln Na)), drops the
@@ -152,26 +170,24 @@ def test_the_short_base_correction_is_what_makes_it_agree(forward_curve) -> None
     that instead, the test above would fail rather than pass quietly, and this
     records by how much.
     """
-    measured, _ = saturation_current(
-        forward_curve.voltage, forward_curve.current, window=(0.4, 0.5), ideality=1.0
+    mea, _  = saturation_current(
+        forward_curve.voltage, forward_curve.current, window = (0.4, 0.5), ideality =  1.0
     )
 
-    tau_n = float(scharfetter_lifetime(1e16, tau_max=C.TAU_N_MAX))
-    tau_p = float(scharfetter_lifetime(1e16, tau_max=C.TAU_P_MAX))
-    long_base = (
-        C.q
-        * C.n_i() ** 2
-        * (
-            C.D_p() / (math.sqrt(C.D_p() * tau_p) * 1e16)
-            + C.D_n() / (math.sqrt(C.D_n() * tau_n) * 1e16)
-        )
-    )
-
-    assert measured / long_base > 5.0
 
 
-def test_reverse_current_saturates_between_its_two_analytic_bounds() -> None:
-    """Reverse current sits above diffusion alone and below full generation.
+    temp2  =float(scharfetter_lifetime(1e16, tau_max=  C.TAU_N_MAX))
+    lst =float(scharfetter_lifetime(1e16, tau_max=  C.TAU_P_MAX))
+    lb=(C.q * C.n_i()** 2 *(C.D_p()/ (math.sqrt(C.D_p()* lst) *1e16) + C.D_n() / (math.sqrt(C.D_n()*temp2) * 1e16)))
+
+
+
+    assert mea /  lb > 5.0
+
+
+def test_reverse_current_saturates_between_its_two_analytic_bounds()->None :
+
+    '''Reverse current sits above diffusion alone and below full generation.
 
     The floor is I_s, the diffusion saturation current, which flows whatever
     the reverse bias. The ceiling is q n_i W / (tau_n + tau_p), the generation
@@ -179,53 +195,51 @@ def test_reverse_current_saturates_between_its_two_analytic_bounds() -> None:
     holds where both densities are far below n_i. The true answer is inside
     that bracket, because near the depletion edges one carrier is still large
     and suppresses the rate.
-    """
-    device = diode().with_bias(anode=-1.0)
-    state = solve_bias(device)
-    assert state.gummel is not None and state.gummel.converged
+    '''
+    Device  =  diode(  ).with_bias(anode  =- 1.0 )
+    State= solve_bias(Device)
+    assert State.gummel is not None and State.gummel.converged
+    reverrse=abs(total_current(Device,State))
 
-    reverse = abs(total_current(device, state))
-
-    floor = analytic_saturation_current(1e16, -1.0)
-    tau_sum = float(
-        scharfetter_lifetime(1e16, tau_max=C.TAU_N_MAX)
-        + scharfetter_lifetime(1e16, tau_max=C.TAU_P_MAX)
+    flooor = analytic_saturation_current( 1e16 , - 1.0 )
+    ts  =  float(
+        scharfetter_lifetime(1e16, tau_max= C.TAU_N_MAX)
+        +  scharfetter_lifetime(1e16, tau_max =C.TAU_P_MAX)
     )
-    ceiling = C.q * C.n_i() * depletion_width(1e16, 1e16, -1.0) / tau_sum
 
-    assert floor < reverse < ceiling
+    Ceiling= C.q*C.n_i()* depletion_width(1e16,1e16,-1.0)/ts
+
+    assert flooor< reverrse < Ceiling
 
 
-def test_reverse_current_is_flat_with_bias() -> None:
+def test_reverse_current_is_flat_with_bias()   ->  None  :
     """Saturation, which is what the name says and worth checking.
 
     It is not perfectly flat: the depletion region widens with reverse bias, so
     the generation volume grows and the current grows slowly with it. That is
     physics rather than an artefact, so the tolerance is loose on purpose.
     """
-    currents = []
-    for bias in (-0.5, -1.0, -2.0):
-        device = diode().with_bias(anode=bias)
-        state = solve_bias(device)
-        assert state.gummel is not None and state.gummel.converged
-        currents.append(abs(total_current(device, state)))
+    cur = []
+    for Bias in(-0.5,- 1.0,-2.0):
+        devce  =diode().with_bias(anode = Bias)
 
-    assert currents[0] < currents[1] < currents[2]
-    assert currents[2] / currents[0] < 3.0
-
-
-def test_the_diffusion_limited_diode_has_ideality_one(forward_curve) -> None:
+        State=solve_bias(devce)
+        assert State.gummel is not None and State.gummel.converged
+        cur.append(abs(total_current(devce,State)))
+    assert  cur[  0  ]  <  cur[ 1 ]  < cur [  2]
+    assert cur[2] /cur[0] <3.0
+def test_the_diffusion_limited_diode_has_ideality_one(forward_curve) ->  None  :
     """1e16 with the documented lifetimes is diffusion limited above 0.25 V."""
-    midpoint, ideality = ideality_factor(
-        forward_curve.voltage, forward_curve.current
+    vars,Ideality=ideality_factor(
+        forward_curve.voltage,forward_curve.current
     )
-    above = ideality[midpoint > 0.25]
+    aboove=Ideality[vars>0.25]
 
-    assert np.all(above < 1.05)
-    assert np.all(above > 0.95)
+    assert  np.all (aboove  <  1.05 );assert np.all(aboove >0.95)
 
 
-def test_the_ideality_crossover_emerges(recombination_curve) -> None:
+
+def  test_the_ideality_crossover_emerges (recombination_curve)  ->   None :
     """From near 2 at low bias to 1 at moderate bias, with nothing fitted.
 
     phases/PHASE-2.md: the crossover must emerge, not be fitted. The only thing
@@ -239,43 +253,41 @@ def test_the_ideality_crossover_emerges(recombination_curve) -> None:
     and pulls the apparent ideality below 2. Diffusion current also still
     contributes a few percent at the peak.
     """
-    midpoint, ideality = ideality_factor(
-        recombination_curve.voltage, recombination_curve.current
-    )
+    chr,ideaality =ideality_factor(recombination_curve.voltage,recombination_curve.current)
 
-    low = ideality[midpoint < 0.25]
-    high = ideality[midpoint > 0.5]
+    dict= ideaality[chr  < 0.25];  hig  =ideaality[chr > 0.5]
 
-    assert low.max() > 1.7, f"peak ideality only reached {low.max():.3f}"
-    assert np.all(high < 1.1)
-    assert ideality[-1] < ideality[0]
+    assert dict.max(  )   >  1.7, f"peak ideality only reached {dict.max():.3f}"
+    assert np.all(hig<1.1)
+    assert  ideaality [-  1 ]  <   ideaality[ 0 ]
+def test_the_ideality_never_exceeds_two(recombination_curve) -> None  :
 
-
-def test_the_ideality_never_exceeds_two(recombination_curve) -> None:
     """Above 2 would mean a mechanism that is not in the model.
 
     Series resistance and high injection both push it above 2 in a real diode,
     and neither is present here: there is no contact resistance, and the sweep
     stops below high injection. A value above 2 would be a bug.
     """
-    _, ideality = ideality_factor(
-        recombination_curve.voltage, recombination_curve.current
-    )
 
-    assert np.all(ideality < 2.0)
+    _ , ide =  ideality_factor(recombination_curve.voltage,  recombination_curve.current)
 
+    assert np.all(ide  < 2.0)
 
-def test_gummel_converges_at_half_a_volt() -> None:
-    """Named explicitly in the phases/PHASE-2.md acceptance list."""
-    device = diode().with_bias(anode=0.5)
-    state = solve_bias(device)
+def test_gummel_converges_at_half_a_volt()-> None :
+    '''Named explicitly in the phases/PHASE-2.md acceptance list.'''
 
-    assert state.gummel is not None
-    assert state.gummel.converged
-    assert state.gummel.iterations < 20
+    devcie=diode().with_bias(anode =0.5)
+    State  =  solve_bias(devcie)
 
 
-def test_gummel_degrades_as_injection_rises() -> None:
+    assert State.gummel is not None
+    assert State.gummel.converged
+    assert State.gummel.iterations <20
+
+
+
+
+def test_gummel_degrades_as_injection_rises()-> None:
     """The expected failure mode, measured rather than fought.
 
     Gummel converges linearly and its rate is set by how strongly the three
@@ -284,30 +296,31 @@ def test_gummel_degrades_as_injection_rises() -> None:
     toward 1 and the cycle count climbs with it. That is the entire reason
     Phase 3 exists, and it is documented rather than damped away.
     """
-    counts = []
-    guess = None
-    for bias in (0.3, 0.6, 0.9):
-        device = diode().with_bias(anode=bias)
-        state = solve_bias(device, guess=guess, max_iterations=400)
-        assert state.gummel is not None and state.gummel.converged
-        counts.append(state.gummel.iterations)
-        guess = state
+    buf=  []
+    lst  =  None
+    for bia in(0.3, 0.6, 0.9) :
+        round=diode().with_bias(anode = bia)
+        sate=solve_bias(round,guess= lst,max_iterations =400)
+        assert sate.gummel is not None and sate.gummel.converged
 
-    assert counts[0] < counts[1] < counts[2]
-    assert counts[2] > 5 * counts[0]
+        buf.append(sate.gummel.iterations)
+        lst= sate
+
+    assert buf[0] <buf[1]  < buf[2]
+    assert buf[2]  >  5* buf[0]
 
 
-def test_high_injection_is_what_drives_the_degradation() -> None:
+
+def  test_high_injection_is_what_drives_the_degradation() ->   None  :
     """At 0.9 V the injected density has passed the doping, by construction.
 
     Worth asserting next to the test above, so that the degradation is tied to
     the physical condition that causes it rather than to the bias number.
     """
-    device = diode().with_bias(anode=0.9)
-    state = solve_bias(device, max_iterations=400)
-    assert state.gummel is not None and state.gummel.converged
+    devce  =   diode( ).with_bias(anode = 0.9)
+    xx =   solve_bias(  devce,  max_iterations  =  400 )
+    assert xx.gummel is not  None and  xx.gummel.converged
 
-    junction = device.mesh.n_nodes // 2
-    injected = state.n.data[junction] * device.scale.C_0
-
-    assert injected > 1e16
+    jun = devce.mesh.n_nodes //2
+    inj =   xx.n.data[  jun  ]   *  devce.scale.C_0
+    assert  inj >  1e16

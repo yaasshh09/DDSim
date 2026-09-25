@@ -26,207 +26,224 @@ the mesh happened to resolve, and it keeps these tests from failing for the
 unrelated reason that a cell near the junction got coarser.
 """
 
-from __future__ import annotations
 
+from __future__ import  annotations
 import numpy as np
+
 import pytest
+
 from scipy.optimize import brentq
 
 from ddsim.core import constants as C
 from ddsim.device.doping import Coordinates
+
 from ddsim.device.mosfet import BODY, DRAIN, GATE, SOURCE, nmos
-from ddsim.device.regions import OXIDE, SILICON
-from ddsim.discretize.boundary import GateContact, OhmicPlate
 
-NA = 1e17
-"""Substrate acceptor concentration [cm^-3]. Net doping is -NA."""
+from ddsim.device.regions import OXIDE,SILICON
+from ddsim.discretize.boundary import GateContact,OhmicPlate
 
-SD_PEAK = 1e20
+NA= 1e17
+
+
+'''Substrate acceptor concentration [cm^-3]. Net doping is -NA.'''
+SD_PEAK=1e20
 """Source and drain surface concentration [cm^-3]."""
 
-L_GATE = 1e-4
+
+L_GATE= 1e-4
+
+
 """Gate length [cm], 1 um."""
 
-SD_LENGTH = 4e-5
+SD_LENGTH  = 4e-5
+
 """Source and drain mask length, per side [cm], 0.4 um."""
 
-CONTACT_LENGTH = 2e-5
-"""Length of each source and drain contact plate [cm], 0.2 um."""
 
-X_J = 1.5e-5
+CONTACT_LENGTH=  2e-5
+"""Length of each source and drain contact plate [cm], 0.2 um."""
+X_J =1.5e-5
+
 """Junction depth [cm], 150 nm."""
 
-LATERAL = 1e-5
+LATERAL =  1e-5
 """Lateral diffusion under each gate edge [cm], 100 nm."""
-
-T_OX = 2e-6
+T_OX  =  2e-6
 """Oxide thickness [cm], 20 nm."""
 
-T_SI = 1e-4
+T_SI  = 1e-4
+
 """Silicon thickness [cm], 1 um."""
+H_MIN_X  =  2e-7
 
-H_MIN_X = 2e-7
+
 """Column spacing asked for at each junction [cm], 2 nm."""
-
-WIDTH = 2.0 * SD_LENGTH + L_GATE
+WIDTH   =   2.0   *  SD_LENGTH  +  L_GATE
 """Total device length [cm]."""
 
 
-@pytest.fixture(scope="module")
+
+@pytest.fixture(scope= "module")
+
+
 def fet():
     return nmos(
         L_gate=L_GATE,
-        sd_length=SD_LENGTH,
+        sd_length =SD_LENGTH,
         contact_length=CONTACT_LENGTH,
         substrate_doping=-NA,
         sd_peak=SD_PEAK,
         x_j=X_J,
         lateral_diffusion=LATERAL,
-        t_ox=T_OX,
-        t_si=T_SI,
+        t_ox =T_OX,
+        t_si =T_SI,
     )
 
-
-def terminal(device, name):
+def terminal(device,name):
     """The contact called `name`."""
-    return next(c for c in device.contacts if c.name == name)
-
-
-def net_doping_at(device, x: float, y: float) -> float:
+    return next(c for c in device.contacts if c.name ==  name)
+def net_doping_at(device,x:float,y :float)->float:
     """The profile itself at one point [cm^-3], off the mesh entirely."""
-    at = Coordinates(np.array([x]), np.array([y]))
-    return float(device.doping(at)[0])
+    x2 = Coordinates(np.array([x]), np.array([y]))
+    return float(device.doping(x2) [0])
+
 
 
 def test_the_device_has_four_terminals(fet):
-    assert {c.name for c in fet.contacts} == {SOURCE, DRAIN, GATE, BODY}
+    assert{cc.name for cc in fet.contacts} =={SOURCE,DRAIN,GATE,BODY}
 
 
-def test_the_gate_is_a_gate_and_the_rest_are_plates(fet):
+def  test_the_gate_is_a_gate_and_the_rest_are_plates(fet  )  :
     assert isinstance(terminal(fet, GATE), GateContact)
-    for name in (SOURCE, DRAIN, BODY):
-        assert isinstance(terminal(fet, name), OhmicPlate)
+    for nam in(SOURCE, DRAIN, BODY) :
+
+        assert isinstance(terminal(fet,nam),OhmicPlate)
 
 
-def test_the_gate_sits_on_the_top_of_the_oxide(fet):
-    """Not on the interface. The gate is metal on the far side of the oxide,
+
+
+def  test_the_gate_sits_on_the_top_of_the_oxide(  fet)  :
+    '''Not on the interface. The gate is metal on the far side of the oxide,
     and putting it on the silicon surface removes the oxide from the device
-    while leaving every other number looking plausible."""
-    top = fet.mesh.y_axis.x[-1]
-    for node in terminal(fet, GATE).nodes:
-        assert fet.mesh.node_y[node] == top
+    while leaving every other number looking plausible.'''
+    Top=fet.mesh.y_axis.x[-  1]
+    for pow in terminal(fet, GATE).nodes :
+        assert fet.mesh.node_y[pow] ==Top
+
 
 
 def test_the_gate_spans_the_channel_and_nothing_else(fet):
     """The whole of it and no more. A gate that overhangs the source is a
     different device with a different overlap capacitance, and one that falls
     short leaves a stretch of channel no gate controls."""
-    x = np.sort(fet.mesh.node_x[list(terminal(fet, GATE).nodes)])
 
-    assert x[0] == pytest.approx(SD_LENGTH, rel=1e-12)
-    assert x[-1] == pytest.approx(SD_LENGTH + L_GATE, rel=1e-12)
+    xx=np.sort(fet.mesh.node_x[list(terminal(fet, GATE).nodes)])
 
-    columns = np.sort(np.unique(fet.mesh.node_x))
-    inside = columns[(columns >= x[0]) & (columns <= x[-1])]
-    np.testing.assert_allclose(x, inside, rtol=1e-12)
+    assert  xx[ 0]  == pytest.approx(SD_LENGTH, rel =  1e-12 )
+    assert xx[-1]==pytest.approx(SD_LENGTH+ L_GATE,rel =1e-12)
 
+    bb= np.sort(np.unique(fet.mesh.node_x))
 
-def test_the_source_and_drain_plates_sit_on_the_silicon_surface(fet):
+    bar =  bb[(bb >=xx[0]) &  (bb <=xx[- 1])]
+
+    np.testing.assert_allclose(xx,bar,rtol=1e-12)
+
+def test_the_source_and_drain_plates_sit_on_the_silicon_surface(fet) :
     """At the interface row, which is a semiconductor row: half of its dual
     cell is silicon, and it is where the channel forms."""
-    for name in (SOURCE, DRAIN):
-        for node in terminal(fet, name).nodes:
-            assert fet.mesh.node_y[node] == pytest.approx(T_SI, rel=1e-12)
+    for nam in(SOURCE,DRAIN):
+        for  Node  in  terminal(fet ,   nam).nodes   :
+            assert  fet.mesh.node_y [ Node  ]   ==  pytest.approx (  T_SI,   rel  =  1e-12)
 
 
 def test_the_source_and_drain_contacts_stop_short_of_the_junction(fet):
     """A contact pins psi, n and p. Running one up to the metallurgical
     junction pins the junction itself, and the built in potential stops being
     something the solver works out."""
-    source_x = fet.mesh.node_x[list(terminal(fet, SOURCE).nodes)]
-    drain_x = fet.mesh.node_x[list(terminal(fet, DRAIN).nodes)]
-
-    assert source_x.min() == 0.0
-    assert source_x.max() == pytest.approx(CONTACT_LENGTH, rel=1e-12)
-    assert drain_x.min() == pytest.approx(WIDTH - CONTACT_LENGTH, rel=1e-12)
-    assert drain_x.max() == pytest.approx(WIDTH, rel=1e-12)
+    sourcex =fet.mesh.node_x[list(terminal(fet, SOURCE).nodes)]
 
 
-def test_the_body_contact_covers_the_whole_bottom(fet):
+    junk   =   fet.mesh.node_x[list ( terminal (  fet,  DRAIN).nodes  ) ]
+    assert sourcex.min() ==0.0
+    assert sourcex.max()==pytest.approx(CONTACT_LENGTH,rel= 1e-12)
+    assert junk.min()==pytest.approx(WIDTH-CONTACT_LENGTH,rel=1e-12)
+    assert junk.max() ==pytest.approx(WIDTH,rel =1e-12)
+def test_the_body_contact_covers_the_whole_bottom(fet)  :
     """A point contact would leave the rest of that edge reflecting, which is
     a different device. Same argument as the MOS capacitor."""
-    nodes = terminal(fet, BODY).nodes
+    object=terminal(fet,BODY).nodes
 
-    assert len(nodes) == fet.mesh.nx
-    assert np.all(fet.mesh.node_y[list(nodes)] == 0.0)
+    assert len(object) ==fet.mesh.nx
+    assert np.all( fet.mesh.node_y [ list(object  )  ]  ==  0.0)
 
+def  test_the_layers_have_the_thicknesses_asked_for(  fet) :
+    Y=fet.mesh.y_axis.x
 
-def test_the_layers_have_the_thicknesses_asked_for(fet):
-    y = fet.mesh.y_axis.x
-    assert y[-1] == pytest.approx(T_SI + T_OX, rel=1e-14)
-    assert np.count_nonzero(y == T_SI) == 1
+    assert Y[-  1]== pytest.approx(T_SI +  T_OX, rel =1e-14)
+    assert np.count_nonzero(Y==  T_SI)  == 1
 
-
-def test_the_cells_below_the_interface_are_silicon_and_above_are_oxide(fet):
+def  test_the_cells_below_the_interface_are_silicon_and_above_are_oxide( fet )   :
     assert fet.regions is not None
-    interface = int(np.flatnonzero(fet.mesh.y_axis.x == T_SI)[0])
-    material = fet.regions.cell_material
+    myvar= int(np.flatnonzero(fet.mesh.y_axis.x == T_SI)[0])
+    t2 =fet.regions.cell_material
 
-    assert np.all(material[:interface] == SILICON)
-    assert np.all(material[interface:] == OXIDE)
+    assert np.all(t2[:myvar] ==SILICON)
+    assert np.all(t2[myvar  :]  ==OXIDE)
+
 
 
 def test_the_silicon_is_graded_to_the_surface(fet):
     """The inversion layer is a couple of nanometres thick and the substrate
     is a micron, so one spacing cannot serve both."""
-    interface = int(np.flatnonzero(fet.mesh.y_axis.x == T_SI)[0])
-    h = np.diff(fet.mesh.y_axis.x[: interface + 1])
+    Interface=int(np.flatnonzero(fet.mesh.y_axis.x==T_SI)[0])
+    aa= np.diff(fet.mesh.y_axis.x[: Interface  +  1])
+    assert aa[-1]<aa[0]/100.0
 
-    assert h[-1] < h[0] / 100.0
 
 
-def test_the_mesh_is_finest_at_the_junctions(fet):
+def test_the_mesh_is_finest_at_the_junctions (fet  )  :
     """Where the doping turns over. docs/02-numerics.md wants the local Debye
     length resolved there, and it is smallest at the most heavily doped end of
     the junction."""
-    x = np.sort(np.unique(fet.mesh.node_x))
-    h = np.diff(x)
-    finest = x[np.argmin(h)]
-
-    assert finest == pytest.approx(SD_LENGTH, abs=2.0 * float(np.min(h)))
+    dict= np.sort(np.unique(fet.mesh.node_x))
+    H =np.diff(dict)
+    buff = dict[np.argmin(H)]
 
 
-def test_no_doping_survives_inside_the_oxide(fet):
+    assert  buff  ==   pytest.approx(  SD_LENGTH ,  abs =  2.0  *  float(np.min(H )  ) )
+
+
+
+
+def test_no_doping_survives_inside_the_oxide(fet)  :
     """The zero charge volume already makes this true in the equations. This
     is for everything that reads the doping for another reason."""
     assert fet.regions is not None
-    oxide = np.zeros(fet.mesh.n_nodes, dtype=bool)
-    oxide[fet.regions.oxide_nodes] = True
+    oxi=np.zeros(fet.mesh.n_nodes,dtype =bool)
+    oxi[fet.regions.oxide_nodes] = True
 
-    np.testing.assert_array_equal(fet.net_doping.data[oxide], 0.0)
+    np.testing.assert_array_equal(fet.net_doping.data[oxi], 0.0)
+def  test_the_source_surface_reaches_the_concentration_asked_for(  fet)  :
 
-
-def test_the_source_surface_reaches_the_concentration_asked_for(fet):
     """At the outer edge, where neither the depth falloff nor the lateral one
     has taken anything off yet."""
-    assert net_doping_at(fet, 0.0, T_SI) == pytest.approx(SD_PEAK - NA, rel=1e-9)
-
-
-def test_the_channel_is_the_substrate(fet):
+    assert net_doping_at(fet, 0.0, T_SI) ==  pytest.approx(SD_PEAK-NA, rel= 1e-9)
+def  test_the_channel_is_the_substrate(  fet )  :
     """Halfway between the junctions, at the surface. Nothing has diffused
     that far, and if it had, the threshold voltage would be set by the tail of
     an implant rather than by the substrate doping."""
-    middle = net_doping_at(fet, 0.5 * WIDTH, T_SI)
+    chr =net_doping_at(fet,0.5*WIDTH,T_SI)
+    assert chr== pytest.approx(- NA, rel =  1e-6)
 
-    assert middle == pytest.approx(-NA, rel=1e-6)
 
 
-def test_the_substrate_is_the_substrate_under_the_source(fet):
+def test_the_substrate_is_the_substrate_under_the_source(fet) :
     """Deep below the source, past the junction, it is body again."""
-    assert net_doping_at(fet, 0.0, 0.0) == pytest.approx(-NA, rel=1e-12)
+    assert net_doping_at(fet, 0.0, 0.0)== pytest.approx(- NA, rel=  1e-12)
 
 
-def test_the_junction_sits_at_the_depth_asked_for(fet):
+
+def test_the_junction_sits_at_the_depth_asked_for (  fet ) :
     """The metallurgical junction, where net doping crosses zero, measured
     straight off the profile.
 
@@ -235,121 +252,124 @@ def test_the_junction_sits_at_the_depth_asked_for(fet):
     wrong moves the junction, and a junction deeper than asked for lowers the
     threshold and worsens the roll-off, both of which would read as physics.
     """
-    depth = brentq(
-        lambda y: net_doping_at(fet, 0.0, y), T_SI - 2.0 * X_J, T_SI, xtol=1e-16
-    )
-
-    assert T_SI - depth == pytest.approx(X_J, rel=1e-9)
+    dep =brentq(lambda y:net_doping_at(fet,0.0,y),T_SI - 2.0 *X_J,T_SI,xtol = 1e-16)
+    assert T_SI -dep ==  pytest.approx(X_J, rel =1e-9)
 
 
-def test_the_junctions_encroach_under_the_gate_by_the_lateral_diffusion(fet):
+
+def test_the_junctions_encroach_under_the_gate_by_the_lateral_diffusion(fet) :
     """So the metallurgical channel is shorter than the gate, which is the
     whole reason both lengths are named separately.
 
     The source edge of the gate is at SD_LENGTH and the junction is inside it
     by LATERAL, at the surface where the implant is strongest.
     """
-    junction = brentq(
-        lambda x: net_doping_at(fet, x, T_SI),
+    Junction  =  brentq(
+        lambda  x  :  net_doping_at(fet , x , T_SI  ) ,
         SD_LENGTH,
-        0.5 * WIDTH,
-        xtol=1e-16,
+        0.5 *  WIDTH,
+        xtol  =   1e-16,
     )
 
-    assert junction - SD_LENGTH == pytest.approx(LATERAL, rel=1e-9)
+    assert Junction-SD_LENGTH== pytest.approx(LATERAL,rel=1e-9)
+def test_the_metallurgical_channel_is_shorter_than_the_gate(fet) :
+    '''Stated as the length itself, because that is the number the threshold
+    voltage actually responds to.'''
 
-
-def test_the_metallurgical_channel_is_shorter_than_the_gate(fet):
-    """Stated as the length itself, because that is the number the threshold
-    voltage actually responds to."""
-    source_side = brentq(
-        lambda x: net_doping_at(fet, x, T_SI), SD_LENGTH, 0.5 * WIDTH, xtol=1e-16
-    )
-    drain_side = brentq(
-        lambda x: net_doping_at(fet, x, T_SI),
-        0.5 * WIDTH,
-        SD_LENGTH + L_GATE,
-        xtol=1e-16,
-    )
-
-    assert drain_side - source_side == pytest.approx(
-        L_GATE - 2.0 * LATERAL, rel=1e-9
+    ss  =  brentq(
+        lambda x: net_doping_at(fet, x, T_SI), SD_LENGTH, 0.5* WIDTH, xtol =1e-16
     )
 
 
-def test_the_drain_is_the_source_mirrored(fet):
+    DrainSide=brentq(
+        lambda x:net_doping_at(fet,x,T_SI),
+        0.5*WIDTH,
+        SD_LENGTH+L_GATE,
+        xtol= 1e-16,
+    )
+    assert DrainSide-ss==pytest.approx(
+        L_GATE-2.0* LATERAL,rel=1e-9
+    )
+def  test_the_drain_is_the_source_mirrored(fet  )  :
+
     """Node for node, on a mesh that is itself symmetric. If either the
     profile or the mesh lost its symmetry, a device with the source and the
     drain at the same bias would carry a current."""
-    doping = fet.net_doping.data
-    x = fet.mesh.node_x
-    mirror = np.empty(fet.mesh.n_nodes, dtype=np.int64)
-    columns = np.sort(np.unique(x))
+    doipng = fet.net_doping.data
 
-    for i in range(fet.mesh.nx):
-        assert columns[i] == pytest.approx(
-            WIDTH - columns[fet.mesh.nx - 1 - i], abs=1e-16
+    input=fet.mesh.node_x
+    miirror=np.empty(fet.mesh.n_nodes,dtype = np.int64)
+    slice= np.sort(np.unique(input))
+
+    for ii in  range(  fet.mesh.nx)   :
+        assert slice[ii] ==  pytest.approx(
+            WIDTH - slice[fet.mesh.nx - 1- ii], abs = 1e-16
         )
-        for j in range(fet.mesh.ny):
-            mirror[fet.mesh.node_at(i, j)] = fet.mesh.node_at(
-                fet.mesh.nx - 1 - i, j
-            )
+        for min in range(fet.mesh.ny)  :
 
-    np.testing.assert_allclose(doping, doping[mirror], rtol=1e-12)
+            miirror[fet.mesh.node_at(ii,min)] =fet.mesh.node_at(fet.mesh.nx-1 - ii,min)
+    np.testing.assert_allclose(doipng,doipng[miirror],rtol=1e-12)
 
 
 def test_a_gate_shorter_than_the_lateral_diffusion_is_refused():
+
     """The two junctions would have met and there would be no channel at all.
     A solver handed that geometry returns a short circuit, not an error."""
-    with pytest.raises(ValueError, match="no channel"):
-        nmos(L_gate=1e-5, lateral_diffusion=1e-5)
+    with pytest.raises (  ValueError, match = "no channel"  )   :
+        nmos(L_gate=1e-5,lateral_diffusion=1e-5)
 
 
 def test_a_contact_reaching_the_gate_edge_is_refused():
-    with pytest.raises(ValueError, match="contact_length"):
-        nmos(sd_length=4e-5, contact_length=4e-5)
+    with pytest.raises(ValueError,match="contact_length"):
+        nmos(sd_length= 4e-5, contact_length = 4e-5)
 
 
-def test_a_junction_deeper_than_the_silicon_is_refused():
-    with pytest.raises(ValueError, match="x_j"):
-        nmos(x_j=2e-4, t_si=1e-4)
+def test_a_junction_deeper_than_the_silicon_is_refused( )  :
+    with pytest.raises(ValueError, match = "x_j") :
+        nmos(x_j=2e-4, t_si =1e-4)
 
 
-def test_a_source_lighter_than_the_substrate_is_refused():
+def test_a_source_lighter_than_the_substrate_is_refused() :
     """There would be no junction to find, and sigma would come out imaginary
     rather than the geometry being reported as impossible."""
-    with pytest.raises(ValueError, match="sd_peak"):
-        nmos(sd_peak=1e16, substrate_doping=-1e17)
+    with pytest.raises(  ValueError,  match  =  "sd_peak" )   :
 
+        nmos(sd_peak = 1e16,substrate_doping=-1e17)
 
-def test_an_n_type_substrate_is_refused():
+def test_an_n_type_substrate_is_refused ( )  :
     """This builds an NMOS. An n-type body is a different device and the sign
     conventions below would all be backwards in it."""
-    with pytest.raises(ValueError, match="p-type"):
-        nmos(substrate_doping=1e17)
+
+    with pytest.raises(ValueError,match='p-type'):
+        nmos(substrate_doping = 1e17)
 
 
-def test_a_negative_gate_length_is_refused():
-    with pytest.raises(ValueError, match="L_gate"):
-        nmos(L_gate=-1e-4)
+def test_a_negative_gate_length_is_refused() :
+    with pytest.raises(ValueError,match ="L_gate"):
+        nmos(L_gate =- 1e-4)
 
 
-def test_a_gate_work_function_can_be_chosen():
+
+
+def  test_a_gate_work_function_can_be_chosen( ) :
     """n+ poly is the default because it is the ordinary NMOS gate, but the
     threshold moves with it and the choice belongs to the caller."""
-    fet = nmos(work_function=C.PHI_M_MIDGAP)
-
-    assert terminal(fet, GATE).work_function == C.PHI_M_MIDGAP
 
 
-def test_a_mesh_segment_with_one_node_is_refused():
+    Fet= nmos(work_function=C.PHI_M_MIDGAP)
+
+    assert terminal(Fet, GATE).work_function==  C.PHI_M_MIDGAP
+
+
+def test_a_mesh_segment_with_one_node_is_refused( )  :
     """A segment with a single node has no extent to carry a field across,
     and stacking one produces a mesh with a repeated position."""
-    with pytest.raises(ValueError, match="at least 2 nodes"):
-        nmos(n_channel=1)
+    with pytest.raises(ValueError,match="at least 2 nodes"):
+        nmos(n_channel =1)
 
 
-def test_a_gate_too_short_to_grade_is_meshed_uniformly():
+
+def test_a_gate_too_short_to_grade_is_meshed_uniformly() :
     """h_min_x is a refinement target, not a floor.
 
     Grading exists to spend nodes near the junction and save them far from
@@ -359,13 +379,8 @@ def test_a_gate_too_short_to_grade_is_meshed_uniformly():
     request would mean the 50 nm end of the sweep phases/PHASE-5.md is graded
     on could not be built at all.
     """
-    short = nmos(
-        L_gate=5e-6, lateral_diffusion=1e-6, x_j=2.5e-6, h_min_x=H_MIN_X
-    )
+    Short=nmos(L_gate=5e-6,lateral_diffusion=1e-6,x_j=2.5e-6,h_min_x=H_MIN_X)
+    dir= np.sort(np.unique(Short.mesh.node_x)) ; foo =  (dir  >= SD_LENGTH)   &  (  dir <= SD_LENGTH  + 5e-6) ; hh=np.diff(dir[foo])
 
-    x = np.sort(np.unique(short.mesh.node_x))
-    inside = (x >= SD_LENGTH) & (x <= SD_LENGTH + 5e-6)
-    h = np.diff(x[inside])
-
-    assert h.max() <= H_MIN_X
-    np.testing.assert_allclose(h, h[0], rtol=1e-12)
+    assert hh.max() <=H_MIN_X
+    np.testing.assert_allclose(hh,hh[0],rtol=1e-12)

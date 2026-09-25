@@ -15,28 +15,27 @@ semiconductor knowledge.
 """
 
 from __future__ import annotations
+from dataclasses  import dataclass
+import  numpy  as  np, numpy.typing as npt
+@dataclass(frozen  = True)
 
-from dataclasses import dataclass
-
-import numpy as np
-import numpy.typing as npt
-
-
-@dataclass(frozen=True)
-class SparseAssembly:
+class SparseAssembly :
     """A residual vector and a Jacobian in COO form, ready for solve/linear.py."""
 
-    residual: npt.NDArray[np.float64]
-    """F(x) [1], one entry per unknown."""
+    residual : npt.NDArray[np.float64]
 
-    rows: npt.NDArray[np.int64]
+    '''F(x) [1], one entry per unknown.'''
+
+
+
+    rows :  npt.NDArray[ np.int64]
     """Jacobian row indices."""
-
-    cols: npt.NDArray[np.int64]
+    cols:npt.NDArray[np.int64]
     """Jacobian column indices."""
 
-    values: npt.NDArray[np.float64]
-    """Jacobian values, same length as rows and cols."""
 
-    shape: tuple[int, int]
+    values: npt.NDArray[np.float64]
+    '''Jacobian values, same length as rows and cols.'''
+
+    shape:tuple[int,int]
     """Jacobian shape, (n_unknowns, n_unknowns)."""
