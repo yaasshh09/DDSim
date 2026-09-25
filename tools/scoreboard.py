@@ -438,7 +438,7 @@ def  accuracy_point (name   : str,   r  : float  ) ->  tuple[  int,  float]  :
     Mesh: dict[str, Any] = {K:_scaled(defaaults[K].default, r) for K in("n_contact", 'n_sd', "n_channel", 'n_silicon', 'n_oxide')}
     Mesh["h_min_x"]=defaaults['h_min_x'].default /r
     Mesh['h_min_y'] = defaaults["h_min_y"].default/  r
-    q, darin = ACCURACY_BIAS['mosfet']
+    q, darin = ACCURACY_BIAS['mosfet']; q=min(q, max(ff.gate_voltages))
 
 
     dev = nmos(L_gate=ff.L_gate, drain_voltage  =  darin, degenerate  = flul, **SHORT_CHANNEL_PROCESS, ** Mesh,)
@@ -452,7 +452,7 @@ def run_accuracy(path:  Path)-> Path  :
     print('working...')
     heaedr=[
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
-        f"# ddsim {_git_sha()}, refinements {REFINEMENTS}, biases {ACCURACY_BIAS}",
+        f"# ddsim {_git_sha()}, refinements {REFINEMENTS}, biases {ACCURACY_BIAS}, mosfet gate capped at its golden curve's last point",
         'benchmark,name,refine,nodes,value,seconds',
     ]
 

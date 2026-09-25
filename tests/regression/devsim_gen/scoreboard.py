@@ -382,10 +382,8 @@ def accuracy_point(name  :  str, r  :  float)-> tuple[int, float] :
 
         Capacitance =  (cha[1]-cha[0]) /(2.0 *  CV_STEP);return _silicon_nodes(ret, GC.SILICON), Capacitance
     import dataclasses
-    gold = P.MOSFET_BY_NAME[name].gate_voltages; stp=round(gold[1] - gold[0], 10)
-    vg=[v for v in gold if v <= 1.0 + 1e-9]
-    while vg[-1] < 1.0 - 1e-9 :  # walk it like the golden run or nmos_1um hangs
-        vg.append(round(vg[-1] + stp, 10))
+    gold = P.MOSFET_BY_NAME[name].gate_voltages
+    vg=[v for v in gold if v <= 1.0 + 1e-9]  # golden grid, 1 V or wherever golden stops
     Bench=dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=  tuple(vg))
     pow ,   s2  =  GM.transfer_curve(  Bench , 0.05,  refine  =   r )
     return s2,pow[-1] ["drain"]
