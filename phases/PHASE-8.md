@@ -74,7 +74,8 @@ moves during this phase, something is wrong.
      one committed (robustness count down, nodes-to-1-percent up, or a
      capability going from yes to no)
    - fails if any test id cited in the capability matrix doesn't exist
-   - fails if the scoreboard table in the README disagrees with the CSVs
+   - fails if the scoreboard table in `data/scoreboard/README.md` disagrees
+     with the CSVs
 
 ## Acceptance criteria
 
@@ -89,8 +90,10 @@ moves during this phase, something is wrong.
 
 ## Deliverable
 
-A scoreboard table in the README, one row per axis, DDSim against DEVSIM,
-with a link to the CSVs. Where DEVSIM wins, the table says so.
+A scoreboard table in `data/scoreboard/README.md`, one row per axis, DDSim
+against DEVSIM, next to the CSVs. Where DEVSIM wins, the table says so. The
+main README stays out of it until this phase is finished; after that I'll
+decide whether the table moves to the front page.
 
 ## Things not to do
 
