@@ -53,7 +53,7 @@ The open markers are DEVSIM running the same five devices with the same
 models. The two codes share parameter values and nothing else, and they agree
 to within 2.67 percent.
 
-## How I know it's right
+## How i confirm accuracy of tests
 
 A drift-diffusion code with a sign error won't crash. It converges cleanly to a
 wrong answer that looks believable. So I check every result against something
