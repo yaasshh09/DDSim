@@ -888,7 +888,13 @@ def seed_potential(device: str) -> None:
     contact makes, written without asinh because devsim's parser has none:
 
         psi_0 = V_t asinh(N / 2 n_i)
-              = V_t ln( (N + sqrt(N^2 + 4 n_i^2)) / (2 n_i) )
+              = V_t sgn(N) ln( (|N| + sqrt(N^2 + 4 n_i^2)) / (2 n_i) )
+
+    The sign has to come out front. Written as ln(N + sqrt(N^2 + 4 n_i^2)), a
+    p-type side past about 1e18 cancels to exactly ln(0), and devsim stops
+    with a divide by zero before it solves anything. That took out every
+    scoreboard MOSFET with a heavy substrate (m003, m005, m006, m009) in 0.2 s
+    on all three drivers, which is my bug and not a devsim robustness loss.
 
     An initial guess moves no converged answer. It only decides whether one is
     reached.
@@ -898,7 +904,7 @@ def seed_potential(device: str) -> None:
         region=BULK,
         name="PotentialNeutral",
         equation=(
-            f"{P.V_T:.16e} * log((NetDoping + "
+            f"{P.V_T:.16e} * sgn(NetDoping) * log((abs(NetDoping) + "
             f"pow(NetDoping*NetDoping + 4*{P.N_I:.16e}*{P.N_I:.16e}, 0.5)) "
             f"/ (2*{P.N_I:.16e}))"
         ),
