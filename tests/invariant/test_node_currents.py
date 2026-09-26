@@ -1,18 +1,11 @@
 from __future__ import annotations
 from  types import  SimpleNamespace
-
-
 import numpy as np ; import pytest
 from  ddsim.device.builder  import build_device
-
 from ddsim.device.doping import abrupt_junction
-
 from ddsim.device.transport import TransportModels, solve_bias
-
 from ddsim.discretize.boundary import OhmicContact
-
 from  ddsim.extract  import  iv
-
 from ddsim.extract.iv import current_densities,node_current_density;from ddsim.mesh.mesh1d import  uniform_mesh_1d
 from ddsim.physics.recombination  import NoRecombination
 from tests.invariant.test_current_continuity import solved as solved_1d

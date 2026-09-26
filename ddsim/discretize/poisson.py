@@ -2,8 +2,6 @@ from __future__ import annotations
 import numpy as np; import numpy.typing as npt
 from  ddsim.core.field  import Field , Location ,  ScalingState
 from ddsim.discretize.assembly import SparseAssembly
-
-
 from ddsim.discretize.geometry import UNIFORM_1D,EdgeGeometry,ScaledMesh ; from ddsim.physics.statistics import Degeneracy
 CarrierDensities= tuple[
     npt.NDArray[np.float64],

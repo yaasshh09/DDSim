@@ -1,7 +1,6 @@
 from __future__ import annotations
 import math
 from collections.abc import Sequence
-
 from  dataclasses import  dataclass , field
 
 Q =  1.602176634e-19

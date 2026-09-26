@@ -1,18 +1,12 @@
 from __future__ import annotations
 import numpy as np, pytest
-
-
 from  ddsim.core  import constants as C
 from ddsim.device.builder import Device, build_device
-
 from ddsim.device.doping import Uniform
 from ddsim.device.transport import solve_bias, solve_bias_newton
-
 from ddsim.discretize.boundary import OhmicContact,OhmicPlate
 from ddsim.extract.iv import terminal_currents
-
 from  ddsim.mesh.mesh1d  import uniform_mesh_1d
-
 from ddsim.mesh.mesh2d import tensor_mesh_2d
 from ddsim.physics.statistics  import equilibrium_densities_scaled
 MICRON =  1e-4

@@ -1,17 +1,13 @@
 from  __future__ import annotations
 import numpy as np
-
 import pytest
-
 from  ddsim.device.mosfet import DRAIN, nmos
-
 from  ddsim.device.transport  import(
     TransportModels ,
     solve_bias_newton,
     solve_bias_ramped,
 )
 from ddsim.extract.iv import terminal_currents
-
 from ddsim.extract.rolloff import(SHORT_CHANNEL_PROCESS, gate_length_sweep, usable_span,)
 from ddsim.solve.continuation import continue_to
 LONG  =  1e-4

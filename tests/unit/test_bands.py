@@ -1,14 +1,10 @@
 from __future__ import annotations
 import math
 import numpy as np, pytest
-
-
 from  ddsim.core import  constants  as  C
 from ddsim.device.equilibrium import solve_equilibrium
 from  ddsim.device.mos_cap import  mos_cap
-
 from ddsim.device.pn_diode import pn_diode
-
 from ddsim.device.transport import  solve_bias
 from ddsim.extract.bands import band_edges
 DOPING= 1e16

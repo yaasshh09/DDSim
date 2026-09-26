@@ -40,9 +40,7 @@ from ddsim.physics.recombination import(
     scharfetter_lifetime,
 )
 from  ddsim.solve.continuation  import  continue_to
-
 from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve; from ddsim.solve.linear import SparseLU
-
 from ddsim.solve.newton import NewtonIteration,NewtonResult,newton_solve
 MOBILITY_MODELS  =("constant", 'arora')
 

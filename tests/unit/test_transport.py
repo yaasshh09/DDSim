@@ -1,14 +1,10 @@
 from  __future__ import  annotations
 import numpy as np
-
-
 import pytest
 from ddsim.core import constants as C;  from ddsim.device.equilibrium import solve_equilibrium
 from  ddsim.device.pn_diode  import pn_diode
-
 from ddsim.device.transport import TransportModels,solve_bias
 from ddsim.physics.recombination  import  NoRecombination
-
 from ddsim.physics.statistics import equilibrium_densities_scaled
 
 MICRON   = 1e-4

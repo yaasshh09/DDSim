@@ -4,9 +4,7 @@ from ddsim.core.field import Location,ScalingState
 from ddsim.device.builder import Device,Material,build_device
 from ddsim.device.doping import Uniform
 from  ddsim.device.equilibrium  import solve_equilibrium
-
 from  ddsim.device.pn_diode  import  pn_diode
-
 from ddsim.discretize.boundary import OhmicContact
 from ddsim.mesh.mesh1d import uniform_mesh_1d
 

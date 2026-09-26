@@ -1,16 +1,9 @@
 from __future__ import annotations
 import inspect
 import pytest
-
 from  ddsim.device.mosfet import  nmos
-
-
-
 from ddsim.device.transport import TransportModels
-
-
 from  ddsim.extract.iv  import gate_sweep
-
 from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
 L_GATE  = 1e-4
 

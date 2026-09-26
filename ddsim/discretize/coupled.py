@@ -3,14 +3,10 @@ from collections.abc import Sequence
 from  enum  import  Enum,   IntEnum
 from typing import NamedTuple, TypeVar, cast
 import numpy as np, numpy.typing  as  npt
-
 from  ddsim.core  import constants as C
 from  ddsim.core.field  import  Field, Location,  ScalingState
 from ddsim.core.scaling import ScaleFactors
-
-
 from ddsim.discretize.assembly import SparseAssembly
-
 from ddsim.discretize.boundary import(
     Carrier,
     Contact,
@@ -20,19 +16,15 @@ from ddsim.discretize.boundary import(
     ohmic_density_scaled,
     ohmic_psi_scaled,
 )
-
-
 from ddsim.discretize.continuity import Diffusivity
 from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
 from ddsim.mesh.mesh1d  import  Mesh1D;  from ddsim.physics.bernoulli  import B ,  dB_dx
-
 from ddsim.physics.mobility import(
     EdgeDiffusivity,
     diffusivity_at,
     diffusivity_tangent,
 )
 from ddsim.physics.recombination import Density, RecombinationModel
-
 from ddsim.physics.statistics import Degeneracy
 
 EPS=float(np.finfo(np.float64).eps)

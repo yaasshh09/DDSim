@@ -142,7 +142,6 @@ class  TestScaledMesh :
 
     def test_the_bundle_reports_the_node_and_edge_counts(self):
         from ddsim.core.scaling import ScaleFactors
-
         from ddsim.mesh.mesh2d import uniform_mesh_2d
 
         mes= uniform_mesh_2d(width=2e-4,height=1e-4,nx =5,ny =4)

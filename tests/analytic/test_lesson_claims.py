@@ -6,8 +6,6 @@ from ddsim.api.learn import load_lesson
 from ddsim.api.sweeps import run_sweep
 from ddsim.core import constants as C
 from  ddsim.extract.bands  import  band_edges
-
-
 from ddsim.extract.params  import(
     ideality_factor,
     subthreshold_slope,
@@ -20,7 +18,6 @@ from tests.analytic.test_mos_cap import(
     oxide_capacitance,
     threshold_voltage,
 )
-
 from tests.analytic.test_mosfet_transport import depletion_approximation_slope
 from tests.analytic.test_pn_equilibrium import(analytic_depletion_width, analytic_V_bi, depletion_width_from_field,)
 

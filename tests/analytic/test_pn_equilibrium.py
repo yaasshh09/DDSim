@@ -5,13 +5,8 @@ from ddsim.core import constants as C
 from ddsim.device.builder import build_device
 from ddsim.device.doping import Step
 from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
-
 from  ddsim.device.pn_diode  import  pn_diode
-
-
-
 from ddsim.discretize.boundary  import OhmicContact
-
 from ddsim.mesh.mesh1d import graded_mesh_1d
 
 MICRON=1e-4

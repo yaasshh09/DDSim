@@ -1,8 +1,5 @@
 from  __future__ import  annotations
-
-
 from  dataclasses import dataclass
-
 import numpy  as  np, numpy.typing as npt
 
 EdgeQuantity   =  float  | npt.NDArray [ np.float64  ]

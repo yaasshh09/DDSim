@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 import numpy as np
 import numpy.typing as npt
-
-
 from  ddsim.core import constants as  C
 Doping = float  | npt.NDArray[np.float64]
 

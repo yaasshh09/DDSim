@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 from scipy.special import zeta
 from  ddsim.core import constants as C
-
 from ddsim.physics.statistics import(
     JOYCE_DIXON_COEFFICIENTS,
     JOYCE_DIXON_MAX_U,
@@ -23,8 +22,6 @@ from ddsim.physics.statistics import(
     p_boltzmann_scaled,
     psi_equilibrium_scaled,
 )
-
-
 from tests.reference  import  fermi as  fermi_ref
 
 

@@ -1,10 +1,6 @@
 from __future__ import annotations
 import numpy as np; import pytest
-
-
 from  ddsim.core  import  constants  as C
-
-
 from ddsim.physics.mobility import(
     AroraMobility,
     CaugheyThomas,

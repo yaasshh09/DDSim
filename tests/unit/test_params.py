@@ -2,8 +2,6 @@ from __future__ import annotations
 import math
 import numpy as np; import pytest
 from ddsim.core import constants as C
-
-
 from  ddsim.extract.params  import (dibl, ideality_factor, saturation_current, saturation_exponent, subthreshold_slope , threshold_constant_current, threshold_linear_extrapolation , transconductance,)
 
 VT =  C.V_T(  )

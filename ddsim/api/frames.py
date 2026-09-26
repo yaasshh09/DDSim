@@ -7,14 +7,9 @@ from ddsim.core.field import Field
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState; from ddsim.device.transport import TransportModels
 from ddsim.extract.bands import band_edges ; from ddsim.extract.cv import CVCurve, CVFrame, CVPoint
-
-
-
 from  ddsim.extract.iv import  IVCurve , IVFrame , IVPoint, node_current_density
 from ddsim.solve.continuation import ContinuationEvent
-
 from  ddsim.solve.gummel  import  GummelIteration
-
 from ddsim.solve.newton import NewtonIteration
 
 

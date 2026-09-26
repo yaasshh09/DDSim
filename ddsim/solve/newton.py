@@ -3,9 +3,6 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 import numpy as np;import numpy.typing as npt
-
-
-
 from  ddsim.solve.linear import SparseLU
 class Assembly(Protocol):
 

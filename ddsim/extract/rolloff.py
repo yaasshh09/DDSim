@@ -1,19 +1,12 @@
 from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
-
-
 from  typing  import Any
-
 import numpy as np
-
 import numpy.typing as npt
 from ddsim.device.mosfet import nmos
 from ddsim.device.transport import TransportModels
-
-
 from ddsim.extract.iv  import IVCurve,  gate_sweep
-
 from ddsim.extract.params import(
     dibl,
     saturation_exponent,

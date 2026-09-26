@@ -1,12 +1,9 @@
 from __future__ import annotations
 import numpy as np
 import pytest
-
 from  ddsim.device.pn_diode import  pn_diode
 from ddsim.device.transport import(TransportModels, initial_state, solve_bias, solve_bias_newton,)
-
 from ddsim.discretize.coupled import pack, residual_term_scales
-
 from ddsim.extract.iv import total_current
 from ddsim.solve.continuation import continue_to
 

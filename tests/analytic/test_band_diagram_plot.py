@@ -1,16 +1,11 @@
 from  __future__  import  annotations
 import math
-
-
 import pathlib
-
 import matplotlib, numpy  as  np, pytest
 matplotlib.use('Agg')
 import matplotlib.pyplot  as plt
-
 from ddsim.core import constants as C
 from ddsim.device.equilibrium import solve_equilibrium
-
 from  ddsim.device.pn_diode import pn_diode
 
 OUTPUT  = pathlib.Path(__file__).parents[2] / "docs"/  'images'

@@ -2,16 +2,11 @@ from __future__ import annotations
 from typing import Any
 import numpy as np, pytest
 from ddsim.api.devices import build_from_spec
-
 from  ddsim.api.sweeps import(SWEEP_KINDS, build_models, check_request, model_parameters, run_sweep, sweep_parameters,)
 from ddsim.device.mos_cap import mos_cap
-
 from ddsim.device.pn_diode import pn_diode
-
-
 from  ddsim.device.transport  import  MOBILITY_MODELS,   TransportModels
 from ddsim.extract.cv import CVCurve,CVFrame,Response
-
 from  ddsim.extract.iv  import IVCurve ,   IVFrame
 DIODE= {'n_nodes':  61, 'h_min' : 5e-7}
 

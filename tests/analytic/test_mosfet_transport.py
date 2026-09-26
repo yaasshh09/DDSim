@@ -1,16 +1,9 @@
 from __future__ import annotations
 import numpy as np, pytest
 from ddsim.core import constants as C
-
-
-
 from  ddsim.device.mosfet  import  BODY,  DRAIN,  GATE,   SOURCE ,  nmos
-
-
 from  ddsim.device.transport  import  TransportModels,   solve_bias_newton
 from ddsim.extract.iv import gate_sweep,terminal_currents
-
-
 from ddsim.extract.params import subthreshold_slope
 
 

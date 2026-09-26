@@ -1,9 +1,6 @@
 from  __future__  import annotations
 import  numpy as np ; import pytest
 from ddsim.core.field import Location, ScalingState
-
-
-
 from ddsim.device.pn_diode import pn_diode
 from  ddsim.device.transport import  TransportModels,  solve_bias
 from ddsim.extract.iv import(IVCurve, continuity_residuals , current_densities, iv_sweep, terminal_currents , total_current ,)

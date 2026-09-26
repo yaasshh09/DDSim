@@ -2,14 +2,8 @@ from __future__ import annotations
 import numpy as np, pytest
 from  ddsim.core import  constants  as C
 from ddsim.device.builder import build_device
-
 from ddsim.device.doping import abrupt_junction
-
-
 from ddsim.device.transport import TransportModels, initial_state ; from ddsim.discretize.boundary import OhmicContact
-
-
-
 from ddsim.discretize.coupled import(
     UNIFORM_1D,
     Unknown,
@@ -17,9 +11,7 @@ from ddsim.discretize.coupled import(
     pack,
     unpack,
 )
-
 from ddsim.mesh.mesh1d import graded_mesh_1d, uniform_mesh_1d
-
 from ddsim.mesh.mesh2d import  tensor_mesh_2d
 from ddsim.physics.recombination import(
     AugerRecombination,

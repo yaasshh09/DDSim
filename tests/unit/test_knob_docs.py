@@ -1,12 +1,8 @@
 from  __future__  import  annotations
-
 import pytest
-
 from fastapi.testclient import TestClient
 from ddsim.api.app import create_app
-
 from  ddsim.api.devices  import (DEVICE_KINDS, argument_docs, device_parameters, parameters_of ,)
-
 from ddsim.api.sweeps import SWEEP_KINDS, model_parameters, sweep_parameters
 
 

@@ -1,7 +1,5 @@
 from __future__ import annotations
 from  dataclasses import replace
-
-
 import numpy as np, pytest
 from ddsim.device.doping import Coordinates
 from ddsim.device.drawing import(
@@ -13,10 +11,7 @@ from ddsim.device.drawing import(
     Implant,
     drawing,
 )
-
 from ddsim.device.mosfet import nmos
-
-
 from ddsim.device.regions import OXIDE,SILICON
 from  ddsim.discretize.boundary import  GateContact,  OhmicPlate
 NM  = 1e-7

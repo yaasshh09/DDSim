@@ -1,13 +1,8 @@
 from  __future__ import annotations
 import  numpy  as np
-
 import pytest
-
-
 from scipy.optimize import brentq
-
 from ddsim.core import constants as C
-
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap  import  mos_cap
 

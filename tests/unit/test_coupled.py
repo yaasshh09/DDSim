@@ -1,32 +1,20 @@
 from  __future__ import  annotations
-
 import  numpy as  np, pytest
-
-
 from scipy.sparse import coo_matrix
-
-
 from ddsim.core.field  import  Field,  Location, ScalingState
-
 from ddsim.device.builder import build_device
-
 from ddsim.device.doping import Uniform,abrupt_junction
 from ddsim.device.transport import TransportModels ,  initial_state
-
 from ddsim.discretize.boundary import(
     Carrier,
     OhmicContact,
     ohmic_density_scaled,
     ohmic_psi_scaled,
 )
-
-
-
 from  ddsim.discretize.continuity  import(
     electron_continuity_residual,
     hole_continuity_residual,
 )
-
 from ddsim.discretize.coupled  import(
     UNKNOWNS_PER_NODE ,
     Unknown,
@@ -50,7 +38,6 @@ from ddsim.discretize.coupled  import(
 from ddsim.discretize.poisson  import  poisson_residual
 from ddsim.mesh.mesh1d import uniform_mesh_1d
 from ddsim.physics.mobility import diffusivity_at
-
 from ddsim.solve.linear import  SparseLU
 from tests.reference.complexstep import complex_step_jacobian
 N_NODES  =  20

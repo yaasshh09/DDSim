@@ -1,11 +1,8 @@
 from __future__ import annotations
 from  dataclasses import  dataclass
 import numpy  as np
-
 from ddsim.device.builder import Device,Material,build_device
-
 from ddsim.device.doping import Layers
-
 from ddsim.discretize.boundary import OhmicContact
 from ddsim.mesh.mesh1d import graded_mesh_1d_at
 

@@ -1,14 +1,8 @@
 from __future__ import annotations
 import numpy as np, pytest
 from  ddsim.core  import constants  as  C
-
-
 from ddsim.device.equilibrium import insulator_guess ,  solve_equilibrium
-
 from ddsim.device.mos_cap import mos_cap
-
-
-
 from  ddsim.device.pn_diode  import pn_diode
 from ddsim.physics.statistics import psi_equilibrium_scaled
 

@@ -3,27 +3,17 @@ import numpy as np
 import pytest
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import GATE, mos_cap
-
-
-
 from  ddsim.device.pn_diode import pn_diode
-
-
-
 from ddsim.device.transport import(
     TransportModels,
     initial_state,
     solve_bias_hybrid,
     solve_bias_newton,
 )
-
 from ddsim.discretize.boundary import(Carrier, gate_psi_scaled, ohmic_density_scaled, ohmic_psi_scaled,)
 from  ddsim.discretize.coupled  import (UNKNOWNS_PER_NODE, Unknown, limit_psi_step , pack,)
 from ddsim.extract.iv import terminal_currents
-
-
 from ddsim.physics.recombination import SumOfRecombination
-
 from  ddsim.solve.continuation  import  continue_to
 
 

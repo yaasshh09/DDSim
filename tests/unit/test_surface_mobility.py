@@ -1,16 +1,9 @@
 from  __future__  import annotations
-
-
-
 from dataclasses import replace
 import  numpy as np, pytest
 from  ddsim.core import constants  as C
-
 from ddsim.device.mosfet import nmos
 from  ddsim.device.pn_diode  import  pn_diode
-
-
-
 from ddsim.device.transport import(
     TransportModels,
     _low_field_models,
@@ -22,13 +15,9 @@ from ddsim.device.transport import(
     solve_bias_newton,
 )
 from ddsim.discretize.coupled import pack,unpack
-
-
 from ddsim.extract.iv import gate_sweep, terminal_currents
 from ddsim.mesh.mesh2d import normal_field
-
 from  ddsim.physics.mobility import CaugheyThomas
-
 from ddsim.solve.newton import NewtonResult
 
 COARSE ={"n_contact"  :4, 'n_sd' : 10, 'n_channel' :  12, "n_silicon"  : 29, 'n_oxide' : 4, "h_min_x" : 5e-7, 'h_min_y' :1e-7, "drain_voltage" : 0.05,}

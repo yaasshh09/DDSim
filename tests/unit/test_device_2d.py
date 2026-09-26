@@ -3,14 +3,9 @@ import numpy as np, pytest
 from  ddsim.core  import constants as C
 from ddsim.core.scaling import ScaleFactors
 from ddsim.device.builder import build_device
-
 from ddsim.device.doping import  Along , Gaussian,   Uniform
-
 from  ddsim.device.regions import  stacked_regions
-
-
 from ddsim.discretize.boundary  import  GateContact ,   OhmicContact ,  OhmicPlate
-
 from ddsim.mesh.mesh1d import uniform_mesh_1d;from ddsim.mesh.mesh2d import tensor_mesh_2d, uniform_mesh_2d
 
 

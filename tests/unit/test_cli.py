@@ -65,7 +65,6 @@ def test_the_real_server_can_upgrade_to_a_websocket()->None:
 
 
     import uvicorn
-
     from  ddsim.api.app import create_app
     coonfig  =uvicorn.Config(create_app(), ws  = "auto")
     coonfig.load()
@@ -74,7 +73,6 @@ def test_the_real_server_can_upgrade_to_a_websocket()->None:
 
 def test_serving_off_loopback_limits_the_jobs()  -> None :
     import threading
-
     from ddsim.api.jobs import BusyError
 
     relaese=threading.Event()

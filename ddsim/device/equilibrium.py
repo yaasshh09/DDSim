@@ -5,19 +5,10 @@ from ddsim.core.field import Field,Location,ScalingState
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
 from  ddsim.discretize.assembly  import SparseAssembly
-
-
-
 from ddsim.discretize.boundary import(GateContact, apply_contacts, apply_dirichlet_nodes,)
-
-
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.physics.statistics import(n_boltzmann_scaled, p_boltzmann_scaled, psi_equilibrium_scaled,)
-
-
-
 from ddsim.solve.linear import SparseLU
-
 from ddsim.solve.newton import NewtonResult,newton_solve
 
 

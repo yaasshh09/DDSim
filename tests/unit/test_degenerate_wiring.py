@@ -2,22 +2,13 @@ from __future__ import annotations
 import inspect;import math
 from dataclasses import replace
 import numpy as np; import pytest
-
 from  scipy.sparse import  coo_matrix
 from ddsim.core import constants as C
-
-
 from ddsim.core.field import Field,Location,ScalingState
-
-
-
 from ddsim.device.builder import Device,build_device
 from ddsim.device.doping import Uniform,abrupt_junction
-
-
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.pn_diode import pn_diode
-
 from ddsim.device.transport import(TransportModels, electron_block, hole_block, initial_state, solve_bias, solve_bias_newton,)
 from ddsim.discretize.boundary import(
     Carrier,
@@ -28,7 +19,6 @@ from ddsim.discretize.boundary import(
     ohmic_psi_scaled,
 )
 from ddsim.discretize.continuity import assemble_electron_continuity
-
 from  ddsim.discretize.coupled import(
     UNKNOWNS_PER_NODE,
     Unknown ,
@@ -43,10 +33,8 @@ from  ddsim.discretize.coupled import(
     unpack ,
 )
 from ddsim.discretize.poisson import _carrier_densities
-
 from  ddsim.extract.iv import  terminal_currents
 from ddsim.mesh.mesh1d import uniform_mesh_1d
-
 from ddsim.physics.statistics import Degeneracy,einstein_ratio
 from tests.reference.complexstep import complex_step_jacobian
 

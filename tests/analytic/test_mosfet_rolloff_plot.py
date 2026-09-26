@@ -2,16 +2,12 @@ from __future__ import annotations
 import pathlib
 import matplotlib, numpy as np, pytest
 matplotlib.use ( 'Agg'  ) ; import matplotlib.pyplot as plt
-
 from ddsim.extract.params import threshold_constant_current
-
 from ddsim.extract.rolloff import(
     REFERENCE_CURRENT,
     SHORT_CHANNEL_PROCESS,
     gate_length_sweep,
 )
-
-
 from tests.regression.devsim_gen import parameters as P
 GOLDEN =  pathlib.Path(__file__).resolve().parents[2]  / "data" / "golden"
 OUTPUT=pathlib.Path(__file__).parents[2]/"docs"/"images"

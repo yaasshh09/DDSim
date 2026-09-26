@@ -3,17 +3,11 @@ import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from  enum import Enum
-
 from functools import lru_cache
 import numpy as np
-
-
 import numpy.typing as npt
-
 from ddsim.core import constants as C
-
 from ddsim.core.scaling import ScaleFactors
-
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.physics.statistics import  Degeneracy,  equilibrium_densities_scaled
 

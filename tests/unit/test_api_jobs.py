@@ -1,7 +1,6 @@
 from __future__ import annotations
 import threading
 import pytest
-
 from  ddsim.api.jobs import  BusyError, CancelledError,   JobRegistry,  JobStatus
 
 def test_a_job_runs_and_finishes()-> None :

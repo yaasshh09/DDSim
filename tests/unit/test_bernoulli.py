@@ -4,10 +4,7 @@ import numpy as np
 import pytest
 from  ddsim.physics.bernoulli  import(ASYMPTOTE_CUTOFF_DB , SERIES_CUTOFF_B, SERIES_CUTOFF_DB, B, _B_negative_branch , _B_positive_branch, _B_series, _dB_expm1_branch, _dB_series, dB_dx,)
 from tests.reference.complexstep import DEFAULT_STEP as CS_STEP
-
-
 from  tests.reference.complexstep import  B_complex
-
 from tests.reference.highprec import(
     COMPLEX_STEP_MAX_ABS_X,
     COMPLEX_STEP_MIN_ABS_X ,

@@ -3,7 +3,6 @@ import pathlib
 import matplotlib, numpy as np
 
 matplotlib.use("Agg") ; import matplotlib.pyplot as plt
-
 from ddsim.device.pn_diode import pn_diode
 from ddsim.extract.iv import iv_sweep
 from ddsim.extract.params import ideality_factor,saturation_current

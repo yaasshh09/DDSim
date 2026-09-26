@@ -1,17 +1,9 @@
 from __future__ import annotations
 from collections.abc import Callable,Sequence;from typing import Any
-
 from  ddsim.api.devices  import(Parameter, as_enum, checked_arguments, enum_arguments, parameters_of,)
-
-
 from ddsim.device.builder import Device
 from ddsim.device.transport import MOBILITY_MODELS,TransportModels
-
-
 from  ddsim.extract.cv  import  CVCurve,  cv_sweep
-
-
-
 from  ddsim.extract.iv  import  IVCurve,   gate_sweep, iv_sweep
 SWEEP_KINDS :   dict[ str, Callable[... ,  Any  ] ] =   {
     "iv"  :   iv_sweep,

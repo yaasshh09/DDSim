@@ -4,15 +4,12 @@ import pytest
 import scipy.sparse as sp
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
-
 from  ddsim.discretize.poisson import(
     assemble_poisson ,
     poisson_jacobian ,
     poisson_residual ,
 )
-
 from ddsim.mesh.mesh1d import uniform_mesh_1d
-
 from ddsim.physics.statistics  import psi_equilibrium_scaled
 MICRON =  1e-4
 

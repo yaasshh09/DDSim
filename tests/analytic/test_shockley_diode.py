@@ -3,15 +3,10 @@ import math
 import numpy as np
 import pytest
 from ddsim.core import constants as C
-
 from  ddsim.device.pn_diode import pn_diode
-
 from ddsim.device.transport import solve_bias
-
 from ddsim.extract.iv import iv_sweep, total_current
 from ddsim.extract.params import ideality_factor,saturation_current
-
-
 from ddsim.physics.recombination import scharfetter_lifetime
 
 

@@ -8,7 +8,6 @@ from tests.reference.complexstep import(
     complex_expm1,
     complex_step_jacobian,
 )
-
 from tests.reference.highprec import dB_reference, relative_error
 
 

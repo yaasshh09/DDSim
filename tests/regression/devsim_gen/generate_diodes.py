@@ -28,7 +28,6 @@ from devsim.python_packages.model_create import(
     CreateNodeModel,
     CreateSolution,
 )
-
 from devsim.python_packages.simple_physics import(CreateSiliconDriftDiffusion, CreateSiliconDriftDiffusionAtContact, CreateSiliconPotentialOnly, CreateSiliconPotentialOnlyContact, ece_name, hce_name,)
 REGION  =  "bulk"
 

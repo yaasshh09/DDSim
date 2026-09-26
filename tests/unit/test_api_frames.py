@@ -10,10 +10,7 @@ from ddsim.device.transport import TransportModels, solve_bias_ramped
 from ddsim.extract.bands import band_edges
 from ddsim.extract.cv import CVFrame
 from  ddsim.extract.iv import IVFrame
-
-
 from ddsim.solve.continuation import ContinuationEvent
-
 from ddsim.solve.gummel import GummelIteration
 from ddsim.solve.newton import NewtonIteration
 COARSE_FET = {'n_contact' : 4, "n_sd": 10, 'n_channel': 12, 'n_silicon'  : 29, "n_oxide" : 4, "h_min_x" :  5e-7, "h_min_y" :  1e-7, "drain_voltage" : 0.05,}

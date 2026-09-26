@@ -2,8 +2,6 @@ from __future__ import annotations
 import pytest
 from  ddsim.device.pn_diode import pn_diode
 from ddsim.extract.iv import iv_sweep
-
-
 from ddsim.extract.params import saturation_current
 
 MICRON =1e-4

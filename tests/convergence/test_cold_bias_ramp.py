@@ -2,9 +2,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from ddsim.device.mosfet import nmos
-
-
-
 from  ddsim.device.transport  import(
     TransportModels ,
     solve_bias_newton ,

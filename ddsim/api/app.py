@@ -1,23 +1,14 @@
 from __future__ import annotations
-
 from  collections.abc  import AsyncIterator
-
 from contextlib import asynccontextmanager
-
 from  dataclasses import  dataclass
-
 from pathlib import Path
 from typing import Any
 import anyio
-
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect;  from fastapi.responses  import  FileResponse, Response
 from pydantic import BaseModel, Field
-
-
 from starlette.staticfiles import StaticFiles
-
 from  ddsim.api.devices  import (COARSE, DEVICE_KINDS, build_from_spec, contact_names, device_dimension, device_parameters, drawing_defaults, region_defaults,)
-
 from ddsim.api.frames import(
     Status,
     curve_body,
@@ -25,7 +16,6 @@ from ddsim.api.frames import(
     field_frame,
     point_voltage,
 )
-
 from ddsim.api.jobs import BusyError, JobRegistry, JobStatus, Send
 from ddsim.api.learn import (KNOB_LABELS, KNOB_TOPICS, PLOT_TOPICS , STATUS_TOPICS , lesson_names, load_lesson , load_topic , topic_names,)
 from ddsim.api.sweeps import(
@@ -35,14 +25,8 @@ from ddsim.api.sweeps import(
     run_sweep,
     sweep_parameters,
 )
-
 from ddsim.device.builder import Device
-
-
-
 from  ddsim.device.drawing  import NODE_BUDGET
-
-
 from ddsim.device.transport  import  TransportModels; from ddsim.extract.cv import CVCurve
 from ddsim.extract.iv  import IVCurve
 

@@ -1,26 +1,16 @@
 from  __future__  import annotations
-
 from collections.abc import Callable
 from typing import Any
 import numpy as np; import pytest
-
 from ddsim.api.jobs import JobRegistry, JobStatus; from ddsim.device.equilibrium import solve_equilibrium
-
 from ddsim.device.mos_cap import mos_cap
-
-
-
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
-
 from ddsim.device.transport import(_reported_by_family, solve_bias, solve_bias_hybrid, solve_bias_newton, solve_bias_ramped,)
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.extract.cv import CVFrame, cv_sweep
 from ddsim.extract.iv import IVFrame, gate_sweep, iv_sweep
 from ddsim.solve.continuation import  ContinuationEvent
-
-
-
 from ddsim.solve.gummel import GummelIteration
 from ddsim.solve.newton import NewtonIteration, newton_solve
 

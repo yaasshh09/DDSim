@@ -1,9 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-
 from  typing  import  TypeVar ,  cast
 import numpy as np; import numpy.typing as npt, scipy.sparse as sp
-
 from scipy.sparse.linalg import  SuperLU, splu
 Number =   TypeVar (  'Number', np.float64,  np.complex128)
 

@@ -29,8 +29,6 @@ from devsim import(
     vector_gradient,
 )
 from devsim.python_packages.model_create import(CreateContactNodeModel, CreateEdgeModel, CreateEdgeModelDerivatives, CreateNodeModel, CreateNodeModelDerivative, CreateSolution,)
-
-
 from  devsim.python_packages.simple_physics  import(
     CreateOxideContact ,
     CreateOxidePotentialOnly,

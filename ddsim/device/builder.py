@@ -1,25 +1,16 @@
 from __future__ import annotations
-
-
-
 from  dataclasses import dataclass ,  replace
 from functools import cached_property
 import numpy as np, numpy.typing  as  npt
-
 from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
-
 from ddsim.device.doping import Coordinates, DopingProfile
 from ddsim.device.regions import RegionMap
-
 from ddsim.discretize.boundary import Contact,GateContact,SemiconductorContact
 from ddsim.discretize.geometry import ScaledMesh
-
 from ddsim.mesh.mesh1d  import  Mesh1D
 from ddsim.mesh.mesh2d import Mesh2D
-
-
 from  ddsim.physics.statistics  import Degeneracy
 
 AnyMesh  =  Mesh1D   |  Mesh2D

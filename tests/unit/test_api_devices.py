@@ -236,7 +236,6 @@ def  test_the_phase_2_diode_drawn_as_a_stack_has_the_same_i_v(  )   ->  None  :
 
 def test_a_drawing_sent_as_its_defaults_is_the_default_drawing () ->  None  :
     import numpy as np
-
     from ddsim.device.drawing import drawing
 
 

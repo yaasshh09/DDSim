@@ -11,7 +11,6 @@ from ddsim.extract.iv import(
     terminal_currents,
 )
 from ddsim.mesh.mesh1d import graded_mesh_1d, stacked_mesh_1d , uniform_mesh_1d
-
 from  ddsim.mesh.mesh2d import tensor_mesh_2d
 from ddsim.physics.recombination  import NoRecombination
 
