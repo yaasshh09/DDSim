@@ -1,12 +1,7 @@
 from __future__ import annotations
 from dataclasses import replace
-
 import numpy as np, pytest
-
-
-
 from ddsim.core.field import Field, Location, ScalingState
-
 from ddsim.device.equilibrium import MAX_PSI_STEP;from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import(TransportError, _check_positive, initial_state, poisson_block, solve_bias,)
 MICRON= 1e-4

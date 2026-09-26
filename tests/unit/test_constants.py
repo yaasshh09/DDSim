@@ -1,7 +1,6 @@
 import math
-import  numpy as np, pytest
-
-from ddsim.core  import  constants  as C
+import numpy as np, pytest
+from ddsim.core import constants as C
 
 def test_fundamental_constants_match_doc() ->None  :
     assert C.q   ==  1.602176634e-19

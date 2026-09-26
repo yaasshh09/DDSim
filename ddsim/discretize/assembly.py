@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses  import dataclass
-import  numpy  as  np, numpy.typing as npt
+from dataclasses import dataclass
+import numpy as np, numpy.typing as npt
 @dataclass(frozen  = True)
 
 class SparseAssembly :

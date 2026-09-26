@@ -1,10 +1,8 @@
-from __future__  import annotations
+from __future__ import annotations
 from collections.abc import Callable
-
-import  numpy as np, pytest
+import numpy as np, pytest
 from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
-
 from ddsim.physics.recombination import (
     AugerRecombination,
     NoRecombination ,

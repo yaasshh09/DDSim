@@ -1,13 +1,8 @@
-from __future__ import  annotations
-
+from __future__ import annotations
 import ast
-
 import pathlib
-
 import numpy as np
 import pytest, scipy.sparse as sp
-
-
 from ddsim.solve.linear import SparseLU
 
 

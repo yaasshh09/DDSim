@@ -1,10 +1,7 @@
 from __future__ import annotations
-
 import numpy as np
 import pytest
-
 from ddsim.device.equilibrium import solve_equilibrium
-
 from ddsim.device.mos_cap import GATE, mos_cap
 
 

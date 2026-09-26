@@ -1,18 +1,11 @@
 from __future__ import annotations
 import json; import math, struct
-
-
-
-import numpy as np;  import pytest
-
-
-from ddsim.api.frames import FieldFrame,  decode_fields,   encode , field_frame
-
+import numpy as np; import pytest
+from ddsim.api.frames import FieldFrame, decode_fields, encode , field_frame
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
-
 from ddsim.device.transport import TransportModels, solve_bias_ramped
 from ddsim.extract.bands import band_edges
 from ddsim.extract.cv import CVFrame

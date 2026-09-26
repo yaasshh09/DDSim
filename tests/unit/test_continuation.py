@@ -1,7 +1,5 @@
 from __future__ import annotations
-
-import  pytest
-
+import pytest
 from ddsim.solve.continuation import ContinuationEvent,continue_to
 
 def always(value  :  float) -> float :

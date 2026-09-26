@@ -1,10 +1,7 @@
 from __future__ import annotations
 from ddsim.device.builder import Device, Material, build_device
-
 from ddsim.device.doping import abrupt_junction
-
 from ddsim.discretize.boundary import OhmicContact
-
 from ddsim.mesh.mesh1d import graded_mesh_1d
 
 def pn_diode(

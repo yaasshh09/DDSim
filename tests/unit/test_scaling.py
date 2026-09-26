@@ -1,8 +1,6 @@
 import math
-
 import numpy as np, pytest
 from ddsim.core import constants as C
-
 from ddsim.core.scaling import ScaleFactors
 
 UNITS= ['V',"cm^-3","cm","cm^2/s",'cm^2/(V s)',"s","A/cm^2",'cm^-3 s^-1',"1"]

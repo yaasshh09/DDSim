@@ -1,13 +1,7 @@
 from __future__ import annotations
 import numpy as np ; import pytest
-
-
 from ddsim.core import constants as C
-
 from ddsim.device.regions import(OXIDE, SILICON, RegionMap, stacked_regions,)
-
-
-
 from ddsim.mesh.mesh2d import uniform_mesh_2d
 
 WIDTH   =  3e-5

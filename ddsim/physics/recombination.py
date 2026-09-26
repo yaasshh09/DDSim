@@ -1,16 +1,9 @@
 from __future__ import annotations
-
 from collections.abc import Iterable
 from dataclasses import dataclass
-
 from typing import Protocol, runtime_checkable
-
-
-
 import numpy as np
-
-
-import numpy.typing as  npt
+import numpy.typing as npt
 
 from  ddsim.core import constants  as  C
 Density= float|npt.NDArray[np.float64]

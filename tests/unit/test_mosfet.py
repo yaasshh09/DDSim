@@ -1,15 +1,10 @@
-from __future__ import  annotations
+from __future__ import annotations
 import numpy as np
-
 import pytest
-
 from scipy.optimize import brentq
-
 from ddsim.core import constants as C
 from ddsim.device.doping import Coordinates
-
 from ddsim.device.mosfet import BODY, DRAIN, GATE, SOURCE, nmos
-
 from ddsim.device.regions import OXIDE,SILICON
 from ddsim.discretize.boundary import GateContact,OhmicPlate
 

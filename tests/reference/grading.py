@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-
 import math
 RATIO_TOLERANCE =   1e-14
 

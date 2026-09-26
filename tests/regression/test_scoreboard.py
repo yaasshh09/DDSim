@@ -1,10 +1,7 @@
 from __future__ import annotations
-import csv;  import importlib.util, json, sys, ast
-
+import csv; import importlib.util, json, sys, ast
 from pathlib import Path
 from types import ModuleType
-
-
 from typing import Any
 import pytest
 from ddsim.api.devices import device_parameters

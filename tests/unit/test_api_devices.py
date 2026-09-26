@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import pytest
 from ddsim.api.devices import(
     COARSE,
@@ -12,11 +11,7 @@ from ddsim.api.devices import(
     parameters_of,
     region_defaults,
 )
-
-
-
 from ddsim.api.sweeps import run_sweep
-
 from ddsim.device.drawing import NODE_BUDGET
 def test_the_device_classes_are_offered() -> None  :
     assert set(DEVICE_KINDS) == {'pn_diode', "mos_cap", "nmos", "stack", "drawing"}

@@ -1,18 +1,13 @@
 from __future__ import annotations
-import numpy  as np, pytest
+import numpy as np, pytest
 from ddsim.core.field import Field,Location,ScalingState
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import apply_dirichlet
 from ddsim.discretize.continuity import(assemble_electron_continuity, assemble_hole_continuity, electron_continuity_jacobian, electron_continuity_residual, electron_current, hole_continuity_jacobian, hole_continuity_residual, hole_current,)
-
-
 from ddsim.mesh.mesh1d import Mesh1D, graded_mesh_1d, uniform_mesh_1d
-
 from ddsim.physics.bernoulli import B
-
 from ddsim.physics.recombination import NoRecombination,SRHRecombination
-
 from ddsim.solve.linear import SparseLU
 MICRON  = 1e-4
 

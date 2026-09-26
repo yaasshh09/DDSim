@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import hashlib
 import json
 from ddsim.api.app import PAGE

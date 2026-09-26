@@ -1,19 +1,10 @@
 from __future__ import annotations
 import numpy as np, pytest
-
 from ddsim.device.builder import Device,build_device
-
 from ddsim.device.doping import Step
-
-
-from ddsim.device.transport import  TransportModels,   solve_bias; from ddsim.discretize.boundary import OhmicContact
-
+from ddsim.device.transport import TransportModels, solve_bias; from ddsim.discretize.boundary import OhmicContact
 from ddsim.extract.iv import current_densities, terminal_currents
-
-
-
 from ddsim.mesh.mesh1d import graded_mesh_1d
-
 from tests.invariant.test_current_continuity import EPS, largest_flux_term
 
 

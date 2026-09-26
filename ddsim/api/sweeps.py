@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from collections.abc import Callable,Sequence;from typing import Any
 
 from  ddsim.api.devices  import(Parameter, as_enum, checked_arguments, enum_arguments, parameters_of,)

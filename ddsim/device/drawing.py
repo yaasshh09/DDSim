@@ -1,30 +1,15 @@
 from __future__ import annotations
-
 import math
-
-
 from dataclasses import dataclass
 import numpy as np; import numpy.typing as npt
-
 from scipy import ndimage
-
 from ddsim.core import constants as C
-
 from ddsim.device.builder import Device, Material, build_device
-
 from ddsim.device.doping import Along,Coordinates,DopingProfile,Sum,Window;from ddsim.device.mosfet import implant_lengths
-
-
 from ddsim.device.regions import OXIDE,SILICON,region_map
 from ddsim.device.stack import DOPING_RANGE, NODES_INSIDE
-
-
-
 from ddsim.discretize.boundary import Contact,GateContact,OhmicPlate
-
-
 from ddsim.mesh.mesh1d import graded_mesh_1d_through
-
 from ddsim.mesh.mesh2d import Mesh2D,tensor_mesh_2d
 
 MATERIALS  ={"silicon"  :SILICON, "oxide":  OXIDE}

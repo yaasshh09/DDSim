@@ -1,9 +1,6 @@
-from __future__ import  annotations
-
+from __future__ import annotations
 import numpy as np, pytest
-
-
-from ddsim.core  import  constants as  C
+from ddsim.core import constants as C
 
 
 

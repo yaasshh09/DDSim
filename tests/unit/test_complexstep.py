@@ -1,5 +1,4 @@
-from __future__  import  annotations
-
+from __future__ import annotations
 import math
 import numpy as np, pytest
 from  ddsim.physics.bernoulli import B,  dB_dx

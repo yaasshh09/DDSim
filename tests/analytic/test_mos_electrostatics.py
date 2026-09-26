@@ -1,9 +1,6 @@
 from __future__ import annotations
-
-
 import dataclasses
-
-import numpy as np;  import pytest
+import numpy as np; import pytest
 from ddsim.core import constants as C
 from  ddsim.core.scaling  import ScaleFactors
 from ddsim.device.regions import stacked_regions

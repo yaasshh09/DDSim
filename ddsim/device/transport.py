@@ -1,33 +1,22 @@
 from __future__ import annotations
-
-from collections.abc import Callable;  from dataclasses import dataclass, replace
-
+from collections.abc import Callable; from dataclasses import dataclass, replace
 import numpy as np; import numpy.typing as npt
 from ddsim.core import constants as C
-
 from ddsim.core.field import Field, Location, ScalingState
-
-
-from ddsim.device.builder import  Device
-
+from ddsim.device.builder import Device
 from ddsim.device.equilibrium import(frozen_quasi_fermi, solve_equilibrium, solve_poisson,)
 from ddsim.device.state import DeviceState
-
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import(
     Carrier,
     apply_ohmic_densities,
     impose_ohmic_densities,
 )
-
-
 from ddsim.discretize.continuity import(
     Diffusivity,
     assemble_electron_continuity,
     assemble_hole_continuity,
 )
-
-
 from ddsim.discretize.coupled import(
     apply_contacts_coupled,
     assemble_coupled_terms,
@@ -43,7 +32,6 @@ from ddsim.discretize.coupled import(
 )
 from ddsim.mesh.mesh2d import Mesh2D,normal_field
 from ddsim.physics.mobility import(AroraMobility, CaugheyThomas, ConstantMobility, EdgeDiffusivity, LombardiSurface, diffusivity_at, edge_diffusivity,)
-
 from ddsim.physics.recombination import(
     AugerRecombination,
     RecombinationModel,

@@ -1,7 +1,6 @@
 from __future__ import annotations
 import pathlib
-
-import  matplotlib, numpy  as  np
+import matplotlib, numpy as np
 
 matplotlib.use("Agg") ; import matplotlib.pyplot as plt
 

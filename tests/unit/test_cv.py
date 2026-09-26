@@ -1,14 +1,9 @@
-from __future__ import  annotations
+from __future__ import annotations
 import numpy as np, pytest
-
-
-
 from ddsim.core import constants as C
-
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import BODY,GATE,mos_cap
-
-from ddsim.device.pn_diode  import pn_diode
+from ddsim.device.pn_diode import pn_diode
 from ddsim.extract.cv import(
     CVCurve,
     Response,

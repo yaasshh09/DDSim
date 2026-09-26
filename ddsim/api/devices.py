@@ -1,18 +1,13 @@
 from __future__ import annotations
-import inspect;  import re, json
+import inspect; import re, json
 from pathlib import Path
-
-
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, fields
 from enum import Enum
-
 from functools import cache
-
 from typing import Any
-
 from ddsim.device.builder import Device
-from ddsim.device.drawing  import  NODE_BUDGET,  Block, Electrode,   Implant ,   drawing ; from ddsim.device.mos_cap import mos_cap
+from ddsim.device.drawing import NODE_BUDGET, Block, Electrode, Implant , drawing ; from ddsim.device.mos_cap import mos_cap
 
 from  ddsim.device.mosfet  import  nmos
 

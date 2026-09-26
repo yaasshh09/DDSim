@@ -1,9 +1,7 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
-import  numpy as  np; import numpy.typing as npt
-from ddsim.core.field import Field,Location,ScalingState;from ddsim.physics.statistics import  Degeneracy
-
+import numpy as np; import numpy.typing as npt
+from ddsim.core.field import Field,Location,ScalingState;from ddsim.physics.statistics import Degeneracy
 from ddsim.solve.gummel import GummelResult
 from ddsim.solve.newton import NewtonResult
 

@@ -1,19 +1,16 @@
 from __future__ import annotations
-import numpy as np;  import pytest
+import numpy as np; import pytest
 from ddsim.device.builder import build_device
 from ddsim.device.doping import abrupt_junction
 from ddsim.device.regions import stacked_regions
 from ddsim.device.transport import TransportModels, solve_bias_newton
 from ddsim.discretize.boundary import OhmicPlate
-
-
 from ddsim.extract.iv import(
     current_densities,
     edge_current_face,
     terminal_currents,
 )
-
-from ddsim.mesh.mesh1d  import  graded_mesh_1d,   stacked_mesh_1d , uniform_mesh_1d
+from ddsim.mesh.mesh1d import graded_mesh_1d, stacked_mesh_1d , uniform_mesh_1d
 
 from  ddsim.mesh.mesh2d import tensor_mesh_2d
 from ddsim.physics.recombination  import NoRecombination

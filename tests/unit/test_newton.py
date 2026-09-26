@@ -1,14 +1,9 @@
 from __future__ import annotations
-
-
 from collections.abc import Callable
 from dataclasses import FrozenInstanceError, dataclass
-import  numpy  as  np, numpy.typing as npt
+import numpy as np, numpy.typing as npt
 import pytest
-
 from ddsim.solve.linear import SparseLU
-
-
 from ddsim.solve.newton import NewtonIteration, NewtonResult, newton_solve
 
 

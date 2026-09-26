@@ -1,8 +1,6 @@
 from __future__ import annotations
-
-import  numpy  as  np
-
-import  pytest
+import numpy as np
+import pytest
 from ddsim.discretize.geometry import UNIFORM_1D,EdgeGeometry
 
 def test_the_default_geometry_is_contiguous_1d():

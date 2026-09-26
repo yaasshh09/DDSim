@@ -1,16 +1,9 @@
 from __future__ import annotations
-
 import numpy as np
-
 import pytest
-
-
 from ddsim.device.drawing import MOS_CAP_DRAWING, drawing
 from ddsim.device.mos_cap import mos_cap
-
-
 from ddsim.device.mosfet import nmos
-
 from ddsim.device.transport import TransportModels
 from ddsim.extract.cv import cv_sweep
 from ddsim.extract.iv import gate_sweep

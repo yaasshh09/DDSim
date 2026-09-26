@@ -1,16 +1,10 @@
 from __future__ import annotations
 import math
-
-
-import numpy  as  np, pytest
+import numpy as np, pytest
 from ddsim.core import constants as C
-
-
-
 from ddsim.device.builder import build_device
 from ddsim.device.doping import Gaussian, Step, Uniform
-
-from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium ; from  ddsim.device.pn_diode import  pn_diode;from ddsim.discretize.boundary import OhmicContact
+from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium ; from ddsim.device.pn_diode import pn_diode;from ddsim.discretize.boundary import OhmicContact
 from  ddsim.mesh.mesh1d  import  uniform_mesh_1d
 
 MICRON= 1e-4

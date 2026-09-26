@@ -1,13 +1,8 @@
 from __future__ import annotations
-
-
 from dataclasses import dataclass
 import numpy as np, numpy.typing as npt
-
 from ddsim.core import constants as C
-
 from ddsim.discretize.geometry import EdgeGeometry
-
 from ddsim.mesh.mesh2d import Mesh2D
 
 SILICON  =0

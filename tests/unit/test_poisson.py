@@ -1,13 +1,8 @@
 from __future__ import annotations
 import numpy as np
-
-import  pytest
-
+import pytest
 import scipy.sparse as sp
-
-
 from ddsim.core.field import Field, Location, ScalingState
-
 from ddsim.core.scaling import ScaleFactors
 
 from  ddsim.discretize.poisson import(

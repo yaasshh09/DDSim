@@ -1,12 +1,9 @@
 from __future__ import annotations
 from typing import Any
-
 import numpy as np; import pytest
 from ddsim.device.mos_cap import mos_cap
-
 from ddsim.device.mosfet import nmos ; from ddsim.device.pn_diode import pn_diode; from ddsim.extract.cv import cv_sweep
-
-from ddsim.extract.iv import  gate_sweep, iv_sweep
+from ddsim.extract.iv import gate_sweep, iv_sweep
 
 
 

@@ -1,16 +1,9 @@
-from __future__  import  annotations
+from __future__ import annotations
 from pathlib import Path
-
 import pytest
 from ddsim.core import constants as C
-
 from ddsim.device.mos_cap import mos_cap
-
-
 from ddsim.extract.cv import CVCurve, cv_sweep
-
-
-
 from tests.regression.devsim_gen import parameters as P
 
 GOLDEN_DIR =Path(__file__).resolve().parents[2] / "data"  /  'golden'

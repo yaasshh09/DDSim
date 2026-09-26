@@ -1,15 +1,9 @@
 from __future__ import annotations
-import  numpy as np, numpy.typing as npt
-
+import numpy as np, numpy.typing as npt
 from ddsim.core.field import Field, Location, ScalingState
-
 from ddsim.core.scaling import ScaleFactors
-
-
-from ddsim.discretize.assembly import SparseAssembly;  from ddsim.discretize.geometry import UNIFORM_1D,EdgeGeometry
-
+from ddsim.discretize.assembly import SparseAssembly; from ddsim.discretize.geometry import UNIFORM_1D,EdgeGeometry
 from ddsim.mesh.mesh1d import Mesh1D
-
 from ddsim.physics.bernoulli import B
 from ddsim.physics.recombination import RecombinationModel
 Diffusivity= float  |  npt.NDArray[np.float64]

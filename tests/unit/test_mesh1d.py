@@ -1,9 +1,5 @@
 from __future__ import annotations
-
 import numpy as np ; import pytest
-
-
-
 from ddsim.mesh.mesh1d import(Mesh1D, graded_mesh_1d, graded_mesh_1d_at, graded_mesh_1d_through, stacked_mesh_1d, uniform_mesh_1d,)
 from tests.reference.grading import solve_ratio as reference_solve_ratio
 MICRON =1e-4

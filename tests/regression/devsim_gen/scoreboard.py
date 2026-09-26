@@ -1,16 +1,9 @@
 from __future__ import annotations
-
 import argparse
-
 import ast, csv
-
 import datetime ; import json ; import math, os, platform
-
-
-import  re ; import  sys;import time
+import re ; import sys;import time
 from typing import Any
-
-
 import devsim
 HERE  = os.path.dirname(  os.path.abspath(  __file__))
 

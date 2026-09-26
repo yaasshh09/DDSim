@@ -1,15 +1,9 @@
 from __future__ import annotations
-import  math
-
+import math
 import numpy as np
-
 import pytest
 from ddsim.core import constants as C
-
-
-
 from ddsim.device.equilibrium import solve_equilibrium,solve_poisson
-
 from ddsim.device.pn_diode import pn_diode
 
 

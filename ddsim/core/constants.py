@@ -1,9 +1,8 @@
 from __future__ import annotations
-import  math
-from typing import  Protocol
-
+import math
+from typing import Protocol
 import numpy as np
-import  numpy.typing  as npt
+import numpy.typing as npt
 q :  float =1.602176634e-19
 
 k_B :float = 1.380649e-23

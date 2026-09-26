@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from collections.abc import Callable
 import numpy as np, numpy.typing as npt
 ComplexArray  =  npt.NDArray[ np.complex128 ]

@@ -1,9 +1,8 @@
 from __future__ import annotations
-import  copy, json
+import copy, json
 from dataclasses import dataclass
-
 from pathlib import Path
-from typing  import Any
+from typing import Any
 from ddsim.api.devices import COARSE
 LEARN= Path(__file__).parent/"static"/'learn'
 LESSONS = Path(__file__).parent/'lessons'

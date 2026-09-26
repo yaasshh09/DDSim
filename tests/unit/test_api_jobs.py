@@ -1,5 +1,5 @@
 from __future__ import annotations
-import  threading
+import threading
 import pytest
 
 from  ddsim.api.jobs import  BusyError, CancelledError,   JobRegistry,  JobStatus

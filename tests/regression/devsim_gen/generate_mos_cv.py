@@ -1,13 +1,7 @@
 from __future__ import annotations
-
-
-
-import  argparse, contextlib
+import argparse, contextlib
 import datetime
-
-
 import io, os, sys
-
 from typing import Any
 from devsim import(
     add_1d_contact,

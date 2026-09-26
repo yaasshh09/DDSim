@@ -1,15 +1,11 @@
 from __future__ import annotations
 import json, math; import struct
-
 from dataclasses import dataclass
 from typing import Any
-import numpy as np, numpy.typing as  npt
-
+import numpy as np, numpy.typing as npt
 from ddsim.core.field import Field
-
 from ddsim.device.builder import Device
-
-from ddsim.device.state import DeviceState;  from ddsim.device.transport import TransportModels
+from ddsim.device.state import DeviceState; from ddsim.device.transport import TransportModels
 from ddsim.extract.bands import band_edges ; from ddsim.extract.cv import CVCurve, CVFrame, CVPoint
 
 

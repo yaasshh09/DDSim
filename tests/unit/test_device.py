@@ -2,10 +2,7 @@ from __future__ import annotations
 import numpy as np, pytest
 from ddsim.core.field import Location,ScalingState
 from ddsim.device.builder import Device,Material,build_device
-
-
-
-from ddsim.device.doping  import  Uniform
+from ddsim.device.doping import Uniform
 from  ddsim.device.equilibrium  import solve_equilibrium
 
 from  ddsim.device.pn_diode  import  pn_diode

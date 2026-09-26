@@ -1,8 +1,6 @@
 from __future__ import annotations
 import argparse, sys
-
-
-from collections.abc import Callable;  from typing import Any
+from collections.abc import Callable; from typing import Any
 LOOPBACK =  ("127.0.0.1", '::1', 'localhost')
 
 DEFAULT_PORT =8000

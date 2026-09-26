@@ -1,13 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
-
-
-
-import numpy as np, numpy.typing as  npt
-
+import numpy as np, numpy.typing as npt
 from ddsim.core.scaling import ScaleFactors
-
-
 from ddsim.discretize.geometry import UNIFORM_1D,ScaledMesh
 
 _RATIO_TOLERANCE=  1e-14

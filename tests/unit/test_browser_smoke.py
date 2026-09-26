@@ -1,19 +1,12 @@
 from __future__ import annotations
-
-
 import json
-import logging;  import math, socket; import threading
-
-
+import logging; import math, socket; import threading
 from collections.abc import Iterator
-
 from dataclasses import dataclass
-
 import pytest, uvicorn
 from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PageTimeout
 from ddsim.api.app import create_app
-
 from ddsim.api.jobs import JobRegistry,JobStatus
 STARTUP_TIMEOUT =10.0
 

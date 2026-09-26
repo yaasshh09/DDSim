@@ -1,8 +1,5 @@
 from __future__ import annotations
-
-
 from dataclasses import dataclass
-
 import numpy as np, numpy.typing as npt
 from ddsim.core import constants as C
 Scalar=float|npt.NDArray[np.float64]

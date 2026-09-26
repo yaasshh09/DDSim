@@ -1,12 +1,7 @@
 from __future__ import annotations
 import pathlib, re
-
-
-
-import  pytest
-
+import pytest
 from fastapi.testclient import TestClient
-
 from ddsim.api.app import create_app
 from ddsim.api.devices import DEVICE_KINDS,device_parameters
 from ddsim.api.learn import(KNOB_TOPICS, LEARN, PLOT_TOPICS, STATUS_TOPICS, load_topic, topic_names,)

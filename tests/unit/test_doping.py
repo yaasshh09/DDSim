@@ -1,9 +1,7 @@
-from __future__  import annotations
+from __future__ import annotations
 import math
 import numpy as np, pytest
-
-from scipy.special  import erfc
-
+from scipy.special import erfc
 from ddsim.device.doping import(
     Along,
     Coordinates,

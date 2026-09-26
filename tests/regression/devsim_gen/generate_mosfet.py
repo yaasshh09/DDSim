@@ -1,13 +1,8 @@
 from __future__ import annotations
-
 import argparse, contextlib, datetime, io
-
 import math, os
 import sys
-
-
 from typing import Any
-
 from devsim import(
     add_2d_contact,
     add_2d_interface,
@@ -33,8 +28,6 @@ from devsim import(
     solve,
     vector_gradient,
 )
-
-
 from devsim.python_packages.model_create import(CreateContactNodeModel, CreateEdgeModel, CreateEdgeModelDerivatives, CreateNodeModel, CreateNodeModelDerivative, CreateSolution,)
 
 

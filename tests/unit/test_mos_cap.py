@@ -1,12 +1,9 @@
 from __future__ import annotations
 import numpy as np
-
 import pytest
 from ddsim.core import constants as C
-
 from ddsim.device.mos_cap import BODY,GATE,mos_cap
 from ddsim.device.regions import OXIDE, SILICON
-
 from ddsim.discretize.boundary import GateContact, OhmicPlate
 NA= 1e16
 T_OX = 1e-6

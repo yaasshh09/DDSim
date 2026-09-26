@@ -1,6 +1,5 @@
 from __future__ import annotations
-
-import numpy as  np, pytest
+import numpy as np, pytest
 from  ddsim.core import  constants  as C
 from ddsim.device.builder import build_device
 

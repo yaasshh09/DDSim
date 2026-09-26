@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
-
-import numpy as np, numpy.typing as  npt
-
+import numpy as np, numpy.typing as npt
 from ddsim.core.scaling import ScaleFactors
-from ddsim.discretize.geometry import  EdgeGeometry ,   ScaledMesh
-from ddsim.mesh.mesh1d import Mesh1D,  uniform_mesh_1d
+from ddsim.discretize.geometry import EdgeGeometry , ScaledMesh
+from ddsim.mesh.mesh1d import Mesh1D, uniform_mesh_1d
 
 
 @dataclass(frozen =  True)

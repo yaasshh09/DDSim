@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 from ddsim.core import constants as C
 from ddsim.device.builder import Device,Material,build_device
-from ddsim.device.doping import Uniform ; from ddsim.device.regions import  stacked_regions
-
+from ddsim.device.doping import Uniform ; from ddsim.device.regions import stacked_regions
 from ddsim.discretize.boundary import GateContact, OhmicPlate
 from ddsim.mesh.mesh1d import graded_mesh_1d,stacked_mesh_1d,uniform_mesh_1d
-
 from ddsim.mesh.mesh2d import tensor_mesh_2d
 
 

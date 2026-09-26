@@ -2,7 +2,6 @@ from __future__ import annotations
 import math
 import numpy as np
 import pytest
-
 from ddsim.core import constants as C
 
 from  ddsim.device.pn_diode import pn_diode

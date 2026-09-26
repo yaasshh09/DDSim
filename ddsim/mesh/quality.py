@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import numpy as np, numpy.typing as npt
 
 class MeshQualityError(ValueError):

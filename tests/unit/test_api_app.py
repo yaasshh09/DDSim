@@ -1,21 +1,12 @@
 from __future__ import annotations
-import  json ; from typing import Any
-
+import json ; from typing import Any
 import numpy as np, pytest
-
-from fastapi.testclient  import TestClient
-
-
-
+from fastapi.testclient import TestClient
 from ddsim.api.app import create_app
 from ddsim.api.frames import decode_fields
-
 from ddsim.api.jobs import JobRegistry,JobStatus
-
-
-from ddsim.device.mos_cap import mos_cap;from  ddsim.device.mosfet  import nmos
-from ddsim.device.pn_diode import  pn_diode
-
+from ddsim.device.mos_cap import mos_cap;from ddsim.device.mosfet import nmos
+from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels
 from ddsim.extract.cv import cv_sweep
 from ddsim.extract.iv import gate_sweep,iv_sweep

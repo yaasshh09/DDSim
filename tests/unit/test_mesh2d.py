@@ -1,9 +1,6 @@
 from __future__ import annotations
-
-
-import  numpy as  np;  import pytest
+import numpy as np; import pytest
 from ddsim.mesh.mesh1d import graded_mesh_1d,uniform_mesh_1d
-
 from ddsim.mesh.mesh2d import normal_field, tensor_mesh_2d, uniform_mesh_2d
 
 

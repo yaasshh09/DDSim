@@ -1,12 +1,9 @@
 from __future__ import annotations
-
 import math
-
 from dataclasses import dataclass
 import numpy as np
-
-import numpy.typing as  npt
-from ddsim.core import constants as C; from ddsim.device.builder import Device;  from ddsim.device.state import DeviceState
+import numpy.typing as npt
+from ddsim.core import constants as C; from ddsim.device.builder import Device; from ddsim.device.state import DeviceState
 @dataclass(  frozen   =   True)
 
 class BandEdges:

@@ -1,7 +1,4 @@
 from __future__ import annotations
-
-
-
 import numpy as np, numpy.typing as npt
 Argument  = float |complex|npt.NDArray[np.float64] | npt.NDArray[np.complex128]
 SERIES_CUTOFF_B = 1e-4

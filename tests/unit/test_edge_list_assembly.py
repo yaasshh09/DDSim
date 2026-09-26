@@ -1,21 +1,11 @@
 from __future__ import annotations
-
 import numpy as np
-
 import pytest
 from scipy.sparse import coo_matrix
 from ddsim.device.builder import build_device
-
 from ddsim.device.doping import abrupt_junction
-
-
-
 from ddsim.device.transport import TransportModels,initial_state
-
 from ddsim.discretize.boundary import OhmicContact
-
-
-
 from ddsim.discretize.coupled import(
     UNIFORM_1D,
     EdgeGeometry,

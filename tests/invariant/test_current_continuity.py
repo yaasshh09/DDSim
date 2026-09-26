@@ -1,13 +1,8 @@
-from __future__  import  annotations
-import  numpy  as np
-
-
+from __future__ import annotations
+import numpy as np
 import pytest
 from ddsim.device.pn_diode import pn_diode
-
-
 from ddsim.device.transport import(TransportModels, solve_bias, solve_bias_newton,)
-
 from ddsim.extract.iv import current_densities,terminal_currents
 from ddsim.physics.bernoulli import B
 from ddsim.physics.recombination import NoRecombination

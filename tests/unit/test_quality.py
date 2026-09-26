@@ -1,6 +1,5 @@
 from __future__ import annotations
 import numpy as np
-
 import pytest
 from ddsim.mesh.quality import(MeshQualityError, check_triangulation , cotangent_edge_weights, obtuse_triangles, triangle_angles,)
 EQUILATERAL =(np.array([[0.0, 0.0], [1.0, 0.0], [0.5, np.sqrt(3)/  2]]), np.array([[0, 1, 2]]),)

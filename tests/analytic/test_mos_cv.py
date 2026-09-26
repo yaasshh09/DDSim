@@ -1,16 +1,10 @@
 from __future__ import annotations
-
-
-import  numpy  as  np
+import numpy as np
 import pytest
 from ddsim.core import constants as C
-
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import BODY, GATE, mos_cap
-
-
 from ddsim.extract.cv import(Response, cv_sweep, small_signal_capacitance, terminal_charge,)
-
 from tests.analytic.test_mos_cap import(
     NA,
     T_OX,

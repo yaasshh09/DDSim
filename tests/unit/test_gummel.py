@@ -1,8 +1,5 @@
 from __future__ import annotations
-import  pytest
-
-
-
+import pytest
 from ddsim.solve.gummel import GummelIteration, GummelResult, gummel_solve
 
 

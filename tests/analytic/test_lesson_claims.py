@@ -1,14 +1,9 @@
 from __future__ import annotations
-
-import functools;  import math
+import functools; import math
 import numpy as np, pytest
-
-
 from ddsim.api.devices import build_from_spec
-
 from ddsim.api.learn import load_lesson
-from ddsim.api.sweeps  import  run_sweep
-
+from ddsim.api.sweeps import run_sweep
 from ddsim.core import constants as C
 from  ddsim.extract.bands  import  band_edges
 

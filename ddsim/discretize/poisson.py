@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import numpy as np; import numpy.typing as npt
 from  ddsim.core.field  import Field , Location ,  ScalingState
 from ddsim.discretize.assembly import SparseAssembly

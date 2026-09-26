@@ -1,10 +1,6 @@
 from __future__ import annotations
 from typing import Any
-
-
-import  numpy as np, pytest
-
-
+import numpy as np, pytest
 from ddsim.api.devices import build_from_spec
 
 from  ddsim.api.sweeps import(SWEEP_KINDS, build_models, check_request, model_parameters, run_sweep, sweep_parameters,)

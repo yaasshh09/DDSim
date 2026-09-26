@@ -1,13 +1,9 @@
 from __future__ import annotations
-
 from collections.abc import Callable
-
-import  numpy as np, numpy.typing as npt
+import numpy as np, numpy.typing as npt
 from ddsim.core.field import Field,Location,ScalingState
-
 from ddsim.device.builder import Device
-
-from ddsim.device.state  import  DeviceState
+from ddsim.device.state import DeviceState
 from  ddsim.discretize.assembly  import SparseAssembly
 
 
