@@ -1,1 +1,2 @@
 ddsim/api/static/vendor/** -text
+*.sh text eol=lf
