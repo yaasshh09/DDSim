@@ -209,7 +209,7 @@ BY_NAME :  dict[  str,  DiodeBenchmark ]  =  {b.name  :   b  for b in BENCHMARKS
 def  scharfetter_lifetime(
     N_total  :   float,   tau_max :  float,   tau_min   :   float  =   0.0
 ) ->  float :
-    return tau_min + (tau_max -  tau_min)/ (1.0 + (N_total/ N_REF_SRH)**  GAMMA_SRH)
+    return float(tau_min + (tau_max -  tau_min)/ (1.0 + (N_total/ N_REF_SRH)**  GAMMA_SRH))
 
 
 MODEL_SUMMARY :tuple[str, ...]  =(

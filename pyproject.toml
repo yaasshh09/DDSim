@@ -95,7 +95,13 @@ ignore = ["N802", "N803", "N806", "N812", "N815", "N816", "E401", "E501", "E702"
 "tests/regression/devsim_gen/scoreboard.py" = ["E402"]
 
 [tool.mypy]
-files = ["ddsim"]
-warn_return_any = true
-warn_unused_ignores = true
-disallow_untyped_defs = true
+files = ["ddsim", "tools"]
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["ddsim.discretize.coupled", "ddsim.solve.linear"]
+disable_error_code = ["redundant-cast"]
+
+[[tool.mypy.overrides]]
+module = ["fontTools", "fontTools.*"]
+ignore_missing_imports = true

@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np, scipy
 from ddsim.api.devices import build_from_spec, device_parameters
 from ddsim.device.builder import Device
+from ddsim.mesh.mesh2d import Mesh2D
 from ddsim.device.state import DeviceState ; from ddsim.device.transport import TransportModels,solve_bias_ramped
 from ddsim.extract.cv import cv_sweep
 from ddsim.extract.iv import gate_sweep, iv_sweep, terminal_currents
@@ -419,6 +420,7 @@ def  accuracy_point (name   : str,   r  : float  ) ->  tuple[  int,  float]  :
         )
         Cv  =  cv_sweep(dev, 'gate', [ACCURACY_BIAS["mos_cap"]])
 
+        assert isinstance(dev.mesh, Mesh2D)
         col = dev.mesh.nx
         return silicon_nodes(dev)//col, float(Cv.points[- 1].capacitance)
     ff= P.MOSFET_BY_NAME[name]
