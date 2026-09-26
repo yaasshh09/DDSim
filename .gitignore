@@ -11,32 +11,24 @@ dist/
 .pytest_cache/
 .coverage
 coverage.xml
-htmlcov/
 .mypy_cache/
 .ruff_cache/
 
 .vscode/
-.idea/
 
 Thumbs.db
 Desktop.ini
-.DS_Store
 
 /fonts/
 
 CLAUDE.md
 CLAUDE.local.md
-fable-brain.md
 .claude/
 .claude-mem/
 .gstack/
 .impeccable/
 PROGRESS.md
-docs/superpowers/
-.superpowers/
 
 Dockerfile
 .dockerignore
 fly.toml
-
-tools/record_live_solve.py
