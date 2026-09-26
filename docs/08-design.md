@@ -75,10 +75,11 @@ them to 4.80:1 and 3.17:1. `--faint` is held to the 3:1 bar for a user
 interface component rather than the 4.5:1 bar for text, because it never draws
 text: it's a disabled slider thumb and an idle status dot.
 
-One accent and four trace colours. The traces are named for what they draw,
-and the same four values appear in two places: as `.swatch` rules in
-`css/panels.css`, and as the constants at the top of `js/app.js`, which is what
-the canvas actually gets painted with. Change one, change both.
+One accent and four trace colours. The traces are named for what they draw.
+`tokens.css` is the only place any colour is written down. The `.swatch` rules
+use the tokens through `var()`, and the canvas and the welcome card art read
+them at load through `token()` at the top of `js/app.js`, so changing a token
+changes every place it's drawn.
 
 | Quantity | Token | Value |
 |---|---|---|

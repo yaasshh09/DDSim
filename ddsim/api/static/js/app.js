@@ -1,6 +1,9 @@
 "use strict";
 
-const BLUE = "#5fd4d6", PURPLE = "#a992ef", GREEN = "#e3a74f", RED = "#ea7a68";
+const tokens = getComputedStyle(document.documentElement);
+const token = (name) => tokens.getPropertyValue("--" + name).trim();
+
+const BLUE = token("signal"), PURPLE = token("violet"), GREEN = token("warn"), RED = token("hot");
 
 const el = (id) => document.getElementById(id);
 
@@ -10,6 +13,7 @@ const state = {
   schema: null,
   job: null,
   socket: null,
+  listening: null,
   residual: [],
   newton: null,
   stalled: null,
@@ -777,12 +781,15 @@ function listen() {
   const socket = new WebSocket(
     scheme + "://" + location.host + "/api/jobs/" + state.job + "/stream"
   );
+  const listening = new AbortController();
   state.socket = socket;
-  socket.onmessage = (event) => frame(JSON.parse(event.data));
-  socket.onclose = () => {
+  state.listening = listening;
+  socket.addEventListener("message", (event) => frame(JSON.parse(event.data)),
+    { signal: listening.signal });
+  socket.addEventListener("close", () => {
     el("solve").disabled = false;
     el("cancel").disabled = true;
-  };
+  }, { signal: listening.signal });
 }
 
 function largest(families) {
@@ -920,8 +927,7 @@ async function stop() {
   const socket = state.socket;
   if (socket) {
     state.socket = null;
-    socket.onclose = null;
-    socket.onmessage = null;
+    state.listening.abort();
     socket.close();
   }
   if (state.job) {

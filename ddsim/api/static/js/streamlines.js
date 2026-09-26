@@ -64,7 +64,7 @@ function traceStreamlines(fields, seedsAcross, seedsDown) {
 function drawStreamlines(box, fields, lines) {
   const ny = fields.shape[0], nx = fields.shape[1];
   const pen = box.pen;
-  pen.strokeStyle = "rgba(255, 255, 255, 0.75)";
+  pen.strokeStyle = token("streamline");
   pen.lineWidth = 1;
   for (const points of lines) {
     pen.beginPath();

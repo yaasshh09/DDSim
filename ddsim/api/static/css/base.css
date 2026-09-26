@@ -2,7 +2,7 @@
 
 [hidden] { display: none !important; }
 
-.side_divider {height:1px; margin: 15px 0 13px; background: var(--line)}
+.side-divider {height:1px; margin: 15px 0 13px; background: var(--line)}
 
 body {
   margin: 0;
@@ -32,11 +32,11 @@ body > header > h1 {
 
 body header span.gap { flex: 1; }
 
-.hdr_rule { width: 1px; height: 20px; background: var(--line); }
+.header-rule { width: 1px; height: 20px; background: var(--line); }
 
 #state { font: 500 11.5px var(--sans); color: var(--ink-2); }
 
-.statusDot {
+.status-dot {
   flex: none;
   width: 7px;
   height: 7px;
@@ -44,7 +44,7 @@ body header span.gap { flex: 1; }
   border-radius: 50%;
 }
 
-header:has(#cancel:not(:disabled)) .statusDot {
+header:has(#cancel:not(:disabled)) .status-dot {
 background: var(--signal);
 box-shadow: 0 0 0 3px var(--signal-wash);
 }
@@ -85,7 +85,7 @@ main {
 #plots::-webkit-scrollbar-thumb,
 #rail::-webkit-scrollbar-thumb {
     background: var(--line);
-    border-radius: 5px;
+    border-radius: var(--r-md);
 }
 
 fieldset { margin: 0 0 1.5em; padding: 0; border: 0; }

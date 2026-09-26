@@ -44,15 +44,15 @@
   margin-top: .875rem;
 }
 
-.partGroup {
+.part-group {
   padding: 12px 14px 10px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
 }
 
-.partGroup .section { margin-bottom: 6px; }
-.partGroup .aside.lede { max-width: 88ch; margin-bottom: 11px; }
+.part-group .section { margin-bottom: 6px; }
+.part-group .aside.lede { max-width: 88ch; margin-bottom: 11px; }
 
 .part.headings { margin-bottom: 0; padding-bottom: 2px; border-bottom: 0; }
 
@@ -95,13 +95,13 @@
 
 .swatch.rejected { background: var(--ink); }
 
-#build-scale .swatch { width: 10px; height: 10px; border-radius: 2px; }
+#build-scale .swatch { width: 10px; height: 10px; border-radius: var(--r-xs); }
 
-#build-scale .block_si { background: var(--fill-si); }
-#build-scale .blockOx { background: var(--fill-ox); border: 1px solid var(--line-strong); }
+#build-scale .block-si { background: var(--fill-si); }
+#build-scale .block-ox { background: var(--fill-ox); border: 1px solid var(--line-strong); }
 
-#build-scale .dope_n {
-  background: rgb(227 167 79 / 26%);
+#build-scale .dope-n {
+  background: var(--warn-wash);
   border: 1px dashed var(--warn);
 }
 

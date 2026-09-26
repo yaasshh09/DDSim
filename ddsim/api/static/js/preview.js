@@ -1,9 +1,9 @@
 "use strict";
 
-const MATERIAL_FILL = { silicon: "#2d4a52", oxide: "#16252a" };
-const DOPANT_INK = { n: "#e3a74f", p: "#5fd4d6" };
+const MATERIAL_FILL = { silicon: token("fill-si"), oxide: token("fill-ox") };
+const DOPANT_INK = { n: token("warn"), p: token("signal") };
 
-const DOPANT_WASH = { n: "rgba(227, 167, 79, 0.26)", p: "rgba(95, 212, 214, 0.16)" };
+const DOPANT_WASH = { n: token("warn-wash"), p: token("signal-wash") };
 
 function extent(parts) {
   let width = 0, height = 0;
@@ -84,7 +84,7 @@ function drawPreview() {
   const at = previewFrame(box, parts);
   const pen = box.pen;
   for (const block of parts.blocks) {
-    pen.fillStyle = MATERIAL_FILL[block.material] || "#0b1417";
+    pen.fillStyle = MATERIAL_FILL[block.material] || token("ground");
     pen.fillRect(at.x(block.x0), at.y(block.y1),
       at.x(block.x1) - at.x(block.x0), at.y(block.y0) - at.y(block.y1));
   }
@@ -92,16 +92,16 @@ function drawPreview() {
   for (const implant of parts.implants) {
     const left = at.x(implant.x0), top = at.y(implant.y1);
     const wide = at.x(implant.x1) - left, tall = at.y(implant.y0) - top;
-    pen.fillStyle = DOPANT_WASH[implant.dopant] || "rgba(255, 255, 255, 0.1)";
+    pen.fillStyle = DOPANT_WASH[implant.dopant] || token("glass");
     pen.fillRect(left, top, wide, tall);
-    pen.strokeStyle = DOPANT_INK[implant.dopant] || "#0b1417";
+    pen.strokeStyle = DOPANT_INK[implant.dopant] || token("ground");
     pen.strokeRect(left, top, wide, tall);
   }
   pen.setLineDash([]);
   pen.lineWidth = 4;
   pen.font = "500 11px Poppins, system-ui, sans-serif";
   for (const electrode of parts.electrodes) {
-    pen.strokeStyle = electrode.kind === "gate" ? "#a992ef" : "#e8f1f2";
+    pen.strokeStyle = electrode.kind === "gate" ? token("violet") : token("ink");
     pen.beginPath();
     pen.moveTo(at.x(electrode.x0), at.y(electrode.y0));
     pen.lineTo(at.x(electrode.x1), at.y(electrode.y1));
@@ -116,7 +116,7 @@ function drawPreview() {
 
 function label(pen, box, text, colour, x, y) {
   const width = pen.measureText(text).width;
-  pen.fillStyle = "rgba(11, 20, 23, 0.72)";
+  pen.fillStyle = token("ground-veil");
   pen.fillRect(x - 3, y - 10, width + 6, 13);
   pen.fillStyle = colour;
   pen.fillText(text, x, y);
@@ -126,9 +126,9 @@ function showScale(size, stretched) {
   const bar = el("build-scale");
   if (!bar) return;
   bar.innerHTML =
-    '<span><i class="swatch block_si"></i>silicon</span>' +
-    '<span><i class="swatch blockOx"></i>oxide</span>' +
-    '<span><i class="swatch dope_n"></i>n doping</span>' +
+    '<span><i class="swatch block-si"></i>silicon</span>' +
+    '<span><i class="swatch block-ox"></i>oxide</span>' +
+    '<span><i class="swatch dope-n"></i>n doping</span>' +
     '<span><i class="swatch dope-p"></i>p doping</span>' +
     '<span><i class="swatch gate"></i>gate</span>' +
     '<span><i class="swatch ohmic"></i>ohmic</span>';

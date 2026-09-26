@@ -22,14 +22,19 @@
   --signal-lift: #7AE0E2;
   --signal-wash: rgb(95 212 214 / 16%);
   --warn: #e3a74f;
+  --warn-wash: rgb(227 167 79 / 26%);
   --hot: #EA7A68;
   --violet: #a992ef;
 
   --fill-si: #2d4a52;
   --fill-ox: #16252A;
 
-  --r-sm: 3px; --r: 4px; --r-md: 5px; --r-lg: 6px;
-  --r-chip: 12px;
+  --ground-veil: rgb(11 20 23 / 72%);
+  --glass: rgb(255 255 255 / 10%);
+  --streamline: rgb(255 255 255 / 75%);
+
+  --r-xs: 2px; --r-sm: 3px; --r: 4px; --r-md: 5px; --r-lg: 6px;
+  --r-chip: 12px; --r-thumb: 9px;
 
   --sans: Poppins, system-ui, -apple-system, "Segoe UI", sans-serif;
   --note: 500 11px var(--sans);
