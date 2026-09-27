@@ -1,7 +1,7 @@
 ---
 title: A cancelled job
 summary: What the cancel button does, when the solver actually stops, and why a cancelled sweep leaves no result behind.
-docs: 02-numerics.md#Bias continuation
+docs: numerics.md#Bias continuation
 ---
 
 ## In plain words

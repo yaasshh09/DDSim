@@ -1,7 +1,7 @@
 ---
 title: The profile plot
 summary: Reading psi, n and p along a 1D device, picking the bias point with the slider, and what the 2D image does and doesn't show.
-docs: 01-physics.md#Notation
+docs: physics.md#Notation
 ---
 
 ## In plain words

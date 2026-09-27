@@ -1,7 +1,7 @@
 ---
 title: Current flow, drift and diffusion
 summary: The two ways carriers move, how the continuity equations keep count of them, and why the total current is the same everywhere.
-docs: 01-physics.md#The Van Roosbroeck system; 02-numerics.md#Scharfetter-Gummel discretization; 02-numerics.md#Current conservation
+docs: physics.md#The Van Roosbroeck system; numerics.md#Scharfetter-Gummel discretization; numerics.md#Current conservation
 ---
 
 ## In plain words

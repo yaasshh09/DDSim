@@ -1,7 +1,7 @@
 ---
 title: The MOS capacitor
 summary: A gate on oxide on p type silicon, and the three regimes a gate voltage drives the surface through.
-docs: 01-physics.md#MOS gate
+docs: physics.md#MOS gate
 ---
 
 ## In plain words
@@ -52,7 +52,7 @@ $$C_{ox} = \frac{\varepsilon_{ox}}{t_{ox}}$$
 which for the default 10 nm oxide, with $\varepsilon_{ox} = 3.9\,\varepsilon_0$,
 is $3.45 \times 10^{-7}$ F/cm$^2$. It gets there slowly. The accumulation
 layer has a finite thickness, so $C_{ox}$ sits in series with a large but
-finite silicon capacitance. docs/07-decisions.md records the curve 1.7
+finite silicon capacitance. decisions.md records the curve 1.7
 percent below $C_{ox}$ at 2.6 V below flatband, and within 1 percent only
 around 5 V below.
 

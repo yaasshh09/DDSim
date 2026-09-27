@@ -1,7 +1,7 @@
 ---
 title: Reading the residual plot
 summary: What each line and dot on the residual plot means, what a healthy solve looks like, and what a stall looks like.
-docs: 02-numerics.md#Convergence criteria; 02-numerics.md#Full Newton (Phase 3); 02-numerics.md#Gummel iteration (Phase 2); 02-numerics.md#Bias continuation
+docs: numerics.md#Convergence criteria; numerics.md#Full Newton (Phase 3); numerics.md#Gummel iteration (Phase 2); numerics.md#Bias continuation
 ---
 
 ## In plain words

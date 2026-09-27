@@ -1,7 +1,7 @@
 ---
 title: The electrostatic potential, psi
 summary: The voltage at every point inside the device. Everything else gets measured against it.
-docs: 01-physics.md#Notation; 01-physics.md#The Van Roosbroeck system; 02-numerics.md#Why this problem is hard; 02-numerics.md#Scaling (de Mari)
+docs: physics.md#Notation; physics.md#The Van Roosbroeck system; numerics.md#Why this problem is hard; numerics.md#Scaling (de Mari)
 ---
 
 ## In plain words

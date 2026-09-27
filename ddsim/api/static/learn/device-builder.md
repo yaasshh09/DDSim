@@ -1,7 +1,7 @@
 ---
 title: Building a 1D device
 summary: Doped regions stacked left to right with a contact at each end, how the mesh grades toward every junction, why a stack gets refused, and what a result on a device you built can and can't tell you.
-docs: 01-physics.md#Doping range; 02-numerics.md#Mesh
+docs: physics.md#Doping range; numerics.md#Mesh
 ---
 
 ## In plain words

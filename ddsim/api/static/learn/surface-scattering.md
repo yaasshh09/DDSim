@@ -1,7 +1,7 @@
 ---
 title: Surface scattering
 summary: Carriers pressed against the oxide bounce off the interface and move slower than they would deep in the silicon.
-docs: 01-physics.md#Mobility models; 06-constants.md#Lombardi surface mobility, enhanced form
+docs: physics.md#Mobility models; constants.md#Lombardi surface mobility, enhanced form
 ---
 
 ## In plain words

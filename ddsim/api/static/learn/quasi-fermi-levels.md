@@ -1,7 +1,7 @@
 ---
 title: Quasi-Fermi levels, phi_n and phi_p
 summary: One Fermi level per carrier once the device is biased, and the slope that drives current.
-docs: 01-physics.md#Carrier statistics; 01-physics.md#The Van Roosbroeck system; 01-physics.md#Ohmic contacts
+docs: physics.md#Carrier statistics; physics.md#The Van Roosbroeck system; physics.md#Ohmic contacts
 ---
 
 ## In plain words

@@ -1,7 +1,7 @@
 ---
 title: The band diagram
 summary: The conduction and valence band edges drawn across the device. They bend wherever psi does.
-docs: 01-physics.md#Notation; 01-physics.md#Carrier statistics; 06-constants.md#n_i is not consistent with Nc, Nv and Eg, and that is deliberate
+docs: physics.md#Notation; physics.md#Carrier statistics; constants.md#n_i is not consistent with Nc, Nv and Eg, and that is deliberate
 ---
 
 ## In plain words

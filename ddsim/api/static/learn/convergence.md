@@ -1,7 +1,7 @@
 ---
 title: What converged means
 summary: The tests a solve has to pass before its answer counts, and the two knobs that set how hard it tries.
-docs: 02-numerics.md#Convergence criteria; 02-numerics.md#Current conservation; 07-decisions.md#Physics decisions log
+docs: numerics.md#Convergence criteria; numerics.md#Current conservation; decisions.md#Physics decisions log
 ---
 
 ## In plain words

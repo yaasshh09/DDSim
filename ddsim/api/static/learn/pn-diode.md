@@ -1,7 +1,7 @@
 ---
 title: The PN diode
 summary: A p type region meeting an n type region, the step in potential that forms between them, and what forward and reverse bias do to it.
-docs: 01-physics.md#The Van Roosbroeck system
+docs: physics.md#The Van Roosbroeck system
 ---
 
 ## In plain words

@@ -1,7 +1,7 @@
 ---
 title: Dropped frames
 summary: Why the page can miss some iteration reports while a sweep runs, what that does to the plots, and why the finished curve is still complete.
-docs: 02-numerics.md#Convergence criteria
+docs: numerics.md#Convergence criteria
 ---
 
 ## In plain words

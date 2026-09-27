@@ -1,7 +1,7 @@
 ---
 title: The three sweeps
 summary: iv, transfer and cv, which device each one is for, and which solver each one runs.
-docs: 02-numerics.md#Bias continuation
+docs: numerics.md#Bias continuation
 ---
 
 ## In plain words

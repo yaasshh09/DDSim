@@ -1,7 +1,7 @@
 ---
 title: Doping
 summary: The impurity atoms that make silicon n type or p type, and what each doping knob sets.
-docs: 01-physics.md#Notation; 01-physics.md#Incomplete ionization; 01-physics.md#The Van Roosbroeck system
+docs: physics.md#Notation; physics.md#Incomplete ionization; physics.md#The Van Roosbroeck system
 ---
 
 ## In plain words

@@ -1,7 +1,7 @@
 ---
 title: A stalled sweep
 summary: A sweep that couldn't reach its next voltage, what the page shows when that happens, and how to read the equation families it names.
-docs: 02-numerics.md#Bias continuation; 02-numerics.md#Convergence criteria
+docs: numerics.md#Bias continuation; numerics.md#Convergence criteria
 ---
 
 ## In plain words

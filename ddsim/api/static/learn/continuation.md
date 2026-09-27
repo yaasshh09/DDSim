@@ -1,7 +1,7 @@
 ---
 title: Bias continuation
 summary: Walking the bias up in small steps from an answer already found, halving the step when one fails, and why the first point needs this too.
-docs: 02-numerics.md#Bias continuation; 02-numerics.md#The first point is a jump too; 05-pitfalls.md#Specific traps; 07-decisions.md#Physics decisions log
+docs: numerics.md#Bias continuation; numerics.md#The first point is a jump too; pitfalls.md#Specific traps; decisions.md#Physics decisions log
 ---
 
 ## In plain words

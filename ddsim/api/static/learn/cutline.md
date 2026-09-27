@@ -1,7 +1,7 @@
 ---
 title: The cutline
 summary: Dragging a line across a 2D device to see the band diagram along it, and what the browser does and doesn't compute to draw it.
-docs: 01-physics.md#Notation
+docs: physics.md#Notation
 ---
 
 ## In plain words

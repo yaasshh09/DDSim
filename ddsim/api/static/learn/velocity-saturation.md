@@ -1,7 +1,7 @@
 ---
 title: Velocity saturation
 summary: Why carriers stop speeding up once the field gets strong enough, and why that shapes the current of a short MOSFET.
-docs: 01-physics.md#Mobility models; 01-physics.md#What emerges, and must not be hardcoded; 06-constants.md#Caughey-Thomas; 06-constants.md#Mobility, undoped silicon at 300 K
+docs: physics.md#Mobility models; physics.md#What emerges, and must not be hardcoded; constants.md#Caughey-Thomas; constants.md#Mobility, undoped silicon at 300 K
 ---
 
 ## In plain words

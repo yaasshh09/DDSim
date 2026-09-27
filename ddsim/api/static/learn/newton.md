@@ -1,7 +1,7 @@
 ---
 title: Newton's method
 summary: Solving for the potential, the electrons and the holes all at once, and why its residual drops so steeply once it's close.
-docs: 02-numerics.md#Full Newton (Phase 3); 02-numerics.md#Linear algebra; 02-numerics.md#Convergence criteria; 07-decisions.md#Known deviations from reference
+docs: numerics.md#Full Newton (Phase 3); numerics.md#Linear algebra; numerics.md#Convergence criteria; decisions.md#Known deviations from reference
 ---
 
 ## In plain words

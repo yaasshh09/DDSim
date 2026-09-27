@@ -1,7 +1,7 @@
 ---
 title: The three devices
 summary: A PN diode, a MOS capacitor and an n-channel MOSFET, what each one is for, and why none of their behaviour is fitted.
-docs: 01-physics.md#What emerges, and must not be hardcoded
+docs: physics.md#What emerges, and must not be hardcoded
 ---
 
 ## In plain words
@@ -29,7 +29,7 @@ defaults and all, so the form can't drift away from what the solver builds.
 
 ## In more depth
 
-The list in docs/01-physics.md is the contract. The built in potential, the
+The list in references/physics.md is the contract. The built in potential, the
 depletion width, the diode ideality factor and its crossover from 2 to 1, the
 threshold voltage and body effect, the subthreshold slope, DIBL, threshold
 roll-off with gate length, and velocity saturation are all outputs. None of

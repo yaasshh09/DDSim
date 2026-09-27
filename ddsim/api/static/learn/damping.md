@@ -1,7 +1,7 @@
 ---
 title: Damping and step limiting
 summary: Shortening a Newton step that would overshoot, what "step limited" means, and why it can't fix a wrong answer.
-docs: 02-numerics.md#Full Newton (Phase 3); 05-pitfalls.md#Debugging order; 05-pitfalls.md#Specific traps
+docs: numerics.md#Full Newton (Phase 3); pitfalls.md#Debugging order; pitfalls.md#Specific traps
 ---
 
 ## In plain words

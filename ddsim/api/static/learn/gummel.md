@@ -1,7 +1,7 @@
 ---
 title: Gummel iteration
 summary: Solving for the potential, the electrons and the holes one at a time, taking turns. It's what the diode I-V sweep runs.
-docs: 02-numerics.md#Gummel iteration (Phase 2); 02-numerics.md#Convergence criteria; 07-decisions.md#Known deviations from reference
+docs: numerics.md#Gummel iteration (Phase 2); numerics.md#Convergence criteria; decisions.md#Known deviations from reference
 ---
 
 ## In plain words

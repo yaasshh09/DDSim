@@ -1,7 +1,7 @@
 ---
 title: Mobility
 summary: How easily a carrier moves through the crystal when a field pushes it, and how doping slows it down.
-docs: 01-physics.md#Mobility models; 01-physics.md#Einstein relation; 06-constants.md#Mobility, undoped silicon at 300 K; 06-constants.md#Arora model parameters
+docs: physics.md#Mobility models; physics.md#Einstein relation; constants.md#Mobility, undoped silicon at 300 K; constants.md#Arora model parameters
 ---
 
 ## In plain words

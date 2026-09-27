@@ -1,7 +1,7 @@
 ---
 title: The C-V sweep
 summary: Capacitance against gate voltage, what its shape says about the surface, and how it's computed without subtracting two solves.
-docs: 02-numerics.md#Small-signal AC (Phase 4, for C-V)
+docs: numerics.md#Small-signal AC (Phase 4, for C-V)
 ---
 
 ## In plain words
@@ -27,7 +27,7 @@ capacitor's flatband is near -0.92 V, so the default voltage list from 0 to
 
 ## In more depth
 
-docs/02-numerics.md sets out the general small signal solve
+references/numerics.md sets out the general small signal solve
 
 $$(J_{dc} + i\omega M)\,x = b, \qquad Y = G + i\omega C, \qquad C = \mathrm{Im}(Y)/\omega$$
 

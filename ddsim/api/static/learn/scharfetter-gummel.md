@@ -1,7 +1,7 @@
 ---
 title: The Scharfetter-Gummel scheme
 summary: How the current between two neighbouring nodes gets computed so it stays right even where densities change by powers of ten.
-docs: 02-numerics.md#Scharfetter-Gummel discretization; 02-numerics.md#The Bernoulli function; 02-numerics.md#Why this problem is hard; 05-pitfalls.md#Specific traps
+docs: numerics.md#Scharfetter-Gummel discretization; numerics.md#The Bernoulli function; numerics.md#Why this problem is hard; pitfalls.md#Specific traps
 ---
 
 ## In plain words

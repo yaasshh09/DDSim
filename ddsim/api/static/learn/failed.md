@@ -1,7 +1,7 @@
 ---
 title: A failed job
 summary: What it means when a sweep ends as failed, how that's different from a refusal or a stall, and what to try next.
-docs: 02-numerics.md#Convergence criteria
+docs: numerics.md#Convergence criteria
 ---
 
 ## In plain words
@@ -54,7 +54,7 @@ stops early there, but it still reports failure, because spending the rest of
 the budget can't change the answer.
 
 A mesh that under-resolves the doping is a quieter problem.
-docs/02-numerics.md asks for spacing at a junction below half the local Debye
+references/numerics.md asks for spacing at a junction below half the local Debye
 length, which is 40.9 nm at 1e16 cm^-3 and 4.09 nm at 1e18. A mesh coarser
 than that might fail to converge, but it's just as likely to converge to a
 smeared answer. A success doesn't prove the mesh was fine enough.

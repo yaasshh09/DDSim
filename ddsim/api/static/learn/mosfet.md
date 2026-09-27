@@ -1,7 +1,7 @@
 ---
 title: The n-channel MOSFET
 summary: Source, drain, gate and channel, what the threshold voltage is, and what drift diffusion leaves out once the gate gets short.
-docs: 01-physics.md#MOS gate; 01-physics.md#Where drift-diffusion breaks down
+docs: physics.md#MOS gate; physics.md#Where drift-diffusion breaks down
 ---
 
 ## In plain words
@@ -40,7 +40,7 @@ it.
 
 Drift diffusion is a local model: a carrier's velocity follows the field
 right where it is. That stops being true as the gate shrinks, and
-docs/01-physics.md names where.
+references/physics.md names where.
 
 - Below about 50 nm of channel, carriers cross almost without scattering.
   That's quasi-ballistic transport, and it needs energy balance or Monte

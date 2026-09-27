@@ -1,7 +1,7 @@
 ---
 title: Recombination and generation
 summary: Electrons and holes meeting and cancelling out, or being created in pairs, and why that sets a diode's current.
-docs: 01-physics.md#Recombination; 01-physics.md#Shockley-Read-Hall; 01-physics.md#Auger; 06-constants.md#SRH lifetimes; 06-constants.md#Auger coefficients
+docs: physics.md#Recombination; physics.md#Shockley-Read-Hall; physics.md#Auger; constants.md#SRH lifetimes; constants.md#Auger coefficients
 ---
 
 ## In plain words

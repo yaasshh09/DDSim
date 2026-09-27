@@ -1,7 +1,7 @@
 ---
 title: The mesh
 summary: The device chopped into a finite set of points, where those points go, and what the node counts and spacings trade off.
-docs: 02-numerics.md#Mesh; 05-pitfalls.md#Specific traps; 07-decisions.md#Physics decisions log
+docs: numerics.md#Mesh; pitfalls.md#Specific traps; decisions.md#Physics decisions log
 ---
 
 ## In plain words

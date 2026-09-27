@@ -1,7 +1,7 @@
 ---
 title: Fermi-Dirac statistics
 summary: Why the simple exponential law for carrier density breaks in heavily doped silicon, and what the degenerate switch does about it.
-docs: 01-physics.md#Carrier statistics; 01-physics.md#Einstein relation; 07-decisions.md#Physics decisions log
+docs: physics.md#Carrier statistics; physics.md#Einstein relation; decisions.md#Physics decisions log
 ---
 
 ## In plain words

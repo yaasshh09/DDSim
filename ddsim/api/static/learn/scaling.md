@@ -1,7 +1,7 @@
 ---
 title: Scaled units
 summary: Why the solver divides every quantity by a reference value before it starts, and what those reference values are.
-docs: 02-numerics.md#Scaling (de Mari); 02-numerics.md#Why this problem is hard; 06-constants.md#Derived, useful for sanity checks
+docs: numerics.md#Scaling (de Mari); numerics.md#Why this problem is hard; constants.md#Derived, useful for sanity checks
 ---
 
 ## In plain words

@@ -8,7 +8,7 @@ from ddsim.api.learn import(KNOB_TOPICS, LEARN, PLOT_TOPICS, STATUS_TOPICS, load
 from  ddsim.api.sweeps import  SWEEP_KINDS,   model_parameters,   sweep_parameters
 
 
-DOCS=pathlib.Path(__file__).parents[2]/"docs"
+DOCS=pathlib.Path(__file__).parents[2]/"references"
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ def test_every_docs_reference_names_a_heading_that_exists(name) ->None :
             for liine in Text.splitlines()
             if liine.startswith('#')
         }
-        assert hea in r2,f"{name}: docs/{File} has no heading {hea!r}"
+        assert hea in r2,f"{name}: references/{File} has no heading {hea!r}"
 
 @pytest.mark.parametrize(  'path' ,   sorted(LEARN.glob( "*.md" ) ) , ids =   lambda p   :  p.name)
 

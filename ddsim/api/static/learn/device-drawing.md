@@ -1,7 +1,7 @@
 ---
 title: Drawing a 2D device
 summary: Rectangles of silicon and oxide, rectangles of doping, electrodes along straight lines, how the mesh follows them, why a drawing gets refused, and what a result on a device you drew can and can't tell you.
-docs: 01-physics.md#Doping range; 02-numerics.md#Mesh
+docs: physics.md#Doping range; numerics.md#Mesh
 ---
 
 ## In plain words

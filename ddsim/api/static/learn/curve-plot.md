@@ -1,7 +1,7 @@
 ---
 title: The curve plot
 summary: Reading the I-V, transfer or C-V curve, what the log toggle does to negative values, and why every dot is a real solve.
-docs: 02-numerics.md#Bias continuation
+docs: numerics.md#Bias continuation
 ---
 
 ## In plain words
@@ -55,5 +55,5 @@ positive. It's read from the continuity residual at the contact nodes, not
 from the edge flux next to them, which is why the terminal currents add up to
 zero. Near zero current that residual is a difference of large flux terms. So
 a current far below the flux sizes, like a MOSFET drain deep in its off
-state, carries a floor of arithmetic noise. docs/07-decisions.md records one
+state, carries a floor of arithmetic noise. decisions.md records one
 near 2e-9 A/cm that can even read negative.

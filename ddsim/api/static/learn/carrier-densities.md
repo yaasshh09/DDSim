@@ -1,7 +1,7 @@
 ---
 title: Carrier densities, n and p
 summary: How many free electrons and holes sit at each point in the device, and why they're plotted on a log scale.
-docs: 01-physics.md#Carrier statistics; 06-constants.md#The n_i problem, read this; 06-constants.md#n_i is not consistent with Nc, Nv and Eg, and that is deliberate
+docs: physics.md#Carrier statistics; constants.md#The n_i problem, read this; constants.md#n_i is not consistent with Nc, Nv and Eg, and that is deliberate
 ---
 
 ## In plain words

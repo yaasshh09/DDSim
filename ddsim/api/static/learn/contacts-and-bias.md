@@ -1,7 +1,7 @@
 ---
 title: Contacts and bias
 summary: What a contact voltage means, which contact the sweep takes over, and the boundary conditions an ohmic contact imposes.
-docs: 01-physics.md#Ohmic contacts
+docs: physics.md#Ohmic contacts
 ---
 
 ## In plain words
@@ -43,7 +43,7 @@ $V_T \ln(N/n_i)$ breaks where the net doping is near zero or negative.
 Those are the Boltzmann limit forms. On a device solved with Fermi-Dirac
 statistics, which the MOSFET is by default, the contact densities and
 potential come from the degenerate relation instead. The interior uses the
-same statistics, and docs/07-decisions.md records why they have to match: a
+same statistics, and decisions.md records why they have to match: a
 Fermi-Dirac contact on a Boltzmann interior would cram the whole 30.5 mV
 correction at 1e20 cm^-3 into a layer one node wide.
 

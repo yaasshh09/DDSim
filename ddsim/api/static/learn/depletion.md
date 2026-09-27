@@ -1,7 +1,7 @@
 ---
 title: Depletion
 summary: The region around a junction that gets swept almost empty of carriers, and why reverse bias widens it.
-docs: 01-physics.md#The Van Roosbroeck system; 01-physics.md#What emerges, and must not be hardcoded; 06-constants.md#Derived, useful for sanity checks
+docs: physics.md#The Van Roosbroeck system; physics.md#What emerges, and must not be hardcoded; constants.md#Derived, useful for sanity checks
 ---
 
 ## In plain words
