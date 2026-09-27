@@ -10,7 +10,7 @@ from ddsim.extract.rolloff import(
 )
 from tests.regression.devsim_gen import parameters as P
 GOLDEN =  pathlib.Path(__file__).resolve().parents[2]  / "data" / "golden"
-OUTPUT=pathlib.Path(__file__).parents[2]/"docs"/"images"
+OUTPUT=pathlib.Path(__file__).parents[2] / "images"
 GATE_LENGTHS  =   [ 1e-4,   2e-5,  1e-5, 7e-6 ,   5e-6]
 
 

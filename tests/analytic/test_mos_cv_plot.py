@@ -10,7 +10,7 @@ from tests.analytic.test_mos_cap import(flatband_voltage, max_depletion_width , 
 from tests.analytic.test_mos_cv import debye_length,in_series
 from tests.regression.devsim_gen import  parameters as  P
 
-OUTPUT  =  pathlib.Path (  __file__ ).parents [  2]  /  "docs"   /  'images'
+OUTPUT  =  pathlib.Path (  __file__ ).parents [  2] / 'images'
 
 GOLDEN_DIR=pathlib.Path(__file__).resolve().parents[2]/ 'data' /"golden"
 BENCHMARK =P.MOS_BENCHMARKS[0]

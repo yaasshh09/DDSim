@@ -8,7 +8,7 @@ from ddsim.device.transport import TransportModels
 from ddsim.extract.iv import gate_sweep
 from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
 from tests.regression.devsim_gen import parameters as P
-OUTPUT=pathlib.Path(__file__).resolve().parents[2] / 'docs' /'images'
+OUTPUT=pathlib.Path(__file__).resolve().parents[2] / 'images'
 GOLDEN_DIR= pathlib.Path(__file__).resolve().parents[2]/'data' /'golden'
 BENCHMARK= P.MOSFET_BY_NAME['nmos_1um']
 

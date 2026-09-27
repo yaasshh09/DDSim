@@ -7,7 +7,7 @@ from ddsim.device.pn_diode import pn_diode
 from ddsim.extract.iv import iv_sweep
 from ddsim.extract.params import ideality_factor,saturation_current
 
-OUTPUT =pathlib.Path(__file__).parents[2] /'docs' /"images"
+OUTPUT =pathlib.Path(__file__).parents[2] / "images"
 
 MICRON =1e-4
 

@@ -8,7 +8,7 @@ from ddsim.core import constants as C
 from ddsim.device.equilibrium import solve_equilibrium
 from  ddsim.device.pn_diode import pn_diode
 
-OUTPUT  = pathlib.Path(__file__).parents[2] / "docs"/  'images'
+OUTPUT  = pathlib.Path(__file__).parents[2] / 'images'
 
 
 def test_band_diagram_is_generated() -> None:
