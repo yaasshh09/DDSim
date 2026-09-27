@@ -32,3 +32,4 @@ PROGRESS.md
 Dockerfile
 .dockerignore
 fly.toml
+run.sh
