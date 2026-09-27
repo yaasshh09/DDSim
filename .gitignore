@@ -33,3 +33,5 @@ Dockerfile
 .dockerignore
 fly.toml
 run.sh
+docs/
+phases/
