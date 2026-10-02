@@ -446,7 +446,7 @@ def speed_sweep(name :  str)  -> int  :
 def run_speed(path:  str) ->  str :
     arr = [tuple for tuple in THREAD_VARIABLES if os.environ.get(tuple)!="1"]
     if arr :
-        raise SystemExit(f"set {', '.join(arr)} to 1 first, see phases/PHASE-8.md item 5")
+        raise SystemExit(f"set {', '.join(arr)} to 1 first, see references/decisions.md 2026-09-26")
     tod =  datetime.date.today().isoformat()
     headder= [
         f"# written {tod} by devsim_gen/scoreboard.py speed",
