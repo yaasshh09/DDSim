@@ -173,7 +173,7 @@ def _check_records(
             raise ValueError(
                 f"implant {nmuber}: a concentration of {q.concentration:g} "
                 f"cm^-3 is outside {tmp:g} to {hig:g} cm^-3, the range the "
-                f"models here are built for (see docs/01-physics.md).{Why}"
+                f"models here are built for (see references/physics.md).{Why}"
             )
     for hmm in electrodes:
         if hmm.kind not in("ohmic",'gate'):

@@ -44,7 +44,7 @@ def test_the_surface_spacing_mirrors_ddsim() ->  None  :
             f"{Benchmark.name} puts a {OxideCell:.3e} cm oxide cell against a "
             f"{ddsimspacing:.3e} silicon surface spacing, a seam ratio of "
             f"{OxideCell / ddsimspacing:.3g}. Follow devsim_h_surface with "
-            "devsim_oxide_cells, see docs/05-pitfalls.md."
+            "devsim_oxide_cells, see references/pitfalls.md."
         )
 def test_full_stack_parameters_mirror_ddsim()->  None :
 

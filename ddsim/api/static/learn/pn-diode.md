@@ -62,4 +62,4 @@ region widens. At high forward bias the injected carriers stop being a small
 perturbation and the low injection picture behind the law breaks down.
 
 The 1D diodes are tier 4 benchmarks against DEVSIM, each held to the
-tolerance docs/04-validation.md sets for it.
+tolerance its test sets for it.

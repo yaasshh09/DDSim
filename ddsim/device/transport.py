@@ -415,7 +415,7 @@ def  _check_positive (
         f"{name} came out non-positive at node {k2}, value "
         f"{density[k2]:.3e}. The continuity matrix should be an M-matrix "
         "with a non-negative right hand side, so check signs before anything "
-        'else, per docs/05-pitfalls.md. Do not clamp.',
+        'else, per references/pitfalls.md. Do not clamp.',
         state,
     )
 

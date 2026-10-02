@@ -593,7 +593,7 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(server, tmp_pa
             wait_until(pge, "document.querySelectorAll('#runs-note svg polyline').length === 2", Errors,)
             set_region(pge,2,"n","1e-4","1e21"); pge.click('#solve') ; wait_until(pge, "el('state').textContent === 'refused'", Errors)
             Refusal =pge.inner_text('#message')
-            assert 'region 2' in Refusal and "docs/01-physics.md" in Refusal
+            assert 'region 2' in Refusal and "references/physics.md" in Refusal
             set_region(pge,2,'n','1e-4','1e14')
 
             with pge.expect_download()as dir :

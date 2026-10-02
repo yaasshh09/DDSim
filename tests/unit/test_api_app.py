@@ -351,7 +351,7 @@ def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(  client  ) 
     ]
     res= client.post("/api/jobs", json= {'device':{'kind':'stack',"parameters" :{"regions": k2}}, "sweep":{'kind':'iv',"contact":"left","voltages" : [0.1]},},)
     assert res.status_code  == 400;assert "region 2" in res.json()['detail']
-    assert "docs/01-physics.md" in res.json() ['detail']
+    assert "references/physics.md" in res.json() ['detail']
 
 
 

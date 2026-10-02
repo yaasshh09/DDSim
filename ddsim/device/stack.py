@@ -69,7 +69,7 @@ def _check_regions(regions : tuple[Region, ...]) -> None :
                 f"region {Number}: a doping of {vars.concentration:g} cm^-3 "
                 f"is outside {loww:g} to {buf:g} cm^-3, the range the mobility, "
                 "recombination and statistics models here are built for (see "
-                'docs/01-physics.md).'
+                'references/physics.md).'
             )
 
 

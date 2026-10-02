@@ -72,7 +72,7 @@ def gummel_solve(
             Message  =  (
                 f"update was not finite at iteration {Iteration}, the "
                 'iteration has diverged. Check signs before reaching for '
-                "damping, per docs/05-pitfalls.md."
+                "damping, per references/pitfalls.md."
             )
             break
 

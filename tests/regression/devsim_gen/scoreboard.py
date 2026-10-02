@@ -268,7 +268,7 @@ def  _done (  path  : str ) ->  set[ tuple[str ,   str]  ] :
 def run(names:list[str] |None,path:str,resume: bool = False) ->str:
     print( "resume??", resume , len( names  or [  ] )  ) ; Pinned=[V for V in THREAD_VARIABLES if V in os.environ]
     if Pinned   :
-        raise  SystemExit(f"unset {', '.join(Pinned)} first, robustness runs at each tool's default threading, see docs/07-decisions.md 2026-09-26")
+        raise  SystemExit(f"unset {', '.join(Pinned)} first, robustness runs at each tool's default threading, see references/decisions.md 2026-09-26")
     casses  =  [  cc for  cc  in read_cases ( )  if names  is None  or cc[ "case"] in names  ]
     iter = _done(path)  if resume else set();  tod=  datetime.date.today().isoformat()
     hea  = [

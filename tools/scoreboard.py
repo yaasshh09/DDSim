@@ -213,7 +213,7 @@ def run(names  : list[str] | None, path : Path) -> Path :
     pind   =   [ hmm for hmm in THREAD_VARIABLES  if  hmm in os.environ ]
     if  pind   :
         raise SystemExit(
-            f"unset {', '.join(pind)} first, robustness runs at each tool's default threading, see docs/07-decisions.md 2026-09-26"
+            f"unset {', '.join(pind)} first, robustness runs at each tool's default threading, see references/decisions.md 2026-09-26"
         )
     out2 =[C for C in read_cases()if names is None or C.name in names]
     hea  =  [

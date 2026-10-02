@@ -125,7 +125,7 @@ def test_a_doping_outside_the_model_range_is_refused(  concentration)   ->   Non
         stack(t2)
     assert f"{bar:g}" in str(lst.value) and f"{High:g}" in str(lst.value)
 
-    assert 'docs/01-physics.md' in str(lst.value)
+    assert 'references/physics.md' in str(lst.value)
 
 
 
