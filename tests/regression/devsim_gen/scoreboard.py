@@ -461,6 +461,8 @@ def run_speed(path:  str) ->  str :
                 sta=time.perf_counter()
                 try :
                     poi = speed_sweep(nam)
+                except Exception as err :
+                    poi = 0;  print(f"{nam} run {ri} failed: {err}")
                 finally :
 
 

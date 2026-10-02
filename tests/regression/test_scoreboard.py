@@ -299,3 +299,20 @@ def  test_richardson_refuses_an_order_scharfetter_gummel_cannot_have( )  ->  Non
 
     lev= [(1.0,100,6.0),(1.5,225,6.1),(2.25,506,6.198)]
     assert  tool.richardson(lev, 2  ).order is None
+
+
+def test_a_sweep_that_never_converged_has_no_speed(tmp_path :Path) -> None:
+    pth = tmp_path/"speed.csv"
+    pth.write_text("# x\nbenchmark,name,run,points,seconds\n7,nmos_180nm,1,0,6.6\n7,nmos_180nm,2,0,6.5\n6,nmos_1um,1,32,64.0\n6,nmos_1um,2,0,9.0\n6,nmos_1um,3,32,32.0\n", encoding="utf-8")
+    Speeds = tool.read_speed(pth)
+    assert 'nmos_180nm' not in Speeds
+    assert Speeds["nmos_1um"]==pytest.approx(1.5)
+
+
+def test_the_speed_ratio_only_counts_what_both_tools_converged()->None :
+    from types import SimpleNamespace
+    ours = {n: 2.0 for _, n in tool.SPEED}
+    theirs={n : 1.0 for _,n in tool.SPEED if n!="nmos_180nm"}
+    assert tool._speed_ratio(SimpleNamespace(ddsim_speed=ours, devsim_speed  =theirs))==pytest.approx(2.0)
+    assert tool._speed_row(7,"nmos_180nm",ours,theirs)=="| 7 | nmos_180nm | 2 | failed | n/a |"
+    assert tool._speed_row(6, 'nmos_1um', ours, theirs) == "| 6 | nmos_1um | 2 | 1 | 2 |"

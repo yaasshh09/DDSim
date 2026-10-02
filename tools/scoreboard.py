@@ -585,6 +585,8 @@ def  read_speed(  path  :  Path  )  ->   dict[ str, float ] :
 
     PerPoint :dict[str,list[float]] = {}
     for roww in _rows(path):
+        if int(roww["points"])==0:
+            continue
         max   =   float (roww[  "seconds"]  ) /  int(  roww["points" ]  )
         PerPoint.setdefault( roww ['name' ],  []).append (max)
     return{nme:float(np.median(valuues))for nme,valuues in PerPoint.items()}
@@ -644,7 +646,7 @@ def _fewer_nodes(board : Board) -> tuple[int, int, int] :
 
 def _speed_ratio( board  : Board )   ->  float  :
 
-    dat = [board.ddsim_speed[n] /board.devsim_speed[n]for _,n in SPEED]
+    dat = [board.ddsim_speed[n] /board.devsim_speed[n]for _,n in SPEED if n in board.ddsim_speed and n in board.devsim_speed]
 
     return float (  np.exp( np.mean( np.log (dat ))))
 
@@ -687,6 +689,12 @@ def headline(board:Board) -> str:
 
 def _number(value  : float | None, digits :  int = 3)->  str:
     return "n/a" if value is None else f"{value:.{digits}g}"
+
+
+def _speed_row(number:int, name:str, ours:dict[str,float], theirs:dict[str,float]) -> str:
+    a,b = ours.get(name), theirs.get(name)
+    ratio = "n/a" if a is None or b is None else f"{a / b:.2g}"
+    return f"| {number} | {name} | {'failed' if a is None else f'{a:.3g}'} | {'failed' if b is None else f'{b:.3g}'} | {ratio} |"
 
 
 def details( board :   Board )  -> str   :
@@ -747,12 +755,7 @@ def details( board :   Board )  -> str   :
         "| # | Benchmark | DDSim | DEVSIM | Ratio |",
         '|---|---|---|---|---|' ,
     ]
-    for nmuber,nam in SPEED:
-        OursS, thiers_s =board.ddsim_speed[nam], board.devsim_speed[nam]
-        lin.append(
-            f"| {nmuber} | {nam} | {OursS:.3g} | {thiers_s:.3g} | "
-            f"{OursS / thiers_s:.2g} |"
-        )
+    lin+=[_speed_row(nmuber, nam, board.ddsim_speed, board.devsim_speed) for nmuber,nam in SPEED]
     lin   +=  [  "",   '## Capabilities',   "" ,  "See capabilities.csv.",   ""]
 
     return "\n".join(  lin  )
