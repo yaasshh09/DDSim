@@ -40,9 +40,9 @@ PAGE =Path(__file__).parent  /'static'/ "index.html"
 class _Revalidated(StaticFiles):
 
     async def get_response(self, path  :  str, scope :  Any) -> Response:
-        res = await super().get_response(path, scope)
-        res.headers["Cache-Control"] ='no-cache'
-        return res
+        d = await super().get_response(path, scope)
+        d.headers["Cache-Control"] ='no-cache'
+        return d
 _QUIET_POLL = 0.25
 
 
@@ -83,147 +83,147 @@ class Finished:
     models :  TransportModels  | None
 def create_app(registry :JobRegistry|None =None)-> FastAPI:
 
-    ord=registry if registry is not None else JobRegistry()
+    c=registry if registry is not None else JobRegistry()
 
     @asynccontextmanager
 
     async def lifespan(_ :FastAPI)-> AsyncIterator[None]:
         yield
-        ord.close(timeout= SHUTDOWN_TIMEOUT)
-    App  =  FastAPI(title =  'DDSim', lifespan  =   lifespan  )
-    App.state.jobs =  ord
-    App.mount('/static',_Revalidated(directory=PAGE.parent),name='static')
+        c.close(timeout= SHUTDOWN_TIMEOUT)
+    j  =  FastAPI(title =  'DDSim', lifespan  =   lifespan  )
+    j.state.jobs =  c
+    j.mount('/static',_Revalidated(directory=PAGE.parent),name='static')
 
-    @App.get("/api/schema")
+    @j.get("/api/schema")
     def schema() -> dict[str, Any] :
-        return{'devices' : {kind  : [ _knob(  p  )  for  p  in  device_parameters(kind )] for kind in DEVICE_KINDS}, "dimensions"  :  {kind   :  device_dimension (kind  ) for kind in  DEVICE_KINDS}, 'contacts'   :  {kind  : list (  contact_names( kind)  )  for  kind  in  DEVICE_KINDS}, 'regions'   : {kind   : regions for  kind  in  DEVICE_KINDS if ( regions  :=   region_defaults(kind))  is  not  None}, 'drawings'   :  {kind  : parts for kind in  DEVICE_KINDS if( parts  :=  drawing_defaults(  kind))  is  not None}, "node_budget"   : NODE_BUDGET, 'presets'  : {kind :   {'parameters'  :   dict(  preset.parameters  ),  'note'   :  preset.note } for  kind ,   preset in  COARSE.items (  )}, "sweeps"  :   {kind   : [ _knob(  p ) for  p in sweep_parameters (kind  )  ]   for  kind  in SWEEP_KINDS}, "models" :   [_knob(p )  for  p  in model_parameters()  ], 'plots'  :   dict (PLOT_TOPICS  ) , "statuses"  :   dict(STATUS_TOPICS  ),}
-    @App.get('/api/learn')
+        return{'devices' : {el  : [ _knob(  p  )  for  p  in  device_parameters(el )] for el in DEVICE_KINDS}, "dimensions"  :  {el   :  device_dimension (el  ) for el in  DEVICE_KINDS}, 'contacts'   :  {el  : list (  contact_names( el)  )  for  el  in  DEVICE_KINDS}, 'regions'   : {el   : h for  el  in  DEVICE_KINDS if ( h  :=   region_defaults(el))  is  not  None}, 'drawings'   :  {el  : c2 for el in  DEVICE_KINDS if( c2  :=  drawing_defaults(  el))  is  not None}, "node_budget"   : NODE_BUDGET, 'presets'  : {el :   {'parameters'  :   dict(  k2.parameters  ),  'note'   :  k2.note } for  el ,   k2 in  COARSE.items (  )}, "sweeps"  :   {el   : [ _knob(  p ) for  p in sweep_parameters (el  )  ]   for  el  in SWEEP_KINDS}, "models" :   [_knob(p )  for  p  in model_parameters()  ], 'plots'  :   dict (PLOT_TOPICS  ) , "statuses"  :   dict(STATUS_TOPICS  ),}
+    @j.get('/api/learn')
     def  topics( ) ->  list [  dict[  str,   str  ]  ] :
         return[
             {'name': t.name,'title':t.title,'summary': t.summary}
-            for t in(load_topic(name)for name in topic_names())
+            for t in(load_topic(row)for row in topic_names())
         ]
-    @App.get('/api/learn/{name}')
+    @j.get('/api/learn/{name}')
     def topic(name  :  str)  ->  dict[str, Any] :
-        found=_found(lambda :load_topic(name))
-        return{"name" :  found.name, 'title'   :  found.title , "summary" :  found.summary, 'docs'  :   list(found.docs  ), 'plain' :   found.plain, "depth"  :   found.depth, "knobs"   :  sorted(k for  k ,   t  in  KNOB_TOPICS.items( )  if  t == found.name ),}
+        kk=_found(lambda :load_topic(name))
+        return{"name" :  kk.name, 'title'   :  kk.title , "summary" :  kk.summary, 'docs'  :   list(kk.docs  ), 'plain' :   kk.plain, "depth"  :   kk.depth, "knobs"   :  sorted(m for  m ,   lst  in  KNOB_TOPICS.items( )  if  lst == kk.name ),}
 
-    @App.get(  "/api/lessons" )
+    @j.get(  "/api/lessons" )
     def lessons()  -> list[dict[str, str]] :
         return [
-            {"name"  :   found.name,  "title" :   found.title, 'summary'   : found.summary  }
-            for found in(load_lesson(name  )   for  name  in lesson_names(  ))
+            {"name"  :   dat.name,  "title" :   dat.title, 'summary'   : dat.summary  }
+            for dat in(load_lesson(res2  )   for  res2  in lesson_names(  ))
         ]
 
 
-    @App.get("/api/lessons/{name}")
+    @j.get("/api/lessons/{name}")
     def lesson(name :str)->  dict[str, Any] :
-        found = _found(lambda :load_lesson(name))
+        i = _found(lambda :load_lesson(name))
         return{
-            "name": found.name,
-            'title':found.title,
-            "summary":found.summary,
-            'claims':list(found.claims),
-            "request":found.request,
-            'mesh_note' :found.mesh_note,
+            "name": i.name,
+            'title':i.title,
+            "summary":i.summary,
+            'claims':list(i.claims),
+            "request":i.request,
+            'mesh_note' :i.mesh_note,
             'steps' :[
                 {"title":s.title,"text": s.text,"request": s.request}
-                for s in found.steps
+                for s in i.steps
             ],
-            "look_for" : found.look_for,
-            "explanation":found.explanation,
+            "look_for" : i.look_for,
+            "explanation":i.explanation,
         }
-    @App.post('/api/devices/check')
+    @j.post('/api/devices/check')
     def  check( device   :  DeviceSpec  ) ->  dict[  str,   bool ]  :
         _checked (lambda  :  build_from_spec(device.kind , device.parameters)  )
 
         return{  "builds"  :  True }
 
-    @App.post('/api/jobs')
+    @j.post('/api/jobs')
 
     def  submit(request   :   JobRequest  )   ->  dict [ str,  str  ]  :
-        device   = _checked (
+        z2   = _checked (
             lambda   : build_from_spec(  request.device.kind,  request.device.parameters )
         )
-        sweep  = request.sweep
-        _checked(lambda :  check_request (sweep.kind, device , sweep.contact, sweep.settings , sweep.models, sweep.measure_at,))
+        nxt  = request.sweep
+        _checked(lambda :  check_request (nxt.kind, z2 , nxt.contact, nxt.settings , nxt.models, nxt.measure_at,))
 
         def work(send : Send) ->  Finished  :
-            curve,models= run_sweep(sweep.kind, device, sweep.contact, sweep.voltages, settings =sweep.settings, models=sweep.models or None, measure_at = sweep.measure_at, on_frame=send,)
-            return Finished(device  = device, curve =curve, models= models)
+            jj,v2= run_sweep(nxt.kind, z2, nxt.contact, nxt.voltages, settings =nxt.settings, models=nxt.models or None, measure_at = nxt.measure_at, on_frame=send,)
+            return Finished(device  = z2, curve =jj, models= v2)
         try:
-            return{'id' : ord.submit(work).id}
-        except BusyError as busy:
-            raise HTTPException(status_code =  503, detail =  str(busy)) from busy
+            return{'id' : c.submit(work).id}
+        except BusyError as d2:
+            raise HTTPException(status_code =  503, detail =  str(d2)) from d2
 
-    @App.get('/api/jobs/{job_id}')
+    @j.get('/api/jobs/{job_id}')
     def  status (job_id :  str  )  ->  dict[str,  Any  ]  :
         return{
             "id": job_id,
-            "status" :_found(lambda:ord.status(job_id)).value,
-            "message" : ord.message(job_id),
-            'dropped' :ord.dropped(job_id),
+            "status" :_found(lambda:c.status(job_id)).value,
+            "message" : c.message(job_id),
+            'dropped' :c.dropped(job_id),
         }
-    @App.post('/api/jobs/{job_id}/cancel')
+    @j.post('/api/jobs/{job_id}/cancel')
     def cancel(job_id : str)  ->dict[str, bool] :
-        return{"cancelled" : _found(lambda: ord.cancel(job_id))}
+        return{"cancelled" : _found(lambda: c.cancel(job_id))}
 
-    @App.get('/api/jobs/{job_id}/result')
+    @j.get('/api/jobs/{job_id}/result')
 
 
     def  result(  job_id :   str )  -> dict[ str,   Any ]  :
-        return curve_body(_finished(ord,job_id).curve)
-    @App.get( "/api/jobs/{job_id}/fields/{index}" )
+        return curve_body(_finished(c,job_id).curve)
+    @j.get( "/api/jobs/{job_id}/fields/{index}" )
     def fields(job_id :str, index  :int) -> Response :
-        done   =  _finished (ord ,   job_id )
-        points= done.curve.points
-        if not 0<= index < len(points):
+        w2   =  _finished (c ,   job_id )
+        res= w2.curve.points
+        if not 0<= index < len(res):
             raise HTTPException(
                 status_code =404,
                 detail  = (
-                    f"this sweep reached {len(points)} points, so there is no "
+                    f"this sweep reached {len(res)} points, so there is no "
                     f"point {index} to show a field at"
                 ),
             )
-        point   = points[  index ]
-        voltage  = point_voltage(point )
-        message  =encode(field_frame(done.device.with_bias(**  {done.curve.contact : voltage}), point.state, index = index, voltage =  voltage, models =done.models,))
-        assert  isinstance( message,   bytes  )
+        out2   = res[  index ]
+        s2  = point_voltage(out2 )
+        zz  =encode(field_frame(w2.device.with_bias(**  {w2.curve.contact : s2}), out2.state, index = index, voltage =  s2, models =w2.models,))
+        assert  isinstance( zz,   bytes  )
 
 
-        return Response(content=message,media_type='application/octet-stream')
+        return Response(content=zz,media_type='application/octet-stream')
 
-    @App.websocket("/api/jobs/{job_id}/stream")
+    @j.websocket("/api/jobs/{job_id}/stream")
     async  def stream(  socket  : WebSocket,   job_id  :   str)   ->  None :
         await socket.accept()
         try :
-            ord.status(job_id)
-        except KeyError as missing :
-            await socket.close(code= 1008, reason = str(missing))
+            c.status(job_id)
+        except KeyError as r2 :
+            await socket.close(code= 1008, reason = str(r2))
             return
 
         try :
             while True  :
-                frame =await anyio.to_thread.run_sync(_poll,ord,job_id)
-                if  frame  is _ENDED  :
+                it =await anyio.to_thread.run_sync(_poll,c,job_id)
+                if  it  is _ENDED  :
                     break
-                if frame is _NOTHING_YET:
-                    if ord.status(job_id)in _TERMINAL:
+                if it is _NOTHING_YET:
+                    if c.status(job_id)in _TERMINAL:
                         break
                     continue
-                await _send (  socket,  encode( frame)  )
-            await _send (socket, encode(Status(status  =  ord.status( job_id).value, message =  ord.message (  job_id), dropped  =   ord.dropped(  job_id  ),)) ,)
+                await _send (  socket,  encode( it)  )
+            await _send (socket, encode(Status(status  =  c.status( job_id).value, message =  c.message (  job_id), dropped  =   c.dropped(  job_id  ),)) ,)
 
         except WebSocketDisconnect :
             return
 
-    @App.get ( '/')
+    @j.get ( '/')
     def  page( )  -> FileResponse  :
 
         return FileResponse(
             PAGE,media_type='text/html',headers={'Cache-Control': 'no-cache'}
         )
-    return  App
+    return  j
 
 
 
@@ -248,20 +248,20 @@ def _knob(parameter: Any) ->dict[str, Any]:
 def _checked (call :   Any) -> Any :
     try :
         return call()
-    except (  ValueError,  TypeError, KeyError  )   as  ref   :
-        sid  =ref.args[0]if ref.args else str(ref)
+    except (  ValueError,  TypeError, KeyError  )   as  u   :
+        row  =u.args[0]if u.args else str(u)
 
-        raise  HTTPException(status_code   =  400 ,  detail  =  str(  sid )  ) from  ref
+        raise  HTTPException(status_code   =  400 ,  detail  =  str(  row )  ) from  u
 
 def  _found(  call   : Any ) -> Any  :
     try :
         return call()
-    except  KeyError  as miissing   :
-        raise HTTPException(status_code=404,detail =str(miissing))from miissing
+    except  KeyError  as ii   :
+        raise HTTPException(status_code=404,detail =str(ii))from ii
 
 def _finished(jobs : JobRegistry, job_id : str)  ->Finished:
-    foo =_found(lambda  :  jobs.result(job_id))
-    if foo is None  :
+    s2 =_found(lambda  :  jobs.result(job_id))
+    if s2 is None  :
         raise HTTPException(
             status_code  =   409,
             detail = (
@@ -270,9 +270,9 @@ def _finished(jobs : JobRegistry, job_id : str)  ->Finished:
             ),
         )
 
-    assert isinstance(foo, Finished)
+    assert isinstance(s2, Finished)
 
-    return foo
+    return s2
 
 def _poll(jobs: JobRegistry,
           job_id:str) ->Any:

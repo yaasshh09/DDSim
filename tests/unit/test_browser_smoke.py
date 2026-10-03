@@ -15,9 +15,9 @@ SOLVE_TIMEOUT_MS =  120_000
 
 
 def  free_port () ->  int   :
-    with socket.socket() as prbe:
-        prbe.bind(("127.0.0.1",0))
-        return int(prbe.getsockname()  [1])
+    with socket.socket() as arr:
+        arr.bind(("127.0.0.1",0))
+        return int(arr.getsockname()  [1])
 
 
 
@@ -37,32 +37,32 @@ class Served:
 
 def served()->Iterator[Served]:
 
-    por  =   free_port (  )
-    junk=JobRegistry()
-    cnofig   =  uvicorn.Config(
-        create_app ( junk) ,   host  =  "127.0.0.1",   port  =  por,  log_level  =  'warning'
+    j  =   free_port (  )
+    jj=JobRegistry()
+    i   =  uvicorn.Config(
+        create_app ( jj) ,   host  =  "127.0.0.1",   port  =  j,  log_level  =  'warning'
     )
-    q  = uvicorn.Server(cnofig)
-    ser: list[logging.LogRecord] = []
-    bar=logging.Handler(level=logging.ERROR)
-    bar.emit=ser.append
-    logging.getLogger("uvicorn.error").addHandler(bar)
-    ret =threading.Thread(target  = q.run, daemon=True)
-    ret.start()
+    r2  = uvicorn.Server(i)
+    x: list[logging.LogRecord] = []
+    it=logging.Handler(level=logging.ERROR)
+    it.emit=x.append
+    logging.getLogger("uvicorn.error").addHandler(it)
+    a =threading.Thread(target  = r2.run, daemon=True)
+    a.start()
 
-    filter   =  threading.Event()
+    info   =  threading.Event()
     for _ in range(int(STARTUP_TIMEOUT/0.05)):
-        if q.started:
+        if r2.started:
 
             break
-        filter.wait (  0.05)
-    assert q.started, 'uvicorn did not start'
+        info.wait (  0.05)
+    assert r2.started, 'uvicorn did not start'
 
-    yield Served(url= f"http://127.0.0.1:{por}",jobs=junk)
-    q.should_exit=True
-    ret.join(timeout =STARTUP_TIMEOUT)
-    logging.getLogger('uvicorn.error').removeHandler(bar)
-    assert[Record.getMessage()for Record in ser] == []
+    yield Served(url= f"http://127.0.0.1:{j}",jobs=jj)
+    r2.should_exit=True
+    a.join(timeout =STARTUP_TIMEOUT)
+    logging.getLogger('uvicorn.error').removeHandler(it)
+    assert[c.getMessage()for c in x] == []
 
 @pytest.fixture
 
@@ -82,184 +82,184 @@ def wait_until(page: Page,condition: str,errors :list[str])-> None:
 
 def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) ->None :
 
-    with sync_playwright() as dri :
-        pow= dri.chromium.launch()
+    with sync_playwright() as r :
+        cc= r.chromium.launch()
 
         try :
-            pag = pow.new_page ()
-            temp :list[str] =  []
-            pag.on('pageerror', lambda error :temp.append(str(error)))
-            val :set[str]=set()
-            pag.on("request", lambda request : val.add(request.url.split("/") [2]))
-            pag.goto(server )
-            pag.wait_for_function("el('state').textContent === 'ready'")
-            pag.fill("#voltages", '0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6')
-            pag.click("#solve")
-            wait_until(pag, "state.residual.length > 0 && el('state').textContent === 'solving'", temp,)
-            wait_until(pag, "el('state').textContent.startsWith('done') && state.fields !== null", temp,)
+            num = cc.new_page ()
+            m :list[str] =  []
+            num.on('pageerror', lambda error :m.append(str(error)))
+            kk :set[str]=set()
+            num.on("request", lambda request : kk.add(request.url.split("/") [2]))
+            num.goto(server )
+            num.wait_for_function("el('state').textContent === 'ready'")
+            num.fill("#voltages", '0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6')
+            num.click("#solve")
+            wait_until(num, "state.residual.length > 0 && el('state').textContent === 'solving'", m,)
+            wait_until(num, "el('state').textContent.startsWith('done') && state.fields !== null", m,)
 
-            assert pag.evaluate("state.points.length")==  7
-            assert pag.evaluate("state.fields.arrays.psi.length")>0
-            assert  temp  ==   []
-            assert val=={server.split('/') [2]}, f"requests left: {val}"
-            assert  pag.evaluate ("typeof marked.parse") ==   "function"
-            assert pag.evaluate("typeof renderMathInElement")== "function"
+            assert num.evaluate("state.points.length")==  7
+            assert num.evaluate("state.fields.arrays.psi.length")>0
+            assert  m  ==   []
+            assert kk=={server.split('/') [2]}, f"requests left: {kk}"
+            assert  num.evaluate ("typeof marked.parse") ==   "function"
+            assert num.evaluate("typeof renderMathInElement")== "function"
         finally :
-            pow.close()
+            cc.close()
 
 def test_a_knob_explains_itself_with_rendered_maths(server) ->None:
-    with sync_playwright()as dri:
+    with sync_playwright()as tt:
 
-        min = dri.chromium.launch()
+        e = tt.chromium.launch()
         try :
-            divmod =  min.new_page()
-            err :  list[str] = []
-            divmod.on('pageerror',lambda error:err.append(str(error)))
+            u =  e.new_page()
+            s :  list[str] = []
+            u.on('pageerror',lambda error:s.append(str(error)))
 
-            divmod.goto(server)
-            wait_until(divmod,"el('state').textContent === 'ready'",err)
-            divmod.click('label:has([data-name="Na"]) .explain')
+            u.goto(server)
+            wait_until(u,"el('state').textContent === 'ready'",s)
+            u.click('label:has([data-name="Na"]) .explain')
 
-            wait_until(divmod, "el('drawer').classList.contains('open')", err)
-            wait_until(divmod,"document.querySelector('#drawer-depth .katex') !== null",err)
-            assert 'cm^-3' in divmod.inner_text('#drawer-knob')
-            assert divmod.inner_text("#drawer-title")
-            assert "$$" not in divmod.inner_text('#drawer-depth')
-            Tex=divmod.evaluate(
+            wait_until(u, "el('drawer').classList.contains('open')", s)
+            wait_until(u,"document.querySelector('#drawer-depth .katex') !== null",s)
+            assert 'cm^-3' in u.inner_text('#drawer-knob')
+            assert u.inner_text("#drawer-title")
+            assert "$$" not in u.inner_text('#drawer-depth')
+            i=u.evaluate(
                 "[...document.querySelectorAll('#drawer-depth annotation')]"
                 ".map((a) => a.textContent).join(' ')"
             )
-            assert r"\," in Tex, Tex
-            assert err ==[]
+            assert r"\," in i, i
+            assert s ==[]
         finally:
-            min.close()
+            e.close()
 
 
 def test_the_band_view_draws_after_a_diode_solve(server)  -> None :
 
-    with sync_playwright() as r2 :
-        obj2  =   r2.chromium.launch( )
+    with sync_playwright() as aa :
+        i  =   aa.chromium.launch( )
         try:
-            pag  = obj2.new_page()
-            err:list[str]  = []
+            v  = i.new_page()
+            val2:list[str]  = []
 
-            pag.on('pageerror',lambda error:err.append(str(error)))
+            v.on('pageerror',lambda error:val2.append(str(error)))
 
-            pag.goto(server)
-            wait_until(pag, "el('state').textContent === 'ready'", err)
-            pag.fill('#voltages', '0, 0.3');pag.click('#solve')
+            v.goto(server)
+            wait_until(v, "el('state').textContent === 'ready'", val2)
+            v.fill('#voltages', '0, 0.3');v.click('#solve')
             wait_until(
-                pag ,
+                v ,
                 "el('state').textContent.startsWith('done') && state.fields !== null",
-                err ,
+                val2 ,
             )
 
 
-            pag.check('#bands')
-            assert pag.evaluate("state.fields.arrays.Ec.length")>0
-            assert pag.is_visible('#legend-bands')
-            assert err==[]
+            v.check('#bands')
+            assert v.evaluate("state.fields.arrays.Ec.length")>0
+            assert v.is_visible('#legend-bands')
+            assert val2==[]
 
 
         finally  :
-            obj2.close()
+            i.close()
 
 COARSE_FET = {"n_contact": '4', 'n_sd':"10", 'n_channel':"12", "n_silicon":"29", 'n_oxide': '4', "h_min_x":'5e-7', 'h_min_y' : '1e-7', "drain_voltage" :"0.05",}
 
 def test_streamlines_trace_through_a_mosfet(server) ->None :
-    with sync_playwright()as Driver:
-        open  = Driver.chromium.launch( )
+    with sync_playwright()as v:
+        r  = v.chromium.launch( )
         try :
-            pge= open.new_page()
-            x2 :list[str]=[]
+            idx= r.new_page()
+            j :list[str]=[]
 
-            pge.on('pageerror', lambda error:x2.append(str(error)));  pge.goto(server);  wait_until(pge, "el('state').textContent === 'ready'", x2)
-            pge.select_option('#device-kind', "nmos")
-            pge.select_option('#sweep-kind',"transfer")
-            for Name, vlaue in COARSE_FET.items() :
+            idx.on('pageerror', lambda error:j.append(str(error)));  idx.goto(server);  wait_until(idx, "el('state').textContent === 'ready'", j)
+            idx.select_option('#device-kind', "nmos")
+            idx.select_option('#sweep-kind',"transfer")
+            for out, s in COARSE_FET.items() :
 
 
-                pge.fill(  f'[data-name="{Name}"]',   vlaue)
-            pge.select_option('#measure-at', 'drain')
-            pge.fill("#voltages",'1.0')
-            pge.click('#solve')
+                idx.fill(  f'[data-name="{out}"]',   s)
+            idx.select_option('#measure-at', 'drain')
+            idx.fill("#voltages",'1.0')
+            idx.click('#solve')
             wait_until(
-                pge,
+                idx,
                 "el('state').textContent.startsWith('done') && state.fields !== null",
-                x2,
+                j,
             )
-            cou=pge.evaluate(
+            k=idx.evaluate(
                 'traceStreamlines(state.fields, 12, 6).filter(l => l.length > 5).length'
             )
 
-            assert cou> 0
-            assert "no current" not in pge.inner_text('#profile-note')
-            ch = pge.evaluate("el('cutline').getBoundingClientRect().height")
+            assert k> 0
+            assert "no current" not in idx.inner_text('#profile-note')
+            g = idx.evaluate("el('cutline').getBoundingClientRect().height")
 
-            assert ch== pytest.approx(200,abs=1)
-            assert x2 ==  []
+            assert g== pytest.approx(200,abs=1)
+            assert j ==  []
         finally  :
-            open.close()
+            r.close()
 
 def  test_a_mosfet_at_rest_says_why_it_has_no_streamlines(  server )   ->  None :
-    with  sync_playwright()  as  drivver   :
-        blah =  drivver.chromium.launch()
+    with  sync_playwright()  as  g   :
+        e =  g.chromium.launch()
         try  :
 
-            pgae =blah.new_page();  err :  list[str] = []
-            pgae.on ("pageerror",  lambda error  :  err.append (str (  error) ))
-            pgae.goto(server)
-            wait_until(pgae,"el('state').textContent === 'ready'",err)
+            ss =e.new_page();  cc :  list[str] = []
+            ss.on ("pageerror",  lambda error  :  cc.append (str (  error) ))
+            ss.goto(server)
+            wait_until(ss,"el('state').textContent === 'ready'",cc)
 
-            pgae.select_option("#device-kind",  "nmos" )
-            pgae.select_option('#sweep-kind','transfer')
-            for bar,Value in{** COARSE_FET,"drain_voltage" : '0'}.items():
-                pgae.fill(f'[data-name="{bar}"]',Value)
-            pgae.fill(  '#voltages', '0.5')
-            pgae.click("#solve")
+            ss.select_option("#device-kind",  "nmos" )
+            ss.select_option('#sweep-kind','transfer')
+            for d,thing in{** COARSE_FET,"drain_voltage" : '0'}.items():
+                ss.fill(f'[data-name="{d}"]',thing)
+            ss.fill(  '#voltages', '0.5')
+            ss.click("#solve")
             wait_until(
-                pgae ,
+                ss ,
                 "el('state').textContent.startsWith('done') && state.fields !== null" ,
-                err ,
+                cc ,
             )
 
-            assert 'no current flows' in pgae.inner_text('#profile-note')
+            assert 'no current flows' in ss.inner_text('#profile-note')
 
-            pgae.uncheck( '#streamlines' )
+            ss.uncheck( '#streamlines' )
 
-            assert "no current" not in pgae.inner_text('#profile-note')
-            assert err== []
+            assert "no current" not in ss.inner_text('#profile-note')
+            assert cc== []
         finally :
-            blah.close()
+            e.close()
 
 
 
 def  test_an_equation_wider_than_the_drawer_can_be_reached(  server )  ->  None  :
-    with sync_playwright ()  as  next   :
-        broowser  = next.chromium.launch()
+    with sync_playwright ()  as  m   :
+        xx  = m.chromium.launch()
         try :
-            pag= broowser.new_page()
-            bar :list[str] = []
-            pag.on("pageerror", lambda error: bar.append(str(error)))
-            pag.goto(server)
+            a2= xx.new_page()
+            val :list[str] = []
+            a2.on("pageerror", lambda error: val.append(str(error)))
+            a2.goto(server)
 
-            wait_until(pag, "el('state').textContent === 'ready'", bar)
-            pag.evaluate("explain('scharfetter-gummel')")
+            wait_until(a2, "el('state').textContent === 'ready'", val)
+            a2.evaluate("explain('scharfetter-gummel')")
 
             wait_until(
-                pag,"el('drawer-depth').querySelector('.katex') !== null",bar
+                a2,"el('drawer-depth').querySelector('.katex') !== null",val
             )
-            Clipped = pag.evaluate(
+            u = a2.evaluate(
                 """[...el('drawer-depth').querySelectorAll('.katex-display')]
                    .filter(block => block.scrollWidth > block.clientWidth + 1
                        && getComputedStyle(block).overflowX === 'visible').length"""
             )
-            assert Clipped ==0
+            assert u ==0
 
-            assert bar ==[]
+            assert val ==[]
         finally:
 
-            broowser.close()
+            xx.close()
 
 def solved(page:  Page, errors  : list[str]) -> None :
     page.click("#solve")
@@ -280,63 +280,63 @@ def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
     server,
 )  ->  None:
 
-    with sync_playwright()as drivver :
-        Browser=drivver.chromium.launch()
+    with sync_playwright()as b2 :
+        val=b2.chromium.launch()
         try  :
-            paage  =  Browser.new_page(  )
-            vars  : list[str]  = []
-            paage.on("pageerror", lambda error:  vars.append(str(error)));  paage.goto ( server)
-            wait_until (  paage,  "el('state').textContent === 'ready'",  vars)
-            paage.fill ('#voltages', '0, 0.2, 0.4' )
-            solved(paage, vars)
-            First  =  paage.evaluate( 'state.points.map((p) => [p.voltage, p.value])' )
-            paage.fill('[data-name="Na"]',"2e17"); solved (  paage,   vars)
-            pow  = paage.evaluate("state.points.map((p) => [p.voltage, p.value])")
+            dd  =  val.new_page(  )
+            aa  : list[str]  = []
+            dd.on("pageerror", lambda error:  aa.append(str(error)));  dd.goto ( server)
+            wait_until (  dd,  "el('state').textContent === 'ready'",  aa)
+            dd.fill ('#voltages', '0, 0.2, 0.4' )
+            solved(dd, aa)
+            j  =  dd.evaluate( 'state.points.map((p) => [p.voltage, p.value])' )
+            dd.fill('[data-name="Na"]',"2e17"); solved (  dd,   aa)
+            v2  = dd.evaluate("state.points.map((p) => [p.voltage, p.value])")
 
 
 
-            w=paage.evaluate(
+            d2=dd.evaluate(
                 'state.runs.map((r) => r.points.map((p) => [p.voltage, p.value]))'
             )
-            Labels =  paage.evaluate('state.runs.map((r) => r.label)')
+            d =  dd.evaluate('state.runs.map((r) => r.label)')
 
-            assert w   ==  [  First] ,   "the overlay is not the first run's own numbers"
-            assert pow!=  First, 'the second solve did not move the curve'
-            assert 'Na' in Labels[0], Labels
+            assert d2   ==  [  j] ,   "the overlay is not the first run's own numbers"
+            assert v2!=  j, 'the second solve did not move the curve'
+            assert 'Na' in d[0], d
 
-            paage.click("#clear-runs")
+            dd.click("#clear-runs")
 
-            assert paage.evaluate('state.runs.length') ==  0
-            assert vars == []
+            assert dd.evaluate('state.runs.length') ==  0
+            assert aa == []
         finally  :
-            Browser.close()
+            val.close()
 
 
 
 
 def test_five_slider_moves_in_a_second_leave_one_solve_running(served)  ->   None  :
-    with sync_playwright() as dri:
+    with sync_playwright() as w:
 
 
-        bro  = dri.chromium.launch (  )
+        k  = w.chromium.launch (  )
         try :
-            vals= bro.new_page()
-            err : list[str] = [] ; vals.on("pageerror",lambda error:err.append(str(error)))
-            blah : list[str] =[]
+            d= k.new_page()
+            j : list[str] = [] ; d.on("pageerror",lambda error:j.append(str(error)))
+            c : list[str] =[]
 
             def note_job(response)->None:
 
                 if response.request.method=='POST' and response.url.endswith(
                     '/api/jobs'
                 ) :
-                    blah.append(response.json()  ["id"])
+                    c.append(response.json()  ["id"])
 
-            vals.on("response",note_job)
-            vals.goto(served.url)
+            d.on("response",note_job)
+            d.goto(served.url)
 
-            wait_until (  vals , "el('state').textContent === 'ready'",  err )
+            wait_until (  d , "el('state').textContent === 'ready'",  j )
 
-            vals.evaluate(
+            d.evaluate(
                 """(async () => {
                   const slider = document.querySelector('[data-slider="Na"]');
                   for (const at of [0.2, 0.3, 0.4, 0.5, 0.6]) {
@@ -348,288 +348,288 @@ def test_five_slider_moves_in_a_second_leave_one_solve_running(served)  ->   Non
                   }
                 })()"""
             )
-            wait_until(vals,"el('state').textContent.startsWith('done')",err)
-            assert  len(blah  )  ==  1,  f"five moves submitted {len(blah)} jobs"
-            assert served.jobs.status(blah[0])is JobStatus.DONE
-            vals.fill('#voltages', ', '.join(str(v / 50) for v in range(40)))
-            round  =   """(() => {
+            wait_until(d,"el('state').textContent.startsWith('done')",j)
+            assert  len(c  )  ==  1,  f"five moves submitted {len(c)} jobs"
+            assert served.jobs.status(c[0])is JobStatus.DONE
+            d.fill('#voltages', ', '.join(str(s / 50) for s in range(40)))
+            flag  =   """(() => {
                   const slider = document.querySelector('[data-slider="Na"]');
                   slider.value = String(
                     Number(slider.min) + AT * (slider.max - slider.min)
                   );
                   slider.dispatchEvent(new Event("input", { bubbles: true }));
                 })()"""
-            vals.evaluate(round.replace('AT','0.7'))
-            until(vals,lambda : len(blah)==2,"a second job to be submitted")
-            until(vals, lambda  :  served.jobs.status (  blah [  1  ])  is  JobStatus.RUNNING , "the second job to start solving" ,)
+            d.evaluate(flag.replace('AT','0.7'))
+            until(d,lambda : len(c)==2,"a second job to be submitted")
+            until(d, lambda  :  served.jobs.status (  c [  1  ])  is  JobStatus.RUNNING , "the second job to start solving" ,)
 
-            vals.evaluate(round.replace('AT',"0.8"))
-            until(vals, lambda :len(blah) ==  3, "a third job to be submitted")
-            wait_until(vals,"el('state').textContent.startsWith('done')",err)
-            assert served.jobs.status(blah[1])is JobStatus.CANCELLED
-            assert served.jobs.status(blah[2])is JobStatus.DONE
-            assert err ==[]
+            d.evaluate(flag.replace('AT',"0.8"))
+            until(d, lambda :len(c) ==  3, "a third job to be submitted")
+            wait_until(d,"el('state').textContent.startsWith('done')",j)
+            assert served.jobs.status(c[1])is JobStatus.CANCELLED
+            assert served.jobs.status(c[2])is JobStatus.DONE
+            assert j ==[]
 
         finally  :
-            vals.remove_listener('response', note_job)
-            bro.close()
+            d.remove_listener('response', note_job)
+            k.close()
 
 def  test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server )  ->  None  :
-    darg= '''([name, at]) => {
+    k= '''([name, at]) => {
       const slider = document.querySelector('[data-slider="' + name + '"]');
       slider.value = String(Number(slider.min) + at * (slider.max - slider.min));
       slider.dispatchEvent(new Event("input", { bubbles: true }));
     }'''
-    boxx=  """(name) => Number(document.querySelector(
+    res2=  """(name) => Number(document.querySelector(
       '#device-knobs [data-name="' + name + '"]').value)"""
-    with  sync_playwright( )  as  out2   :
-        Browser= out2.chromium.launch()
+    with  sync_playwright( )  as  y2   :
+        t= y2.chromium.launch()
         try :
-            paage=Browser.new_page()
-            err : list[str]= []
-            paage.on( "pageerror",   lambda  error   : err.append( str(  error ))  )
-            paage.goto(server);wait_until(paage,"el('state').textContent === 'ready'",err)
+            w=t.new_page()
+            kk : list[str]= []
+            w.on( "pageerror",   lambda  error   : kk.append( str(  error ))  )
+            w.goto(server);wait_until(w,"el('state').textContent === 'ready'",kk)
             def solved_again(move) -> None:
-                before =paage.evaluate('state.job')
+                c =w.evaluate('state.job')
 
                 move ( )
                 wait_until(
-                    paage,
-                    f"state.job !== {json.dumps(before)} && "
+                    w,
+                    f"state.job !== {json.dumps(c)} && "
                     "el('state').textContent.startsWith('done')",
-                    err,
+                    kk,
                 )
 
-            solved_again(lambda :paage.evaluate(darg,["length",0.0]))
-            assert paage.evaluate(boxx,'length')>paage.evaluate(boxx,"junction")
-            assert 'stops at' in paage.inner_text("#knob-note")
+            solved_again(lambda :w.evaluate(k,["length",0.0]))
+            assert w.evaluate(res2,'length')>w.evaluate(res2,"junction")
+            assert 'stops at' in w.inner_text("#knob-note")
 
-            solved_again(lambda : paage.evaluate(darg, ["length", 0.5]))
-            solved_again(lambda:paage.evaluate(darg, ['n_nodes', 1.0]))
-            solved_again(lambda:paage.evaluate(darg,['h_min',1.0]))
-            assert paage.evaluate(boxx, "h_min") <  1e-6
-            assert 'h_min' in paage.inner_text("#knob-note")
-            paage.fill('#device-knobs [data-name="Na"]', "1e25")
-
-
-            solved_again(lambda  : paage.dispatch_event('#device-knobs [data-name="Na"]',   'change' ))
-            assert paage.evaluate(boxx, "Na") ==  1e19
-            obj2= "Array.from(el('contact').options, (o) => o.value)"
-
-            assert  paage.evaluate ( obj2  ) == [ "anode" ,   'cathode'  ]
+            solved_again(lambda : w.evaluate(k, ["length", 0.5]))
+            solved_again(lambda:w.evaluate(k, ['n_nodes', 1.0]))
+            solved_again(lambda:w.evaluate(k,['h_min',1.0]))
+            assert w.evaluate(res2, "h_min") <  1e-6
+            assert 'h_min' in w.inner_text("#knob-note")
+            w.fill('#device-knobs [data-name="Na"]', "1e25")
 
 
-            paage.fill("#voltages","0, 0.5, 3");solved_again(lambda  :  paage.click ( "#solve" ) )
+            solved_again(lambda  : w.dispatch_event('#device-knobs [data-name="Na"]',   'change' ))
+            assert w.evaluate(res2, "Na") ==  1e19
+            b= "Array.from(el('contact').options, (o) => o.value)"
 
-            assert paage.input_value('#voltages')  =='0, 0.5, 1'
-            assert "held to" in paage.inner_text("#voltage-note")
-            assert err  == []
+            assert  w.evaluate ( b  ) == [ "anode" ,   'cathode'  ]
+
+
+            w.fill("#voltages","0, 0.5, 3");solved_again(lambda  :  w.click ( "#solve" ) )
+
+            assert w.input_value('#voltages')  =='0, 0.5, 1'
+            assert "held to" in w.inner_text("#voltage-note")
+            assert kk  == []
         finally :
-            Browser.close()
+            t.close()
 
 def test_a_two_dimensional_device_offers_a_coarse_mesh(server)->None :
 
-    with  sync_playwright( )  as  junk   :
-        bro  = junk.chromium.launch()
+    with  sync_playwright( )  as  zz   :
+        tmp  = zz.chromium.launch()
         try :
 
-            pgae  =   bro.new_page()
-            err:list[str] = []
-            pgae.on("pageerror", lambda error :  err.append(str(error)))
-            pgae.goto(server)
-            wait_until(pgae,"el('state').textContent === 'ready'",err)
+            kk  =   tmp.new_page()
+            j:list[str] = []
+            kk.on("pageerror", lambda error :  j.append(str(error)))
+            kk.goto(server)
+            wait_until(kk,"el('state').textContent === 'ready'",j)
 
-            sliers = "document.querySelectorAll('[data-slider]').length"
-            assert pgae.evaluate (  sliers  )   >  0
-            assert pgae.is_hidden('#mesh-coarse')
-
-
-            assert pgae.is_visible("#bands");pgae.select_option("#device-kind", "nmos")
-            assert pgae.evaluate(sliers)  >0
-            assert pgae.is_visible("#mesh-coarse")
-            assert pgae.is_hidden('#bands')
-            assert pgae.input_value('#sweep-kind') == 'transfer'
-            pgae.select_option('#device-kind','pn_diode')
-            assert pgae.input_value("#sweep-kind")== 'iv'
-            assert pgae.is_visible("#bands")
+            s = "document.querySelectorAll('[data-slider]').length"
+            assert kk.evaluate (  s  )   >  0
+            assert kk.is_hidden('#mesh-coarse')
 
 
-            pgae.select_option("#device-kind", 'nmos')
+            assert kk.is_visible("#bands");kk.select_option("#device-kind", "nmos")
+            assert kk.evaluate(s)  >0
+            assert kk.is_visible("#mesh-coarse")
+            assert kk.is_hidden('#bands')
+            assert kk.input_value('#sweep-kind') == 'transfer'
+            kk.select_option('#device-kind','pn_diode')
+            assert kk.input_value("#sweep-kind")== 'iv'
+            assert kk.is_visible("#bands")
 
-            pgae.click("#mesh-coarse")
-            assert pgae.input_value('[data-name="n_silicon"]')== '29'
-            assert "percent"  in  pgae.inner_text ('#mesh-note' )
-            pgae.click("#mesh-converged")
-            assert pgae.input_value('[data-name="n_silicon"]') ==  '101'
-            assert err ==[]
+
+            kk.select_option("#device-kind", 'nmos')
+
+            kk.click("#mesh-coarse")
+            assert kk.input_value('[data-name="n_silicon"]')== '29'
+            assert "percent"  in  kk.inner_text ('#mesh-note' )
+            kk.click("#mesh-converged")
+            assert kk.input_value('[data-name="n_silicon"]') ==  '101'
+            assert j ==[]
         finally :
-            bro.close()
+            tmp.close()
 def test_a_negative_log_slider_runs_in_decades_and_a_2d_one_does_not_solve(
     server,
 )->None :
 
-    Drag  =  """(at) => {
+    x  =  """(at) => {
       const slider = document.querySelector('[data-slider="substrate_doping"]');
       slider.value = String(Number(slider.min) + at * (slider.max - slider.min));
       slider.dispatchEvent(new Event("input", { bubbles: true }));
     }"""
-    Box= """() => Number(document.querySelector(
+    aa= """() => Number(document.querySelector(
       '#device-knobs [data-name="substrate_doping"]').value)"""
 
-    with sync_playwright()as r2:
-        browsser  = r2.chromium.launch()
+    with sync_playwright()as h:
+        r  = h.chromium.launch()
         try  :
-            blah=browsser.new_page()
-            w  : list [ str] =  [  ]
-            blah.on('pageerror',lambda error: w.append(str(error)))
-            blah.goto(server)
-            wait_until(blah, "el('state').textContent === 'ready'", w)
-            blah.select_option("#device-kind", 'mos_cap')
+            u=r.new_page()
+            z  : list [ str] =  [  ]
+            u.on('pageerror',lambda error: z.append(str(error)))
+            u.goto(server)
+            wait_until(u, "el('state').textContent === 'ready'", z)
+            u.select_option("#device-kind", 'mos_cap')
 
-            arr   =  '[data-slider="substrate_doping"]'
-            assert blah.get_attribute(arr, 'min')  ==  "-19"
-            assert blah.get_attribute(arr, 'max') =="-14"
+            val2   =  '[data-slider="substrate_doping"]'
+            assert u.get_attribute(val2, 'min')  ==  "-19"
+            assert u.get_attribute(val2, 'max') =="-14"
 
-            assert blah.input_value(arr)  =='-16'
-
-
-
-            bef= blah.evaluate('state.job')
-            blah.evaluate(Drag, 0.0)
-            assert blah.evaluate(Box)== -1e19;blah.evaluate(Drag,1.0)
-            assert blah.evaluate(Box) == -1e14
-            blah.evaluate(  Drag,  0.5  )
-            assert math.isclose(blah.evaluate(Box), -  (10** 16.5), rel_tol  = 2e-2)
+            assert u.input_value(val2)  =='-16'
 
 
-            blah.wait_for_timeout(1000)
-            assert blah.evaluate("state.job") ==  bef
 
-            assert blah.inner_text('#state') =='ready'
-            assert w== []
+            t= u.evaluate('state.job')
+            u.evaluate(x, 0.0)
+            assert u.evaluate(aa)== -1e19;u.evaluate(x,1.0)
+            assert u.evaluate(aa) == -1e14
+            u.evaluate(  x,  0.5  )
+            assert math.isclose(u.evaluate(aa), -  (10** 16.5), rel_tol  = 2e-2)
+
+
+            u.wait_for_timeout(1000)
+            assert u.evaluate("state.job") ==  t
+
+            assert u.inner_text('#state') =='ready'
+            assert z== []
 
         finally :
-            browsser.close()
+            r.close()
 def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server)-> None :
 
-    with sync_playwright()as Driver:
-        broser=Driver.chromium.launch()
+    with sync_playwright()as d:
+        h=d.chromium.launch()
         try :
-            pag  = broser.new_page()
-            zz  :  list[str ]  =  [ ]
-            pag.on("pageerror", lambda error :zz.append(str(error)))
-            pag.goto (server )
-            wait_until(pag, "el('state').textContent === 'ready'", zz)
-            wait_until ( pag, "el('lesson').options.length === 6",  zz )
+            r  = h.new_page()
+            cur  :  list[str ]  =  [ ]
+            r.on("pageerror", lambda error :cur.append(str(error)))
+            r.goto (server )
+            wait_until(r, "el('state').textContent === 'ready'", cur)
+            wait_until ( r, "el('lesson').options.length === 6",  cur )
 
-            pag.select_option (  '#lesson' ,   "02-bias"  )
-            wait_until( pag, "!el('lesson-panel').hidden",  zz )
-            assert pag.input_value("#device-kind")=='pn_diode'
-            assert pag.input_value("#voltages").startswith('0, 0.05, 0.1')
-            yy  = "document.querySelector('#lesson-saw .katex') !== null"
-            assert pag.evaluate(yy)
+            r.select_option (  '#lesson' ,   "02-bias"  )
+            wait_until( r, "!el('lesson-panel').hidden",  cur )
+            assert r.input_value("#device-kind")=='pn_diode'
+            assert r.input_value("#voltages").startswith('0, 0.05, 0.1')
+            m  = "document.querySelector('#lesson-saw .katex') !== null"
+            assert r.evaluate(m)
 
-            pag.click("#lesson-steps li:has-text('Reverse bias') button")
-            assert float(pag.input_value('[data-name="length"]'))== 4e-4
-            assert pag.input_value("#voltages") == "0, -0.5, -1, -2"
-            w  = float (  pag.input_value('[data-slider="length"]')  )
-            assert abs(w-(-3.3979)) <=0.01
+            r.click("#lesson-steps li:has-text('Reverse bias') button")
+            assert float(r.input_value('[data-name="length"]'))== 4e-4
+            assert r.input_value("#voltages") == "0, -0.5, -1, -2"
+            v  = float (  r.input_value('[data-slider="length"]')  )
+            assert abs(v-(-3.3979)) <=0.01
 
-            solved(pag , zz)
-            assert pag.evaluate('state.points.length')== 4
+            solved(r , cur)
+            assert r.evaluate('state.points.length')== 4
 
 
-            pag.click('#lesson-leave')
+            r.click('#lesson-leave')
 
-            assert pag.is_hidden("#lesson-panel")
-            assert float(pag.input_value('[data-name="length"]'))==4e-4
-            pag.select_option('#lesson','04-mosfet')
-            wait_until(  pag ,   "el('device-kind').value === 'nmos'", zz )
-            assert pag.input_value ('[data-name="n_silicon"]') ==   "29"
+            assert r.is_hidden("#lesson-panel")
+            assert float(r.input_value('[data-name="length"]'))==4e-4
+            r.select_option('#lesson','04-mosfet')
+            wait_until(  r ,   "el('device-kind').value === 'nmos'", cur )
+            assert r.input_value ('[data-name="n_silicon"]') ==   "29"
 
-            assert  'coarse mesh' in  pag.inner_text('#mesh-note'  )
-            assert zz ==[]
+            assert  'coarse mesh' in  r.inner_text('#mesh-note'  )
+            assert cur ==[]
         finally :
-            broser.close()
+            h.close()
 
 def set_region(page :Page, row: int, dopant  :str, length  :str, doping  : str) ->  None:
-    rws=f"#regions > div:nth-child({row})"
-    page.select_option( f"{rws} [data-region=dopant]",   dopant  )
-    page.fill(f"{rws} [data-region=length]",length)
-    page.fill(f"{rws} [data-region=concentration]", doping)
+    v=f"#regions > div:nth-child({row})"
+    page.select_option( f"{v} [data-region=dopant]",   dopant  )
+    page.fill(f"{v} [data-region=length]",length)
+    page.fill(f"{v} [data-region=concentration]", doping)
 def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(server, tmp_path)  ->None  :
-    with  sync_playwright (  )  as  dri   :
-        min  = dri.chromium.launch()
+    with  sync_playwright (  )  as  d   :
+        f  = d.chromium.launch()
         try:
-            pge =   min.new_page()
-            Errors :list[str]  =[]
-            pge.on(  'pageerror' ,  lambda  error  : Errors.append (str( error )  )  ); pge.goto(server)
-            wait_until(pge, "el('state').textContent === 'ready'", Errors)
-            assert pge.is_hidden('#stack')
-            pge.select_option("#device-kind","stack")
+            j =   f.new_page()
+            bb :list[str]  =[]
+            j.on(  'pageerror' ,  lambda  error  : bb.append (str( error )  )  ); j.goto(server)
+            wait_until(j, "el('state').textContent === 'ready'", bb)
+            assert j.is_hidden('#stack')
+            j.select_option("#device-kind","stack")
 
-            assert pge.is_visible('#stack')
-
-
-            assert  pge.locator(  "#regions > div").count()  ==   2
-            assert pge.input_value("#contact") == "left"
-            assert "not validated" in pge.inner_text('#stack-note')
-
-            pge.click("#region-add")
-            assert pge.locator('#regions > div').count()==3
-
-            set_region(pge,1,"p","2e-5",'1e18')
-            set_region(  pge,   2,  "n", "1e-4",   '1e14')
-
-            set_region(pge,3,'n','2e-5','1e18')
-            pge.fill("#voltages",'0, 0.2')
-            solved(pge,Errors)
-            assert pge.evaluate('state.points.length')  ==2
-            assert  pge.is_visible("#built-note" )
-            set_region(pge,2,"p","1e-4",'1e14')
-            solved ( pge,   Errors)
-            lab = pge.inner_text('#runs-note')
-            assert  "regions"  in lab and  'object'  not in lab
-            wait_until(pge, "document.querySelectorAll('#runs-note svg polyline').length === 2", Errors,)
-            set_region(pge,2,"n","1e-4","1e21"); pge.click('#solve') ; wait_until(pge, "el('state').textContent === 'refused'", Errors)
-            Refusal =pge.inner_text('#message')
-            assert 'region 2' in Refusal and "references/physics.md" in Refusal
-            set_region(pge,2,'n','1e-4','1e14')
-
-            with pge.expect_download()as dir :
-                pge.click('#device-save')
-            savved= json.loads(dir.value.path().read_text(encoding ="utf-8"))
+            assert j.is_visible('#stack')
 
 
-            assert savved["kind"]  =='stack'
-            assert  savved[ 'parameters']  [ "regions"]  [  1 ]  ==  {
+            assert  j.locator(  "#regions > div").count()  ==   2
+            assert j.input_value("#contact") == "left"
+            assert "not validated" in j.inner_text('#stack-note')
+
+            j.click("#region-add")
+            assert j.locator('#regions > div').count()==3
+
+            set_region(j,1,"p","2e-5",'1e18')
+            set_region(  j,   2,  "n", "1e-4",   '1e14')
+
+            set_region(j,3,'n','2e-5','1e18')
+            j.fill("#voltages",'0, 0.2')
+            solved(j,bb)
+            assert j.evaluate('state.points.length')  ==2
+            assert  j.is_visible("#built-note" )
+            set_region(j,2,"p","1e-4",'1e14')
+            solved ( j,   bb)
+            c2 = j.inner_text('#runs-note')
+            assert  "regions"  in c2 and  'object'  not in c2
+            wait_until(j, "document.querySelectorAll('#runs-note svg polyline').length === 2", bb,)
+            set_region(j,2,"n","1e-4","1e21"); j.click('#solve') ; wait_until(j, "el('state').textContent === 'refused'", bb)
+            res =j.inner_text('#message')
+            assert 'region 2' in res and "references/physics.md" in res
+            set_region(j,2,'n','1e-4','1e14')
+
+            with j.expect_download()as thing :
+                j.click('#device-save')
+            it= json.loads(thing.value.path().read_text(encoding ="utf-8"))
+
+
+            assert it["kind"]  =='stack'
+            assert  it[ 'parameters']  [ "regions"]  [  1 ]  ==  {
                 'dopant'  :   'n',
                 'length'  : 1e-4,
                 "concentration"  :  1e14,
             }
-            pge.select_option('#device-kind', 'pn_diode')
-            assert pge.is_hidden('#stack')
-            handedover =tmp_path /'pin.json'
-            handedover.write_text(json.dumps(savved), encoding  = "utf-8")
-            pge.set_input_files('#device-load', str(handedover))
-            wait_until(pge, "el('device-kind').value === 'stack'", Errors)
-            assert pge.locator('#regions > div').count()==3
-            bse="#regions > div:nth-child(2) [data-region=concentration]"
-            assert pge.input_value(bse) =='1e+14'
-            pge.click('#regions > div:nth-child(3) [data-region=remove]')
-            assert pge.locator("#regions > div").count() ==2
-            input= tmp_path/"broken.json"
-            input.write_text("{not json", encoding =  'utf-8'  ); pge.set_input_files('#device-load',str(input))
-            wait_until(pge,"el('message').textContent.includes('JSON')",Errors)
-            assert Errors ==[]
+            j.select_option('#device-kind', 'pn_diode')
+            assert j.is_hidden('#stack')
+            g =tmp_path /'pin.json'
+            g.write_text(json.dumps(it), encoding  = "utf-8")
+            j.set_input_files('#device-load', str(g))
+            wait_until(j, "el('device-kind').value === 'stack'", bb)
+            assert j.locator('#regions > div').count()==3
+            k2="#regions > div:nth-child(2) [data-region=concentration]"
+            assert j.input_value(k2) =='1e+14'
+            j.click('#regions > div:nth-child(3) [data-region=remove]')
+            assert j.locator("#regions > div").count() ==2
+            r= tmp_path/"broken.json"
+            r.write_text("{not json", encoding =  'utf-8'  ); j.set_input_files('#device-load',str(r))
+            wait_until(j,"el('message').textContent.includes('JSON')",bb)
+            assert bb ==[]
         finally:
 
-            min.close()
+            f.close()
 
 
 def  electrode( page   :   Page,   row   :  int,   field  :  str,  value  :   str  )  ->  None  :
-    Box = page.locator ( '#drawing-electrodes > div').nth (row )
-    Box.locator(f"[data-part={field}]").fill(value);Box.locator(f"[data-part={field}]").dispatch_event('change')
+    y = page.locator ( '#drawing-electrodes > div').nth (row )
+    y.locator(f"[data-part={field}]").fill(value);y.locator(f"[data-part={field}]").dispatch_event('change')
 
 
 def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
@@ -637,86 +637,86 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
 )->None:
 
 
-    with sync_playwright()as min :
-        Browser = min.chromium.launch()
+    with sync_playwright()as out :
+        val2 = out.chromium.launch()
         try  :
-            val =  Browser.new_page() ; yy  :  list[  str]  =  []
-            val.on('pageerror',  lambda  error  : yy.append ( str ( error  ) ) )
-            val.goto(server)
-            wait_until(val, "el('state').textContent === 'ready'", yy)
-            assert val.is_hidden("#drawing")
-            val.select_option('#device-kind','drawing')
-            assert val.is_visible('#drawing')
+            prev =  val2.new_page() ; rows  :  list[  str]  =  []
+            prev.on('pageerror',  lambda  error  : rows.append ( str ( error  ) ) )
+            prev.goto(server)
+            wait_until(prev, "el('state').textContent === 'ready'", rows)
+            assert prev.is_hidden("#drawing")
+            prev.select_option('#device-kind','drawing')
+            assert prev.is_visible('#drawing')
 
 
-            assert val.locator("#drawing-blocks > div").count()== 2
-            assert val.locator('#drawing-implants > div').count()==3 ; assert val.locator(  "#drawing-electrodes > div"  ).count() == 4
-            assert val.input_value('#contact'  )   ==  'gate'
-            assert "20000" in val.inner_text('#drawing-note')
-            val.select_option('#drawing-tool', 'gate');vie =  val.locator("#drawing-view").bounding_box()
-            Bottom  =  vie["y"]  + vie["height"] - 2
+            assert prev.locator("#drawing-blocks > div").count()== 2
+            assert prev.locator('#drawing-implants > div').count()==3 ; assert prev.locator(  "#drawing-electrodes > div"  ).count() == 4
+            assert prev.input_value('#contact'  )   ==  'gate'
+            assert "20000" in prev.inner_text('#drawing-note')
+            prev.select_option('#drawing-tool', 'gate');b =  prev.locator("#drawing-view").bounding_box()
+            s  =  b["y"]  + b["height"] - 2
 
-            val.mouse.move(vie['x'] + 0.3  * vie["width"], Bottom);  val.mouse.down()
-            val.mouse.move(vie["x"]+ 0.7 * vie["width"],Bottom)
-            val.mouse.up()
-            assert val.locator("#drawing-electrodes > div").count() == 5
-            add =  val.locator('#drawing-electrodes > div').nth(4) ; assert add.locator('[data-part=y0]').input_value()=='0'
-            assert add.locator('[data-part=kind]').input_value()=='gate'
-            val.click (  "#mesh-coarse" )
-            val.select_option('#sweep-kind', "transfer")
-            val.fill("#voltages", "0.6, 1.2")
-            val.click (  "#solve")
-            wait_until(val ,   "el('state').textContent === 'refused'",   yy )
-            assert  'Schottky'  in  val.inner_text('#message')
+            prev.mouse.move(b['x'] + 0.3  * b["width"], s);  prev.mouse.down()
+            prev.mouse.move(b["x"]+ 0.7 * b["width"],s)
+            prev.mouse.up()
+            assert prev.locator("#drawing-electrodes > div").count() == 5
+            d =  prev.locator('#drawing-electrodes > div').nth(4) ; assert d.locator('[data-part=y0]').input_value()=='0'
+            assert d.locator('[data-part=kind]').input_value()=='gate'
+            prev.click (  "#mesh-coarse" )
+            prev.select_option('#sweep-kind', "transfer")
+            prev.fill("#voltages", "0.6, 1.2")
+            prev.click (  "#solve")
+            wait_until(prev ,   "el('state').textContent === 'refused'",   rows )
+            assert  'Schottky'  in  prev.inner_text('#message')
 
-            add.locator ('button' ).click (  )
-            assert val.locator('#drawing-electrodes > div').count(  )  ==  4
-            electrode(val, 1, "voltage", "0.05")
-            solved(val,yy)
-            assert val.evaluate("state.points.length") == 2
-            assert val.evaluate('state.points[1].value > state.points[0].value')
-            assert val.is_visible("#built-note")
-            with  val.expect_download ()   as  Saving  :
-                val.click('#device-save')
+            d.locator ('button' ).click (  )
+            assert prev.locator('#drawing-electrodes > div').count(  )  ==  4
+            electrode(prev, 1, "voltage", "0.05")
+            solved(prev,rows)
+            assert prev.evaluate("state.points.length") == 2
+            assert prev.evaluate('state.points[1].value > state.points[0].value')
+            assert prev.is_visible("#built-note")
+            with  prev.expect_download ()   as  v  :
+                prev.click('#device-save')
 
-            sav =  json.loads( Saving.value.path ().read_text (  encoding = "utf-8"));assert sav['kind']  ==  "drawing"
+            rr =  json.loads( v.value.path ().read_text (  encoding = "utf-8"));assert rr['kind']  ==  "drawing"
 
-            assert sav['parameters']["electrodes"][1]["voltage"]== 0.05
+            assert rr['parameters']["electrodes"][1]["voltage"]== 0.05
 
 
-            assert sav["parameters"]['nx']==39
-            val.select_option("#device-kind" , 'nmos'  )
-            assert val.is_hidden('#drawing')
+            assert rr["parameters"]['nx']==39
+            prev.select_option("#device-kind" , 'nmos'  )
+            assert prev.is_hidden('#drawing')
 
-            xx =tmp_path /"drawn.json"
-            xx.write_text(json.dumps(sav),encoding ="utf-8")
+            k =tmp_path /"drawn.json"
+            k.write_text(json.dumps(rr),encoding ="utf-8")
 
-            val.set_input_files("#device-load",str(xx))
-            wait_until (val, "el('device-kind').value === 'drawing'" ,  yy)
-            assert val.locator('#drawing-electrodes > div').count() == 4
-            divmod =val.locator('#drawing-electrodes > div').nth(1)
-            assert divmod.locator( '[data-part=voltage]').input_value()  == '0.05'
-            assert val.inner_text("#message")== ''
-            assert yy == []
+            prev.set_input_files("#device-load",str(k))
+            wait_until (prev, "el('device-kind').value === 'drawing'" ,  rows)
+            assert prev.locator('#drawing-electrodes > div').count() == 4
+            h =prev.locator('#drawing-electrodes > div').nth(1)
+            assert h.locator( '[data-part=voltage]').input_value()  == '0.05'
+            assert prev.inner_text("#message")== ''
+            assert rows == []
         finally:
 
 
-            Browser.close()
+            val2.close()
 
 
 
 def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server)-> None :
 
-    with sync_playwright()as Driver:
-        Browser  =  Driver.chromium.launch(  )
+    with sync_playwright()as cur:
+        b2  =  cur.chromium.launch(  )
         try :
-            pag  =  Browser.new_page(device_scale_factor  =   2)
-            errrs: list[str] =[]
-            pag.on("pageerror", lambda error :  errrs.append(str(error)))
-            pag.goto( server)
-            wait_until(pag, "el('state').textContent === 'ready'", errrs)
-            pag.select_option('#device-kind',"drawing")
-            tmp =  pag.evaluate(
+            c  =  b2.new_page(device_scale_factor  =   2)
+            s: list[str] =[]
+            c.on("pageerror", lambda error :  s.append(str(error)))
+            c.goto( server)
+            wait_until(c, "el('state').textContent === 'ready'", s)
+            c.select_option('#device-kind',"drawing")
+            m =  c.evaluate(
                 """() => {
                   const view = el('drawing-view');
                   // The css height, not the attribute: fit() writes the
@@ -733,24 +733,24 @@ def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server)-> None :
                   return { drawn: drawn, want: declared * ratio };
                 }"""
             )
-            assert tmp["want"] > 0
-            assert tmp["drawn"]== [tmp["want"]]*3;  assert errrs== []
+            assert m["want"] > 0
+            assert m["drawn"]== [m["want"]]*3;  assert s== []
         finally  :
-            Browser.close( )
+            b2.close( )
 def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
     server,
 )-> None :
-    with  sync_playwright( ) as  drver   :
-        pow  =   drver.chromium.launch( )
+    with  sync_playwright( ) as  v2   :
+        val  =   v2.chromium.launch( )
         try :
-            pgae=pow.new_page()
-            Errors: list[str]=[]
-            pgae.on("pageerror", lambda error : Errors.append(str(error)))
+            val2=val.new_page()
+            r: list[str]=[]
+            val2.on("pageerror", lambda error : r.append(str(error)))
 
-            pgae.goto(server);wait_until(pgae,"el('state').textContent === 'ready'",Errors)
+            val2.goto(server);wait_until(val2,"el('state').textContent === 'ready'",r)
 
 
-            thing = pgae.evaluate(
+            t = val2.evaluate(
                 """() => {
                   const nx = 5, ny = 3;
                   const psi = new Float64Array(nx * ny);
@@ -772,53 +772,53 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
             )
 
 
-            for ii,Node in zip([1,2,3],thing,strict= True):
-                assert Node["drawn"] ==pytest.approx(Node['wanted'],abs = 4),(
-                    ii,
-                    Node,
+            for m,y2 in zip([1,2,3],t,strict= True):
+                assert y2["drawn"] ==pytest.approx(y2['wanted'],abs = 4),(
+                    m,
+                    y2,
                 )
-            assert Errors == []
+            assert r == []
         finally :
-            pow.close(  )
+            val.close(  )
 
 
 def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values (  server )   ->  None   :
 
-    with sync_playwright()as filter :
-        bro =filter.chromium.launch()
+    with sync_playwright()as r :
+        v =r.chromium.launch()
         try  :
-            buff  =   bro.new_page(  )
-            range : list[str]= []
-            buff.on("pageerror", lambda error : range.append(str(error)))
-            buff.goto(server)
-            wait_until(buff, "el('state').textContent === 'ready'", range)
-            buff.select_option(  "#device-kind",  "nmos")
+            z  =   v.new_page(  )
+            c : list[str]= []
+            z.on("pageerror", lambda error : c.append(str(error)))
+            z.goto(server)
+            wait_until(z, "el('state').textContent === 'ready'", c)
+            z.select_option(  "#device-kind",  "nmos")
 
-            for Name, vaalue in COARSE_FET.items() :
-                buff.fill(f'[data-name="{Name}"]',vaalue)
-            buff.fill('#voltages', "1.0" )
-            buff.click("#solve")
+            for out2, w in COARSE_FET.items() :
+                z.fill(f'[data-name="{out2}"]',w)
+            z.fill('#voltages', "1.0" )
+            z.click("#solve")
             wait_until(
-                buff,
+                z,
                 "el('state').textContent.startsWith('done') && state.fields !== null",
-                range,
+                c,
             )
 
-            buff.locator("#profile").scroll_into_view_if_needed()
-            Profile =  buff.locator("#profile").bounding_box()
-            assert  Profile is  not None
-            obj2 = Profile["x"]  + 0.5* Profile['width']
-            buff.mouse.move(obj2, Profile['y']  + 2)
-            buff.mouse.down()
-            buff.mouse.move(obj2, Profile['y']+Profile['height'] -  2)
-            buff.mouse.up()
+            z.locator("#profile").scroll_into_view_if_needed()
+            u =  z.locator("#profile").bounding_box()
+            assert  u is  not None
+            t = u["x"]  + 0.5* u['width']
+            z.mouse.move(t, u['y']  + 2)
+            z.mouse.down()
+            z.mouse.move(t, u['y']+u['height'] -  2)
+            z.mouse.up()
 
-            assert buff.inner_text("#cutline-note") == "bands along the line you drew"
-            Cut  = buff.evaluate ("state.cutline" )
-            r2= buff.evaluate("state.fields.shape[1]")
-            assert Cut["from"]["i"]== pytest.approx((r2- 1)/ 2,abs = 0.5)
-            assert Cut["from"]["j"]>Cut['to']["j"]
-            hmm = buff.evaluate(
+            assert z.inner_text("#cutline-note") == "bands along the line you drew"
+            d  = z.evaluate ("state.cutline" )
+            m2= z.evaluate("state.fields.shape[1]")
+            assert d["from"]["i"]== pytest.approx((m2- 1)/ 2,abs = 0.5)
+            assert d["from"]["j"]>d['to']["j"]
+            tmp2 = z.evaluate(
                 """() => {
                   const f = state.fields, ny = f.shape[0], nx = f.shape[1];
                   const i = Math.floor(nx / 2);
@@ -831,128 +831,128 @@ def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values (  server )   ->  N
                     span: f.arrays.y[ny - 1] - f.arrays.y[0] };
                 }"""
             )
-            pai   = zip( hmm["sampled"  ], hmm [  "nodes"],   strict  =  True )
-            for sam, nde in pai  :
-                if math.isnan( nde) :
-                    assert math.isnan(sam)
+            c2   = zip( tmp2["sampled"  ], tmp2 [  "nodes"],   strict  =  True )
+            for g, m in c2  :
+                if math.isnan( m) :
+                    assert math.isnan(g)
                 else:
-                    assert sam==pytest.approx(nde,rel = 1e-12,abs= 1e-12)
+                    assert g==pytest.approx(m,rel = 1e-12,abs= 1e-12)
 
-            assert hmm["length"]==pytest.approx(hmm['span'],rel =1e-12)
-            assert range==[]
+            assert tmp2["length"]==pytest.approx(tmp2['span'],rel =1e-12)
+            assert c==[]
         finally:
 
 
-            bro.close()
+            v.close()
 def test_the_last_explanation_asked_for_is_the_one_shown(server)-> None:
 
-    with sync_playwright() as dri :
-        any=dri.chromium.launch()
+    with sync_playwright() as e :
+        tt=e.chromium.launch()
         try:
-            t2 = any.new_page()
-            Errors  :  list[str]  =[]
-            t2.on(  "pageerror" ,   lambda  error  : Errors.append(str(error) ) )
-            t2.goto(server)
+            tmp2 = tt.new_page()
+            x  :  list[str]  =[]
+            tmp2.on(  "pageerror" ,   lambda  error  : x.append(str(error) ) )
+            tmp2.goto(server)
 
 
-            wait_until(t2 ,  "el('state').textContent === 'ready'",   Errors )
-            wan=t2.evaluate("fetch('/api/learn/band-diagram').then((r) => r.json())" ".then((t) => t.title)")
+            wait_until(tmp2 ,  "el('state').textContent === 'ready'",   x )
+            c=tmp2.evaluate("fetch('/api/learn/band-diagram').then((r) => r.json())" ".then((t) => t.title)")
 
-            Held:  list =  []
+            kk:  list =  []
 
 
-            t2.route('**/api/learn/sweep-kinds',lambda route: Held.append(route))
-            t2.click('[data-topic-id="sweep-kind"] > .explain')
-            t2.wait_for_timeout(300)
-            assert  len(Held  ) == 1
-            t2.click('[data-topic-id="bands-view"] > .explain')
+            tmp2.route('**/api/learn/sweep-kinds',lambda route: kk.append(route))
+            tmp2.click('[data-topic-id="sweep-kind"] > .explain')
+            tmp2.wait_for_timeout(300)
+            assert  len(kk  ) == 1
+            tmp2.click('[data-topic-id="bands-view"] > .explain')
             wait_until(
-                t2,
-                f"el('drawer-title').textContent === {json.dumps(wan)}",
-                Errors,
+                tmp2,
+                f"el('drawer-title').textContent === {json.dumps(c)}",
+                x,
             )
 
-            Held[  0  ].continue_()
-            t2.wait_for_timeout(500)
+            kk[  0  ].continue_()
+            tmp2.wait_for_timeout(500)
 
-            assert t2.inner_text("#drawer-title")==wan
-            assert Errors == []
+            assert tmp2.inner_text("#drawer-title")==c
+            assert x == []
         finally  :
-            any.close ()
+            tt.close ()
 
 def test_blocks_and_implants_can_be_added_by_dragging(server)->None:
-    with sync_playwright()  as dri  :
-        bro =   dri.chromium.launch (  )
+    with sync_playwright()  as dat  :
+        z =   dat.chromium.launch (  )
 
         try:
-            thing=bro.new_page()
-            lst  :  list[str]  =[]
-            thing.on('pageerror',lambda error:lst.append(str(error)))
-            thing.goto(server)
-            wait_until(thing ,  "el('state').textContent === 'ready'", lst  )
-            thing.select_option('#device-kind', "drawing")
-            View = thing.locator('#drawing-view').bounding_box()
-            assert View is not None
+            w2=z.new_page()
+            xs  :  list[str]  =[]
+            w2.on('pageerror',lambda error:xs.append(str(error)))
+            w2.goto(server)
+            wait_until(w2 ,  "el('state').textContent === 'ready'", xs  )
+            w2.select_option('#device-kind', "drawing")
+            d = w2.locator('#drawing-view').bounding_box()
+            assert d is not None
 
             def drag(tool:str,x0 :float,y0 :float,x1: float,y1: float) -> None:
-                thing.select_option('#drawing-tool',tool)
-                thing.mouse.move(
-                    View["x"]  +  x0* View["width"], View["y"] +y0 *View["height"]
+                w2.select_option('#drawing-tool',tool)
+                w2.mouse.move(
+                    d["x"]  +  x0* d["width"], d["y"] +y0 *d["height"]
                 )
 
 
-                thing.mouse.down()
-                thing.mouse.move(View['x']+ x1  *  View["width"], View['y'] +y1  *  View['height'])
-                thing.mouse.up ( )
+                w2.mouse.down()
+                w2.mouse.move(d['x']+ x1  *  d["width"], d['y'] +y1  *  d['height'])
+                w2.mouse.up ( )
 
-            val  = thing.evaluate("extent(drawingSoFar()).width"  )
+            dd  = w2.evaluate("extent(drawingSoFar()).width"  )
             drag( "oxide",   0.002 ,   0.1 , 0.998,  0.3)
-            hash = thing.locator(  '#drawing-blocks > div')
-            assert hash.count() == 3
-            cnt   =   hash.nth(2  )
-            assert cnt.locator("[data-part=material]").input_value() == 'oxide'
-            assert  float (cnt.locator( '[data-part=x0]'  ).input_value( ))   ==   0
-            assert  float (  cnt.locator( "[data-part=x1]"  ).input_value ( )  )  ==  val
+            obj = w2.locator(  '#drawing-blocks > div')
+            assert obj.count() == 3
+            b   =   obj.nth(2  )
+            assert b.locator("[data-part=material]").input_value() == 'oxide'
+            assert  float (b.locator( '[data-part=x0]'  ).input_value( ))   ==   0
+            assert  float (  b.locator( "[data-part=x1]"  ).input_value ( )  )  ==  dd
 
             drag('n',0.4,0.6,0.6,0.8)
-            imlants =thing.locator("#drawing-implants > div")
-            assert imlants.count()==4
-            Added  =imlants.nth(3)
-            assert Added.locator("[data-part=dopant]").input_value() =="n"
-            concenttration = Added.locator("[data-part=concentration]").input_value()
-            assert float(concenttration) == 1e18
-            x0  =  float(  Added.locator ("[data-part=x0]" ).input_value( ) )
-            x1   =  float(  Added.locator("[data-part=x1]"  ).input_value(  ))
-            assert 0< x0 <  x1< val
-            assert lst == []
+            g =w2.locator("#drawing-implants > div")
+            assert g.count()==4
+            kk  =g.nth(3)
+            assert kk.locator("[data-part=dopant]").input_value() =="n"
+            m = kk.locator("[data-part=concentration]").input_value()
+            assert float(m) == 1e18
+            x0  =  float(  kk.locator ("[data-part=x0]" ).input_value( ) )
+            x1   =  float(  kk.locator("[data-part=x1]"  ).input_value(  ))
+            assert 0< x0 <  x1< dd
+            assert xs == []
         finally :
-            bro.close()
+            z.close()
 
 
 
 def test_an_explain_button_lights_up_cyan_under_the_pointer(server)-> None :
-    with sync_playwright()as dri:
-        broswer=dri.chromium.launch()
+    with sync_playwright()as z:
+        v2=z.chromium.launch()
 
         try :
 
-            zip  = broswer.new_page ()
+            w  = v2.new_page ()
 
 
-            Errors :  list[str]=[]
-            zip.on('pageerror',lambda error :Errors.append(str(error)))
+            j :  list[str]=[]
+            w.on('pageerror',lambda error :j.append(str(error)))
 
-            zip.goto(server)
-            wait_until(zip,"el('state').textContent === 'ready'",Errors)
-            but= zip.locator('label:has([data-name="Na"]) .explain')
-            but.hover()
+            w.goto(server)
+            wait_until(w,"el('state').textContent === 'ready'",j)
+            a= w.locator('label:has([data-name="Na"]) .explain')
+            a.hover()
 
 
-            sig =  zip.evaluate("(() => { const probe = document.createElement('i');" " probe.style.color = 'var(--signal)'; document.body.append(probe);" " const c = getComputedStyle(probe).color; probe.remove();" " return c; })()")
-            sytle= but.evaluate(
+            f =  w.evaluate("(() => { const probe = document.createElement('i');" " probe.style.color = 'var(--signal)'; document.body.append(probe);" " const c = getComputedStyle(probe).color; probe.remove();" " return c; })()")
+            k= a.evaluate(
                 "(b) => [getComputedStyle(b).color, getComputedStyle(b).borderTopColor]"
             )
-            assert sytle  ==  [ sig, sig],   (sytle,   sig)
-            assert Errors  ==  []
+            assert k  ==  [ f, f],   (k,   f)
+            assert j  ==  []
         finally:
-            broswer.close()
+            v2.close()

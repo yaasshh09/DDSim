@@ -60,12 +60,12 @@ class Case :
 def _draw(rng  : np.random.Generator, low  :float, high : float, axis  : str) -> float  :
 
     if axis ==  "log"  :
-        stuff = -1.0 if high <0 else 1.0
-        aa,bb= sorted((abs(low),abs(high)))
-        res= stuff *math.exp(rng.uniform(math.log(aa), math.log(bb)))
+        m = -1.0 if high <0 else 1.0
+        d,r= sorted((abs(low),abs(high)))
+        t= m *math.exp(rng.uniform(math.log(d), math.log(r)))
     else :
-        res =  rng.uniform(low, high)
-    return float(f"{res:.{SIGNIFICANT}g}")
+        t =  rng.uniform(low, high)
+    return float(f"{t:.{SIGNIFICANT}g}")
 
 
 def _builds(device: str,knobs:dict[str,Any]) -> bool:
@@ -75,41 +75,41 @@ def _builds(device: str,knobs:dict[str,Any]) -> bool:
         return  False
     return True
 def draw_cases()-> list[Case]:
-    Rng =np.random.default_rng(SEED)
-    cas=[]
+    k =np.random.default_rng(SEED)
+    a=[]
 
-    for  dev ,   Count  in SPLIT :
-        out2 = {p.name : p for p in device_parameters(dev)}
+    for  a2 ,   hh  in SPLIT :
+        cur = {p.name : p for p in device_parameters(a2)}
 
-        for max in range(1, Count + 1)  :
-            Redraws  =  0
+        for c in range(1, hh + 1)  :
+            it  =  0
             while True :
-                yy = {}
-                for nam in PHYSICAL[dev] :
-                    p =out2[nam] ; assert p.low is not None and p.high is not None,nam
-                    yy[nam] =_draw(Rng, p.low, p.high, p.axis)
+                obj = {}
+                for b in PHYSICAL[a2] :
+                    p =cur[b] ; assert p.low is not None and p.high is not None,b
+                    obj[b] =_draw(k, p.low, p.high, p.axis)
 
 
-                if _builds(dev, yy) :
+                if _builds(a2, obj) :
                     break
-                Redraws +=1
-            nam = f"{PREFIX[dev]}{max:03d}";cas.append(Case(nam,dev,yy,Redraws))
-    return cas
+                it +=1
+            b = f"{PREFIX[a2]}{c:03d}";a.append(Case(b,a2,obj,it))
+    return a
 
 
 def  write_cases (  ) ->  Path  :
-    OUT.mkdir(parents  =  True, exist_ok =   True);  pat=OUT/'cases.csv'
-    Lines = [
+    OUT.mkdir(parents  =  True, exist_ok =   True);  row=OUT/'cases.csv'
+    buf = [
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py cases",
         f"# seed {SEED}, split {SPLIT}, {SIGNIFICANT} significant digits" ,
         '# knobs not listed keep the constructor default',
         'case,device,knobs,redraws',
     ]
-    for csae in draw_cases():
-        blah = json.dumps(csae.knobs).replace('"', '""')
-        Lines.append(f'{csae.name},{csae.device},"{blah}",{csae.redraws}')
-    pat.write_text("\n".join(Lines)+"\n",encoding ='utf-8',newline ="\n")
-    return pat
+    for a in draw_cases():
+        it = json.dumps(a.knobs).replace('"', '""')
+        buf.append(f'{a.name},{a.device},"{it}",{a.redraws}')
+    row.write_text("\n".join(buf)+"\n",encoding ='utf-8',newline ="\n")
+    return row
 
 THREAD_VARIABLES=('MKL_NUM_THREADS',"OMP_NUM_THREADS","OPENBLAS_NUM_THREADS")
 
@@ -134,11 +134,11 @@ class  Result   :
     message   :   str
 
 def read_cases() -> list[Case] :
-    Lines= (OUT/'cases.csv').read_text(encoding ="utf-8").splitlines()
-    xx  =   [  liine for  liine in  Lines  if  not  liine.startswith(  "#")  ]
+    val= (OUT/'cases.csv').read_text(encoding ="utf-8").splitlines()
+    w  =   [  tmp2 for  tmp2 in  val  if  not  tmp2.startswith(  "#")  ]
     return[
-        Case(acc['case'], acc["device"], json.loads(acc["knobs"]), int(acc["redraws"]))
-        for acc in csv.DictReader(xx)
+        Case(b['case'], b["device"], json.loads(b["knobs"]), int(b["redraws"]))
+        for b in csv.DictReader(w)
     ]
 
 
@@ -147,76 +147,76 @@ def _models(device : Device, kind : str)  -> TransportModels :
         return TransportModels.for_device(device, mobility =  "arora", field_dependent= True, surface  = True)
     return TransportModels.for_device(device)
 def _public(device   :   Device, case  :  Case,  models  :  TransportModels )  ->  DeviceState  |  None   :
-    ret =  case.knobs [BIAS [case.device  ]]
+    y =  case.knobs [BIAS [case.device  ]]
 
     if case.device  ==  'pn_diode' :
-        cruve  =   iv_sweep( device,   "anode",   [ret ], models =   models  )
+        f  =   iv_sweep( device,   "anode",   [y ], models =   models  )
     else:
-        cruve  =gate_sweep(device, [ret], models  = models)
+        f  =gate_sweep(device, [y], models  = models)
 
 
-    return cruve.points[  - 1  ].state if cruve.complete  else None
+    return f.points[  - 1  ].state if f.complete  else None
 
 def solve_case(case:Case,fine:bool)->Result:
 
-    dri = "ddsim_fine" if fine else 'ddsim'
-    deviice=build_from_spec(case.device,case.knobs)
-    satrted =time.perf_counter()
+    yy = "ddsim_fine" if fine else 'ddsim'
+    j=build_from_spec(case.device,case.knobs)
+    tmp3 =time.perf_counter()
     try:
 
         if case.device  ==   "mos_cap" :
-            Cv  = cv_sweep(deviice, "gate", [case.knobs["gate_voltage"]])
-            r2=time.perf_counter()-satrted
+            d  = cv_sweep(j, "gate", [case.knobs["gate_voltage"]])
+            dd=time.perf_counter()-tmp3
 
 
-            vaule  =  Cv.points[-  1].capacitance if Cv.complete else math.nan
+            lst  =  d.points[-  1].capacitance if d.complete else math.nan
             return Result(
-                case.name, dri ,   Cv.complete ,  vaule,  0.0 ,  0.0,  r2 ,  Cv.message
+                case.name, yy ,   d.complete ,  lst,  0.0 ,  0.0,  dd ,  d.message
             )
 
-        sorted   = _models(deviice,  case.device)
+        y   = _models(j,  case.device)
         if fine :
-            State:DeviceState|None =solve_bias_ramped(
-                deviice,sorted,step=FINE_STEP
+            a2:DeviceState|None =solve_bias_ramped(
+                j,y,step=FINE_STEP
             )
         else  :
-            State  =  _public(deviice, case, sorted)
-        r2 = time.perf_counter() -satrted
-    except Exception as Failure:
-        r2=time.perf_counter() - satrted
-        return Result(case.name, dri, False, math.nan, math.nan, math.nan, r2, str(Failure) [:200],)
-    if State is None:
+            a2  =  _public(j, case, y)
+        dd = time.perf_counter() -tmp3
+    except Exception as f:
+        dd=time.perf_counter() - tmp3
+        return Result(case.name, yy, False, math.nan, math.nan, math.nan, dd, str(f) [:200],)
+    if a2 is None:
         return  Result (
             case.name,
-            dri ,
+            yy ,
             False,
             math.nan,
             math.nan ,
             math.nan ,
-            r2,
+            dd,
             'sweep stopped early' ,
         )
-    cur =terminal_currents(deviice,State,sorted)
-    return Result(case.name, dri, True, cur[MEASURED[case.device]], abs(sum(cur.values())), max(abs(c)for c in cur.values()), r2, "",)
+    s =terminal_currents(j,a2,y)
+    return Result(case.name, yy, True, s[MEASURED[case.device]], abs(sum(s.values())), max(abs(u)for u in s.values()), dd, "",)
 def _git_sha()->str  :
 
     try  :
 
 
-        outt  =  subprocess.run ([  'git' ,  "rev-parse", "--short",  'HEAD'  ] , cwd  =   ROOT, capture_output = True, text  =   True,)
-        return outt.stdout.strip() or "unknown"
+        res  =  subprocess.run ([  'git' ,  "rev-parse", "--short",  'HEAD'  ] , cwd  =   ROOT, capture_output = True, text  =   True,)
+        return res.stdout.strip() or "unknown"
     except OSError :
         return "unknown"
 def run(names  : list[str] | None, path : Path) -> Path :
 
     print('--- STAGE 2 REACHED ---',path)
-    pind   =   [ hmm for hmm in THREAD_VARIABLES  if  hmm in os.environ ]
-    if  pind   :
+    dat   =   [ a for a in THREAD_VARIABLES  if  a in os.environ ]
+    if  dat   :
         raise SystemExit(
-            f"unset {', '.join(pind)} first, robustness runs at each tool's default threading, see references/decisions.md 2026-09-26"
+            f"unset {', '.join(dat)} first, robustness runs at each tool's default threading, see references/decisions.md 2026-09-26"
         )
-    out2 =[C for C in read_cases()if names is None or C.name in names]
-    hea  =  [
+    x =[y for y in read_cases()if names is None or y.name in names]
+    e  =  [
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py run",
         f"# ddsim {_git_sha()}, python {platform.python_version()}, "
         f"numpy {np.__version__}, scipy {scipy.__version__}",
@@ -224,20 +224,20 @@ def run(names  : list[str] | None, path : Path) -> Path :
         f"# fine step {FINE_STEP} of every bias, from zero",
         "case,driver,converged,value,imbalance,largest,seconds,message",
     ]
-    with  path.open("w",  encoding  = "utf-8" ,   newline =  "\n" )  as F  :
+    with  path.open("w",  encoding  = "utf-8" ,   newline =  "\n" )  as w2  :
 
-        F.write("\n".join(hea) +"\n")
-        for cas in out2 :
-            for myvar in(False, True):
-                R = solve_case(cas, myvar)
-                thing=R.message.replace('"',"'").replace("\n",' ')
-                F.write (
-                    f"{R.case},{R.driver},{R.converged},{R.value!r},{R.imbalance!r},"
-                    f'{R.largest!r},{R.seconds:.3f},"{thing}"\n'
+        w2.write("\n".join(e) +"\n")
+        for x2 in x :
+            for v in(False, True):
+                yy = solve_case(x2, v)
+                h=yy.message.replace('"',"'").replace("\n",' ')
+                w2.write (
+                    f"{yy.case},{yy.driver},{yy.converged},{yy.value!r},{yy.imbalance!r},"
+                    f'{yy.largest!r},{yy.seconds:.3f},"{h}"\n'
                 )
-                F.flush ()
+                w2.flush ()
                 print(
-                    f"{R.case} {R.driver} {R.converged} {R.value:.4g} {R.seconds:.1f}s"
+                    f"{yy.case} {yy.driver} {yy.converged} {yy.value:.4g} {yy.seconds:.1f}s"
                 )
     return  path
 
@@ -293,12 +293,12 @@ def valid(case  :Case, result :Result)-> bool:
 
 
 def agree(case : Case, a: Result, b:  Result) -> bool  :
-    loww  =  floor (case )
-    if abs(a.value) <  loww and abs(b.value)  < loww :
+    xx  =  floor (case )
+    if abs(a.value) <  xx and abs(b.value)  < xx :
         return True
-    input= TOLERANCE[case.device]*max(abs(a.value), abs(b.value))
-    input +=  NOISE_FACTOR*max(a.imbalance, b.imbalance)
-    return abs(a.value  - b.value)  <=input
+    nxt= TOLERANCE[case.device]*max(abs(a.value), abs(b.value))
+    nxt +=  NOISE_FACTOR*max(a.imbalance, b.imbalance)
+    return abs(a.value  - b.value)  <=nxt
 
 @dataclass(  frozen  =  True  )
 
@@ -313,30 +313,30 @@ class Score  :
 
 
 def  score(cases   :   list[Case  ],   results  :   list[  Result]  )   ->   Score   :
-    q  :dict[str, dict[str, Result]] = {}
+    vv  :dict[str, dict[str, Result]] = {}
 
-    for arr in results  :
-        q.setdefault(arr.case,{}) [arr.driver]=arr
-    bar : dict [str,  int]  = {  }
+    for m in results  :
+        vv.setdefault(m.case,{}) [m.driver]=m
+    z2 : dict [str,  int]  = {  }
 
 
-    droopped  : dict[  str ,  str]   =   {}
-    for hex in cases :
-        Got  =  q.get(hex.name, {})
-        any =  [
-            Got[obj2]  for  obj2  in REFERENCE_DRIVERS  if obj2 in Got  and  valid( hex,   Got[ obj2  ] )
+    y  : dict[  str ,  str]   =   {}
+    for f in cases :
+        g  =  vv.get(f.name, {})
+        i =  [
+            g[out]  for  out  in REFERENCE_DRIVERS  if out in g  and  valid( f,   g[ out  ] )
         ]
-        if not any  :
-            droopped[hex.name]= 'no valid reference'
+        if not i  :
+            y[f.name]= 'no valid reference'
             continue
-        if not all(agree(hex,a,b) for a in any for b in any):
+        if not all(agree(f,x,c) for x in i for c in i):
 
-            droopped[hex.name] = "the references disagree"
+            y[f.name] = "the references disagree"
             continue
-        for  Driver ,   arr in  Got.items ()  :
-            if valid(hex, arr) and all(agree(hex, arr, ref)  for ref in any) :
-                bar[Driver] =  bar.get(Driver, 0) +  1
-    return Score(bar, droopped, len(cases)  -len(droopped))
+        for  bb ,   m in  g.items ()  :
+            if valid(f, m) and all(agree(f, m, c2)  for c2 in i) :
+                z2[bb] =  z2.get(bb, 0) +  1
+    return Score(z2, y, len(cases)  -len(y))
 
 REFINEMENTS= (1.0,1.5,2.25)
 
@@ -356,21 +356,21 @@ class Fit:
     nodes_for_one_percent: float |  None
 
 def  richardson(levels  : list [tuple [ float,  int,   float  ] ],  dimension : int  )  ->   Fit  :
-    (R1, n11, q11), (pow, _, Q2), (R3, _, q33)  =sorted(levels)
-    Ratio =   pow  /   R1
-    d11,d22=q11- Q2,Q2-q33
+    (t2, b, w), (ii, _, a), (zz, _, f)  =sorted(levels)
+    e =   ii  /   t2
+    g,tt=w- a,a-f
 
 
-    if d11   * d22  <=  0.0  or abs ( d22)  >=   abs( d11)  :
+    if g   * tt  <=  0.0  or abs ( tt)  >=   abs( g)  :
         return Fit(None, None, None, None)
-    buff  =math.log(d11 / d22) / math.log(Ratio)
+    foo  =math.log(g / tt) / math.log(e)
 
-    if not ORDER_RANGE[0] <= buff <= ORDER_RANGE[1]  :
+    if not ORDER_RANGE[0] <= foo <= ORDER_RANGE[1]  :
         return Fit(None,None,None,None)
-    Limit=q33-d22 / (Ratio ** buff - 1.0)
-    vars=  abs(q11-Limit) / abs(Limit)
-    noodes = n11  *  ( vars /   0.01  )  ** (dimension /  buff)
-    return Fit(Limit,buff,vars,noodes)
+    r=f-tt / (e ** foo - 1.0)
+    s=  abs(w-r) / abs(r)
+    out2 = b  *  ( s /   0.01  )  ** (dimension /  foo)
+    return Fit(r,foo,s,out2)
 
 ACCURACY=((1,"diode_1e16_1e16"), (2,'diode_1e18_1e16'), (3,"diode_1e20_1e15"), (4,"mos_cap_5nm"), (5,'mos_cap_20nm'), (6,'nmos_1um'), (7,'nmos_180nm'), (8,"nmos_65nm"), (9,"rolloff_100nm"), (10,'fullstack_100nm'),)
 
@@ -396,68 +396,68 @@ def  accuracy_point (name   : str,   r  : float  ) ->  tuple[  int,  float]  :
     from tests.regression.devsim_gen import parameters as P
 
     if name.startswith("diode") :
-        B =P.BY_NAME[name]
-        dev=pn_diode(
-            Na=B.Na,
-            Nd =B.Nd,
-            length = B.length,
-            junction = B.junction,
-            n_nodes=_scaled(B.n_nodes,r),
-            h_min=B.h_min /r,
+        x =P.BY_NAME[name]
+        b=pn_diode(
+            Na=x.Na,
+            Nd =x.Nd,
+            length = x.length,
+            junction = x.junction,
+            n_nodes=_scaled(x.n_nodes,r),
+            h_min=x.h_min /r,
         )
-        Curve =iv_sweep(dev,"anode",[ACCURACY_BIAS['diode']])
-        return silicon_nodes(dev),float(Curve.current[-1])
+        i =iv_sweep(b,"anode",[ACCURACY_BIAS['diode']])
+        return silicon_nodes(b),float(i.current[-1])
     if name.startswith('mos_cap'):
-        range = {B.name : B for B in P.MOS_BENCHMARKS}  [name]
-        dev =mos_cap(
-            substrate_doping=range.substrate_doping,
-            t_ox= range.t_ox,
-            t_si=range.t_si,
-            n_silicon=_scaled(range.n_silicon,r),
-            n_oxide =_scaled(range.n_oxide,r),
-            h_min=range.h_min/ r,
-            work_function =range.work_function,
+        z = {x.name : x for x in P.MOS_BENCHMARKS}  [name]
+        b =mos_cap(
+            substrate_doping=z.substrate_doping,
+            t_ox= z.t_ox,
+            t_si=z.t_si,
+            n_silicon=_scaled(z.n_silicon,r),
+            n_oxide =_scaled(z.n_oxide,r),
+            h_min=z.h_min/ r,
+            work_function =z.work_function,
         )
-        Cv  =  cv_sweep(dev, 'gate', [ACCURACY_BIAS["mos_cap"]])
+        c  =  cv_sweep(b, 'gate', [ACCURACY_BIAS["mos_cap"]])
 
-        assert isinstance(dev.mesh, Mesh2D)
-        col = dev.mesh.nx
-        return silicon_nodes(dev)//col, float(Cv.points[- 1].capacitance)
-    ff= P.MOSFET_BY_NAME[name]
-    flul = ff.models == P.FULL_MODELS
-    defaaults  =  inspect.signature( nmos).parameters
-    Mesh: dict[str, Any] = {K:_scaled(defaaults[K].default, r) for K in("n_contact", 'n_sd', "n_channel", 'n_silicon', 'n_oxide')}
-    Mesh["h_min_x"]=defaaults['h_min_x'].default /r
-    Mesh['h_min_y'] = defaaults["h_min_y"].default/  r
-    q, darin = ACCURACY_BIAS['mosfet']; q=min(q, max(ff.gate_voltages))
+        assert isinstance(b.mesh, Mesh2D)
+        res2 = b.mesh.nx
+        return silicon_nodes(b)//res2, float(c.points[- 1].capacitance)
+    u= P.MOSFET_BY_NAME[name]
+    tmp = u.models == P.FULL_MODELS
+    t  =  inspect.signature( nmos).parameters
+    v: dict[str, Any] = {y:_scaled(t[y].default, r) for y in("n_contact", 'n_sd', "n_channel", 'n_silicon', 'n_oxide')}
+    v["h_min_x"]=t['h_min_x'].default /r
+    v['h_min_y'] = t["h_min_y"].default/  r
+    k, h = ACCURACY_BIAS['mosfet']; k=min(k, max(u.gate_voltages))
 
 
-    dev = nmos(L_gate=ff.L_gate, drain_voltage  =  darin, degenerate  = flul, **SHORT_CHANNEL_PROCESS, ** Mesh,)
-    mod=(TransportModels.for_device(dev,mobility='arora',field_dependent=True,surface=True) if flul else TransportModels.for_device(dev,mobility = "constant"))
-    Curve  =  gate_sweep(dev, [q], models = mod)
-    return silicon_nodes (dev), float( Curve.current[-   1]  )
+    b = nmos(L_gate=u.L_gate, drain_voltage  =  h, degenerate  = tmp, **SHORT_CHANNEL_PROCESS, ** v,)
+    j=(TransportModels.for_device(b,mobility='arora',field_dependent=True,surface=True) if tmp else TransportModels.for_device(b,mobility = "constant"))
+    i  =  gate_sweep(b, [k], models = j)
+    return silicon_nodes (b), float( i.current[-   1]  )
 
 
 
 def run_accuracy(path:  Path)-> Path  :
     print('working...')
-    heaedr=[
+    prev=[
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
         f"# ddsim {_git_sha()}, refinements {REFINEMENTS}, biases {ACCURACY_BIAS}, mosfet gate capped at its golden curve's last point",
         'benchmark,name,refine,nodes,value,seconds',
     ]
 
-    with path.open("w", encoding  ='utf-8', newline =  "\n") as all :
-        all.write("\n".join(heaedr) +"\n")
-        for num, nme in ACCURACY :
-            for temp2 in REFINEMENTS  :
-                sta =  time.perf_counter()
+    with path.open("w", encoding  ='utf-8', newline =  "\n") as k :
+        k.write("\n".join(prev) +"\n")
+        for y2, v in ACCURACY :
+            for c in REFINEMENTS  :
+                h =  time.perf_counter()
 
-                any,q = accuracy_point(nme,temp2)
+                e,thing = accuracy_point(v,c)
 
-                sec  =  time.perf_counter( )   -  sta
-                all.write(f"{num},{nme},{temp2},{any},{q!r},{sec:.3f}\n"  )
-                all.flush();  print(f"{nme} r={temp2} {any} nodes {q:.8g} {sec:.1f}s")
+                t  =  time.perf_counter( )   -  h
+                k.write(f"{y2},{v},{c},{e},{thing!r},{t:.3f}\n"  )
+                k.flush();  print(f"{v} r={c} {e} nodes {thing:.8g} {t:.1f}s")
     return path
 
 SPEED_RUNS= 5
@@ -487,91 +487,91 @@ def speed_sweep(name :str)-> int:
 
     if name.startswith("diode"):
 
-        B  = P.BY_NAME[name]
-        hex= pn_diode(
-            Na =  B.Na,
-            Nd= B.Nd,
-            length = B.length,
-            junction =  B.junction,
-            n_nodes =B.n_nodes,
-            h_min = B.h_min,
+        ys  = P.BY_NAME[name]
+        u= pn_diode(
+            Na =  ys.Na,
+            Nd= ys.Nd,
+            length = ys.length,
+            junction =  ys.junction,
+            n_nodes =ys.n_nodes,
+            h_min = ys.h_min,
         )
-        return len(iv_sweep(hex, 'anode', list(B.voltages), step  =  0.05).points)
+        return len(iv_sweep(u, 'anode', list(ys.voltages), step  =  0.05).points)
     if name.startswith('mos_cap')  :
-        mm  =  { B.name :  B  for  B  in P.MOS_BENCHMARKS}  [ name]
-        hex =  mos_cap(substrate_doping  =  mm.substrate_doping, t_ox  = mm.t_ox, t_si  =  mm.t_si, n_silicon =mm.n_silicon, n_oxide=mm.n_oxide, h_min = mm.h_min, work_function =mm.work_function,)
+        d  =  { ys.name :  ys  for  ys  in P.MOS_BENCHMARKS}  [ name]
+        u =  mos_cap(substrate_doping  =  d.substrate_doping, t_ox  = d.t_ox, t_si  =  d.t_si, n_silicon =d.n_silicon, n_oxide=d.n_oxide, h_min = d.h_min, work_function =d.work_function,)
 
-        return len (cv_sweep( hex, "gate", list (mm.voltages  ) ).points )
-    F = P.MOSFET_BY_NAME [  name ]
-    pints  =0
-    for dra in(F.drain_low,F.drain_high) :
-        hex   =   nmos(L_gate   =  F.L_gate , drain_voltage   =  dra, degenerate  = False, **  SHORT_CHANNEL_PROCESS ,)
-        pow= TransportModels.for_device(hex,mobility="constant")
-        pints+=len(gate_sweep(hex,list(F.gate_voltages),models= pow).points)
-    return pints
+        return len (cv_sweep( u, "gate", list (d.voltages  ) ).points )
+    cur = P.MOSFET_BY_NAME [  name ]
+    ok  =0
+    for z in(cur.drain_low,cur.drain_high) :
+        u   =   nmos(L_gate   =  cur.L_gate , drain_voltage   =  z, degenerate  = False, **  SHORT_CHANNEL_PROCESS ,)
+        idx= TransportModels.for_device(u,mobility="constant")
+        ok+=len(gate_sweep(u,list(cur.gate_voltages),models= idx).points)
+    return ok
 
 def run_speed(path : Path)->Path :
 
 
-    unp=[V for V in THREAD_VARIABLES if os.environ.get(V)!='1']
-    if unp :
-        raise SystemExit(f"set {', '.join(unp)} to 1 first, see references/decisions.md 2026-09-26")
+    i=[val for val in THREAD_VARIABLES if os.environ.get(val)!='1']
+    if i :
+        raise SystemExit(f"set {', '.join(i)} to 1 first, see references/decisions.md 2026-09-26")
 
-    Header= [
+    b= [
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
         f"# ddsim {_git_sha()}, python {platform.python_version()}",
         f"# {platform.platform()}, {platform.processor()}, one BLAS thread",
         "benchmark,name,run,points,seconds",
     ]
-    with path.open("w",encoding='utf-8',newline="\n") as F:
+    with path.open("w",encoding='utf-8',newline="\n") as cur:
 
-        F.write("\n".join(Header)+ "\n")
-        for Number, nam in SPEED:
-
-
-            for runIndex in range(1, SPEED_RUNS  +1) :
-                sta= time.perf_counter()
+        cur.write("\n".join(b)+ "\n")
+        for idx, k in SPEED:
 
 
-                Points =  speed_sweep(nam)
+            for e in range(1, SPEED_RUNS  +1) :
+                h= time.perf_counter()
 
-                Seconds  =  time.perf_counter() - sta
-                F.write(f"{Number},{nam},{runIndex},{Points},{Seconds:.3f}\n");  F.flush( )
-                print(f"{nam} run {runIndex}: {Points} points {Seconds:.1f}s")
+
+                aa =  speed_sweep(k)
+
+                k2  =  time.perf_counter() - h
+                cur.write(f"{idx},{k},{e},{aa},{k2:.3f}\n");  cur.flush( )
+                print(f"{k} run {e}: {aa} points {k2:.1f}s")
 
     return  path
 
 
 
 def read_results(path :Path) -> list[Result] :
-    Lines   =  path.read_text(encoding = "utf-8").splitlines (  )
-    bdy =[lne for lne in Lines if not lne.startswith('#')]
+    cc   =  path.read_text(encoding = "utf-8").splitlines (  )
+    i =[bar for bar in cc if not bar.startswith('#')]
 
 
     return[
         Result(
-            temp2['case'],
-            temp2["driver"],
-            temp2['converged'] =='True',
-            float(temp2["value"]),
-            float(temp2['imbalance']),
-            float(temp2['largest']),
-            float(temp2['seconds']),
-            temp2["message"],
+            x['case'],
+            x["driver"],
+            x['converged'] =='True',
+            float(x["value"]),
+            float(x['imbalance']),
+            float(x['largest']),
+            float(x['seconds']),
+            x["message"],
         )
-        for temp2 in csv.DictReader(bdy)
+        for x in csv.DictReader(i)
     ]
 def _rows(path : Path) -> list[dict[str, str]]:
-    lin= path.read_text(encoding= 'utf-8').splitlines()
-    return list(csv.DictReader(line for line in lin if not line.startswith('#')))
+    b= path.read_text(encoding= 'utf-8').splitlines()
+    return list(csv.DictReader(k for k in b if not k.startswith('#')))
 
 
 
 def read_accuracy(path  :  Path) ->  dict[str, list[tuple[float, int, float]]] :
-    Levels : dict[str, list[tuple[float, int, float]]]= {}
-    for Row in _rows(path):
-        lev   =   ( float( Row["refine"]  ) ,   int(Row[  'nodes'] ),   float (Row[ 'value'  ]  )  );  Levels.setdefault(Row["name"], []).append(lev)
-    return Levels
+    val2 : dict[str, list[tuple[float, int, float]]]= {}
+    for m in _rows(path):
+        f   =   ( float( m["refine"]  ) ,   int(m[  'nodes'] ),   float (m[ 'value'  ]  )  );  val2.setdefault(m["name"], []).append(f)
+    return val2
 
 
 
@@ -583,13 +583,13 @@ def dimension(name: str)  -> int :
 
 def  read_speed(  path  :  Path  )  ->   dict[ str, float ] :
 
-    PerPoint :dict[str,list[float]] = {}
-    for roww in _rows(path):
-        if int(roww["points"])==0:
+    b :dict[str,list[float]] = {}
+    for tmp3 in _rows(path):
+        if int(tmp3["points"])==0:
             continue
-        max   =   float (roww[  "seconds"]  ) /  int(  roww["points" ]  )
-        PerPoint.setdefault( roww ['name' ],  []).append (max)
-    return{nme:float(np.median(valuues))for nme,valuues in PerPoint.items()}
+        r2   =   float (tmp3[  "seconds"]  ) /  int(  tmp3["points" ]  )
+        b.setdefault( tmp3 ['name' ],  []).append (r2)
+    return{j:float(np.median(c))for j,c in b.items()}
 def _capabilities()  ->  list[  dict[str ,   str  ]]   :
     return _rows(  OUT  /  "capabilities.csv" )
 
@@ -608,82 +608,82 @@ class  Board   :
 
 def load_board() -> Board :
     print("--- loading board ---")
-    Results =  read_results( OUT  / "ddsim_robustness.csv") +  read_results(
+    v =  read_results( OUT  / "ddsim_robustness.csv") +  read_results(
         OUT   /  "devsim_robustness.csv"
     )
-    w  = []
-    for toolname in("ddsim","devsim"):
-        str= read_accuracy(OUT/ f"{toolname}_accuracy.csv")
+    buf  = []
+    for c in("ddsim","devsim"):
+        u= read_accuracy(OUT/ f"{c}_accuracy.csv")
 
-        w.append({n  : richardson(vals, dimension(n))for n, vals in str.items()})
+        buf.append({n  : richardson(ys, dimension(n))for n, ys in u.items()})
     return Board(
-        score(read_cases(),Results),
-        w[0],
-        w[1],
+        score(read_cases(),v),
+        buf[0],
+        buf[1],
         read_speed(OUT/"ddsim_speed.csv"),
         read_speed(OUT /"devsim_speed.csv"),
         _capabilities(),
     )
 
 def _fewer_nodes(board : Board) -> tuple[int, int, int] :
-    chr =the=Undecided= 0
+    mm =ii=cc= 0
 
 
-    for _, nam in ACCURACY :
-        A  =  board.ddsim_fit[nam].nodes_for_one_percent
-        arr  = board.devsim_fit[nam ].nodes_for_one_percent
-        if A is None or arr is None:
-            Undecided+= 1
-        elif  A  <   arr   :
-            chr+= 1
+    for _, obj in ACCURACY :
+        d2  =  board.ddsim_fit[obj].nodes_for_one_percent
+        f  = board.devsim_fit[obj ].nodes_for_one_percent
+        if d2 is None or f is None:
+            cc+= 1
+        elif  d2  <   f   :
+            mm+= 1
 
 
         else  :
-            the +=1
+            ii +=1
 
-    return chr, the, Undecided
+    return mm, ii, cc
 
 
 def _speed_ratio( board  : Board )   ->  float  :
 
-    dat = [board.ddsim_speed[n] /board.devsim_speed[n]for _,n in SPEED if n in board.ddsim_speed and n in board.devsim_speed]
+    info = [board.ddsim_speed[n] /board.devsim_speed[n]for _,n in SPEED if n in board.ddsim_speed and n in board.devsim_speed]
 
-    return float (  np.exp( np.mean( np.log (dat ))))
+    return float (  np.exp( np.mean( np.log (info ))))
 
 
 def _estimates(board : Board)->tuple[str, str]  :
-    roww =  {rr["capability"] : rr for rr in board.capabilities}
-    hass =roww["Discretization error estimates"]
+    r =  {b2["capability"] : b2 for b2 in board.capabilities}
+    k =r["Discretization error estimates"]
     return(
-        'every result' if hass['ddsim']=="yes" else "none",
-        'every result' if hass['devsim']=="yes" else "none",
+        'every result' if k['ddsim']=="yes" else "none",
+        'every result' if k['devsim']=="yes" else "none",
     )
 
 def headline(board:Board) -> str:
-    S=board.robustness
-    our,Theirs,unddecided= _fewer_nodes(board)
+    tmp=board.robustness
+    v,tt,d= _fewer_nodes(board)
 
-    raatio=_speed_ratio(board)
-    cps = board.capabilities
-    dddsim_yes =  sum ( r[  "ddsim" ] == "yes"  for  r in cps); devvsim_yes =sum(r["devsim"] =='yes' for r in cps)
-    Scripted =sum(r['devsim'] =="scripted" for r in cps)
-    Estimates =  _estimates(board)
-    buff  =   f"{raatio:.2g}x DEVSIM's" if  raatio  >=  1.0  else f"{1.0 / raatio:.2g}x faster"
-    lin  =[
+    res=_speed_ratio(board)
+    out = board.capabilities
+    t =  sum ( j[  "ddsim" ] == "yes"  for  j in out); u =sum(y2["devsim"] =='yes' for y2 in out)
+    ok =sum(i['devsim'] =="scripted" for i in out)
+    yy =  _estimates(board)
+    ii  =   f"{res:.2g}x DEVSIM's" if  res  >=  1.0  else f"{1.0 / res:.2g}x faster"
+    x2  =[
         "| Axis | DDSim | DEVSIM 2.11 |",
         "|---|---|---|",
-        f"| Robustness: cold solves passed, of {S.counted} scored | "
-        f"{S.passes.get('ddsim', 0)} | stock ramp {S.passes.get('devsim_stock', 0)}, "
-        f"my ramp {S.passes.get('devsim_expert', 0)} |",
+        f"| Robustness: cold solves passed, of {tmp.counted} scored | "
+        f"{tmp.passes.get('ddsim', 0)} | stock ramp {tmp.passes.get('devsim_stock', 0)}, "
+        f"my ramp {tmp.passes.get('devsim_expert', 0)} |",
         f"| Accuracy: benchmarks reaching 1% on fewer nodes, of {len(ACCURACY)} | "
-        f"{our} | {Theirs} ({unddecided} not in the asymptotic range) |",
-        f"| Error estimates reported | {Estimates[0]} | {Estimates[1]} |",
-        f"| Speed: time per bias point, benchmarks 1 to 8 | {buff} | 1x |",
-        f"| Capabilities, of {len(cps)} rows | {dddsim_yes} | {devvsim_yes} built in, "
-        f"{Scripted} if you write the equations |",
+        f"{v} | {tt} ({d} not in the asymptotic range) |",
+        f"| Error estimates reported | {yy[0]} | {yy[1]} |",
+        f"| Speed: time per bias point, benchmarks 1 to 8 | {ii} | 1x |",
+        f"| Capabilities, of {len(out)} rows | {t} | {u} built in, "
+        f"{ok} if you write the equations |",
     ]
 
-    return "\n".join(lin)
+    return "\n".join(x2)
 
 
 
@@ -692,15 +692,15 @@ def _number(value  : float | None, digits :  int = 3)->  str:
 
 
 def _speed_row(number:int, name:str, ours:dict[str,float], theirs:dict[str,float]) -> str:
-    a,b = ours.get(name), theirs.get(name)
-    ratio = "n/a" if a is None or b is None else f"{a / b:.2g}"
-    return f"| {number} | {name} | {'failed' if a is None else f'{a:.3g}'} | {'failed' if b is None else f'{b:.3g}'} | {ratio} |"
+    nxt,k = ours.get(name), theirs.get(name)
+    u = "n/a" if nxt is None or k is None else f"{nxt / k:.2g}"
+    return f"| {number} | {name} | {'failed' if nxt is None else f'{nxt:.3g}'} | {'failed' if k is None else f'{k:.3g}'} | {u} |"
 
 
 def details( board :   Board )  -> str   :
-    ss =board.robustness
-    k2 = ("ddsim", 'ddsim_fine', "devsim_stock", "devsim_expert", 'devsim_fine')
-    lin= [
+    ys =board.robustness
+    tmp3 = ("ddsim", 'ddsim_fine', "devsim_stock", "devsim_expert", 'devsim_fine')
+    v= [
         "# Scoreboard",
         '',
         'Generated by `tools/scoreboard.py summary` from the CSVs in this folder.',
@@ -710,17 +710,17 @@ def details( board :   Board )  -> str   :
         '',
         "## Robustness",
         "",
-        f"{ss.counted} of {ss.counted + len(ss.dropped)} cases scored.",
+        f"{ys.counted} of {ys.counted + len(ys.dropped)} cases scored.",
         "",
         '| Driver | Passed |',
         "|---|---|",
     ]
-    lin+=[f"| {D} | {ss.passes.get(D, 0)} |" for D in k2]
-    lin+=["",'Dropped cases, which count for nobody:',""]
-    lin += [f"- {bb}: {rea}" for bb, rea in sorted(ss.dropped.items())]
-    if not ss.dropped  :
-        lin.append("- none")
-    lin+=  [
+    v+=[f"| {out2} | {ys.passes.get(out2, 0)} |" for out2 in tmp3]
+    v+=["",'Dropped cases, which count for nobody:',""]
+    v += [f"- {j}: {row}" for j, row in sorted(ys.dropped.items())]
+    if not ys.dropped  :
+        v.append("- none")
+    v+=  [
         '',
         '## Accuracy',
         "",
@@ -733,19 +733,19 @@ def details( board :   Board )  -> str   :
         'for 1% | Limits differ by |',
         '|---|---|---|---|---|---|---|---|---|---|---|',
     ]
-    ddsimlevels=read_accuracy(OUT/"ddsim_accuracy.csv")
-    devsimlevels=read_accuracy(OUT/ "devsim_accuracy.csv")
-    for nmuber, nam in ACCURACY :
-        aa,junk = board.ddsim_fit[nam],board.devsim_fit[nam]
-        Gap = (None if aa.limit is None or junk.limit is None else abs(aa.limit- junk.limit) / abs(junk.limit))
-        lin.append(
-            f"| {nmuber} | {nam} | {min(ddsimlevels[nam])[1]} | "
-            f"{_number(aa.error)} | {_number(aa.order)} | "
-            f"{_number(aa.nodes_for_one_percent)} | {min(devsimlevels[nam])[1]} | "
-            f"{_number(junk.error)} | {_number(junk.order)} | "
-            f"{_number(junk.nodes_for_one_percent)} | {_number(Gap)} |"
+    b=read_accuracy(OUT/"ddsim_accuracy.csv")
+    foo=read_accuracy(OUT/ "devsim_accuracy.csv")
+    for u, x in ACCURACY :
+        k,r = board.ddsim_fit[x],board.devsim_fit[x]
+        a = (None if k.limit is None or r.limit is None else abs(k.limit- r.limit) / abs(r.limit))
+        v.append(
+            f"| {u} | {x} | {min(b[x])[1]} | "
+            f"{_number(k.error)} | {_number(k.order)} | "
+            f"{_number(k.nodes_for_one_percent)} | {min(foo[x])[1]} | "
+            f"{_number(r.error)} | {_number(r.order)} | "
+            f"{_number(r.nodes_for_one_percent)} | {_number(a)} |"
         )
-    lin   +=  [
+    v   +=  [
         '' ,
         '## Speed',
         "",
@@ -755,39 +755,39 @@ def details( board :   Board )  -> str   :
         "| # | Benchmark | DDSim | DEVSIM | Ratio |",
         '|---|---|---|---|---|' ,
     ]
-    lin+=[_speed_row(nmuber, nam, board.ddsim_speed, board.devsim_speed) for nmuber,nam in SPEED]
-    lin   +=  [  "",   '## Capabilities',   "" ,  "See capabilities.csv.",   ""]
+    v+=[_speed_row(u, x, board.ddsim_speed, board.devsim_speed) for u,x in SPEED]
+    v   +=  [  "",   '## Capabilities',   "" ,  "See capabilities.csv.",   ""]
 
-    return "\n".join(  lin  )
+    return "\n".join(  v  )
 
 
 def summary(board:Board)->str:
     return details(board).replace("## Robustness","## Headline\n\n"+headline(board) +"\n\n## Robustness",1)
 
 def write_summary() -> None :
-    xx= summary(load_board());  (OUT /  "README.md").write_text(xx, encoding =  'utf-8', newline  = "\n")
+    vv= summary(load_board());  (OUT /  "README.md").write_text(vv, encoding =  'utf-8', newline  = "\n")
 
 def main() ->int :
-    print("init...");  praser = argparse.ArgumentParser(description="The ddsim side of the Phase 8 scoreboard. See references/decisions.md, 2026-09-25.")
+    print("init...");  w = argparse.ArgumentParser(description="The ddsim side of the Phase 8 scoreboard. See references/decisions.md, 2026-09-25.")
 
-    commmands = ['cases', 'run', "accuracy", "speed", 'summary']
-    praser.add_argument('command',choices=commmands)
-    praser.add_argument('names', nargs ="*", help  = 'run only these cases')
-    praser.add_argument("--out", type= Path, default =  OUT  / "ddsim_robustness.csv")
+    f = ['cases', 'run', "accuracy", "speed", 'summary']
+    w.add_argument('command',choices=f)
+    w.add_argument('names', nargs ="*", help  = 'run only these cases')
+    w.add_argument("--out", type= Path, default =  OUT  / "ddsim_robustness.csv")
 
-    arg = praser.parse_args()
-    if arg.command=='cases':
+    k2 = w.parse_args()
+    if k2.command=='cases':
         print(write_cases())
-    elif arg.command== 'accuracy':
+    elif k2.command== 'accuracy':
         print(  run_accuracy(  OUT /   "ddsim_accuracy.csv" ))
-    elif arg.command   == "speed"  :
+    elif k2.command   == "speed"  :
         print(run_speed(OUT/"ddsim_speed.csv"))
 
 
-    elif arg.command =="summary" :
+    elif k2.command =="summary" :
         write_summary()
     else :
-        print ( run(  arg.names or None, arg.out  ) )
+        print ( run(  k2.names or None, k2.out  ) )
     return 0
 
 

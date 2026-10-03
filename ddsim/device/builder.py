@@ -55,15 +55,15 @@ class Device:
 
     @cached_property
     def  net_doping( self )   ->   Field   :
-        Values= self.doping(self.node_coordinates)
+        d= self.doping(self.node_coordinates)
         if self.regions is not None:
-            Values  =  np.where(  self.regions.semiconductor_volume >   0.0 ,  Values,   0.0)
-        return Field(Values , "cm^-3", ScalingState.PHYSICAL , Location.NODE, name   =  "net_doping" ,)
+            d  =  np.where(  self.regions.semiconductor_volume >   0.0 ,  d,   0.0)
+        return Field(d , "cm^-3", ScalingState.PHYSICAL , Location.NODE, name   =  "net_doping" ,)
 
     @property
     def node_coordinates(self) ->Coordinates:
-        dep=None if isinstance(self.mesh,Mesh1D)else self.mesh.node_y
-        return Coordinates(self.node_x, dep)
+        s=None if isinstance(self.mesh,Mesh1D)else self.mesh.node_y
+        return Coordinates(self.node_x, s)
 
     @property
     def node_x(  self )   ->  npt.NDArray [ np.float64  ] :
@@ -99,18 +99,18 @@ class Device:
     @cached_property
     def semiconductor_contacts(self) ->  tuple[SemiconductorContact, ...] :
         return tuple(
-            contact
-            for contact in self.contacts
-            if not isinstance(contact, GateContact)
+            vals
+            for vals in self.contacts
+            if not isinstance(vals, GateContact)
         )
 
     @cached_property
     def ohmic_contacts(self)->tuple[SemiconductorContact,
                ...]:
-        for buf in  self.contacts   :
-            if isinstance(buf,GateContact):
+        for u in  self.contacts   :
+            if isinstance(u,GateContact):
                 raise TypeError(
-                    f"contact {buf.name!r} is a {type(buf).__name__}, "
+                    f"contact {u.name!r} is a {type(u).__name__}, "
                     "and this path handles contacts that touch semiconductor "
                     "only. The coupled transport solve pins psi, n and p at "
                     'every node of a contact, and a gate sits on an insulator '
@@ -125,7 +125,7 @@ class Device:
 
             return()
 
-        return tuple(int(node)for node in self.regions.oxide_nodes)
+        return tuple(int(ret)for ret in self.regions.oxide_nodes)
 
     @property
     def mesh_1d(self)  ->  Mesh1D :
@@ -154,36 +154,36 @@ class Device:
 
 
     def with_bias(self,**voltages :float) ->Device:
-        konwn  = {con.name for con in self.contacts}
+        ii  = {u.name for u in self.contacts}
 
-        Unknown= sorted(set(voltages)-konwn)
-        if Unknown :
+        a= sorted(set(voltages)-ii)
+        if a :
             raise KeyError(
-                f"no contact named {Unknown} on this device, which has "
-                f"{sorted(konwn)}"
+                f"no contact named {a} on this device, which has "
+                f"{sorted(ii)}"
             )
 
 
 
-        conacts= tuple(replace(con,voltage=voltages.get(con.name,con.voltage)) for con in self.contacts)
-        return replace(self, contacts = conacts)
+        m= tuple(replace(out,voltage=voltages.get(out.name,out.voltage)) for out in self.contacts)
+        return replace(self, contacts = m)
 
 
     def __repr__(self)->str:
-        k2 = ', '.join(
-            f"{contact.name}={contact.voltage:g}V" for contact in self.contacts
+        a = ', '.join(
+            f"{obj.name}={obj.voltage:g}V" for obj in self.contacts
         )
         if isinstance(self.mesh, Mesh1D)  :
 
-            vals=f"length={self.mesh.length:.3e} cm"
+            el=f"length={self.mesh.length:.3e} cm"
         else  :
-            vals =(
+            el =(
                 f"size={self.mesh.x_axis.length:.3e} by "
                 f"{self.mesh.y_axis.length:.3e} cm"
             )
         return(
             f"Device {self.material.name} {self.mesh.n_nodes} nodes "
-            f"{vals} contacts=({k2})"
+            f"{el} contacts=({a})"
         )
 
 def build_device(mesh :AnyMesh, doping: DopingProfile, contacts:tuple[Contact,...], material : Material | None=None, C_0 : float|None =None, regions:RegionMap|None = None, degenerate: bool =False,)->Device:
@@ -193,11 +193,11 @@ def build_device(mesh :AnyMesh, doping: DopingProfile, contacts:tuple[Contact,..
     if not contacts  :
         raise ValueError("a device needs at least one contact")
 
-    for w in contacts:
-        for nod in w.nodes:
-            if not 0 <=nod< mesh.n_nodes:
+    for item in contacts:
+        for z2 in item.nodes:
+            if not 0 <=z2< mesh.n_nodes:
                 raise  IndexError(
-                    f"contact {w.name!r} sits on node {nod}, "
+                    f"contact {item.name!r} sits on node {z2}, "
                     f"but the mesh has {mesh.n_nodes} nodes"
                 )
 
@@ -218,11 +218,11 @@ def build_device(mesh :AnyMesh, doping: DopingProfile, contacts:tuple[Contact,..
 
 
 
-    zip = [w.name for w in contacts]
-    if len(  set ( zip  ) )  !=   len(  zip ) :
-        raise ValueError(f"contact names must be unique, got {zip}")
+    i = [item.name for item in contacts]
+    if len(  set ( i  ) )  !=   len(  i ) :
+        raise ValueError(f"contact names must be unique, got {i}")
 
-    sca=ScaleFactors.for_silicon(T= material.T, C_0=  material.n_i if C_0 is None else C_0, eps= material.eps,)
+    kk=ScaleFactors.for_silicon(T= material.T, C_0=  material.n_i if C_0 is None else C_0, eps= material.eps,)
 
 
     return  Device(
@@ -230,7 +230,7 @@ def build_device(mesh :AnyMesh, doping: DopingProfile, contacts:tuple[Contact,..
         doping =   doping ,
         material  = material,
         contacts   = contacts,
-        scale   =   sca ,
+        scale   =   kk ,
         regions  =  regions,
         degenerate  =  degenerate,
     )

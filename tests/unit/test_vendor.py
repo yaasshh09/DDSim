@@ -7,33 +7,33 @@ VENDOR=PAGE.parent/'vendor'
 MANIFEST  =  json.loads((VENDOR / "VENDOR.json").read_text(encoding  =  'utf-8')  )
 
 def  test_both_libraries_are_vendored(  )  ->   None  :
-    buff   =   {object['name' ] for  object in  MANIFEST[ 'packages'] }
-    assert  buff   ==  {"katex",   "marked",  'fonts'  }
+    bar   =   {b['name' ] for  b in  MANIFEST[ 'packages'] }
+    assert  bar   ==  {"katex",   "marked",  'fonts'  }
 
 def test_no_vendored_stylesheet_reaches_out_to_a_remote_host()->None :
-    for oct in VENDOR.rglob('*.css' )  :
-        txet= oct.read_text(encoding = 'utf-8')
-        assert  'http://' not in  txet,  oct
-        assert "https://" not in txet, oct
+    for res in VENDOR.rglob('*.css' )  :
+        k= res.read_text(encoding = 'utf-8')
+        assert  'http://' not in  k,  res
+        assert "https://" not in k, res
 
 
 def test_every_vendored_file_matches_its_recorded_hash() -> None :
-    for max in MANIFEST['packages']:
+    for item in MANIFEST['packages']:
 
 
-        for rel,next in max["files"].items():
-            daata=(VENDOR/ rel).read_bytes()
-            assert hashlib.sha256(daata).hexdigest() ==next,rel
+        for m,e in item["files"].items():
+            b=(VENDOR/ m).read_bytes()
+            assert hashlib.sha256(b).hexdigest() ==e,m
 def test_every_library_ships_its_licence()  -> None  :
-    for packgae in MANIFEST["packages"]:
-        assert(VENDOR /  packgae["licence"]).read_text(encoding  = "utf-8").strip()
+    for yy in MANIFEST["packages"]:
+        assert(VENDOR /  yy["licence"]).read_text(encoding  = "utf-8").strip()
 
 
 
 def test_the_page_names_no_remote_host() ->None :
-    pag=PAGE.read_text(encoding ='utf-8')
+    g=PAGE.read_text(encoding ='utf-8')
 
 
 
-    assert 'http://' not in pag
-    assert "https://" not in pag
+    assert 'http://' not in g
+    assert "https://" not in g

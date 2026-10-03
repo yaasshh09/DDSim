@@ -77,41 +77,41 @@ def normal_field(
             f"psi has {psi.size} values but the mesh has {mesh.n_nodes} nodes"
         )
 
-    verttical  =  slice( mesh.n_horizontal, None )
-    bel, abo  =   mesh.edge_nodes[verttical,   0 ] , mesh.edge_nodes[verttical,  1 ]
-    edgeField= (psi[abo]  - psi[bel]) / mesh.h[verttical]
+    b2  =  slice( mesh.n_horizontal, None )
+    x, u  =   mesh.edge_nodes[b2,   0 ] , mesh.edge_nodes[b2,  1 ]
+    y= (psi[u]  - psi[x]) / mesh.h[b2]
 
 
-    vals=np.zeros(mesh.n_nodes,dtype=np.float64)
-    coount=  np.zeros(mesh.n_nodes, dtype  = np.float64)
-    for Node in(bel ,   abo)  :
-        np.add.at(vals, Node, edgeField)
-        np.add.at(coount,Node,1.0)
+    tmp2=np.zeros(mesh.n_nodes,dtype=np.float64)
+    foo=  np.zeros(mesh.n_nodes, dtype  = np.float64)
+    for tt in(x ,   u)  :
+        np.add.at(tmp2, tt, y)
+        np.add.at(foo,tt,1.0)
 
-    return np.abs(vals /  coount)
+    return np.abs(tmp2 /  foo)
 
 
 def tensor_mesh_2d(x_axis :  Mesh1D, y_axis :  Mesh1D) -> Mesh2D :
 
-    Nx,Ny=x_axis.n_nodes,y_axis.n_nodes
-    NodeX= np.tile(x_axis.x,Ny);  nodeY =  np.repeat(y_axis.x, Nx)
-    Columns  = np.arange (Nx,  dtype  = np.int64 ); Rows =  np.arange ( Ny,  dtype   =  np.int64)
+    m2,num=x_axis.n_nodes,y_axis.n_nodes
+    a= np.tile(x_axis.x,num);  val =  np.repeat(y_axis.x, m2)
+    row  = np.arange (m2,  dtype  = np.int64 ); info =  np.arange ( num,  dtype   =  np.int64)
 
 
-    HI ,   hJ   =   np.meshgrid(Columns [:-  1  ],   Rows ,   indexing =   "xy" );  h_fom= (hJ *Nx +HI).ravel()
-    hrizontal  =  np.column_stack([h_fom, h_fom + 1])
-    h_lenggth = np.tile (  x_axis.h, Ny)
-    hf =np.repeat(y_axis.volume, Nx -1)
+    bb ,   g   =   np.meshgrid(row [:-  1  ],   info ,   indexing =   "xy" );  buf= (g *m2 +bb).ravel()
+    xs  =  np.column_stack([buf, buf + 1])
+    b = np.tile (  x_axis.h, num)
+    t =np.repeat(y_axis.volume, m2 -1)
 
 
 
-    VI,foo=np.meshgrid(Columns,Rows[:-1],indexing= 'xy')
-    v = (foo  *  Nx  + VI).ravel()
-    ver  =   np.column_stack(  [v ,   v  + Nx])
-    VLength  = np.repeat(y_axis.h, Nx)
-    range= np.tile(x_axis.volume, Ny - 1)
-    dat= np.outer(y_axis.volume,x_axis.volume).ravel()
-    return Mesh2D(x_axis= x_axis, y_axis=y_axis, node_x =NodeX, node_y = nodeY, h= np.concatenate([h_lenggth,VLength]), dual_face = np.concatenate([hf,range]), volume=dat, edge_nodes =np.concatenate([hrizontal,ver]).astype(np.int64),)
+    f,u=np.meshgrid(row,info[:-1],indexing= 'xy')
+    k = (u  *  m2  + f).ravel()
+    w2  =   np.column_stack(  [k ,   k  + m2])
+    t2  = np.repeat(y_axis.h, m2)
+    z= np.tile(x_axis.volume, num - 1)
+    w= np.outer(y_axis.volume,x_axis.volume).ravel()
+    return Mesh2D(x_axis= x_axis, y_axis=y_axis, node_x =a, node_y = val, h= np.concatenate([b,t2]), dual_face = np.concatenate([t,z]), volume=w, edge_nodes =np.concatenate([xs,w2]).astype(np.int64),)
 
 
 def uniform_mesh_2d(width :float,height: float,nx : int,ny :int)->Mesh2D:

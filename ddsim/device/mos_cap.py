@@ -26,21 +26,21 @@ def mos_cap(substrate_doping:float= - 1e16, t_ox :float=1e-6, t_si : float=2e-4,
             "to carry a field across."
         )
 
-    silcion =graded_mesh_1d(
+    nxt =graded_mesh_1d(
         length=t_si, n_nodes =n_silicon, refine_at = t_si, h_min  = h_min
     )
 
-    s2 =uniform_mesh_1d(length =t_ox,n_nodes=n_oxide)
+    v =uniform_mesh_1d(length =t_ox,n_nodes=n_oxide)
 
-    Mesh=tensor_mesh_2d(uniform_mesh_1d(length = width, n_nodes =  nx), stacked_mesh_1d(silcion, s2),)
-    reg =stacked_regions(Mesh, interface_y  = t_si)
+    k=tensor_mesh_2d(uniform_mesh_1d(length = width, n_nodes =  nx), stacked_mesh_1d(nxt, v),)
+    c =stacked_regions(k, interface_y  = t_si)
 
 
-    Contacts  = (OhmicPlate(name =BODY, nodes  = tuple(Mesh.node_at(i, 0) for i in range(Mesh.nx)), voltage =  body_voltage,), GateContact(name =  GATE, nodes= tuple(Mesh.node_at(i, Mesh.ny  - 1)for i in range(Mesh.nx)), voltage = gate_voltage, work_function  = work_function,),)
+    jj  = (OhmicPlate(name =BODY, nodes  = tuple(k.node_at(m, 0) for m in range(k.nx)), voltage =  body_voltage,), GateContact(name =  GATE, nodes= tuple(k.node_at(d, k.ny  - 1)for d in range(k.nx)), voltage = gate_voltage, work_function  = work_function,),)
     return build_device(
-        mesh = Mesh,
+        mesh = k,
         doping= Uniform(substrate_doping),
-        contacts  = Contacts,
+        contacts  = jj,
         material = material,
-        regions= reg,
+        regions= c,
     )

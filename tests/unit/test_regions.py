@@ -38,12 +38,12 @@ def test_the_cells_are_split_at_the_interface(mesh, regions):
     np.testing.assert_array_equal(regions.cell_material[: 2],SILICON); np.testing.assert_array_equal( regions.cell_material[2  :  ], OXIDE )
 
 def test_only_nodes_strictly_inside_the_oxide_have_no_carriers(mesh,regions):
-    intterface_nodes= [mesh.node_at(val,2)for val in range(NX)]
-    for nde in intterface_nodes :
-        assert nde not in set(regions.oxide_nodes.tolist())
-    for bb  in(  3,   4)   :
-        for val  in range (  NX)  :
-            assert mesh.node_at(val,bb) in set(regions.oxide_nodes.tolist())
+    s2= [mesh.node_at(dd,2)for dd in range(NX)]
+    for f in s2 :
+        assert f not in set(regions.oxide_nodes.tolist())
+    for ret  in(  3,   4)   :
+        for dd  in range (  NX)  :
+            assert mesh.node_at(dd,ret) in set(regions.oxide_nodes.tolist())
 
 
 def test_an_oxide_node_has_no_semiconductor_volume(mesh, regions):
@@ -53,19 +53,19 @@ def test_an_oxide_node_has_no_semiconductor_volume(mesh, regions):
 
 def test_the_interface_node_keeps_exactly_half_its_dual_cell(mesh, regions) :
 
-    temp2  =mesh.node_at(1, 2)
+    h  =mesh.node_at(1, 2)
 
 
-    assert  regions.semiconductor_volume[temp2 ] == pytest.approx(0.5  * mesh.volume [ temp2  ] , rel  =  1e-14)
+    assert  regions.semiconductor_volume[h ] == pytest.approx(0.5  * mesh.volume [ h  ] , rel  =  1e-14)
 
 
 
 def test_a_bulk_silicon_node_keeps_all_of_its_dual_cell( mesh ,   regions)  :
 
-    nod=mesh.node_at(1,1)
+    z=mesh.node_at(1,1)
 
 
-    assert  regions.semiconductor_volume [ nod]  ==   pytest.approx(mesh.volume [nod  ],  rel  =   1e-14)
+    assert  regions.semiconductor_volume [ z]  ==   pytest.approx(mesh.volume [z  ],  rel  =   1e-14)
 
 
 def  test_the_semiconductor_volume_sums_to_the_silicon_area (mesh,  regions )  :
@@ -76,41 +76,41 @@ def  test_the_semiconductor_volume_sums_to_the_silicon_area (mesh,  regions )  :
 
 
 def test_an_edge_wholly_in_one_material_carries_that_permittivity(mesh, regions) :
-    epsR =regions.eps_r
+    tmp2 =regions.eps_r
 
-    SiliconEdge  = 1   *   (  NX  -   1 )  +  0
+    lst  = 1   *   (  NX  -   1 )  +  0
 
-    assert epsR[SiliconEdge] ==pytest.approx(1.0,rel= 1e-14)
+    assert tmp2[lst] ==pytest.approx(1.0,rel= 1e-14)
 
-    oe  =   4  * ( NX   -  1 ) +   0
-    assert epsR[oe]== pytest.approx(
+    buf  =   4  * ( NX   -  1 ) +   0
+    assert tmp2[buf]== pytest.approx(
         C.EPS_R_OX  /C.EPS_R_SI, rel = 1e-14
     )
 
 def  test_an_interface_edge_carries_the_average_of_the_two_sides( mesh, regions)   :
-    interace_edge =  2  *(NX -1)  + 0
-    exppected =   0.5   *  (  1.0  +  C.EPS_R_OX  /  C.EPS_R_SI  )
+    el =  2  *(NX -1)  + 0
+    m2 =   0.5   *  (  1.0  +  C.EPS_R_OX  /  C.EPS_R_SI  )
 
-    assert regions.eps_r[interace_edge]  ==  pytest.approx( exppected ,   rel  = 1e-14)
+    assert regions.eps_r[el]  ==  pytest.approx( m2 ,   rel  = 1e-14)
 
 
 
 
 def test_a_single_material_device_is_all_ones(mesh):
 
-    reg= stacked_regions(mesh,interface_y=HEIGHT * 2.0)
+    u= stacked_regions(mesh,interface_y=HEIGHT * 2.0)
 
-    np.testing.assert_allclose(reg.eps_r, 1.0,  rtol   =  0.0  )
-    assert reg.oxide_nodes.size ==0
-    np.testing.assert_allclose(reg.semiconductor_volume,  mesh.volume , rtol  =   1e-14)
+    np.testing.assert_allclose(u.eps_r, 1.0,  rtol   =  0.0  )
+    assert u.oxide_nodes.size ==0
+    np.testing.assert_allclose(u.semiconductor_volume,  mesh.volume , rtol  =   1e-14)
 
 
 
 def test_the_geometry_it_produces_carries_the_permittivity(mesh,regions) :
-    set =regions.edge_geometry(mesh)
+    it =regions.edge_geometry(mesh)
 
-    np.testing.assert_allclose(np.asarray(set.eps_r), regions.eps_r, rtol  = 0.0)
-    np.testing.assert_array_equal(set.edge_nodes, mesh.edge_nodes)
+    np.testing.assert_allclose(np.asarray(it.eps_r), regions.eps_r, rtol  = 0.0)
+    np.testing.assert_array_equal(it.edge_nodes, mesh.edge_nodes)
 
 
 
@@ -127,29 +127,29 @@ def test_a_region_map_reports_what_it_is(mesh,
 
 
 def  test_the_interface_nodes_are_the_row_the_two_materials_share(mesh,  regions )  :
-    abs  =  [  mesh.node_at (  ii,
-                2)   for  ii  in range (mesh.nx)  ]
-    np.testing.assert_array_equal(regions.interface_nodes(mesh), abs)
+    v2  =  [  mesh.node_at (  num,
+                2)   for  num  in range (mesh.nx)  ]
+    np.testing.assert_array_equal(regions.interface_nodes(mesh), v2)
 
 
 def test_an_interface_node_is_a_semiconductor_node(mesh, regions)  :
-    vals=regions.interface_nodes(mesh)
-    assert not set(vals.tolist()) &set(regions.oxide_nodes.tolist())
-    assert np.all(regions.semiconductor_volume[vals]>0.0)
+    t2=regions.interface_nodes(mesh)
+    assert not set(t2.tolist()) &set(regions.oxide_nodes.tolist())
+    assert np.all(regions.semiconductor_volume[t2]>0.0)
 
 
 
 def test_an_interface_node_holds_less_than_its_whole_dual_cell(mesh,regions) :
-    hex= regions.interface_nodes(mesh)
+    b2= regions.interface_nodes(mesh)
     np.testing.assert_array_less(
-        regions.semiconductor_volume[hex],mesh.volume[hex]
+        regions.semiconductor_volume[b2],mesh.volume[b2]
     )
 
 
 
 def  test_a_single_material_device_has_no_interface ( mesh )   :
-    rgions=stacked_regions(mesh,interface_y =HEIGHT)
-    assert rgions.interface_nodes(mesh ).size  ==  0
+    prev=stacked_regions(mesh,interface_y =HEIGHT)
+    assert prev.interface_nodes(mesh ).size  ==  0
 
 
 def horizontal_edge(mesh,
@@ -163,9 +163,9 @@ def vertical_edge(mesh,i:int,j:int)->int:
 
 
 def test_an_edge_wholly_in_silicon_offers_its_whole_face(mesh,regions):
-    edg = horizontal_edge(mesh,0,1)
-    assert  regions.semiconductor_face[ edg ] ==  pytest.approx (
-        mesh.dual_face[edg  ],  rel   =  1e-14
+    c = horizontal_edge(mesh,0,1)
+    assert  regions.semiconductor_face[ c ] ==  pytest.approx (
+        mesh.dual_face[c  ],  rel   =  1e-14
     )
 
 
@@ -182,34 +182,34 @@ def test_a_vertical_edge_leaving_the_interface_offers_nothing(mesh,regions):
 
 
 def  test_a_vertical_edge_below_the_interface_keeps_its_whole_face(mesh , regions )   :
-    buff =vertical_edge(mesh, 0, 1)
-    assert regions.semiconductor_face[buff]==  pytest.approx(mesh.dual_face[buff], rel =1e-14)
+    a2 =vertical_edge(mesh, 0, 1)
+    assert regions.semiconductor_face[a2]==  pytest.approx(mesh.dual_face[a2], rel =1e-14)
 
 
 
 
 def test_an_edge_along_the_interface_offers_half_its_face(mesh,regions):
-    val  =  horizontal_edge (  mesh,
+    a  =  horizontal_edge (  mesh,
           0,
                     2)
 
-    assert regions.semiconductor_face[val]==pytest.approx(
-        0.5 *mesh.dual_face[val],rel= 1e-14
+    assert regions.semiconductor_face[a]==pytest.approx(
+        0.5 *mesh.dual_face[a],rel= 1e-14
     )
 
 
 
 
 def test_a_single_material_device_offers_every_face_whole(mesh)  :
-    Regions  = stacked_regions(mesh , interface_y   =  HEIGHT   *  2.0)
+    tmp2  = stacked_regions(mesh , interface_y   =  HEIGHT   *  2.0)
 
-    np.testing.assert_array_equal(Regions.semiconductor_face, mesh.dual_face)
+    np.testing.assert_array_equal(tmp2.semiconductor_face, mesh.dual_face)
 
 
 
 def test_the_geometry_it_produces_carries_the_carrier_face(mesh, regions) :
-    geo =  regions.edge_geometry(mesh)
+    x2 =  regions.edge_geometry(mesh)
 
     np.testing.assert_array_equal(
-        np.asarray(geo.carrier_face),regions.semiconductor_face
+        np.asarray(x2.carrier_face),regions.semiconductor_face
     )

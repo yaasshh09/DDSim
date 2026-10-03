@@ -13,10 +13,10 @@ MICRON =  1e-4
 
 
 def  test_silicon_material_matches_the_constants_doc()  ->  None :
-    Silicon  =  Material.silicon()
-    assert Silicon.T ==300.0
-    assert Silicon.n_i==1.0e10
-    assert Silicon.eps == pytest.approx(11.7*8.8541878128e-14)
+    kk  =  Material.silicon()
+    assert kk.T ==300.0
+    assert kk.n_i==1.0e10
+    assert kk.eps == pytest.approx(11.7*8.8541878128e-14)
 
 
 def test_material_at_another_temperature_moves_n_i()->None:
@@ -25,146 +25,146 @@ def test_material_at_another_temperature_moves_n_i()->None:
 
 
 def test_build_device_evaluates_doping_on_the_mesh()->None :
-    tmp=uniform_mesh_1d(MICRON,11)
-    aa  = build_device(
-        mesh  = tmp,
+    e=uniform_mesh_1d(MICRON,11)
+    x  = build_device(
+        mesh  = e,
         doping =  Uniform (1e16  ),
         contacts  =   (  OhmicContact( "anode",   0 ,   0.0) ,  OhmicContact ('cathode', 10, 0.0  )  ),
     )
-    np.testing.assert_allclose(aa.net_doping.data,1e16)
+    np.testing.assert_allclose(x.net_doping.data,1e16)
 
 
 def test_net_doping_is_a_physical_node_field()->None  :
-    hash   =   pn_diode(  )
-    assert hash.net_doping.unit ==  "cm^-3"
-    assert hash.net_doping.scaling is ScalingState.PHYSICAL
-    assert hash.net_doping.location is Location.NODE
+    it   =   pn_diode(  )
+    assert it.net_doping.unit ==  "cm^-3"
+    assert it.net_doping.scaling is ScalingState.PHYSICAL
+    assert it.net_doping.location is Location.NODE
 
 
 def test_net_doping_scaled_divides_by_c_0() ->  None :
-    dev   = pn_diode(  Na  =   1e16,  Nd   =  1e16  )
-    saled  =  dev.net_doping_scaled
-    assert saled.scaling is ScalingState.SCALED
+    u   = pn_diode(  Na  =   1e16,  Nd   =  1e16  )
+    h  =  u.net_doping_scaled
+    assert h.scaling is ScalingState.SCALED
     np.testing.assert_allclose(
-        saled.data, dev.net_doping.data/ dev.scale.C_0, rtol = 1e-14
+        h.data, u.net_doping.data/ u.scale.C_0, rtol = 1e-14
     )
 
 
 
 def test_device_rejects_a_contact_outside_the_mesh()-> None:
-    meesh  =  uniform_mesh_1d (  MICRON ,  11)
+    k  =  uniform_mesh_1d (  MICRON ,  11)
     with pytest.raises( IndexError,   match   =   "node")  :
-        build_device(mesh=meesh, doping = Uniform(1e16), contacts =  (OhmicContact("anode", 99, 0.0), ),)
+        build_device(mesh=k, doping = Uniform(1e16), contacts =  (OhmicContact("anode", 99, 0.0), ),)
 
 
 def  test_device_requires_at_least_one_contact ( ) -> None  :
 
 
-    meesh=uniform_mesh_1d(MICRON,11)
+    h=uniform_mesh_1d(MICRON,11)
 
     with pytest.raises(ValueError, match  ="contact"):
 
-        build_device(mesh= meesh,
+        build_device(mesh= h,
              doping= Uniform(1e16),
               contacts= ())
 
 def test_device_is_immutable()->  None :
-    dev  =  pn_diode ( )
+    out2  =  pn_diode ( )
     with pytest.raises(AttributeError) :
-        dev.mesh=None
+        out2.mesh=None
 
 def test_doping_stays_re_evaluable_after_construction()->None:
-    dev  = pn_diode(Na  = 1e16, Nd = 1e17, length =MICRON, junction =0.5 * MICRON)
-    item2 =np.linspace(0.0,MICRON,1001)
-    Values =dev.doping(item2)
+    s  = pn_diode(Na  = 1e16, Nd = 1e17, length =MICRON, junction =0.5 * MICRON)
+    b =np.linspace(0.0,MICRON,1001)
+    tt =s.doping(b)
 
-    assert Values[  0 ] ==   pytest.approx( -  1e16)
-    assert  Values[- 1  ]  ==  pytest.approx(1e17)
+    assert tt[  0 ] ==   pytest.approx( -  1e16)
+    assert  tt[- 1  ]  ==  pytest.approx(1e17)
 
 def test_pn_diode_is_p_type_on_the_left_and_n_type_on_the_right()  ->  None  :
 
-    dev =pn_diode(Na= 1e16, Nd=1e16);assert dev.net_doping.data[0]< 0.0
-    assert dev.net_doping.data[-1]>0.0
+    stuff =pn_diode(Na= 1e16, Nd=1e16);assert stuff.net_doping.data[0]< 0.0
+    assert stuff.net_doping.data[-1]>0.0
 
 def test_pn_diode_has_two_named_contacts_at_the_ends()-> None:
-    dvice=pn_diode()
-    assert[cc.name for cc in dvice.contacts]==["anode","cathode"]
-    assert dvice.contacts[0].node==0
-    assert dvice.contacts[1].node ==dvice.mesh.n_nodes- 1
+    w=pn_diode()
+    assert[h.name for h in w.contacts]==["anode","cathode"]
+    assert w.contacts[0].node==0
+    assert w.contacts[1].node ==w.mesh.n_nodes- 1
 def  test_pn_diode_refines_the_mesh_at_the_junction()   ->   None  :
-    deice=pn_diode(junction=0.5 * MICRON,h_min=1e-7)
-    Finest= int(np.argmin(deice.mesh.h))
-    mid = 0.5* (deice.mesh.x[Finest] + deice.mesh.x[Finest + 1])
-    assert abs(mid -  0.5  *  MICRON  ) <  2e-7
+    d2=pn_diode(junction=0.5 * MICRON,h_min=1e-7)
+    v= int(np.argmin(d2.mesh.h))
+    u = 0.5* (d2.mesh.x[v] + d2.mesh.x[v + 1])
+    assert abs(u -  0.5  *  MICRON  ) <  2e-7
 
 def test_pn_diode_contacts_default_to_zero_bias() ->None :
 
-    devce= pn_diode()
-    assert all(contact.voltage==0.0 for contact in devce.contacts)
+    k= pn_diode()
+    assert all(b.voltage==0.0 for b in k.contacts)
 
 
 def  test_equilibrium_solve_converges ()   ->  None   :
 
-    sttate =solve_equilibrium(pn_diode())
-    assert sttate.newton.converged
+    m =solve_equilibrium(pn_diode())
+    assert m.newton.converged
 
 def test_equilibrium_solve_converges_in_under_ten_iterations()->None:
-    State  =   solve_equilibrium(  pn_diode( ) )
-    assert State.newton.iterations< 10,State.newton.residual_history
+    t2  =   solve_equilibrium(  pn_diode( ) )
+    assert t2.newton.iterations< 10,t2.newton.residual_history
 
 
 
 
 def test_equilibrium_state_fields_are_scaled_node_fields() -> None :
-    State = solve_equilibrium(pn_diode())
-    for feld in(  State.psi,
-                 State.n,
-                   State.p  )  :
+    c = solve_equilibrium(pn_diode())
+    for tmp3 in(  c.psi,
+                 c.n,
+                   c.p  )  :
 
-        assert feld.scaling is ScalingState.SCALED
-        assert feld.location is Location.NODE
+        assert tmp3.scaling is ScalingState.SCALED
+        assert tmp3.location is Location.NODE
 
 
 
 def test_equilibrium_psi_can_be_converted_to_volts() -> None:
 
 
-    min  =   pn_diode ()
+    xs  =   pn_diode ()
 
-    sta  =  solve_equilibrium(min)
+    e  =  solve_equilibrium(xs)
 
-    vol= sta.psi.to_physical(min.scale)
-    assert  vol.scaling is  ScalingState.PHYSICAL
-    assert np.max(np.abs(vol.data))<2.0
+    b= e.psi.to_physical(xs.scale)
+    assert  b.scaling is  ScalingState.PHYSICAL
+    assert np.max(np.abs(b.data))<2.0
 
 def  test_equilibrium_pins_psi_at_the_contacts(  )  ->   None   :
     from ddsim.discretize.boundary import ohmic_psi_scaled
 
 
-    id= pn_diode(Na=1e16,Nd = 1e16)
-    State= solve_equilibrium(id)
-    bb  =id.net_doping_scaled.data
-    for acc in id.contacts :
+    z= pn_diode(Na=1e16,Nd = 1e16)
+    b= solve_equilibrium(z)
+    g  =z.net_doping_scaled.data
+    for zz in z.contacts :
 
-        Expected  =  ohmic_psi_scaled(float (  bb[ acc.node]  ) ,   0.0)
-        assert State.psi.data[  acc.node ]   ==   pytest.approx(  Expected,  rel  =  1e-10 )
+        flag  =  ohmic_psi_scaled(float (  g[ zz.node]  ) ,   0.0)
+        assert b.psi.data[  zz.node ]   ==   pytest.approx(  flag,  rel  =  1e-10 )
 
 
 
 def test_equilibrium_is_flat_in_uniform_material()->None:
 
-    Mesh = uniform_mesh_1d(MICRON,51)
-    devce =build_device(mesh= Mesh, doping  = Uniform(1e16), contacts=  (OhmicContact('left', 0, 0.0), OhmicContact("right", 50, 0.0)),)
-    State=solve_equilibrium(devce)
-    assert np.ptp(State.psi.data)< 1e-9
+    cur = uniform_mesh_1d(MICRON,51)
+    x =build_device(mesh= cur, doping  = Uniform(1e16), contacts=  (OhmicContact('left', 0, 0.0), OhmicContact("right", 50, 0.0)),)
+    tt=solve_equilibrium(x)
+    assert np.ptp(tt.psi.data)< 1e-9
 
 
 def test_equilibrium_reports_the_residual_history() -> None :
 
 
-    bar = solve_equilibrium(pn_diode())
-    assert len(bar.newton.residual_history)== bar.newton.iterations  +1
-    assert bar.newton.residual_history[- 1  ]  < bar.newton.residual_history[0]
+    a2 = solve_equilibrium(pn_diode())
+    assert len(a2.newton.residual_history)== a2.newton.iterations  +1
+    assert a2.newton.residual_history[- 1  ]  < a2.newton.residual_history[0]
 
 
 
@@ -177,45 +177,45 @@ def test_equilibrium_raises_if_it_fails_to_converge() -> None :
 
 
 def test_equilibrium_accepts_a_device_with_a_bias_applied()->None:
-    dvice  = pn_diode(anode_voltage  =-  1.0)
-    State = solve_equilibrium(dvice)
-    assert State.newton.converged
-    ret = State.psi.to_physical (  dvice.scale  ).data
-    assert ret[0]<ret[-1]
+    v  = pn_diode(anode_voltage  =-  1.0)
+    j = solve_equilibrium(v)
+    assert j.newton.converged
+    vv = j.psi.to_physical (  v.scale  ).data
+    assert vv[0]<vv[-1]
 
 
 
 def test_device_state_is_immutable()-> None :
 
 
-    range= solve_equilibrium(pn_diode())
+    thing= solve_equilibrium(pn_diode())
     with pytest.raises(  AttributeError  )  :
-        range.psi= None
+        thing.psi= None
 
 def test_solve_does_not_mutate_the_device() ->None :
-    arr=pn_diode()
-    bef = arr.net_doping.data.copy()
-    solve_equilibrium(arr)
-    np.testing.assert_array_equal( arr.net_doping.data , bef  )
+    h=pn_diode()
+    t2 = h.net_doping.data.copy()
+    solve_equilibrium(h)
+    np.testing.assert_array_equal( h.net_doping.data , t2  )
 
 def test_device_repr_is_informative(  )  ->  None :
 
-    tex=repr(pn_diode())
-    assert "Device" in tex
-    assert "nodes"  in tex
+    w=repr(pn_diode())
+    assert "Device" in w
+    assert "nodes"  in w
 def test_build_device_defaults_to_silicon() ->None  :
-    dev  =  build_device(
+    kk  =  build_device(
         mesh   =   uniform_mesh_1d ( MICRON,   11),
         doping   = Uniform ( 1e16) ,
         contacts   =  ( OhmicContact ('a',   0 , 0.0  ) ,   ),
     )
-    assert isinstance(dev,Device)
+    assert isinstance(kk,Device)
 
-    assert dev.material.n_i == 1.0e10
+    assert kk.material.n_i == 1.0e10
 
 
 
 def test_device_rejects_duplicate_contact_names() ->None :
-    stuff =uniform_mesh_1d(MICRON, 11)
+    yy =uniform_mesh_1d(MICRON, 11)
     with pytest.raises(ValueError,match="unique"):
-        build_device(mesh=stuff, doping=Uniform(1e16), contacts= (OhmicContact("a",0,0.0),OhmicContact("a",10,0.0)),)
+        build_device(mesh=yy, doping=Uniform(1e16), contacts= (OhmicContact("a",0,0.0),OhmicContact("a",10,0.0)),)

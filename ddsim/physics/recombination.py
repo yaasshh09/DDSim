@@ -18,8 +18,8 @@ def scharfetter_lifetime(
     gamma : float=C.GAMMA_SRH,
 ) -> npt.NDArray[np.float64]  :
 
-    lst =  np.asarray(N_total, dtype  =  np.float64)
-    if np.any(lst < 0.0):
+    u =  np.asarray(N_total, dtype  =  np.float64)
+    if np.any(u < 0.0):
         raise  ValueError("N_total is a total doping Na + Nd and cannot be negative. " 'Pass abs(net_doping) if that is what you have.')
     if tau_max  < tau_min :
         raise  ValueError (  f"tau_max={tau_max} is below tau_min={tau_min}" )
@@ -27,7 +27,7 @@ def scharfetter_lifetime(
 
         raise ValueError(f"N_ref must be positive, got {N_ref}")
     return np.asarray(
-        tau_min +  (tau_max-tau_min) /  (1.0 + (lst/ N_ref) ** gamma)
+        tau_min +  (tau_max-tau_min) /  (1.0 + (u/ N_ref) ** gamma)
     )
 
 
@@ -52,7 +52,7 @@ def d_srh_dn(
     n1:float =1.0,
     p1:float =1.0,
 )-> Density :
-    Denominator   =  _denominator(  n ,  p, tau_n ,  tau_p, n1 ,   p1);  return(  p  *  Denominator -   (n  *  p   -  ni2  )   * tau_p)  /  (Denominator   *  Denominator  )
+    b   =  _denominator(  n ,  p, tau_n ,  tau_p, n1 ,   p1);  return(  p  *  b -   (n  *  p   -  ni2  )   * tau_p)  /  (b   *  b  )
 
 
 def d_srh_dp(
@@ -64,18 +64,18 @@ def d_srh_dp(
     n1 : float =  1.0,
     p1  : float = 1.0,
 ) -> Density :
-    den =_denominator(n, p, tau_n, tau_p, n1, p1)
-    return(n* den - (n*p-ni2) *tau_n)/(den *den)
+    c =_denominator(n, p, tau_n, tau_p, n1, p1)
+    return(n* c - (n*p-ni2) *tau_n)/(c *c)
 
 def srh_electron_linearization(n: Density, p :Density, tau_n  : Lifetime, tau_p  : Lifetime, ni2:float =  1.0, n1: float  = 1.0, p1 :  float  =  1.0,) -> tuple[Density, Density] :
 
-    obj2 =  _denominator(n, p, tau_n, tau_p, n1, p1)
-    return p/obj2,ni2 /obj2
+    s2 =  _denominator(n, p, tau_n, tau_p, n1, p1)
+    return p/s2,ni2 /s2
 
 
 def srh_hole_linearization(n :Density, p: Density, tau_n  :Lifetime, tau_p :Lifetime, ni2 : float = 1.0, n1: float  =  1.0, p1 : float =1.0,) -> tuple[Density, Density]:
-    Denominator =_denominator(n,p,tau_n,tau_p,n1,p1)
-    return n/ Denominator, ni2 /  Denominator
+    s =_denominator(n,p,tau_n,tau_p,n1,p1)
+    return n/ s, ni2 /  s
 
 
 
@@ -201,14 +201,14 @@ class AugerRecombination :
     def electron_linearization(
         self,n:Density,p :Density
     )->tuple[Density,Density]:
-        cofficient =self._coefficient(n,p)
-        return cofficient   *  p,   cofficient  *  self.ni2
+        jj =self._coefficient(n,p)
+        return jj   *  p,   jj  *  self.ni2
 
 
 
     def hole_linearization(self, n :Density, p  :Density)  -> tuple[Density, Density] :
-        cofeficient=  self._coefficient(n, p)
-        return cofeficient  *n, cofeficient *self.ni2
+        out2=  self._coefficient(n, p)
+        return out2  *n, out2 *self.ni2
 
 
 
@@ -221,30 +221,30 @@ class SumOfRecombination:
     models : tuple[RecombinationModel, ...]
 
     def _sum(self,   values  :  Iterable[Density],   n   :   Density , p   :   Density) ->  npt.NDArray[np.float64  ] :
-        tot =  np.zeros (np.broadcast_shapes (np.shape (n  ) ,   np.shape (  p  )) )
-        for val in values :
+        h =  np.zeros (np.broadcast_shapes (np.shape (n  ) ,   np.shape (  p  )) )
+        for bar in values :
 
 
-            tot =  tot +  val
-        return  tot
+            h =  h +  bar
+        return  h
     def rate(self, n : Density, p  : Density) ->  Density :
-        return self._sum((model.rate(n,p) for model in self.models),n,p)
+        return self._sum((w.rate(n,p) for w in self.models),n,p)
     def  d_rate_dn(self,
              n :  Density,
            p  :  Density  )  ->   Density  :
-        return self._sum((model.d_rate_dn(n, p)  for model in self.models), n, p)
+        return self._sum((m.d_rate_dn(n, p)  for m in self.models), n, p)
     def d_rate_dp( self,   n  :  Density,   p :  Density  )  -> Density  :
-        return self._sum((model.d_rate_dp(n,p) for model in self.models),n,p)
+        return self._sum((foo.d_rate_dp(n,p) for foo in self.models),n,p)
 
     def electron_linearization(
         self, n :  Density, p  : Density
     )-> tuple[Density, Density] :
-        ord= [Model.electron_linearization(n,p)for Model in self.models]
+        x= [t2.electron_linearization(n,p)for t2 in self.models]
         return(
-            self._sum((c for c,_ in ord),n,p),
-            self._sum((g for _,g in ord),n,p),
+            self._sum((f for f,_ in x),n,p),
+            self._sum((j for _,j in x),n,p),
         )
     def hole_linearization(self,n : Density,p :Density)->tuple[Density,Density]:
 
-        paiirs   = [mod.hole_linearization(n, p )  for  mod in self.models ]
-        return(self._sum((c for c, _ in paiirs), n, p), self._sum((g for _, g in paiirs), n, p),)
+        j   = [el.hole_linearization(n, p )  for  el in self.models ]
+        return(self._sum((r for r, _ in j), n, p), self._sum((a for _, a in j), n, p),)

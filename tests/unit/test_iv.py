@@ -11,7 +11,7 @@ MICRON =1e-4
 
 def diode( **  overrides  :  float)   :
 
-    sttings:dict = {
+    z:dict = {
         'Na' : 1e16,
         "Nd" : 1e16,
         "length": 12*MICRON,
@@ -19,147 +19,147 @@ def diode( **  overrides  :  float)   :
         "n_nodes"  :  201,
         "h_min":  5e-7,
     }
-    sttings.update(overrides)
-    return pn_diode(**  sttings)
+    z.update(overrides)
+    return pn_diode(**  z)
 
 
 
 def  test_current_densities_come_back_physical_and_on_edges (  )  -> None   :
-    sum = diode()
+    d = diode()
 
-    thing=solve_bias(sum)
-    Jnn,jp=current_densities(sum,thing)
+    x=solve_bias(d)
+    b2,val2=current_densities(d,x)
 
-    for dir in(Jnn, jp):
+    for u in(b2, val2):
 
-        assert dir.location is Location.EDGE
-        assert dir.scaling is ScalingState.PHYSICAL
-        assert dir.unit==  'A/cm^2'
-        assert dir.size== sum.mesh.n_edges
+        assert u.location is Location.EDGE
+        assert u.scaling is ScalingState.PHYSICAL
+        assert u.unit==  'A/cm^2'
+        assert u.size== d.mesh.n_edges
 
 
 def test_equilibrium_carries_no_current()->None:
-    dveice  =diode()
-    out2= solve_bias(dveice)
-    Jnn,  yy   =  current_densities(  dveice,  out2  )
+    w  =diode()
+    lst= solve_bias(w)
+    tmp2,  c   =  current_densities(  w,  lst  )
 
 
-    assert np.max(  np.abs(Jnn.data  +   yy.data)  ) <   1e-10
+    assert np.max(  np.abs(tmp2.data  +   c.data)  ) <   1e-10
 
 
-    assert abs(total_current(dveice, out2))< 1e-10
+    assert abs(total_current(w, lst))< 1e-10
 
 
 def test_forward_bias_drives_current_into_the_anode( )  ->  None  :
-    Device  =  diode ().with_bias( anode  = 0.4  )
-    stte = solve_bias(Device)
-    assert stte.gummel is not None and stte.gummel.converged
-    object=terminal_currents(Device, stte)
-    assert object["anode"] > 0.0
+    it  =  diode ().with_bias( anode  = 0.4  )
+    i = solve_bias(it)
+    assert i.gummel is not None and i.gummel.converged
+    e=terminal_currents(it, i)
+    assert e["anode"] > 0.0
 def test_reverse_bias_gives_a_small_negative_current()-> None :
-    Device = diode().with_bias(anode=-1.0)
-    sta= solve_bias(Device)
+    vv = diode().with_bias(anode=-1.0)
+    res2= solve_bias(vv)
 
 
-    reverrse = terminal_currents(Device,sta)["anode"]
-    t2= terminal_currents(
+    g = terminal_currents(vv,res2)["anode"]
+    cur= terminal_currents(
         diode().with_bias(anode = 0.4),solve_bias(diode().with_bias(anode= 0.4))
     )["anode"]
 
 
 
-    assert reverrse   <  0.0
-    assert abs(reverrse)<1e-3*t2
+    assert g   <  0.0
+    assert abs(g)<1e-3*cur
 
 
 def test_terminal_currents_sum_to_zero()->  None :
-    Device= diode().with_bias(anode=0.4)
-    State =solve_bias(Device)
+    k= diode().with_bias(anode=0.4)
+    j =solve_bias(k)
 
 
-    cur= terminal_currents(Device,State)
-    data2 =max(abs(value) for value in cur.values())
-    assert abs(sum(cur.values()))  < 1e-8 *  data2
+    res2= terminal_currents(k,j)
+    vv =max(abs(out) for out in res2.values())
+    assert abs(sum(res2.values()))  < 1e-8 *  vv
 def  test_total_current_is_the_anode_current( )   -> None   :
-    dev = diode().with_bias(anode = 0.3)
-    xx   = solve_bias (dev )
+    h = diode().with_bias(anode = 0.3)
+    w   = solve_bias (h )
 
 
 
     np.testing.assert_allclose (
-        total_current (  dev,   xx  ),
-        terminal_currents(  dev, xx  )  ["anode" ] ,
+        total_current (  h,   w  ),
+        terminal_currents(  h, w  )  ["anode" ] ,
         rtol   =   1e-12 ,
     )
 def  test_current_rises_steeply_with_forward_bias()  ->  None :
-    loww =diode().with_bias(anode =0.2)
-    hgih=diode().with_bias(anode=0.3)
+    g =diode().with_bias(anode =0.2)
+    m2=diode().with_bias(anode=0.3)
 
-    raio= total_current(hgih, solve_bias(hgih)) / total_current(
-        loww, solve_bias(loww)
+    y= total_current(m2, solve_bias(m2)) / total_current(
+        g, solve_bias(g)
     )
-    assert 10.0< raio<100.0
+    assert 10.0< y<100.0
 
 
 
 def test_recombination_drops_out_of_the_terminal_current( ) ->   None :
-    devvice  =  diode ().with_bias(anode  =  0.3 )
-    round  =  TransportModels.for_device(devvice, recombination  = NoRecombination())
-    State= solve_bias(devvice)
+    x  =  diode ().with_bias(anode  =  0.3 )
+    m  =  TransportModels.for_device(x, recombination  = NoRecombination())
+    j= solve_bias(x)
 
     assert(
-        terminal_currents(devvice,State,models = round)['anode']
-        ==terminal_currents(devvice,State) ["anode"]
+        terminal_currents(x,j,models = m)['anode']
+        ==terminal_currents(x,j) ["anode"]
     )
 
-    nde =devvice.contacts[0].node
+    res2 =x.contacts[0].node
     assert(
-        continuity_residuals(devvice, State, round)  [0]  [nde]
-        ==continuity_residuals(devvice, State)[0]  [nde]
+        continuity_residuals(x, j, m)  [0]  [res2]
+        ==continuity_residuals(x, j)[0]  [res2]
     )
 
-    defalut =  TransportModels.for_device(devvice)
-    Rate   =   np.asarray(  defalut.recombination.rate(State.n.data,  State.p.data )  )
-    assert Rate[nde]  == 0.0
+    e =  TransportModels.for_device(x)
+    d   =   np.asarray(  e.recombination.rate(j.n.data,  j.p.data )  )
+    assert d[res2]  == 0.0
 
 def  test_a_sweep_lands_on_every_requested_voltage(  ) ->  None  :
-    Voltages = [0.0, 0.1, 0.2, 0.3]
-    Curve  =  iv_sweep ( diode ( ),   'anode', Voltages  )
-    assert Curve.complete
-    np.testing.assert_allclose(Curve.voltage,Voltages,atol=0.0)
+    stuff = [0.0, 0.1, 0.2, 0.3]
+    f  =  iv_sweep ( diode ( ),   'anode', stuff  )
+    assert f.complete
+    np.testing.assert_allclose(f.voltage,stuff,atol=0.0)
 
 def test_a_sweep_current_increases_with_forward_bias()   ->  None   :
-    cuve=iv_sweep(diode(),"anode",[0.1,0.2,0.3,0.4])
+    s2=iv_sweep(diode(),"anode",[0.1,0.2,0.3,0.4])
 
 
-    assert np.all(np.diff(cuve.current)  > 0.0)
+    assert np.all(np.diff(s2.current)  > 0.0)
 
 
 def test_a_sweep_can_run_into_reverse_bias ( )  ->  None  :
-    currve= iv_sweep(diode(),"anode",[- 0.5,-0.25,0.0,0.25])
+    v2= iv_sweep(diode(),"anode",[- 0.5,-0.25,0.0,0.25])
 
-    assert  currve.complete
-    assert currve.current[0] < 0.0
-    assert currve.current[-1] > 0.0
+    assert  v2.complete
+    assert v2.current[0] < 0.0
+    assert v2.current[-1] > 0.0
 
 
 def test_a_sweep_carries_the_state_at_every_point() -> None :
-    cruve=iv_sweep(diode(), "anode", [0.0, 0.2])
+    t=iv_sweep(diode(), "anode", [0.0, 0.2])
 
-    assert len(cruve.points) == 2
-    for  poi , vol in zip(cruve.points ,
+    assert len(t.points) == 2
+    for  it , idx in zip(t.points ,
          [  0.0 ,
        0.2],
                     strict  =  True  )  :
-        assert poi.state.gummel is not  None
-        assert poi.state.gummel.converged
-        assert poi.voltage ==vol
+        assert it.state.gummel is not  None
+        assert it.state.gummel.converged
+        assert it.voltage ==idx
 
 
 
 
 def test_a_sweep_stops_and_says_where_when_it_stalls() ->None:
-    cuve= iv_sweep(
+    y= iv_sweep(
         diode(n_nodes=41, h_min  = 2e-6),
         'anode',
         [0.2, 0.4, 5.0],
@@ -167,29 +167,29 @@ def test_a_sweep_stops_and_says_where_when_it_stalls() ->None:
         min_step =0.01,
         max_iterations=8,
     )
-    assert not cuve.complete
-    assert cuve.message
-    assert len(cuve.points)>= 1
+    assert not y.complete
+    assert y.message
+    assert len(y.points)>= 1
 
-    assert cuve.voltage[-1]<5.0
+    assert y.voltage[-1]<5.0
 
 def test_an_unknown_contact_is_rejected_before_any_solving() -> None :
     with  pytest.raises(KeyError ,  match =   'gate' )  :
         iv_sweep(diode(), "gate", [0.1])
 
 def test_curve_repr_reports_the_range() ->None :
-    cur  =   iv_sweep(diode(  ),  "anode", [  0.0 ,  0.2 ])
+    d2  =   iv_sweep(diode(  ),  "anode", [  0.0 ,  0.2 ])
 
 
 
-    assert "anode" in repr( cur)
-    assert "complete" in repr(cur)
+    assert "anode" in repr( d2)
+    assert "complete" in repr(d2)
 
 def  test_an_empty_curve_still_has_a_repr(  ) ->  None :
-    cuvre =  IVCurve(contact =  "anode", points=  (), complete =False, message ='stalled')
+    dd =  IVCurve(contact =  "anode", points=  (), complete =False, message ='stalled')
 
 
-    assert "empty"  in repr( cuvre)
+    assert "empty"  in repr( dd)
 def test_a_sweep_with_no_starting_guess_raises()->None:
     with pytest.raises(RuntimeError,
              match =  "could not be started"):
@@ -199,14 +199,14 @@ def test_a_sweep_with_no_starting_guess_raises()->None:
 def test_a_sweep_that_cannot_start_cold_ramps_its_held_bias_in()->None:
 
 
-    Curve =  iv_sweep(  pn_diode ( cathode_voltage =  20.0 ), "anode" ,   [ 0.0, 0.1 ])
+    m =  iv_sweep(  pn_diode ( cathode_voltage =  20.0 ), "anode" ,   [ 0.0, 0.1 ])
 
 
-    assert Curve.complete
-    First ,  buff  =  Curve.current
-    assert First   !=  0.0
+    assert m.complete
+    zz ,  k  =  m.current
+    assert zz   !=  0.0
 
-    assert abs(buff - First)/abs(First)<0.05
+    assert abs(k - zz)/abs(zz)<0.05
 def test_a_sweep_whose_first_point_stalls_raises()  ->  None :
     with pytest.raises(RuntimeError, match  =  'did not converge') :
         iv_sweep(
@@ -223,7 +223,7 @@ def test_a_sweep_whose_cold_start_and_ramp_both_stall_raises() -> None :
 
 
 def test_a_floor_on_the_continuation_step_bounds_the_cost_of_a_stall()-> None:
-    Coarse = iv_sweep(
+    rr = iv_sweep(
         diode(n_nodes =  41, h_min =2e-6),
         "anode",
         [0.2, 5.0],
@@ -231,10 +231,10 @@ def test_a_floor_on_the_continuation_step_bounds_the_cost_of_a_stall()-> None:
         min_step = 0.025,
         max_iterations =  8,
     )
-    fin = iv_sweep(diode(n_nodes= 41, h_min =  2e-6), 'anode', [0.2, 5.0], step  =0.05, min_step =  0.0005, max_iterations  =8,)
+    s = iv_sweep(diode(n_nodes= 41, h_min =  2e-6), 'anode', [0.2, 5.0], step  =0.05, min_step =  0.0005, max_iterations  =8,)
 
-    assert not Coarse.complete and not fin.complete
-    assert Coarse.message and fin.message
+    assert not rr.complete and not s.complete
+    assert rr.message and s.message
 
 
-    assert Coarse.voltage[-1]<=fin.voltage[-1]
+    assert rr.voltage[-1]<=s.voltage[-1]

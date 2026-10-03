@@ -21,28 +21,28 @@ CAP_WIDTH =1e-5
 
 CAP_SURFACE =2e-4
 def drawn_nmos (  ** changes  ) :
-    bloks, tuple, any =  NMOS_DRAWING
+    t, f, prev =  NMOS_DRAWING
     return drawing(
-        blocks = changes.pop("blocks", bloks),
-        implants  =  changes.pop("implants", tuple),
-        electrodes  =  changes.pop("electrodes", any),
+        blocks = changes.pop("blocks", t),
+        implants  =  changes.pop("implants", f),
+        electrodes  =  changes.pop("electrodes", prev),
         **  changes,
     )
 
 
 
 def  drawn_cap( ** changes )  :
-    blcoks,Implants,Electrodes =MOS_CAP_DRAWING
-    return  drawing(blocks  =   changes.pop( 'blocks',  blcoks ), implants = changes.pop( 'implants',  Implants ), electrodes   = changes.pop( "electrodes", Electrodes ) , ** changes,)
+    flag,num,e =MOS_CAP_DRAWING
+    return  drawing(blocks  =   changes.pop( 'blocks',  flag ), implants = changes.pop( 'implants',  num ), electrodes   = changes.pop( "electrodes", e ) , ** changes,)
 
 def cell_centres(mesh):
-    junk,yy =mesh.x_axis.x,mesh.y_axis.x
-    return 0.5  *(junk[1 :]+  junk[:-  1]), 0.5 * (yy[1 :] +yy[:- 1])
+    y,d =mesh.x_axis.x,mesh.y_axis.x
+    return 0.5  *(y[1 :]+  y[:-  1]), 0.5 * (d[1 :] +d[:- 1])
 
 def test_the_default_drawing_is_the_benchmark_nmos() -> None :
-    blo,Implants,bar= NMOS_DRAWING; s2 =drawing()
-    assert{E.name for E in bar}  =={C.name for C in s2.contacts}
-    assert s2.degenerate
+    s,k,f= NMOS_DRAWING; jj =drawing()
+    assert{stuff.name for stuff in f}  =={rows.name for rows in jj.contacts}
+    assert jj.degenerate
 
 
 
@@ -50,132 +50,132 @@ def test_the_default_drawing_is_the_benchmark_nmos() -> None :
 def  test_every_drawn_edge_is_a_mesh_line(  )  -> None :
 
 
-    res, implatns, ele  = NMOS_DRAWING
-    mseh  =  drawn_nmos().mesh
-    for hex in res+implatns +ele :
-        assert hex.x0 in mseh.x_axis.x and hex.x1 in mseh.x_axis.x
+    foo, item, zz  = NMOS_DRAWING
+    nxt  =  drawn_nmos().mesh
+    for a2 in foo+item +zz :
+        assert a2.x0 in nxt.x_axis.x and a2.x1 in nxt.x_axis.x
 
-        assert hex.y0 in mseh.y_axis.x and hex.y1 in mseh.y_axis.x
+        assert a2.y0 in nxt.y_axis.x and a2.y1 in nxt.y_axis.x
 
 def test_the_mesh_is_graded_at_the_mask_edges_and_the_surface ( )  ->  None   :
-    k2  =  drawn_nmos( ) ; r2,Y=k2.mesh.x_axis,k2.mesh.y_axis
-    for ege in(0.4 * MICRON, 1.8  * MICRON - 0.4 * MICRON):
-        Node= int(np.flatnonzero(r2.x  == ege)  [0])
-        np.testing.assert_allclose(r2.h[ Node -   1   :   Node  +  1  ] ,  2  *  NM ,  rtol = 0.25 )
-    Surface = int(np.flatnonzero(Y.x ==  1.0 *  MICRON)  [0])
-    np.testing.assert_allclose(Y.h[Surface  -1 : Surface  + 1], 6.25e-9, rtol =  0.25)
+    d  =  drawn_nmos( ) ; u,el=d.mesh.x_axis,d.mesh.y_axis
+    for row in(0.4 * MICRON, 1.8  * MICRON - 0.4 * MICRON):
+        m= int(np.flatnonzero(u.x  == row)  [0])
+        np.testing.assert_allclose(u.h[ m -   1   :   m  +  1  ] ,  2  *  NM ,  rtol = 0.25 )
+    w = int(np.flatnonzero(el.x ==  1.0 *  MICRON)  [0])
+    np.testing.assert_allclose(el.h[w  -1 : w  + 1], 6.25e-9, rtol =  0.25)
 
 def test_the_materials_are_painted_on_the_cells()  ->  None  :
-    dev =drawn_cap()
-    Cells= dev.regions.cell_material
-    surace =  int(np.flatnonzero(dev.mesh.y_axis.x== CAP_SURFACE)  [0])
+    tmp2 =drawn_cap()
+    zz= tmp2.regions.cell_material
+    t2 =  int(np.flatnonzero(tmp2.mesh.y_axis.x== CAP_SURFACE)  [0])
 
 
-    assert np.all(Cells[: surace]== SILICON);assert np.all(Cells[surace:] == OXIDE)
+    assert np.all(zz[: t2]== SILICON);assert np.all(zz[t2:] == OXIDE)
 
 
 
 def test_a_later_block_paints_over_an_earlier_one()-> None :
-    blcks,  imp,  data2 =  MOS_CAP_DRAWING
-    yy  =  Block(
+    obj,  tmp,  s2 =  MOS_CAP_DRAWING
+    s  =  Block(
         "oxide",
         0.4  *  CAP_WIDTH,
         0.6 * CAP_WIDTH,
         CAP_SURFACE  -  0.5* MICRON,
         CAP_SURFACE,
     )
-    range  =   drawn_cap (  blocks  =   blcks +  (yy,  ) , nx  =  41)
-    ceentre_x,centreY=cell_centres(range.mesh)
-    isnide=  np.outer(
-        (centreY  >  yy.y0) &(centreY<  yy.y1),
-        (ceentre_x > yy.x0) & (ceentre_x < yy.x1),
+    f  =   drawn_cap (  blocks  =   obj +  (s,  ) , nx  =  41)
+    k,t2=cell_centres(f.mesh)
+    mm=  np.outer(
+        (t2  >  s.y0) &(t2<  s.y1),
+        (k > s.x0) & (k < s.x1),
     )
-    assert isnide.any()
-    assert  np.all ( range.regions.cell_material[isnide]   ==   OXIDE)
-    vars = ~  isnide &  ( centreY  <  CAP_SURFACE)  [ :, None] ; assert np.all(range.regions.cell_material[vars] == SILICON)
+    assert mm.any()
+    assert  np.all ( f.regions.cell_material[mm]   ==   OXIDE)
+    u = ~  mm &  ( t2  <  CAP_SURFACE)  [ :, None] ; assert np.all(f.regions.cell_material[u] == SILICON)
 
 
 
 
 def test_the_drawn_nmos_doping_is_nmos_doping() ->  None :
-    deevice  = drawn_nmos()
-    mes= deevice.mesh; sil =deevice.regions.semiconductor_volume > 0.0
+    z  = drawn_nmos()
+    d= z.mesh; j =z.regions.semiconductor_volume > 0.0
 
-    k2 =Coordinates(mes.node_x,mes.node_y)
+    c =Coordinates(d.node_x,d.node_y)
 
 
-    Expected =nmos().doping(k2)
+    cur =nmos().doping(c)
 
-    Drawn=deevice.doping(k2)
-    np.testing.assert_allclose(Drawn[sil], Expected[sil], rtol = 1e-13, atol  = 1e-13  *  1e17)
-    w= sil&(mes.node_x<0.9 *MICRON)
-    np.testing.assert_array_equal(Drawn[w], Expected[w])
+    tt=z.doping(c)
+    np.testing.assert_allclose(tt[j], cur[j], rtol = 1e-13, atol  = 1e-13  *  1e17)
+    u= j&(d.node_x<0.9 *MICRON)
+    np.testing.assert_array_equal(tt[u], cur[u])
 
 
 def test_electrodes_become_the_contacts_they_name() ->None:
-    vals=drawn_nmos()
-    lst= {any.name:any for any in vals.contacts}
-    assert isinstance(lst['gate'],GateContact)
-    assert isinstance(lst["source"], OhmicPlate )
+    thing=drawn_nmos()
+    h= {stuff.name:stuff for stuff in thing.contacts}
+    assert isinstance(h['gate'],GateContact)
+    assert isinstance(h["source"], OhmicPlate )
 
-    mes =  vals.mesh
-    assert np.all(mes.node_y[list(lst["body"].nodes)] == 0.0) ; abs= next(e for e in NMOS_DRAWING[2] if e.name=='gate')
-    assert np.all(mes.node_y[list(lst['gate'].nodes)] == abs.y0)
+    d =  thing.mesh
+    assert np.all(d.node_y[list(h["body"].nodes)] == 0.0) ; v= next(c for c in NMOS_DRAWING[2] if c.name=='gate')
+    assert np.all(d.node_y[list(h['gate'].nodes)] == v.y0)
 
 
-    gtae_x  =  mes.node_x[ list(lst [  'gate'].nodes )  ]
-    assert gtae_x.min() == abs.x0
-    assert gtae_x.max() == abs.x1
+    x  =  d.node_x[ list(h [  'gate'].nodes )  ]
+    assert x.min() == v.x0
+    assert x.max() == v.x1
 
 
 
 
 def test_an_electrode_carries_its_own_bias_and_work_function() ->None :
-    Blocks,implannts,Electrodes=NMOS_DRAWING
-    item2 =tuple(
-        replace(e, voltage  = 0.7, work_function  =4.5)if e.name  == 'gate' else e
-        for e in Electrodes
+    d,i,g=NMOS_DRAWING
+    arr =tuple(
+        replace(bar, voltage  = 0.7, work_function  =4.5)if bar.name  == 'gate' else bar
+        for bar in g
     )
-    xx=drawn_nmos(electrodes = item2).contacts
-    Gate= next(c for c in xx if c.name=="gate")
-    assert Gate.voltage== 0.7 ; assert Gate.work_function ==4.5
+    aa=drawn_nmos(electrodes = arr).contacts
+    t= next(a2 for a2 in aa if a2.name=="gate")
+    assert t.voltage== 0.7 ; assert t.work_function ==4.5
 def test_a_drawn_device_takes_a_bias_by_electrode_name()   ->  None :
-    bia  = drawn_nmos().with_bias(drain =0.05)
-    assert next(c for c in bia.contacts if c.name == 'drain').voltage  ==  0.05
+    flag  = drawn_nmos().with_bias(drain =0.05)
+    assert next(j for j in flag.contacts if j.name == 'drain').voltage  ==  0.05
 
 
 def test_a_silicon_island_no_ohmic_contact_touches_is_refused() ->None :
-    blo,yy,Electrodes =MOS_CAP_DRAWING
+    r2,c,k =MOS_CAP_DRAWING
 
 
-    Top=CAP_SURFACE+ 0.1*MICRON
+    t2=CAP_SURFACE+ 0.1*MICRON
 
-    divmod   =   tuple( replace(b,  y1 =   Top) if b.material  == "oxide" else  b for  b  in blo )
-    Island  = Block("silicon", 0.3*CAP_WIDTH, 0.7 * CAP_WIDTH, CAP_SURFACE  + 0.03  *  MICRON, CAP_SURFACE + 0.06*MICRON,)
-    rai   =  tuple(replace (  e, y0   =  Top,  y1 =  Top )  if e.name   == 'gate'  else e  for  e  in  Electrodes)
+    cur   =   tuple( replace(res2,  y1 =   t2) if res2.material  == "oxide" else  res2 for  res2  in r2 )
+    zz  = Block("silicon", 0.3*CAP_WIDTH, 0.7 * CAP_WIDTH, CAP_SURFACE  + 0.03  *  MICRON, CAP_SURFACE + 0.06*MICRON,)
+    t   =  tuple(replace (  a, y0   =  t2,  y1 =  t2 )  if a.name   == 'gate'  else a  for  a  in  k)
     with pytest.raises(ValueError, match  = 'floats') :
-        drawn_cap( blocks  = divmod +  (Island , ),  electrodes =   rai, nx =   41)
+        drawn_cap( blocks  = cur +  (zz , ),  electrodes =   t, nx =   41)
 
 
 def _soi_film(body_tie:bool) ->tuple[tuple[Block,...],tuple,tuple]:
 
-    obj2, Box, input = 1 *MICRON, 0.2 * MICRON, 0.3 * MICRON
-    bocks   =  (Block("oxide", 0.0 ,  obj2,  0.0,  Box) , Block (  "silicon",  0.0,   obj2,  Box ,  input ),)
-    stuff2 = (
-        Implant("p", 1e17, 0.0, obj2, Box, input),
-        Implant("n", 1e20, 0.0, 0.3*MICRON, Box, input),
-        Implant("n", 1e20, obj2- 0.3*  MICRON, obj2, Box, input),
+    ii, k, ys = 1 *MICRON, 0.2 * MICRON, 0.3 * MICRON
+    d2   =  (Block("oxide", 0.0 ,  ii,  0.0,  k) , Block (  "silicon",  0.0,   ii,  k ,  ys ),)
+    d = (
+        Implant("p", 1e17, 0.0, ii, k, ys),
+        Implant("n", 1e20, 0.0, 0.3*MICRON, k, ys),
+        Implant("n", 1e20, ii- 0.3*  MICRON, ii, k, ys),
     )
 
-    Electrodes  :  tuple[ Electrode ,  ... ]  =   (
-        Electrode (  "source" ,   "ohmic",  0.0,   0.2  *   MICRON, input, input),
-        Electrode ( "drain", 'ohmic' ,   obj2  - 0.2  *  MICRON, obj2, input ,   input ) ,
+    z  :  tuple[ Electrode ,  ... ]  =   (
+        Electrode (  "source" ,   "ohmic",  0.0,   0.2  *   MICRON, ys, ys),
+        Electrode ( "drain", 'ohmic' ,   ii  - 0.2  *  MICRON, ii, ys ,   ys ) ,
     )
     if body_tie:
 
-        tiee  =   Electrode('body',  "ohmic" ,   0.46   *   MICRON ,  0.54  *   MICRON,   input , input )
-        Electrodes +=  (tiee, )
-    return bocks,stuff2,Electrodes
+        v  =   Electrode('body',  "ohmic" ,   0.46   *   MICRON ,  0.54  *   MICRON,   ys , ys )
+        z +=  (v, )
+    return d2,d,z
 
 
 
@@ -185,14 +185,14 @@ def test_a_p_body_whose_holes_reach_no_contact_is_refused() -> None:
         drawing(*  _soi_film(body_tie=  False))
 
 def test_the_same_film_with_a_body_tie_is_drawn() ->None:
-    dev = drawing(* _soi_film(body_tie = True))
-    assert{C.name for C in dev.contacts} =={"source",'drain','body'}
+    k = drawing(* _soi_film(body_tie = True))
+    assert{thing.name for thing in k.contacts} =={"source",'drain','body'}
 
 
 
 def test_an_n_pocket_whose_electrons_reach_no_contact_is_refused()-> None:
-    Blocks, bytes,  Electrodes  =  MOS_CAP_DRAWING
-    Pocket =  Implant(
+    ok, ss,  nxt  =  MOS_CAP_DRAWING
+    g =  Implant(
         "n",
         1e19,
         0.3*CAP_WIDTH,
@@ -202,57 +202,57 @@ def test_an_n_pocket_whose_electrons_reach_no_contact_is_refused()-> None:
     )
     with pytest.raises(ValueError,
                      match="n silicon .* floats") :
-        drawn_cap(implants =bytes+ (Pocket,),nx= 41)
+        drawn_cap(implants =ss+ (g,),nx= 41)
 
 
 
 def test_a_gate_on_silicon_is_refused_as_a_schottky_contact()-> None:
-    bloks, imp, ele =MOS_CAP_DRAWING
+    g, c, w2 =MOS_CAP_DRAWING
 
 
-    arr  =  Electrode ( 'back',  "gate",  0.2  *  CAP_WIDTH, 0.8  *   CAP_WIDTH,  0.0, 0.0  )
-    sde = Electrode("body", 'ohmic', 0.0, 0.0, 0.0, CAP_SURFACE)
-    gtae  =  next(e for e in ele if e.name  == "gate")
+    vals  =  Electrode ( 'back',  "gate",  0.2  *  CAP_WIDTH, 0.8  *   CAP_WIDTH,  0.0, 0.0  )
+    ii = Electrode("body", 'ohmic', 0.0, 0.0, 0.0, CAP_SURFACE)
+    b2  =  next(b for b in w2 if b.name  == "gate")
     with pytest.raises(ValueError,match="Schottky"):
-        drawn_cap(electrodes =(sde,
-                       gtae,
-                        arr))
+        drawn_cap(electrodes =(ii,
+                       b2,
+                        vals))
 
 
 def  test_an_ohmic_contact_on_oxide_is_refused (  ) ->  None   :
-    dir,q,elecrtodes=MOS_CAP_DRAWING
-    onoxide =  tuple(replace(  e,   kind  =  "ohmic"  )  if e.name  == 'gate'  else e  for e  in  elecrtodes)
+    b2,bb,x=MOS_CAP_DRAWING
+    t =  tuple(replace(  s2,   kind  =  "ohmic"  )  if s2.name  == 'gate'  else s2  for s2  in  x)
     with pytest.raises(ValueError, match='no silicon under it')  :
-        drawn_cap(electrodes =onoxide)
+        drawn_cap(electrodes =t)
 
 
 
 def test_two_edges_closer_than_the_mesh_resolves_are_refused()-> None :
 
 
-    bloks, imp, ele  =NMOS_DRAWING
-    stuff= tuple(
-        replace(e, x1=0.4 * MICRON  -  0.1  *NM)  if e.name == "source" else e
-        for e in ele
+    cc, m, s  =NMOS_DRAWING
+    x= tuple(
+        replace(z2, x1=0.4 * MICRON  -  0.1  *NM)  if z2.name == "source" else z2
+        for z2 in s
     )
     with pytest.raises ( ValueError, match  = "closer than h_min_x") :
-        drawn_nmos(  electrodes   = stuff )
+        drawn_nmos(  electrodes   = x )
 
 
 
 def test_a_feature_thinner_than_the_mesh_resolves_is_refused()-> None:
-    Blocks,imlpants,arr =MOS_CAP_DRAWING
-    buf =CAP_SURFACE + 3 * NM
-    tihn=tuple(replace(b,y1 = buf)if b.material== "oxide" else b for b in Blocks)
-    rased =tuple(replace(e,y0=buf,y1 = buf)if e.name=="gate" else e for e in arr)
+    j,w2,info =MOS_CAP_DRAWING
+    m =CAP_SURFACE + 3 * NM
+    g=tuple(replace(rows,y1 = m)if rows.material== "oxide" else rows for rows in j)
+    x =tuple(replace(dat,y0=m,y1 = m)if dat.name=="gate" else dat for dat in info)
     with pytest.raises(ValueError, match = 'smaller than the mesh resolves'):
 
-        drawn_cap(blocks =tihn, electrodes  =  rased, h_min_y  =  2* NM)
+        drawn_cap(blocks =g, electrodes  =  x, h_min_y  =  2* NM)
 
 
 def test_a_rectangle_spanning_the_device_is_not_a_feature_across_it ( )  ->   None  :
-    vars= drawn_cap(nx =3, ny=125, h_min_y  =5e-8, degenerate = False)
-    assert vars.mesh.nx== 3
+    cc= drawn_cap(nx =3, ny=125, h_min_y  =5e-8, degenerate = False)
+    assert cc.mesh.nx== 3
 
 
 def test_a_mesh_over_the_node_budget_is_refused() -> None  :
@@ -263,28 +263,28 @@ def test_a_mesh_over_the_node_budget_is_refused() -> None  :
 def test_a_gap_in_the_drawing_is_refused() -> None:
 
 
-    Blocks ,   iplants , Electrodes  =   MOS_CAP_DRAWING
-    Short= tuple(replace(b,x1 =0.5*CAP_WIDTH)if b.material== 'oxide' else b for b in Blocks)
+    j ,   a , res  =   MOS_CAP_DRAWING
+    rows= tuple(replace(w,x1 =0.5*CAP_WIDTH)if w.material== 'oxide' else w for w in j)
     with  pytest.raises (ValueError,  match =  'nothing is drawn')  :
-        drawn_cap( blocks   =   Short  )
+        drawn_cap( blocks   =   rows  )
 
 
 
 def test_a_drawing_with_no_silicon_is_refused()  -> None :
-    thing  = (Block("oxide", 0.0, MICRON, 0.0, MICRON), )
-    tmp  =  (  Electrode(  "gate" ,   'gate',  0.0,   MICRON , MICRON, MICRON),   )
+    item  = (Block("oxide", 0.0, MICRON, 0.0, MICRON), )
+    t2  =  (  Electrode(  "gate" ,   'gate',  0.0,   MICRON , MICRON, MICRON),   )
     with pytest.raises(ValueError, match  = "no silicon in it") :
-        drawing(blocks=thing,implants=(),electrodes = tmp,nx=11,ny = 11)
+        drawing(blocks=item,implants=(),electrodes = t2,nx=11,ny = 11)
 
 
 
 def test_a_doping_outside_the_range_is_refused() ->  None  :
-    blo,   imp, ele   =   MOS_CAP_DRAWING
-    stuff2 =(replace(imp[0],concentration= 1e21),)
+    m,   val, d   =   MOS_CAP_DRAWING
+    res2 =(replace(val[0],concentration= 1e21),)
 
     with pytest.raises(ValueError,match ="outside"):
 
-        drawn_cap(implants= stuff2)
+        drawn_cap(implants= res2)
 
 
 
@@ -295,30 +295,30 @@ def test_boltzmann_statistics_narrow_the_doping_range(  )  ->  None  :
 
 
 def test_the_drawing_starts_at_the_origin()->None:
-    hex,Implants,Electrodes= MOS_CAP_DRAWING
-    mov=tuple(replace(b,x0=b.x0+MICRON,x1 =b.x1+MICRON) for b in hex)
+    tt,zz,h= MOS_CAP_DRAWING
+    s=tuple(replace(z,x0=z.x0+MICRON,x1 =z.x1+MICRON) for z in tt)
     with pytest.raises (  ValueError,  match  = "origin" )  :
-        drawn_cap(blocks =mov)
+        drawn_cap(blocks =s)
 
 def test_something_drawn_outside_the_blocks_is_refused() -> None:
 
-    bloocks, vals, Electrodes  =  MOS_CAP_DRAWING
-    byond  = (  replace(  vals [ 0  ] ,   x1   =  5   * MICRON  ),  )
+    x, res2, y  =  MOS_CAP_DRAWING
+    out  = (  replace(  res2 [ 0  ] ,   x1   =  5   * MICRON  ),  )
     with pytest.raises(ValueError,match= 'outside the drawing'):
-        drawn_cap(implants= byond)
+        drawn_cap(implants= out)
 
 
 def  test_electrodes_that_share_a_node_are_refused(  )  ->   None   :
-    Blocks,t2,ele=MOS_CAP_DRAWING
+    flag,u,z=MOS_CAP_DRAWING
 
-    secnd =Electrode('body2','ohmic',0.0,0.5*CAP_WIDTH,0.0,0.0)
+    c =Electrode('body2','ohmic',0.0,0.5*CAP_WIDTH,0.0,0.0)
     with pytest.raises(ValueError, match  =  "share")  :
-        drawn_cap (electrodes  =  ele  +  ( secnd, ) )
+        drawn_cap (electrodes  =  z  +  ( c, ) )
 def test_an_electrode_is_a_straight_line() ->None  :
-    blo ,  iplants,   stuff  =   MOS_CAP_DRAWING
-    sla =(Electrode("body","ohmic",0.0,0.5*CAP_WIDTH,0.0,0.1 *MICRON), next(e for e in stuff if e.name=="gate"),)
+    z ,  rr,   t2  =   MOS_CAP_DRAWING
+    a =(Electrode("body","ohmic",0.0,0.5*CAP_WIDTH,0.0,0.1 *MICRON), next(x for x in t2 if x.name=="gate"),)
     with pytest.raises(ValueError,match= "straight line") :
-        drawn_cap(electrodes = sla)
+        drawn_cap(electrodes = a)
 
 @pytest.mark.parametrize(
     ("record","match"),
@@ -347,15 +347,15 @@ def test_a_block_names_what_is_wrong_with_it(record,match)->None :
 
 def test_an_implant_names_what_is_wrong_with_it(changes,match)-> None :
 
-    q, implnats, eectrodes  = MOS_CAP_DRAWING
+    r, item, e  = MOS_CAP_DRAWING
     with pytest.raises(ValueError, match  =match) :
-        drawn_cap(implants = (replace(implnats[0], ** changes), ))
+        drawn_cap(implants = (replace(item[0], ** changes), ))
 
 
 
 
 def test_an_electrode_is_ohmic_or_a_gate() ->None:
-    str, impllants, t2 = MOS_CAP_DRAWING
-    Wrong  =  tuple(replace(  e,  kind   =  'schottky'  )   if  e.name  ==  'body' else  e for e in  t2)
+    w, m, jj = MOS_CAP_DRAWING
+    y  =  tuple(replace(  stuff,  kind   =  'schottky'  )   if  stuff.name  ==  'body' else  stuff for stuff in  jj)
     with pytest.raises(ValueError, match = 'ohmic or gate') :
-        drawn_cap(electrodes =Wrong)
+        drawn_cap(electrodes =y)

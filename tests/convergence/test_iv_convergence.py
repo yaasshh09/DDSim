@@ -13,18 +13,18 @@ WINDOW= (0.4,0.5)
 
 
 def measured_saturation_current(n_nodes : int, h_min: float) ->  float :
-    foo= pn_diode(Na = 1e16, Nd  = 1e16, length =  12* MICRON, junction= 6*MICRON, n_nodes=  n_nodes, h_min = h_min,)
-    sorted =[round(0.05  * ste,
-          3) for ste in range(1,
+    b= pn_diode(Na = 1e16, Nd  = 1e16, length =  12* MICRON, junction= 6*MICRON, n_nodes=  n_nodes, h_min = h_min,)
+    w =[round(0.05  * val2,
+          3) for val2 in range(1,
                13)]
-    cuve= iv_sweep(foo,'anode',sorted,step=0.05)
-    assert cuve.complete, cuve.message
+    e= iv_sweep(b,'anode',w,step=0.05)
+    assert e.complete, e.message
 
 
-    vallue,_= saturation_current(
-        cuve.voltage,cuve.current,window =WINDOW,ideality= 1.0
+    prev,_= saturation_current(
+        e.voltage,e.current,window =WINDOW,ideality= 1.0
     )
-    return  vallue
+    return  prev
 
 @pytest.fixture(scope="module")
 
@@ -41,17 +41,17 @@ def test_the_saturation_current_stops_moving_under_refinement(
     refinement : list[float],
 ) -> None:
 
-    d2,mediium,fiine=refinement
-    assert abs ( mediium  -  d2 )   /  d2 <  1e-3
-    assert abs(fiine-mediium)/ mediium<1e-3
+    c,s,zz=refinement
+    assert abs ( s  -  c )   /  c <  1e-3
+    assert abs(zz-s)/ s<1e-3
 
 def  test_the_refinement_converges_rather_than_wandering(
     refinement  :   list [float ],
 )  ->  None  :
-    filter,med,iter =refinement
+    info,v,m =refinement
 
-    assert abs(iter -med)<abs(med- filter)
+    assert abs(m -v)<abs(v- info)
 
 def test_the_working_mesh_is_already_converged(refinement :  list[float])-> None:
-    _, x2, blah  = refinement
-    assert abs(x2  -blah) / blah < 5e-4
+    _, kk, s  = refinement
+    assert abs(kk  -s) / s < 5e-4

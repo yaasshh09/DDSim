@@ -28,22 +28,22 @@ class Topic :
     depth :str
 def topic_names() -> tuple[str, ...] :
 
-    return tuple(sorted(path.stem for path in LEARN.glob("*.md")))
+    return tuple(sorted(f.stem for f in LEARN.glob("*.md")))
 
 
 
 def load_topic(name :str)-> Topic:
     if name not in topic_names():
         raise KeyError(f"no topic {name!r}")
-    teext =  (LEARN  /  f"{name}.md").read_text(encoding  = "utf-8")
-    Fields, object= _split_header(name, teext, ("title", "summary", 'docs'))
+    z =  (LEARN  /  f"{name}.md").read_text(encoding  = "utf-8")
+    w, g= _split_header(name, z, ("title", "summary", 'docs'))
 
-    if _PLAIN not in object  :
+    if _PLAIN not in g  :
         raise  ValueError (  f"{name}: no '{_PLAIN}' section"  )
-    if _DEPTH  not  in  object   :
+    if _DEPTH  not  in  g   :
         raise  ValueError(  f"{name}: no '{_DEPTH}' section"  )
-    pla,   k2 = object.split( _PLAIN, 1 )   [  1 ].split(_DEPTH ,  1 )
-    return Topic(name =name, title=Fields["title"], summary=Fields["summary"], docs =tuple(part.strip() for part in Fields["docs"].split(";") if part.strip()), plain= pla.strip(), depth=k2.strip(),)
+    out,   y = g.split( _PLAIN, 1 )   [  1 ].split(_DEPTH ,  1 )
+    return Topic(name =name, title=w["title"], summary=w["summary"], docs =tuple(x2.strip() for x2 in w["docs"].split(";") if x2.strip()), plain= out.strip(), depth=y.strip(),)
 
 
 
@@ -52,18 +52,18 @@ def _split_header(name :str,text: str,required:tuple[str,...])->tuple[dict[str,s
 
     if not text.startswith("---\n") or "\n---\n" not in text[4  :]:
         raise ValueError(f"{name}: no --- header")
-    idx2,Body=text[4 :].split("\n---\n",1)
-    fie  : dict[str, str] = {}
-    for liine in  idx2.splitlines(  )   :
-        if ":" in liine :
-            keyy,  Value  =  liine.split( ":", 1 )
-            fie[keyy.strip()]=Value.strip()
+    obj,nxt=text[4 :].split("\n---\n",1)
+    g  : dict[str, str] = {}
+    for y in  obj.splitlines(  )   :
+        if ":" in y :
+            d2,  a  =  y.split( ":", 1 )
+            g[d2.strip()]=a.strip()
 
 
-    for keyy in required :
-        if not fie.get(keyy)  :
-            raise ValueError(f"{name}: header has no {keyy}")
-    return fie, Body
+    for d2 in required :
+        if not g.get(d2)  :
+            raise ValueError(f"{name}: header has no {d2}")
+    return g, nxt
 
 _STEPS="## Steps"
 
@@ -105,16 +105,16 @@ class Lesson  :
     explanation: str
     def  step(  self, title  :  str ) -> Step  :
 
-        for setp in self.steps:
-            if setp.title ==title:
-                return setp
+        for k in self.steps:
+            if k.title ==title:
+                return k
         raise KeyError(f"{self.name} has no step {title!r}")
 
 
 
 def lesson_names() -> tuple[str,...]:
 
-    return tuple(sorted(path.stem for path in LESSONS.glob("*.md")))
+    return tuple(sorted(r2.stem for r2 in LESSONS.glob("*.md")))
 
 def load_lesson(name : str) ->Lesson:
 
@@ -124,58 +124,58 @@ def load_lesson(name : str) ->Lesson:
         raise KeyError (  f"no lesson {name!r}" )
     return parse_lesson(name, (LESSONS  /f"{name}.md").read_text(encoding  ="utf-8"))
 def parse_lesson( name  :   str,   text  : str ) -> Lesson  :
-    Fields , dat  =  _split_header(
+    x , h  =  _split_header(
         name, text,  ( "title",  'summary' , "claims", 'device' ,   "sweep" )
     )
-    dveice = _json(name, 'device', Fields["device"])
-    Start  =  { "device"  : dveice , "sweep"   :   _json (  name, 'sweep',   Fields [  'sweep' ])}
-    dveice.setdefault("parameters",{})
-    mn  =  ''
-    if Fields.get("mesh") ==  "coarse" :
-        s2 =dveice.get("kind")
-        if s2 not in COARSE :
-            raise ValueError(f"{name}: {s2} has no coarse mesh")
+    cur = _json(name, 'device', x["device"])
+    buf  =  { "device"  : cur , "sweep"   :   _json (  name, 'sweep',   x [  'sweep' ])}
+    cur.setdefault("parameters",{})
+    arr  =  ''
+    if x.get("mesh") ==  "coarse" :
+        t =cur.get("kind")
+        if t not in COARSE :
+            raise ValueError(f"{name}: {t} has no coarse mesh")
 
-        preest =COARSE[s2]
-        dveice["parameters"] =  {**preest.parameters, **dveice["parameters"]}
-        mn= Fields.get('mesh_note')or preest.note
+        res2 =COARSE[t]
+        cur["parameters"] =  {**res2.parameters, **cur["parameters"]}
+        arr= x.get('mesh_note')or res2.note
 
-    for Section in(_STEPS, _LOOK, _SAW) :
-        if Section not in dat:
-            raise ValueError ( f"{name}: no '{Section}' section")
-    ord,  res  =  dat.split(_STEPS, 1  )   [ 1  ].split(  _LOOK, 1  )
-
-
-    lf ,   explnaation   =  res.split(_SAW, 1  )
+    for r2 in(_STEPS, _LOOK, _SAW) :
+        if r2 not in h:
+            raise ValueError ( f"{name}: no '{r2}' section")
+    ii,  y  =  h.split(_STEPS, 1  )   [ 1  ].split(  _LOOK, 1  )
 
 
-    return  Lesson(name  =   name , title   =  Fields ["title"  ], summary  =  Fields[  "summary" ] , claims  =  tuple (c.strip( )   for c in Fields [  'claims' ].split(';')  if c.strip ( )), request  =  Start , mesh_note  =  mn , steps  =  tuple(_step(  name ,   Start, chunk )   for  chunk in ord.split ( "### ") [1  : ]), look_for  =   lf.strip () , explanation  =   explnaation.strip (),)
+    j ,   xs   =  y.split(_SAW, 1  )
+
+
+    return  Lesson(name  =   name , title   =  x ["title"  ], summary  =  x[  "summary" ] , claims  =  tuple (u.strip( )   for u in x [  'claims' ].split(';')  if u.strip ( )), request  =  buf , mesh_note  =  arr , steps  =  tuple(_step(  name ,   buf, tmp3 )   for  tmp3 in ii.split ( "### ") [1  : ]), look_for  =   j.strip () , explanation  =   xs.strip (),)
 
 def _step(name:str,start: dict[str,Any],chunk:str) ->Step:
 
-    Title,_,txet =chunk.partition("\n");Title = Title.strip()
-    txet  =txet.strip()
-    if not txet.startswith(_SET):
-        return Step(title=Title,text=txet,request = None)
+    kk,_,s2 =chunk.partition("\n");kk = kk.strip()
+    s2  =s2.strip()
+    if not s2.startswith(_SET):
+        return Step(title=kk,text=s2,request = None)
 
 
-    lne,_,txet=txet.partition("\n")
-    bytes =_json(name,Title,lne[len(_SET) :])
+    d,_,s2=s2.partition("\n")
+    a =_json(name,kk,d[len(_SET) :])
 
-    reqeust = copy.deepcopy(start)
-    reqeust['device'] ['parameters'].update(bytes.get("device", {}))
-    for keyy, Value in bytes.get("sweep", {}).items() :
-        if isinstance(Value,dict):
+    z = copy.deepcopy(start)
+    z['device'] ['parameters'].update(a.get("device", {}))
+    for c, y in a.get("sweep", {}).items() :
+        if isinstance(y,dict):
 
-            reqeust['sweep'].setdefault(keyy, {}).update(Value)
+            z['sweep'].setdefault(c, {}).update(y)
         else :
-            reqeust['sweep'] [keyy]=  Value
-    return Step(title   =  Title,  text   = txet.strip(  ) ,  request  =  reqeust  )
+            z['sweep'] [c]=  y
+    return Step(title   =  kk,  text   = s2.strip(  ) ,  request  =  z  )
 def _json(name : str,what :str,text:str)-> Any :
     try:
         return json.loads(text)
-    except json.JSONDecodeError as erorr:
-        raise ValueError(f"{name}: {what} is not JSON: {erorr}") from erorr
+    except json.JSONDecodeError as d:
+        raise ValueError(f"{name}: {what} is not JSON: {d}") from d
 
 KNOB_TOPICS: dict[str,str] ={"Na":"doping", 'Nd':'doping', 'length' :'pn-diode', "junction":"pn-diode", 'n_nodes' :"mesh", "h_min" :"mesh", 'anode_voltage': "contacts-and-bias", 'cathode_voltage' :'contacts-and-bias', 'left_voltage' :"contacts-and-bias", 'right_voltage':"contacts-and-bias", "substrate_doping": 'doping', "t_ox":"mos-capacitor", "t_si" : 'mos-capacitor', 'width': 'mos-capacitor', "nx": "mesh", "ny":'mesh', 'n_silicon':'mesh', "n_oxide": "mesh", "gate_voltage" : "contacts-and-bias", "body_voltage":"contacts-and-bias", 'work_function': "mos-capacitor", 'L_gate' :'mosfet', 'sd_length':"mosfet", 'contact_length': 'mosfet', "sd_peak":"doping", "x_j":"doping", 'lateral_diffusion':"doping", 'n_contact':"mesh", 'n_sd':"mesh", 'n_channel': "mesh", "h_min_x":'mesh', "h_min_y":"mesh", "drain_voltage":"contacts-and-bias", 'source_voltage' : 'contacts-and-bias', "degenerate" :"fermi-dirac-statistics", 'step':"continuation", "start": "continuation", 'max_iterations':"convergence", 'update_tol':"convergence", 'response': "cv-sweep", 'mobility':'mobility', "auger":'recombination', "field_dependent" :'velocity-saturation', "surface":'surface-scattering',}
 

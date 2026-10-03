@@ -43,45 +43,45 @@ def test_the_three_sweeps_the_phase_names_are_the_ones_offered()->None:
 
 
 def  test_an_unknown_sweep_is_refused_and_the_known_ones_are_listed(  )  ->   None :
-    with  pytest.raises(ValueError , match   =  "unknown sweep")  as slice  :
+    with  pytest.raises(ValueError , match   =  "unknown sweep")  as ok  :
         sweep_parameters("iv_curve")
 
 
-    for aa in SWEEP_KINDS :
-        assert aa in str(slice.value)
+    for i in SWEEP_KINDS :
+        assert i in str(ok.value)
 
 
 @pytest.mark.parametrize('kind', sorted(SWEEP_KINDS))
 
 def test_a_sweep_offers_its_own_numeric_knobs(  kind  ) ->  None  :
-    s2=named(sweep_parameters(kind))
-    assert 'max_iterations' in s2
-    assert s2['max_iterations'].type  ==  'int'
+    k=named(sweep_parameters(kind))
+    assert 'max_iterations' in k
+    assert k['max_iterations'].type  ==  'int'
 
 
 
 def  test_the_continuation_knobs_come_with_the_sweeps_own_defaults( )   ->  None   :
-    t2= named(sweep_parameters("iv"))
-    assert t2["step"].default==0.05
-    assert t2['start'].default  ==  0.0
+    z= named(sweep_parameters("iv"))
+    assert z["step"].default==0.05
+    assert z['start'].default  ==  0.0
 
 @pytest.mark.parametrize("kind", sorted(SWEEP_KINDS))
 
 def test_nothing_that_is_not_a_json_scalar_is_offered(kind)->None:
 
-    off =named(sweep_parameters(kind))
+    k =named(sweep_parameters(kind))
 
-    for object in('device',"voltages","contact",'models',"on_frame"):
-        assert object not in off
+    for y in('device',"voltages","contact",'models',"on_frame"):
+        assert y not in k
 
 def test_the_model_flags_carry_for_devices_own_defaults()  -> None  :
-    off = named(model_parameters())
+    r = named(model_parameters())
 
-    assert off["mobility"].default ==  'constant'
-    assert off[ 'mobility' ].choices  == MOBILITY_MODELS
-    assert  off[ 'field_dependent'  ].default  is False
-    assert off[ "surface"].default is  False
-    assert  off[  "auger" ].default is False
+    assert r["mobility"].default ==  'constant'
+    assert r[ 'mobility' ].choices  == MOBILITY_MODELS
+    assert  r[ 'field_dependent'  ].default  is False
+    assert r[ "surface"].default is  False
+    assert  r[  "auger" ].default is False
 
 
 
@@ -150,77 +150,77 @@ def  test_an_iv_refusal_on_a_gated_device_says_what_to_use_instead(  )  ->  None
 
 
 def  test_a_diode_sweep_comes_back_as_an_iv_curve ()  ->  None  :
-    cuvre,_=run_sweep("iv",diode(),"anode",[0.0,0.2])
+    s,_=run_sweep("iv",diode(),"anode",[0.0,0.2])
 
-    assert isinstance(cuvre, IVCurve)
-    assert cuvre.complete
-    assert cuvre.voltage.tolist()  ==  [0.0, 0.2]
+    assert isinstance(s, IVCurve)
+    assert s.complete
+    assert s.voltage.tolist()  ==  [0.0, 0.2]
 
 
 def test_a_capacitance_sweep_comes_back_as_a_cv_curve()  ->  None   :
 
-    crve,_= run_sweep('cv',build_from_spec('mos_cap',CAP),"gate",[-1.0,0.0])
-    assert isinstance(crve, CVCurve)
+    yy,_= run_sweep('cv',build_from_spec('mos_cap',CAP),"gate",[-1.0,0.0])
+    assert isinstance(yy, CVCurve)
 
 
-    assert crve.complete
+    assert yy.complete
 
 
 def test_a_capacitance_sweep_takes_the_response_it_is_given() ->None:
-    Curve,_ =run_sweep(
+    ii,_ =run_sweep(
         'cv',
         build_from_spec("mos_cap",CAP),
         "gate",
         [1.0],
         settings ={'response' : 'high_frequency'},
     )
-    assert Curve.response is Response.HIGH_FREQUENCY
+    assert ii.response is Response.HIGH_FREQUENCY
 
 
 
 
 def test_a_transfer_curve_measures_the_drain_by_default()-> None:
-    aa,_ = run_sweep("transfer", build_from_spec("nmos",FET), "gate", [0.2,0.4], settings={"step" :0.2},)
+    a,_ = run_sweep("transfer", build_from_spec("nmos",FET), "gate", [0.2,0.4], settings={"step" :0.2},)
 
 
-    assert  aa.measured_at == "drain"
+    assert  a.measured_at == "drain"
 
-    assert aa.complete
+    assert a.complete
 
 
 
 
 def test_the_models_the_flags_ask_for_are_the_models_that_are_built() ->None:
-    Plain = build_models( diode (  ),   None )
-    sat= build_models(diode(),{'field_dependent' :True})
+    bb = build_models( diode (  ),   None )
+    r= build_models(diode(),{'field_dependent' :True})
 
-    assert not  Plain.field_dependent
-    assert sat.field_dependent
+    assert not  bb.field_dependent
+    assert r.field_dependent
 def test_arora_makes_the_diffusivity_vary_along_the_device()->None:
 
 
-    slice   =   build_models ( diode( ), {  'mobility'   :   "constant"  })
-    t2=build_models(diode(),{"mobility": "arora"})
-    assert np.asarray(slice.Dn).ndim==0
-    assert np.asarray(t2.Dn).ndim == 1
+    c2   =   build_models ( diode( ), {  'mobility'   :   "constant"  })
+    tmp2=build_models(diode(),{"mobility": "arora"})
+    assert np.asarray(c2.Dn).ndim==0
+    assert np.asarray(tmp2.Dn).ndim == 1
 
 
 
 
 def test_a_sweep_hands_back_the_models_it_solved_with() -> None :
-    devvice =  pn_diode(n_nodes= 61, h_min =  5e-7)
-    _, arr =run_sweep("iv", devvice, "anode", [0.0, 0.1])
+    j =  pn_diode(n_nodes= 61, h_min =  5e-7)
+    _, w =run_sweep("iv", j, "anode", [0.0, 0.1])
 
-    assert isinstance(arr,TransportModels)
+    assert isinstance(w,TransportModels)
 
 
 
 def test_a_capacitance_sweep_has_no_transport_models() ->None:
-    dev=mos_cap()
+    a2=mos_cap()
 
-    _, tmp2=  run_sweep('cv', dev, "gate", [0.0])
+    _, bar=  run_sweep('cv', a2, "gate", [0.0])
 
-    assert tmp2 is None
+    assert bar is None
 
 
 @pytest.mark.parametrize(("kind", "device", "contact", "voltages", 'settings', "frame"), [('iv', diode, 'anode', [0.1], None, IVFrame), ("transfer", lambda:  build_from_spec("nmos", FET), "gate", [0.2], {'step':0.2}, IVFrame,), ('cv', lambda:build_from_spec('mos_cap', CAP), "gate", [- 1.0], None, CVFrame,),], ids=["iv", 'transfer', 'cv'],)
@@ -228,6 +228,6 @@ def test_a_capacitance_sweep_has_no_transport_models() ->None:
 
 def test_every_sweep_reports_through_the_callback(kind, device, contact, voltages, settings, frame) -> None  :
 
-    Frames  : list[Any]= []
-    run_sweep(kind, device(), contact, voltages, settings= settings, on_frame= Frames.append,)
-    assert any(isinstance(sent, frame)  for sent in Frames)
+    tmp2  : list[Any]= []
+    run_sweep(kind, device(), contact, voltages, settings= settings, on_frame= tmp2.append,)
+    assert any(isinstance(i, frame)  for i in tmp2)

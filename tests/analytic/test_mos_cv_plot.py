@@ -40,9 +40,9 @@ LOWEST = -3.5
 STEP  = 0.1
 
 def bias_points()-> list[float]:
-    hex= max(BENCHMARK.voltages)
-    input=int(round((hex- LOWEST) /STEP)) + 1
-    return [  round ( LOWEST  +   STEP   *  dat,  4 )   for dat in  range(  input  )  ]
+    m2= max(BENCHMARK.voltages)
+    m=int(round((m2- LOWEST) /STEP)) + 1
+    return [  round ( LOWEST  +   STEP   *  cur,  4 )   for cur in  range(  m  )  ]
 
 
 @pytest.fixture(scope='module')
@@ -58,109 +58,109 @@ def device() :
 
 
 def curves( device )  :
-    Voltages  =bias_points()
+    j  =bias_points()
 
-    return{reesponse :cv_sweep(device,GATE,Voltages,response=reesponse) for reesponse in Response}
+    return{cur :cv_sweep(device,GATE,j,response=cur) for cur in Response}
 
 @pytest.fixture(scope="module")
 
 def landmarks(device) :
     return{
-        res:  cv_sweep(device, GATE, [V_FB, V_TH], response = res)
-        for res in Response
+        bb:  cv_sweep(device, GATE, [V_FB, V_TH], response = bb)
+        for bb in Response
     }
 @pytest.fixture(scope= "module")
 
 
 
 def golden():
-    cuve= P.read_mos_golden(str(GOLDEN_DIR/ f"{BENCHMARK.name}.csv"))
-    tmp2, Capacitance =  P.central_difference(cuve.gate_voltage, cuve.charge)
-    return np.asarray (tmp2 ),   np.asarray ( Capacitance )
+    s= P.read_mos_golden(str(GOLDEN_DIR/ f"{BENCHMARK.name}.csv"))
+    b, aa =  P.central_difference(s.gate_voltage, s.charge)
+    return np.asarray (b ),   np.asarray ( aa )
 
 
 
 
 def ddsim_differenced(curves) :
 
-    Low=curves[Response.LOW_FREQUENCY]
-    divmod  =  np.isin(np.round(Low.gate_voltage, 4), BENCHMARK.voltages)
+    item=curves[Response.LOW_FREQUENCY]
+    y  =  np.isin(np.round(item.gate_voltage, 4), BENCHMARK.voltages)
 
-    vol,  Capacitance  =   P.central_difference(
-        list (Low.gate_voltage[ divmod ]  ), list(Low.charge [  divmod  ] )
+    e,  w2  =   P.central_difference(
+        list (item.gate_voltage[ y ]  ), list(item.charge [  y  ] )
     )
-    return np.asarray(vol), np.asarray(Capacitance)
+    return np.asarray(e), np.asarray(w2)
 
 def test_both_sweeps_finish(curves):
-    for reesponse, item2 in curves.items():
-        assert item2.complete,   f"{reesponse.value}: {item2.message}"
+    for vals, w in curves.items():
+        assert w.complete,   f"{vals.value}: {w.message}"
 
 def test_the_sweep_covers_every_golden_bias(curves) :
-    next =   np.round(  curves [  Response.LOW_FREQUENCY  ].gate_voltage,  4  )
+    g =   np.round(  curves [  Response.LOW_FREQUENCY  ].gate_voltage,  4  )
 
-    mis=sorted(set(BENCHMARK.voltages)- set(next.tolist()))
-    assert not mis,f"ddsim never reached {mis}"
+    ok=sorted(set(BENCHMARK.voltages)- set(g.tolist()))
+    assert not ok,f"ddsim never reached {ok}"
 
 
 def test_the_annotated_numbers_are_the_ones_the_plot_will_show(curves, landmarks) :
-    loww  = curves[  Response.LOW_FREQUENCY ]
-    type =curves[Response.HIGH_FREQUENCY]
-    hash= float(loww.capacitance[0])
-    assert hash == pytest.approx(  C_OX, rel   =   0.02)
+    m  = curves[  Response.LOW_FREQUENCY ]
+    r =curves[Response.HIGH_FREQUENCY]
+    tt= float(m.capacitance[0])
+    assert tt == pytest.approx(  C_OX, rel   =   0.02)
 
 
-    at = float(landmarks[Response.LOW_FREQUENCY].capacitance[0])
-    assert at== pytest.approx(C_FB,
+    m2 = float(landmarks[Response.LOW_FREQUENCY].capacitance[0])
+    assert m2== pytest.approx(C_FB,
                       rel= 1e-3)
-    min  = float(landmarks[  Response.HIGH_FREQUENCY].capacitance [ 1  ])
-    assert min == pytest.approx(C_MIN, rel= 0.05)
+    z  = float(landmarks[  Response.HIGH_FREQUENCY].capacitance [ 1  ])
+    assert z == pytest.approx(C_MIN, rel= 0.05)
 
 
-    Inversion   = float (loww.capacitance[  -  1 ] )
-    assert Inversion == pytest.approx(C_OX, rel = 0.05)
-    assert float(type.capacitance[-1]) < 0.2*C_OX
+    j   = float (m.capacitance[  -  1 ] )
+    assert j == pytest.approx(C_OX, rel = 0.05)
+    assert float(r.capacitance[-1]) < 0.2*C_OX
 
 
 
 def test_the_overlaid_curves_agree(curves,golden) :
-    goldenvoltage, gc = golden
-    dds ,   ddsim_capaciatnce =   ddsim_differenced(  curves)
+    g, t = golden
+    r2 ,   j =   ddsim_differenced(  curves)
 
-    np.testing.assert_allclose(dds, goldenvoltage, atol=1e-9)
+    np.testing.assert_allclose(r2, g, atol=1e-9)
 
 
-    woorst  =  float (
+    s2  =  float (
         np.max(
-            np.abs(ddsim_capaciatnce -  gc )
-            /   np.abs(  gc)
+            np.abs(j -  t )
+            /   np.abs(  t)
         )
     )
 
-    assert woorst<BENCHMARK.tolerance, (
-        f"worst disagreement {woorst:.3%}, allowed {BENCHMARK.tolerance:.3%}"
+    assert s2<BENCHMARK.tolerance, (
+        f"worst disagreement {s2:.3%}, allowed {BENCHMARK.tolerance:.3%}"
     )
 
 
 
 def test_mos_cv_plot_is_generated(curves, golden)  :
-    sum  = curves[Response.LOW_FREQUENCY]
-    hig =curves[Response.HIGH_FREQUENCY]
-    GoldenVoltage,goldenCapacitance= golden
-    _, foo = ddsim_differenced(curves)
+    h  = curves[Response.LOW_FREQUENCY]
+    bar =curves[Response.HIGH_FREQUENCY]
+    a,s= golden
+    _, c = ddsim_differenced(curves)
 
-    thing=float(
+    item=float(
         np.max(
-            np.abs(foo-goldenCapacitance)
-            /np.abs(goldenCapacitance)
+            np.abs(c-s)
+            /np.abs(s)
         )
     )
 
-    fig, axi=plt.subplots(figsize =(8.6, 5.6))
+    d, t2=plt.subplots(figsize =(8.6, 5.6))
 
-    axi.plot(GoldenVoltage, goldenCapacitance * NANO, 'o', markersize  =5.5, markerfacecolor ='none', markeredgewidth =1.1, color ="tab:orange", label = 'DEVSIM 2.11, central difference on the golden charge', zorder =3,)
-    axi.plot(
-        sum.gate_voltage,
-        sum.capacitance  *NANO,
+    t2.plot(a, s * NANO, 'o', markersize  =5.5, markerfacecolor ='none', markeredgewidth =1.1, color ="tab:orange", label = 'DEVSIM 2.11, central difference on the golden charge', zorder =3,)
+    t2.plot(
+        h.gate_voltage,
+        h.capacitance  *NANO,
         label  = "ddsim, low frequency, every carrier follows",
         linewidth =1.8,
         color = 'tab:blue',
@@ -168,9 +168,9 @@ def test_mos_cv_plot_is_generated(curves, golden)  :
     )
 
 
-    axi.plot(
-        hig.gate_voltage,
-        hig.capacitance * NANO,
+    t2.plot(
+        bar.gate_voltage,
+        bar.capacitance * NANO,
         '--',
         label =  'ddsim, high frequency, minority carrier held',
         linewidth = 1.8,
@@ -178,32 +178,32 @@ def test_mos_cv_plot_is_generated(curves, golden)  :
         alpha =  0.65,
         zorder =  4,
     )
-    open= C_OX *  NANO
-    lef = float(sum.gate_voltage[0])
-    for vaule,Text,dop in(
+    m= C_OX *  NANO
+    out2 = float(h.gate_voltage[0])
+    for z2,b2,obj in(
         (C_OX,r"$C_{ox} = \varepsilon_{ox}/t_{ox}$",0.055),
         (C_FB,r"$C_{FB} = C_{ox} \parallel \varepsilon_{Si}/L_D$",0.055),
         (C_MIN,r"$C_{min} = C_{ox} \parallel \varepsilon_{Si}/W_{max}$",-0.022),
     ) :
 
-        axi.axhline(vaule * NANO,color= 'grey',linestyle=':',linewidth =0.9)
-        axi.annotate(
-            f"{Text} = {vaule * NANO:.1f}",
-            xy  = (lef, vaule *  NANO),
-            xytext=(lef+  0.08, vaule* NANO- dop *  open),
+        t2.axhline(z2 * NANO,color= 'grey',linestyle=':',linewidth =0.9)
+        t2.annotate(
+            f"{b2} = {z2 * NANO:.1f}",
+            xy  = (out2, z2 *  NANO),
+            xytext=(out2+  0.08, z2* NANO- obj *  m),
             fontsize  =  8.5,
             color = 'dimgrey',
         )
 
-    for bia, Text in(
+    for z, b2 in(
         (V_FB, f"$V_{{FB}}$ = {V_FB:.3f} V"),
         (V_TH, f"$V_{{TH}}$ = {V_TH:.3f} V"),
     ) :
-        axi.axvline(bia, color= 'grey', linestyle="-.", linewidth= 0.8)
-        axi.annotate (
-            Text ,
-            xy   = ( bia , 0.62  * open  ),
-            xytext  =  (bia  -  0.05,  0.62 *   open  ),
+        t2.axvline(z, color= 'grey', linestyle="-.", linewidth= 0.8)
+        t2.annotate (
+            b2 ,
+            xy   = ( z , 0.62  * m  ),
+            xytext  =  (z  -  0.05,  0.62 *   m  ),
             fontsize   =  8.5 ,
             rotation  = 90 ,
             va  =  "bottom",
@@ -211,21 +211,21 @@ def test_mos_cv_plot_is_generated(curves, golden)  :
         )
 
 
-    for cen,laebl in(
-        (0.5* (lef+ V_FB),"accumulation"),
+    for w,i in(
+        (0.5* (out2+ V_FB),"accumulation"),
         (0.5*(V_FB+V_TH),"depletion"),
-        (0.5 * (V_TH +float(sum.gate_voltage[-1])),'inversion'),
+        (0.5 * (V_TH +float(h.gate_voltage[-1])),'inversion'),
     ):
-        axi.annotate(
-            laebl,
-            xy= (cen, open  * 1.10),
+        t2.annotate(
+            i,
+            xy= (w, m  * 1.10),
             ha =  "center",
             fontsize  = 11,
             color  = 'tab:blue',
         )
 
-    axi.annotate(
-        f"worst disagreement with DEVSIM: {thing:.3%}\n"
+    t2.annotate(
+        f"worst disagreement with DEVSIM: {item:.3%}\n"
         "(same central difference applied to both)",
         xy   =  ( 0.985,   0.28),
         xycoords  =  'axes fraction',
@@ -234,25 +234,25 @@ def test_mos_cv_plot_is_generated(curves, golden)  :
         color =   'dimgrey' ,
     )
 
-    axi.set_ylim(0.0,open * 1.20)
-    axi.set_xlim(  sum.gate_voltage[0],  sum.gate_voltage[ -  1]  )
-    axi.set_xlabel("gate bias [V]")
+    t2.set_ylim(0.0,m * 1.20)
+    t2.set_xlim(  h.gate_voltage[0],  h.gate_voltage[ -  1]  )
+    t2.set_xlabel("gate bias [V]")
 
-    axi.set_ylabel(  "capacitance [nF/cm$^2$]")
-    axi.set_title(
+    t2.set_ylabel(  "capacitance [nF/cm$^2$]")
+    t2.set_title(
         f"MOS capacitor C-V, {NA:.0e} cm$^{{-3}}$ p-type, "
         f"{T_OX * 1e7:.0f} nm oxide, n+ poly gate"
     )
-    axi.legend(loc ='upper center', bbox_to_anchor=(0.5,- 0.13), ncol=1, fontsize =9, frameon=False,)
+    t2.legend(loc ='upper center', bbox_to_anchor=(0.5,- 0.13), ncol=1, fontsize =9, frameon=False,)
 
 
     OUTPUT.mkdir (  parents  =  True, exist_ok =  True  )
-    dat=OUTPUT/ "mos_cap_cv.png"
-    fig.savefig(  dat ,  dpi =  140,   bbox_inches  = 'tight' )
+    t=OUTPUT/ "mos_cap_cv.png"
+    d.savefig(  t ,  dpi =  140,   bbox_inches  = 'tight' )
 
-    plt.close( fig )
+    plt.close( d )
 
 
 
-    assert dat.exists()
-    assert dat.stat().st_size>10_000
+    assert t.exists()
+    assert t.stat().st_size>10_000

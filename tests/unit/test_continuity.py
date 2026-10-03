@@ -20,13 +20,13 @@ V_BI=27.6
 
 
 def scaled_mesh(n_nodes: int=41, length:float =  MICRON, graded :  bool=  False)  ->  tuple[Mesh1D, np.ndarray, np.ndarray]:
-    Scale   =   ScaleFactors.for_silicon ( )
+    y   =   ScaleFactors.for_silicon ( )
     if graded:
-        mes=  graded_mesh_1d(length, n_nodes, refine_at = 0.5 *  length, h_min=2e-7)
+        val=  graded_mesh_1d(length, n_nodes, refine_at = 0.5 *  length, h_min=2e-7)
     else :
-        mes  =uniform_mesh_1d(length, n_nodes)
+        val  =uniform_mesh_1d(length, n_nodes)
 
-    return mes,  mes.h /   Scale.x_0, mes.volume  /  Scale.x_0
+    return val,  val.h /   y.x_0, val.volume  /  y.x_0
 
 
 
@@ -34,26 +34,26 @@ def scaled_mesh(n_nodes: int=41, length:float =  MICRON, graded :  bool=  False)
 def junction_potential(mesh :  Mesh1D)   ->  np.ndarray  :
 
 
-    blah=0.5*mesh.length
-    map=  0.05* mesh.length
-    return 0.5* V_BI * np.tanh((mesh.x- blah)/ map)
+    b=0.5*mesh.length
+    rr=  0.05* mesh.length
+    return 0.5* V_BI * np.tanh((mesh.x- b)/ rr)
 
 
 
 def solve_block(residual:np.ndarray, triplets:tuple[np.ndarray,np.ndarray,np.ndarray], density:np.ndarray, targets:tuple[float,float],)-> np.ndarray:
-    dict,col,min=triplets
-    nnodes = density.size
+    res2,cc,d=triplets
+    f = density.size
 
-    Assembly =  SparseAssembly(residual, dict, col, min, (nnodes, nnodes))
+    x =  SparseAssembly(residual, res2, cc, d, (f, f))
 
-    Assembly =  apply_dirichlet(Assembly, density, 0, targets[0])
-    Assembly= apply_dirichlet(Assembly, density, nnodes  - 1, targets[1])
+    x =  apply_dirichlet(x, density, 0, targets[0])
+    x= apply_dirichlet(x, density, f  - 1, targets[1])
 
 
 
-    sol =SparseLU()
-    sol.factorize(Assembly.rows,   Assembly.cols,  Assembly.values, Assembly.shape)
-    return density  + sol.solve(-  Assembly.residual)
+    c =SparseLU()
+    c.factorize(x.rows,   x.cols,  x.values, x.shape)
+    return density  + c.solve(-  x.residual)
 
 
 
@@ -62,36 +62,36 @@ def as_field(values : np.ndarray, unit :  str, name : str) -> Field :
     return Field(values,unit,ScalingState.SCALED,Location.NODE,name=name)
 
 def test_zero_field_reduces_to_plain_diffusion()->  None :
-    r2 =np.array([0.5,0.25])
+    vv =np.array([0.5,0.25])
 
 
     psi = np.zeros ( 3  )
     n =np.array([1.0,3.0,4.0])
 
-    expectted=  D_N * np.array([(3.0 -1.0)/  0.5, (4.0 -  3.0)  /  0.25])
-    np.testing.assert_allclose(electron_current(r2,D_N,psi,n),expectted,rtol =1e-15)
+    dat=  D_N * np.array([(3.0 -1.0)/  0.5, (4.0 -  3.0)  /  0.25])
+    np.testing.assert_allclose(electron_current(vv,D_N,psi,n),dat,rtol =1e-15)
 
 def test_zero_field_hole_flux_is_minus_the_gradient()->None:
 
-    next= np.array([0.5, 0.25])
+    z= np.array([0.5, 0.25])
     psi=np.zeros(3)
     p = np.array([1.0, 3.0, 4.0])
-    Expected = - D_P *  np.array([(3.0 - 1.0) /  0.5, (4.0 - 3.0) /  0.25])
-    np.testing.assert_allclose(hole_current(next, D_P, psi, p), Expected, rtol =  1e-14)
+    v = - D_P *  np.array([(3.0 - 1.0) /  0.5, (4.0 - 3.0) /  0.25])
+    np.testing.assert_allclose(hole_current(z, D_P, psi, p), v, rtol =  1e-14)
 
 def test_uniform_density_gives_pure_drift(  )   ->  None   :
-    stuff=  np.array([0.4, 0.4]) ; psi =  np.array([0.0, 1.3, 2.9])
+    info=  np.array([0.4, 0.4]) ; psi =  np.array([0.0, 1.3, 2.9])
     n   = np.full (3 ,  7.0)
 
-    gradeint=np.diff(psi) / stuff
-    np.testing.assert_allclose(electron_current ( stuff ,  D_N ,  psi , n ) ,   -  D_N   *   7.0   * gradeint,   rtol   =  1e-14)
+    d=np.diff(psi) / info
+    np.testing.assert_allclose(electron_current ( info ,  D_N ,  psi , n ) ,   -  D_N   *   7.0   * d,   rtol   =  1e-14)
 def  test_uniform_hole_density_gives_pure_drift_with_the_same_sign ( )  ->  None  :
-    H = np.array([0.4, 0.4])
+    rr = np.array([0.4, 0.4])
     psi=np.array([0.0,1.3,2.9])
     p = np.full(3, 7.0)
-    Gradient=np.diff(psi)/H
+    tmp3=np.diff(psi)/rr
     np.testing.assert_allclose(
-        hole_current(H, D_P, psi, p), - D_P *7.0*Gradient, rtol =1e-14
+        hole_current(rr, D_P, psi, p), - D_P *7.0*tmp3, rtol =1e-14
     )
 
 
@@ -99,114 +99,114 @@ def  test_uniform_hole_density_gives_pure_drift_with_the_same_sign ( )  ->  None
 def test_electron_current_flows_the_right_way_down_a_potential_drop()->  None :
 
 
-    hh = np.array([1.0,
+    k = np.array([1.0,
               1.0]);  psi =np.array([2.0,1.0,0.0])
     n=np.full(3, 1e6)
 
 
-    assert np.all(electron_current(hh, D_N, psi, n) >0.0)
+    assert np.all(electron_current(k, D_N, psi, n) >0.0)
 
 
 def test_hole_current_flows_the_same_way()  -> None:
-    H =np.array([1.0,1.0])
+    obj =np.array([1.0,1.0])
 
     psi = np.array([2.0, 1.0, 0.0])
 
     p  =  np.full(3, 1e6)
-    assert np.all(hole_current(H, D_P, psi, p) > 0.0)
+    assert np.all(hole_current(obj, D_P, psi, p) > 0.0)
 
 
 
 def test_high_field_upwinds_the_electron_flux_to_the_left_node() ->  None :
 
-    H =  np.array([1.0])
+    hh =  np.array([1.0])
     psi= np.array([0.0, 10.0])
 
 
-    fro   =   electron_current (H,  D_N ,   psi ,   np.array ([ 1.0 , 0.0  ] ))
+    y   =   electron_current (hh,  D_N ,   psi ,   np.array ([ 1.0 , 0.0  ] ))
 
-    fromright=electron_current(H,D_N,psi,np.array([0.0,1.0]))
-    np.testing.assert_allclose(abs(fro /fromright),np.exp(10.0),rtol= 1e-12)
-    assert abs(fro)> abs(fromright)
+    r=electron_current(hh,D_N,psi,np.array([0.0,1.0]))
+    np.testing.assert_allclose(abs(y /r),np.exp(10.0),rtol= 1e-12)
+    assert abs(y)> abs(r)
 
 
 
 def test_high_field_upwinds_the_hole_flux_to_the_right_node()-> None :
 
 
-    hh  = np.array([1.0])
+    m  = np.array([1.0])
     psi =np.array([0.0, 10.0])
-    t2= hole_current(hh, D_P, psi, np.array([1.0, 0.0]))
-    FromRight  = hole_current(hh,  D_P,  psi,   np.array(  [  0.0,   1.0  ] ))
-    np.testing.assert_allclose(abs(FromRight/ t2), np.exp(10.0), rtol=  1e-12)
-    assert  abs( FromRight)  >  abs (t2  )
+    c= hole_current(m, D_P, psi, np.array([1.0, 0.0]))
+    ret  = hole_current(m,  D_P,  psi,   np.array(  [  0.0,   1.0  ] ))
+    np.testing.assert_allclose(abs(ret/ c), np.exp(10.0), rtol=  1e-12)
+    assert  abs( ret)  >  abs (c  )
 
 def test_hole_flux_is_the_electron_flux_with_the_potential_reversed() -> None :
-    Mesh,res,_= scaled_mesh()
-    psi =   junction_potential (Mesh  );  Density = np.exp(np.linspace(- 8.0, 8.0, Mesh.n_nodes))
+    j,a2,_= scaled_mesh()
+    psi =   junction_potential (j  );  nxt = np.exp(np.linspace(- 8.0, 8.0, j.n_nodes))
 
 
 
-    np.testing.assert_allclose(hole_current(res, D_P, psi, Density), -electron_current(res, D_P, - psi, Density), rtol =  1e-13,)
+    np.testing.assert_allclose(hole_current(a2, D_P, psi, nxt), -electron_current(a2, D_P, - psi, nxt), rtol =  1e-13,)
 
 def test_flux_survives_a_field_large_enough_to_overflow_exp()-> None:
-    hh = np.array([1.0])
+    j = np.array([1.0])
     psi = np.array([0.0,800.0])
 
     n  =  np.array( [1e6 ,   1e6])
 
-    set=electron_current(hh,D_N,psi,n)
+    item=electron_current(j,D_N,psi,n)
 
-    assert np.all(np.isfinite(set));  np.testing.assert_allclose (set , -  D_N  * 1e6  * 800.0, rtol   =   1e-12)
+    assert np.all(np.isfinite(item));  np.testing.assert_allclose (item , -  D_N  * 1e6  * 800.0, rtol   =   1e-12)
 def test_diffusivity_may_vary_per_edge()   ->  None   :
-    H =  np.ones( 2 )
+    k =  np.ones( 2 )
     psi =np.zeros(3)
     n =  np.array([0.0, 1.0, 3.0])
-    dn=np.array([2.0,5.0])
+    lst=np.array([2.0,5.0])
 
-    np.testing.assert_allclose (electron_current(H,  dn,   psi,  n ),   np.array ( [ 2.0 * 1.0 , 5.0 *   2.0  ]),  rtol  =   1e-15)
+    np.testing.assert_allclose (electron_current(k,  lst,   psi,  n ),   np.array ( [ 2.0 * 1.0 , 5.0 *   2.0  ]),  rtol  =   1e-15)
 
 def test_electron_residual_is_zero_for_a_constant_current_solution() -> None :
-    msh, hh, Volume = scaled_mesh(n_nodes = 11)
-    psi= np.linspace(0.0,2.0,msh.n_nodes)
+    val, info, g = scaled_mesh(n_nodes = 11)
+    psi= np.linspace(0.0,2.0,val.n_nodes)
 
-    XX  = np.diff( psi )
-    next= 3.0
+    b  = np.diff( psi )
+    k= 3.0
 
 
-    n =np.empty(msh.n_nodes)
+    n =np.empty(val.n_nodes)
     n[0]=5.0
-    for edg in range(msh.n_edges)  :
-        n[edg  +  1] =  (
-            next *  hh[edg]  / D_N+float(np.asarray(B(- XX[edg]))) *n[edg]
-        ) /  float(np.asarray(B(XX[edg])))
-    Residual =  electron_continuity_residual(
-        hh, Volume ,   D_N ,  psi,   n,  np.zeros (  msh.n_nodes  )
+    for bar in range(val.n_edges)  :
+        n[bar  +  1] =  (
+            k *  info[bar]  / D_N+float(np.asarray(B(- b[bar]))) *n[bar]
+        ) /  float(np.asarray(B(b[bar])))
+    d =  electron_continuity_residual(
+        info, g ,   D_N ,  psi,   n,  np.zeros (  val.n_nodes  )
     )
-    np.testing.assert_allclose(Residual[1 :- 1], 0.0, atol  = 1e-9 * next)
+    np.testing.assert_allclose(d[1 :- 1], 0.0, atol  = 1e-9 * k)
 
 def test_electron_residual_picks_up_recombination()-> None :
-    blah,set,Volume = scaled_mesh(n_nodes=11)
-    psi=np.zeros(blah.n_nodes)
+    tmp,bar,vals = scaled_mesh(n_nodes=11)
+    psi=np.zeros(tmp.n_nodes)
 
-    n =np.ones(blah.n_nodes)
-    RR = np.full(blah.n_nodes, 0.25)
+    n =np.ones(tmp.n_nodes)
+    r = np.full(tmp.n_nodes, 0.25)
 
     np.testing.assert_allclose(
-        electron_continuity_residual(set,Volume,D_N,psi,n,RR),
-        RR*Volume,
+        electron_continuity_residual(bar,vals,D_N,psi,n,r),
+        r*vals,
         rtol = 1e-14,
     )
 
 
 
 def test_hole_residual_picks_up_recombination_with_the_same_sign() ->None  :
-    t2,H,vol = scaled_mesh(n_nodes= 11)
-    psi = np.zeros(t2.n_nodes)
-    p=np.ones(t2.n_nodes)
-    r=np.full(t2.n_nodes,0.25)
+    a,u,j = scaled_mesh(n_nodes= 11)
+    psi = np.zeros(a.n_nodes)
+    p=np.ones(a.n_nodes)
+    c=np.full(a.n_nodes,0.25)
     np.testing.assert_allclose(
-        hole_continuity_residual(H, vol, D_P, psi, p, r), r* vol, rtol  =1e-14
+        hole_continuity_residual(u, j, D_P, psi, p, c), c* j, rtol  =1e-14
     )
 
 
@@ -214,65 +214,65 @@ def dense(
     triplets :tuple[np.ndarray,np.ndarray,np.ndarray],n_nodes :int
 )->np.ndarray :
 
-    Rows,ret,round=triplets
-    mat  = np.zeros((n_nodes,
+    j,m,yy=triplets
+    s  = np.zeros((n_nodes,
                  n_nodes))
-    np.add.at(mat, (Rows, ret), round)
-    return mat
+    np.add.at(s, (j, m), yy)
+    return s
 
 
 def test_electron_jacobian_is_the_exact_derivative_of_the_residual()  -> None   :
-    mes, hh, vol = scaled_mesh(graded = True)
-    psi =junction_potential(mes)
-    n   =  np.exp (  np.linspace ( -  14.0 , 14.0,  mes.n_nodes  ))
-    Zero  =  np.zeros(  mes.n_nodes )
+    prev, k, z = scaled_mesh(graded = True)
+    psi =junction_potential(prev)
+    n   =  np.exp (  np.linspace ( -  14.0 , 14.0,  prev.n_nodes  ))
+    y  =  np.zeros(  prev.n_nodes )
 
-    residdual =  electron_continuity_residual(hh, vol, D_N, psi, n, Zero)
-    jac =dense(electron_continuity_jacobian(hh,vol,D_N,psi,Zero),mes.n_nodes)
-    np.testing.assert_allclose(jac @ n, residdual, rtol = 1e-12)
+    dat =  electron_continuity_residual(k, z, D_N, psi, n, y)
+    m =dense(electron_continuity_jacobian(k,z,D_N,psi,y),prev.n_nodes)
+    np.testing.assert_allclose(m @ n, dat, rtol = 1e-12)
 
 def test_hole_jacobian_is_the_exact_derivative_of_the_residual() ->None:
-    mes, hh, Volume  =  scaled_mesh(graded=True)
-    psi= junction_potential(mes)
-    p= np.exp(np.linspace(14.0,-14.0,mes.n_nodes));  sorted  = np.zeros(mes.n_nodes)
-    list  =hole_continuity_residual(hh, Volume, D_P, psi, p, sorted)
-    jacoiban =dense(
-        hole_continuity_jacobian(hh,Volume,D_P,psi,sorted),mes.n_nodes
+    h, t, i  =  scaled_mesh(graded=True)
+    psi= junction_potential(h)
+    p= np.exp(np.linspace(14.0,-14.0,h.n_nodes));  cnt  = np.zeros(h.n_nodes)
+    x  =hole_continuity_residual(t, i, D_P, psi, p, cnt)
+    v =dense(
+        hole_continuity_jacobian(t,i,D_P,psi,cnt),h.n_nodes
     )
-    np.testing.assert_allclose(jacoiban @ p,list,rtol=1e-12)
+    np.testing.assert_allclose(v @ p,x,rtol=1e-12)
 
 
 
 
 def test_recombination_slope_lands_on_the_diagonal_scaled_by_volume() ->  None :
-    bar, H, Volume = scaled_mesh(n_nodes  =11)
-    psi =junction_potential(bar)
-    foo  =   np.zeros(bar.n_nodes  )
-    sllope  =  np.linspace(1.0 , 2.0,   bar.n_nodes)
+    x, rows, y2 = scaled_mesh(n_nodes  =11)
+    psi =junction_potential(x)
+    d  =   np.zeros(x.n_nodes  )
+    jj  =  np.linspace(1.0 , 2.0,   x.n_nodes)
 
-    witthout = dense(
-        electron_continuity_jacobian(H, Volume, D_N, psi, foo), bar.n_nodes
+    s = dense(
+        electron_continuity_jacobian(rows, y2, D_N, psi, d), x.n_nodes
     )
 
-    ws = dense(
-        electron_continuity_jacobian(H, Volume, D_N, psi, sllope), bar.n_nodes
+    arr = dense(
+        electron_continuity_jacobian(rows, y2, D_N, psi, jj), x.n_nodes
     )
-    np.testing.assert_allclose(np.diag(ws -  witthout), sllope * Volume, rtol = 1e-10)
-    dif = ws-witthout
-    np.fill_diagonal(dif,0.0)
-    np.testing.assert_array_equal(dif,  np.zeros_like (dif )  )
+    np.testing.assert_allclose(np.diag(arr -  s), jj * y2, rtol = 1e-10)
+    info = arr-s
+    np.fill_diagonal(info,0.0)
+    np.testing.assert_array_equal(info,  np.zeros_like (info )  )
 
 @pytest.mark.parametrize('graded', [False, True])
 
 
 def test_electron_jacobian_is_an_m_matrix( graded  :  bool )   ->  None  :
-    mes,yy,Volume=scaled_mesh(graded = graded)
-    psi=  junction_potential(mes) ; aa=np.full(mes.n_nodes,0.5)
-    Matrix = dense(electron_continuity_jacobian(yy,Volume,D_N,psi,aa),mes.n_nodes)
+    i,t,buf=scaled_mesh(graded = graded)
+    psi=  junction_potential(i) ; out2=np.full(i.n_nodes,0.5)
+    y = dense(electron_continuity_jacobian(t,buf,D_N,psi,out2),i.n_nodes)
 
-    assert np.all(np.diag(Matrix)>0.0)
-    t2=Matrix-np.diag(np.diag(Matrix))
-    assert np.all (t2  <=  0.0 )
+    assert np.all(np.diag(y)>0.0)
+    vv=y-np.diag(np.diag(y))
+    assert np.all (vv  <=  0.0 )
 
 
 
@@ -283,17 +283,17 @@ def test_electron_jacobian_is_an_m_matrix( graded  :  bool )   ->  None  :
 
 def test_hole_jacobian_is_an_m_matrix(graded:bool)->None :
 
-    foo, H, id =scaled_mesh(graded=graded)
-    psi = junction_potential(foo)
+    k, j, r =scaled_mesh(graded=graded)
+    psi = junction_potential(k)
 
-    Slope  = np.full(  foo.n_nodes ,  0.5  )
-    stuff  = dense(hole_continuity_jacobian(  H,  id,  D_P ,  psi, Slope), foo.n_nodes)
+    jj  = np.full(  k.n_nodes ,  0.5  )
+    lst  = dense(hole_continuity_jacobian(  j,  r,  D_P ,  psi, jj), k.n_nodes)
 
 
 
-    assert np.all(np.diag(stuff) >0.0)
-    bb  =   stuff  -  np.diag( np.diag(stuff  )  )
-    assert np.all(bb <=0.0)
+    assert np.all(np.diag(lst) >0.0)
+    a2  =   lst  -  np.diag( np.diag(lst  )  )
+    assert np.all(a2 <=0.0)
 
 
 def ramp_potential(mesh: Mesh1D)->np.ndarray:
@@ -312,19 +312,19 @@ def ramp_potential(mesh: Mesh1D)->np.ndarray:
     ids =  ['uniform field', 'junction under injection'],
 )
 def test_solved_electron_current_is_constant_across_every_edge(graded:bool, potential, targets  : tuple[float, float])  ->None :
-    Mesh, thing, Volume=  scaled_mesh(graded=graded)
+    w, h, stuff=  scaled_mesh(graded=graded)
 
-    psi = potential(Mesh)
-    n  =  np.full(Mesh.n_nodes, 1.0); Zero  =  np.zeros(Mesh.n_nodes)
-
-
-    Solved =  solve_block(electron_continuity_residual(thing, Volume, D_N, psi, n, Zero), electron_continuity_jacobian(thing, Volume, D_N, psi, Zero), n, targets= targets,)
+    psi = potential(w)
+    n  =  np.full(w.n_nodes, 1.0); t  =  np.zeros(w.n_nodes)
 
 
+    row =  solve_block(electron_continuity_residual(h, stuff, D_N, psi, n, t), electron_continuity_jacobian(h, stuff, D_N, psi, t), n, targets= targets,)
 
-    cur=electron_current(thing,D_N,psi,Solved)
-    sppread =   np.max( np.abs(  cur -  cur.mean( )))  /   abs(  cur.mean(  )  )
-    assert sppread<1e-9,f"Jn varies by {sppread:.2e} across the mesh"
+
+
+    x=electron_current(h,D_N,psi,row)
+    u =   np.max( np.abs(  x -  x.mean( )))  /   abs(  x.mean(  )  )
+    assert u<1e-9,f"Jn varies by {u:.2e} across the mesh"
 
 @pytest.mark.parametrize( "graded",  [ False,   True ])
 
@@ -332,187 +332,187 @@ def test_solved_electron_current_is_constant_across_every_edge(graded:bool, pote
 @pytest.mark.parametrize(( "potential", "targets"  ), [(ramp_potential ,   (1e6,   1e-6  ) ), (  junction_potential,   ( 1e6,  1e2  )) ,], ids =  ['uniform field',   "junction under injection"] ,)
 
 def  test_solved_hole_current_is_constant_across_every_edge (graded  :  bool,  potential,   targets   : tuple[  float ,   float  ])  ->  None  :
-    type, sorted ,   voolume  =  scaled_mesh(graded =  graded )
-    psi   =  potential(type )
-    p = np.full(type.n_nodes,
+    y, j ,   bb  =  scaled_mesh(graded =  graded )
+    psi   =  potential(y )
+    p = np.full(y.n_nodes,
       1.0)
 
 
-    zer = np.zeros(type.n_nodes)
+    g = np.zeros(y.n_nodes)
 
-    temp  = solve_block(
-        hole_continuity_residual( sorted,   voolume ,   D_P,   psi ,  p,  zer),
-        hole_continuity_jacobian( sorted, voolume ,  D_P ,   psi,  zer),
+    d2  = solve_block(
+        hole_continuity_residual( j,   bb ,   D_P,   psi ,  p,  g),
+        hole_continuity_jacobian( j, bb ,  D_P ,   psi,  g),
         p,
         targets =   targets,
     )
 
-    hmm=hole_current(sorted,D_P,psi,temp)
-    spr =np.max(np.abs(hmm - hmm.mean())) / abs(hmm.mean()) ; assert spr <1e-9,f"Jp varies by {spr:.2e} across the mesh"
+    s2=hole_current(j,D_P,psi,d2)
+    c =np.max(np.abs(s2 - s2.mean())) / abs(s2.mean()) ; assert c <1e-9,f"Jp varies by {c:.2e} across the mesh"
 
 def  test_the_equilibrium_profile_is_an_exact_solution_carrying_no_current(  )  ->   None  :
 
-    mes, x2, _ =scaled_mesh(graded  = True)
-    psi  =  junction_potential (  mes )
+    cur, j, _ =scaled_mesh(graded  = True)
+    psi  =  junction_potential (  cur )
 
     n =np.exp(psi)
 
 
-    Current = electron_current(x2, D_N, psi, n)
-    hex = np.max( np.abs (  ( D_N /   x2)   *   n[  1   :] ))
-    assert np.max(np.abs(Current)) < 1e-15 *hex
+    a2 = electron_current(j, D_N, psi, n)
+    z = np.max( np.abs (  ( D_N /   j)   *   n[  1   :] ))
+    assert np.max(np.abs(a2)) < 1e-15 *z
 
 def  test_the_equilibrium_profile_survives_a_block_solve(  )  -> None   :
-    msh,hh,vol=scaled_mesh(graded=True)
-    psi  =   junction_potential(  msh)
-    exa  =np.exp(psi)
-    zer = np.zeros(msh.n_nodes)
+    lst,v,jj=scaled_mesh(graded=True)
+    psi  =   junction_potential(  lst)
+    y  =np.exp(psi)
+    d2 = np.zeros(lst.n_nodes)
 
 
-    Solved= solve_block(
-        electron_continuity_residual(hh, vol, D_N, psi, exa, zer),
-        electron_continuity_jacobian(hh, vol, D_N, psi, zer),
-        exa,
-        targets  = (exa[0], exa[-1]),
+    f= solve_block(
+        electron_continuity_residual(v, jj, D_N, psi, y, d2),
+        electron_continuity_jacobian(v, jj, D_N, psi, d2),
+        y,
+        targets  = (y[0], y[-1]),
     )
 
-    np.testing.assert_allclose ( Solved ,  exa ,  rtol  =  1e-12  )
+    np.testing.assert_allclose ( f ,  y ,  rtol  =  1e-12  )
 
 
 def test_solved_electron_density_stays_positive_everywhere()->  None :
-    chr ,   H,  vol =   scaled_mesh(graded   =  True) ; psi =junction_potential(chr)
-    n= np.full(chr.n_nodes,
-              1.0) ; p  =   np.full (  chr.n_nodes,   1.0  )
+    v ,   zz,  rr =   scaled_mesh(graded   =  True) ; psi =junction_potential(v)
+    n= np.full(v.n_nodes,
+              1.0) ; p  =   np.full (  v.n_nodes,   1.0  )
 
-    tmp2  = SRHRecombination(tau_n = 1e-3, tau_p =1e-3)
-    stuff2  = np.asarray( tmp2.rate(  n, p ) )
-    solpe,   _   =   tmp2.electron_linearization(n , p )
+    b  = SRHRecombination(tau_n = 1e-3, tau_p =1e-3)
+    out2  = np.asarray( b.rate(  n, p ) )
+    h,   _   =   b.electron_linearization(n , p )
 
 
-    yy=solve_block(
-        electron_continuity_residual(H,vol,D_N,psi,n,stuff2),
-        electron_continuity_jacobian(H,vol,D_N,psi,np.asarray(solpe)),
+    s=solve_block(
+        electron_continuity_residual(zz,rr,D_N,psi,n,out2),
+        electron_continuity_jacobian(zz,rr,D_N,psi,np.asarray(h)),
         n,
         targets =(1e-6,1e6),
     )
 
 
 
-    assert np.all(yy   >  0.0)
+    assert np.all(s   >  0.0)
 
 
 
 def test_recombination_bends_the_current_the_way_it_should()-> None:
-    x2 , lst ,  Volume  =  scaled_mesh ()
-    psi =  np.zeros (x2.n_nodes  )
-    n  = np.full(x2.n_nodes, 1.0)
-    r  =  np.full(  x2.n_nodes ,   1.0)
-    solpe = np.full(x2.n_nodes, 1.0)
-    sloved =  solve_block(
-        electron_continuity_residual(lst, Volume, D_N, psi, n, r),
-        electron_continuity_jacobian(lst, Volume, D_N, psi, solpe),
+    b , a ,  vv  =  scaled_mesh ()
+    psi =  np.zeros (b.n_nodes  )
+    n  = np.full(b.n_nodes, 1.0)
+    f  =  np.full(  b.n_nodes ,   1.0)
+    k2 = np.full(b.n_nodes, 1.0)
+    m =  solve_block(
+        electron_continuity_residual(a, vv, D_N, psi, n, f),
+        electron_continuity_jacobian(a, vv, D_N, psi, k2),
         n,
         targets =  (10.0, 10.0),
     )
 
-    iter =  electron_current(lst, D_N, psi, sloved)
+    y =  electron_current(a, D_N, psi, m)
 
-    assert  np.max ( np.abs(iter   -   iter.mean(  ))  )  / abs(iter  ).max()   >  1e-3; assert iter[0]  <0.0 < iter[- 1]
-    assert np.all(np.diff(iter)>0.0)
+    assert  np.max ( np.abs(y   -   y.mean(  ))  )  / abs(y  ).max()   >  1e-3; assert y[0]  <0.0 < y[- 1]
+    assert np.all(np.diff(y)>0.0)
 
 
 
 def  continuity_inputs( n_nodes   : int  =  21 )  ->  tuple :
-    Mesh=  uniform_mesh_1d(MICRON, n_nodes)
-    thing  =  ScaleFactors.for_silicon()
-    psi  =  as_field(junction_potential( Mesh ),   "V",  "psi"  );  n   =  as_field(  np.full(n_nodes, 1.0  ) ,  "cm^-3" ,  "n" )
+    a=  uniform_mesh_1d(MICRON, n_nodes)
+    ret  =  ScaleFactors.for_silicon()
+    psi  =  as_field(junction_potential( a ),   "V",  "psi"  );  n   =  as_field(  np.full(n_nodes, 1.0  ) ,  "cm^-3" ,  "n" )
 
 
     p  =  as_field(np.full(n_nodes, 1.0), 'cm^-3', "p")
-    return Mesh,psi,n,p,thing
+    return a,psi,n,p,ret
 
 
 def  test_assemble_electron_matches_the_array_level_functions() -> None  :
-    thing,psi,n,p,Scale =continuity_inputs()
-    any=  NoRecombination()
-    abs =assemble_electron_continuity(thing,psi,n,p,any,Scale,D_N)
-    expcted=electron_continuity_residual(
-        thing.h/ Scale.x_0,
-        thing.volume/Scale.x_0,
+    el,psi,n,p,b =continuity_inputs()
+    d=  NoRecombination()
+    r2 =assemble_electron_continuity(el,psi,n,p,d,b,D_N)
+    mm=electron_continuity_residual(
+        el.h/ b.x_0,
+        el.volume/b.x_0,
         D_N,
         psi.data,
         n.data,
-        np.zeros(thing.n_nodes),
+        np.zeros(el.n_nodes),
     )
-    np.testing.assert_allclose(abs.residual,expcted,rtol= 1e-14)
-    assert abs.shape==(thing.n_nodes,thing.n_nodes)
+    np.testing.assert_allclose(r2.residual,mm,rtol= 1e-14)
+    assert r2.shape==(el.n_nodes,el.n_nodes)
 
 
 def test_assemble_hole_matches_the_array_level_functions() ->None :
 
-    type, psi, n, p, Scale  = continuity_inputs()
-    k2  = NoRecombination( )
+    d2, psi, n, p, r  = continuity_inputs()
+    val2  = NoRecombination( )
 
 
-    data2 =assemble_hole_continuity(type,psi,n,p,k2,Scale,D_P)
-    exp=hole_continuity_residual(
-        type.h / Scale.x_0,
-        type.volume /Scale.x_0,
+    v =assemble_hole_continuity(d2,psi,n,p,val2,r,D_P)
+    z=hole_continuity_residual(
+        d2.h / r.x_0,
+        d2.volume /r.x_0,
         D_P,
         psi.data,
         p.data,
-        np.zeros(type.n_nodes),
+        np.zeros(d2.n_nodes),
     )
-    np.testing.assert_allclose(data2.residual,exp,rtol=1e-14)
+    np.testing.assert_allclose(v.residual,z,rtol=1e-14)
 
 
 
 def test_assemble_uses_the_recombination_model()->None:
 
-    Mesh,   psi ,   n,  p,   sccale  =  continuity_inputs(  )
-    hott  = as_field(np.full(Mesh.n_nodes,
+    x2,   psi ,   n,  p,   g  =  continuity_inputs(  )
+    v  = as_field(np.full(x2.n_nodes,
            1e3),
        "cm^-3",
                   "n")
-    wit  = assemble_electron_continuity(
-        Mesh, psi, hott, p, NoRecombination(), sccale, D_N
+    j  = assemble_electron_continuity(
+        x2, psi, v, p, NoRecombination(), g, D_N
     )
-    withSrh =  assemble_electron_continuity(Mesh, psi, hott, p, SRHRecombination(tau_n  = 1.0, tau_p = 1.0), sccale, D_N)
+    y2 =  assemble_electron_continuity(x2, psi, v, p, SRHRecombination(tau_n  = 1.0, tau_p = 1.0), g, D_N)
 
 
 
-    assert np.max(np.abs(withSrh.residual - wit.residual))  >  0.0
+    assert np.max(np.abs(y2.residual - j.residual))  >  0.0
 
 def test_assemble_rejects_physical_fields()->None :
 
-    mes,psi,n,p,sca=continuity_inputs()
-    physial =Field(psi.data,'V',ScalingState.PHYSICAL,Location.NODE,name='psi')
+    tmp3,psi,n,p,yy=continuity_inputs()
+    b2 =Field(psi.data,'V',ScalingState.PHYSICAL,Location.NODE,name='psi')
     with  pytest.raises (  ValueError , match =  'SCALED')  :
         assemble_electron_continuity(
-            mes, physial, n, p, NoRecombination(), sca, D_N
+            tmp3, b2, n, p, NoRecombination(), yy, D_N
         )
 
 
 
 def test_assemble_rejects_edge_fields()-> None:
-    mes,psi,n,p,vals= continuity_inputs()
+    x,psi,n,p,out= continuity_inputs()
 
-    onedges=Field(np.zeros(mes.n_edges), "cm^-3", ScalingState.SCALED, Location.EDGE, name  = 'n')
+    i=Field(np.zeros(x.n_edges), "cm^-3", ScalingState.SCALED, Location.EDGE, name  = 'n')
 
 
     with  pytest.raises(  ValueError,  match =   'NODE'  )  :
 
         assemble_electron_continuity(
-            mes,psi,onedges,p,NoRecombination(),vals,D_N
+            x,psi,i,p,NoRecombination(),out,D_N
         )
 
 
 
 
 def test_assemble_rejects_a_field_of_the_wrong_length() -> None  :
-    Mesh, psi, n, p, sca = continuity_inputs()
-    Short  =  as_field(np.ones(Mesh.n_nodes -  1), "cm^-3", "p")
+    h, psi, n, p, out = continuity_inputs()
+    a  =  as_field(np.ones(h.n_nodes -  1), "cm^-3", "p")
 
     with  pytest.raises(  ValueError,
        match  =  "length" )  :
-        assemble_hole_continuity(Mesh, psi, n, Short, NoRecombination(), sca, D_P)
+        assemble_hole_continuity(h, psi, n, a, NoRecombination(), out, D_P)

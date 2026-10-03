@@ -48,22 +48,22 @@ class  RollOffPoint  :
 def usable_span(
     voltage : npt.NDArray[np.float64], current  : npt.NDArray[np.float64]
 )  ->  tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]  :
-    VV , bar  = np.asarray(voltage,   dtype  =  np.float64  ), np.asarray(current,   dtype = np.float64)
-    Start   = 0
-    for K in range(len(bar)):
-        if bar[K] <= 0.0:
-            Start  =   K + 1
-        elif K> 0 and bar[K]<= bar[K-1]:
-            Start =K
+    vals , buf  = np.asarray(voltage,   dtype  =  np.float64  ), np.asarray(current,   dtype = np.float64)
+    y   = 0
+    for s2 in range(len(buf)):
+        if buf[s2] <= 0.0:
+            y  =   s2 + 1
+        elif s2> 0 and buf[s2]<= buf[s2-1]:
+            y =s2
 
-    if len(bar) -Start< 3:
+    if len(buf) -y< 3:
         raise ValueError(
-            f"only {len(bar) - Start} points of this transfer curve are on: it "
-            f"runs {VV[0]:+g} to {VV[-1]:+g} V and never becomes both positive "
+            f"only {len(buf) - y} points of this transfer curve are on: it "
+            f"runs {vals[0]:+g} to {vals[-1]:+g} V and never becomes both positive "
             "and rising for long enough to extract from. Extend the gate "
             'sweep upward.'
         )
-    return VV[Start:],bar[Start:]
+    return vals[y:],buf[y:]
 def gate_length_sweep(
     gate_lengths:list[float],
     gate_voltages :list[float],
@@ -88,58 +88,58 @@ def gate_length_sweep(
             f"the sweep needs two different drain biases to report DIBL, and "
             f"both are {drain_low:g} V"
         )
-    Settings  =  dict (SHORT_CHANNEL_PROCESS if  process  is None  else process)
+    b  =  dict (SHORT_CHANNEL_PROCESS if  process  is None  else process)
 
-    poi = []
-    for lGate in gate_lengths:
-        curevs   =  { }
-        for Label,drin in(('linear',drain_low),('saturated',drain_high)) :
-            devce=nmos(L_gate=lGate,drain_voltage=drin,**Settings)
-            curevs[Label] = gate_sweep(devce , voltages  =  list (  gate_voltages ), models  =   TransportModels.for_device(devce, mobility  = mobility , field_dependent  =   field_dependent, surface   =   surface ,) , step  =  step,)
+    it = []
+    for ret in gate_lengths:
+        m   =  { }
+        for thing,s in(('linear',drain_low),('saturated',drain_high)) :
+            r=nmos(L_gate=ret,drain_voltage=s,**b)
+            m[thing] = gate_sweep(r , voltages  =  list (  gate_voltages ), models  =   TransportModels.for_device(r, mobility  = mobility , field_dependent  =   field_dependent, surface   =   surface ,) , step  =  step,)
 
-        V_linn,myvar=usable_span(
-            curevs["linear"].voltage,curevs["linear"].current
+        u,w=usable_span(
+            m["linear"].voltage,m["linear"].current
         )
 
 
-        v, J_satt  =  usable_span(curevs['saturated'].voltage, curevs["saturated"].current)
-        tar  =   reference_current  /   lGate
-        tl=  threshold_constant_current(V_linn, myvar, tar)
-        thresholdsaturated  = threshold_constant_current(v, J_satt, tar)
-        thresholdextrapolated  = threshold_linear_extrapolation(
-            V_linn ,  myvar , drain_voltage  =  drain_low
+        j, e  =  usable_span(m['saturated'].voltage, m["saturated"].current)
+        mm  =   reference_current  /   ret
+        ok=  threshold_constant_current(u, w, mm)
+        d  = threshold_constant_current(j, e, mm)
+        out2  = threshold_linear_extrapolation(
+            u ,  w , drain_voltage  =  drain_low
         )
-        _, gmm  =transconductance(V_linn, myvar)
+        _, x2  =transconductance(u, w)
 
 
-        bar=(threshold_constant_current(V_linn, myvar, tar/10.0 **  slope_decades), tl,)
-        poi.append(
+        i=(threshold_constant_current(u, w, mm/10.0 **  slope_decades), ok,)
+        it.append(
             RollOffPoint(
-                L_gate = lGate,
-                threshold_linear= tl,
-                threshold_saturated = thresholdsaturated,
-                threshold_extrapolated =thresholdextrapolated,
+                L_gate = ret,
+                threshold_linear= ok,
+                threshold_saturated = d,
+                threshold_extrapolated =out2,
                 subthreshold_slope  =  subthreshold_slope(
-                    V_linn, myvar, window = bar
+                    u, w, window = i
                 ),
                 dibl =dibl(
-                    threshold_low  =tl,
-                    threshold_high =  thresholdsaturated,
+                    threshold_low  =ok,
+                    threshold_high =  d,
                     drain_low =  drain_low,
                     drain_high = drain_high,
                 ),
                 saturation_exponent =  saturation_exponent(
-                    v,
-                    J_satt,
-                    threshold=thresholdextrapolated,
+                    j,
+                    e,
+                    threshold=out2,
                     window  =(
-                        thresholdextrapolated  +  overdrive_window[0],
-                        thresholdextrapolated + overdrive_window[1],
+                        out2  +  overdrive_window[0],
+                        out2 + overdrive_window[1],
                     ),
                 ),
-                peak_transconductance=  float(np.max(gmm)),
-                linear = curevs['linear'],
-                saturated = curevs['saturated'],
+                peak_transconductance=  float(np.max(x2)),
+                linear = m['linear'],
+                saturated = m['saturated'],
             )
         )
-    return tuple(poi)
+    return tuple(it)

@@ -21,8 +21,8 @@ LONG  =   ( 0.1 ,  0.2,   0.3 ,   0.4, 0.5,   0.6 )
 
 
 def client():
-    with  TestClient(  create_app( ))  as cllient :
-        yield cllient
+    with  TestClient(  create_app( ))  as dd :
+        yield dd
 
 
 def diode_request(voltages =(0.0, 0.2), **sweep : Any)->  dict :
@@ -31,117 +31,117 @@ def diode_request(voltages =(0.0, 0.2), **sweep : Any)->  dict :
 
 
 def submit(client,request: dict)-> str:
-    next = client.post('/api/jobs', json=request)
-    assert next.status_code   == 200 ,  next.text
-    return next.json() ['id']
+    vals = client.post('/api/jobs', json=request)
+    assert vals.status_code   == 200 ,  vals.text
+    return vals.json() ['id']
 def drain(client, job_id : str) -> list[Any] :
-    fra:list[Any]= []
-    with  client.websocket_connect(f"/api/jobs/{job_id}/stream" )   as  bar :
+    v:list[Any]= []
+    with  client.websocket_connect(f"/api/jobs/{job_id}/stream" )   as  stuff :
         while True :
-            val= json.loads(bar.receive_text())
-            fra.append(val)
-            if val["type"] == "status" :
-                return fra
+            lst= json.loads(stuff.receive_text())
+            v.append(lst)
+            if lst["type"] == "status" :
+                return v
 
 
 def test_the_schema_offers_the_devices_the_registry_knows (  client )   ->  None  :
-    foo=client.get('/api/schema').json()
+    f=client.get('/api/schema').json()
 
-    assert set(foo["devices"])== {'pn_diode',"mos_cap",'nmos','stack',"drawing"}
-    assert set(foo['sweeps']) =={"iv",'transfer',"cv"}
+    assert set(f["devices"])== {'pn_diode',"mos_cap",'nmos','stack',"drawing"}
+    assert set(f['sweeps']) =={"iv",'transfer',"cv"}
 
 
 
 def test_the_schema_carries_the_constructors_own_defaults(client) ->None:
-    Body = client.get('/api/schema').json()
-    kno =  {p['name'] : p for p in Body["devices"]  ["pn_diode"]}
+    vals = client.get('/api/schema').json()
+    d =  {p['name'] : p for p in vals["devices"]  ["pn_diode"]}
 
-    assert kno["Na"] ["default"]== pytest.approx(1e16)
-    assert kno["n_nodes"] ["type"]=='int'
+    assert d["Na"] ["default"]== pytest.approx(1e16)
+    assert d["n_nodes"] ["type"]=='int'
 
 
 
 
 def test_the_schema_carries_the_model_flags_and_their_choices(client) -> None:
 
-    bod  =  client.get('/api/schema' ).json( );Flags ={p['name']:p for p in bod["models"]}
+    b2  =  client.get('/api/schema' ).json( );res2 ={p['name']:p for p in b2["models"]}
 
 
-    assert  Flags [  "mobility"  ] ['choices'  ]  ==  [ 'constant',   "arora"]
-    assert Flags['field_dependent']['default']is False
+    assert  res2 [  "mobility"  ] ['choices'  ]  ==  [ 'constant',   "arora"]
+    assert res2['field_dependent']['default']is False
 
 
 
 def test_the_schema_carries_the_coarse_presets_and_their_notes(client)-> None:
 
 
-    pre = client.get('/api/schema').json() ["presets"]
-    assert set(pre)== {"mos_cap", "nmos", "drawing"} ; assert '1.5 mV' in pre['drawing'] ['note']
-    assert  pre [  "nmos"]  ['parameters']   ["n_silicon"]  ==   29
-    assert '0.621 percent' in  pre[  'nmos']  [  'note' ]
+    z = client.get('/api/schema').json() ["presets"]
+    assert set(z)== {"mos_cap", "nmos", "drawing"} ; assert '1.5 mV' in z['drawing'] ['note']
+    assert  z [  "nmos"]  ['parameters']   ["n_silicon"]  ==   29
+    assert '0.621 percent' in  z[  'nmos']  [  'note' ]
 
 
 def test_an_unknown_device_is_refused_with_the_known_ones_named(client)-> None :
-    bb= client.post(
+    z= client.post(
         "/api/jobs",
         json =  {
             'device' : {"kind": "bjt", 'parameters':  {}},
             "sweep"  :{"kind" :'iv', 'contact'  : "anode", "voltages": [0.1]},
         },
     )
-    assert bb.status_code ==  400
-    assert "pn_diode"  in bb.json(  )  [ "detail"]
+    assert z.status_code ==  400
+    assert "pn_diode"  in z.json(  )  [ "detail"]
 
 
 def test_a_parameter_of_the_wrong_type_is_refused(client)->None:
-    res  =  client.post("/api/jobs", json   = {"device"  :  {  'kind'   :   "pn_diode",   "parameters"  : {'n_nodes'  :  61.5 } }, 'sweep' :  {  "kind"   : "iv",  "contact"  :  'anode', "voltages"   :   [  0.1]  } ,},)
+    z  =  client.post("/api/jobs", json   = {"device"  :  {  'kind'   :   "pn_diode",   "parameters"  : {'n_nodes'  :  61.5 } }, 'sweep' :  {  "kind"   : "iv",  "contact"  :  'anode', "voltages"   :   [  0.1]  } ,},)
 
-    assert res.status_code==400
-    assert "n_nodes" in res.json() ["detail"]
+    assert z.status_code==400
+    assert "n_nodes" in z.json() ["detail"]
 
 
 def test_a_contact_the_device_does_not_have_is_refused(client) ->None :
-    res= client.post("/api/jobs", json ={'device' : {"kind" : "pn_diode","parameters" :DIODE}, "sweep" :{"kind":'iv',"contact" :"gate",'voltages':[0.1]},},)
+    num= client.post("/api/jobs", json ={'device' : {"kind" : "pn_diode","parameters" :DIODE}, "sweep" :{"kind":'iv',"contact" :"gate",'voltages':[0.1]},},)
 
 
-    assert res.status_code  ==400
-    assert "gate" in res.json() ['detail']
-    assert res.json()['detail'].startswith("no contact named 'gate' that the iv")
+    assert num.status_code  ==400
+    assert "gate" in num.json() ['detail']
+    assert num.json()['detail'].startswith("no contact named 'gate' that the iv")
 
 
 def  test_a_request_missing_its_sweep_is_refused_by_the_schema (  client)   -> None  :
-    res=client.post('/api/jobs',json ={"device":{'kind' : 'pn_diode'}})
+    bb=client.post('/api/jobs',json ={"device":{'kind' : 'pn_diode'}})
 
 
-    assert res.status_code== 422
+    assert bb.status_code== 422
 def test_an_unknown_job_is_not_found(client)  -> None :
     assert client.get('/api/jobs/nosuchjob').status_code   ==  404
 
 def test_a_stream_carries_solver_frames_and_then_a_status(client)-> None:
-    Job = submit(client,
+    i = submit(client,
                       diode_request())
-    item2 =drain(client,Job)
+    m =drain(client,i)
 
-    Kinds  =  {  Frame [  "type"]   for  Frame  in  item2  }
-    assert "gummel" in Kinds
+    k  =  {  flag [  "type"]   for  flag  in  m  }
+    assert "gummel" in k
 
-    assert "point" in Kinds
-    assert item2[- 1]["type"]  =="status"
-    assert item2[-1] ["status"] ==JobStatus.DONE.value
+    assert "point" in k
+    assert m[- 1]["type"]  =="status"
+    assert m[-1] ["status"] ==JobStatus.DONE.value
 def test_telemetry_arrives_before_the_job_is_finished(client) ->None:
-    jobb = submit(client,
+    v2 = submit(client,
                diode_request(voltages = LONG))
 
-    with client.websocket_connect(f"/api/jobs/{jobb}/stream")as soocket :
+    with client.websocket_connect(f"/api/jobs/{v2}/stream")as t :
 
-        frist =  json.loads(soocket.receive_text())
-        sg=  client.get(f"/api/jobs/{jobb}").json() ["status"]
-    assert frist["type"]  !='status'
-    assert sg  ==  JobStatus.RUNNING.value
+        ss =  json.loads(t.receive_text())
+        u=  client.get(f"/api/jobs/{v2}").json() ["status"]
+    assert ss["type"]  !='status'
+    assert u  ==  JobStatus.RUNNING.value
 
 
 def test_a_stalled_sweep_is_reported_as_the_measurement_it_is(client)->None :
-    jobb = submit(
+    r = submit(
         client,
         diode_request(
             voltages=(0.2,0.4,5.0),
@@ -149,71 +149,71 @@ def test_a_stalled_sweep_is_reported_as_the_measurement_it_is(client)->None :
         ),
     )
 
-    res =drain(client,jobb)
-    assert res[-1] ["status"]  ==JobStatus.DONE.value
-    cruve = client.get(f"/api/jobs/{jobb}/result").json()
-    assert cruve['complete']  is False
-    assert cruve['message']
+    b =drain(client,r)
+    assert b[-1] ["status"]  ==JobStatus.DONE.value
+    y = client.get(f"/api/jobs/{r}/result").json()
+    assert y['complete']  is False
+    assert y['message']
 
 
 
 
 def test_a_device_that_cannot_be_built_is_refused_before_it_is_a_job(client,)  ->  None :
-    str = client.post("/api/jobs", json ={'device': {"kind"  : 'pn_diode', 'parameters':{'n_nodes' :  5}}, "sweep" :  {"kind" : 'iv', 'contact':'anode', 'voltages'  : [0.1]},},)
+    j = client.post("/api/jobs", json ={'device': {"kind"  : 'pn_diode', 'parameters':{'n_nodes' :  5}}, "sweep" :  {"kind" : 'iv', 'contact':'anode', 'voltages'  : [0.1]},},)
 
 
-    assert str.status_code== 400
-    assert "max_ratio" in str.json()  ['detail']
+    assert j.status_code== 400
+    assert "max_ratio" in j.json()  ['detail']
 def test_a_failing_solve_says_why_rather_than_going_quiet(client)->  None:
 
-    Job=submit(
+    y2=submit(
         client,
         diode_request(
             voltages= (5.2,),settings = {"start" :5.0,'max_iterations':1}
         ),
     )
 
-    fra  = drain(client, Job)
-    assert fra[- 1] ['status']==  JobStatus.FAILED.value
-    assert 'could not be started' in fra [ -  1 ]   [  'message']
+    y  = drain(client, y2)
+    assert y[- 1] ['status']==  JobStatus.FAILED.value
+    assert 'could not be started' in y [ -  1 ]   [  'message']
 
 
 def test_cancelling_stops_the_solve(client)  ->  None :
-    jobb  =  submit(  client, diode_request(voltages  = LONG)  )
-    with  client.websocket_connect(f"/api/jobs/{jobb}/stream")  as Socket  :
-        json.loads(Socket.receive_text())
-        assert client.post(f"/api/jobs/{jobb}/cancel").json()["cancelled"]
+    rr  =  submit(  client, diode_request(voltages  = LONG)  )
+    with  client.websocket_connect(f"/api/jobs/{rr}/stream")  as xx  :
+        json.loads(xx.receive_text())
+        assert client.post(f"/api/jobs/{rr}/cancel").json()["cancelled"]
         while True :
-            fra= json.loads(Socket.receive_text())
-            if  fra[ "type" ]  ==   'status'   :
+            g= json.loads(xx.receive_text())
+            if  g[ "type" ]  ==   'status'   :
                 break
 
-    assert fra["status"] == JobStatus.CANCELLED.value
-    assert client.get(f"/api/jobs/{jobb}").json()['status']== (
+    assert g["status"] == JobStatus.CANCELLED.value
+    assert client.get(f"/api/jobs/{rr}").json()['status']== (
         JobStatus.CANCELLED.value
     )
 
 
 
 def test_cancelling_a_finished_job_says_it_changed_nothing(client) -> None :
-    jobb  = submit( client , diode_request(voltages  =  (  0.1,  ) ) )
-    drain(client,jobb)
-    assert client.post(f"/api/jobs/{jobb}/cancel").json()['cancelled'] is False
+    x  = submit( client , diode_request(voltages  =  (  0.1,  ) ) )
+    drain(client,x)
+    assert client.post(f"/api/jobs/{x}/cancel").json()['cancelled'] is False
 
 def test_the_result_is_available_after_the_stream_has_closed(client) -> None :
-    Job =  submit(  client , diode_request (  )  ) ; drain(client,Job)
+    val2 =  submit(  client , diode_request (  )  ) ; drain(client,val2)
 
-    cur =client.get(f"/api/jobs/{Job}/result").json()
-    assert cur["kind"]== 'iv'
-    assert[poi['voltage'] for poi in cur['points']] ==  [0.0, 0.2]
+    z =client.get(f"/api/jobs/{val2}/result").json()
+    assert z["kind"]== 'iv'
+    assert[s['voltage'] for s in z['points']] ==  [0.0, 0.2]
 
 
 
 def test_a_result_asked_for_too_early_is_refused(client) ->None:
 
-    Job = submit(client,diode_request(voltages=LONG))
+    x = submit(client,diode_request(voltages=LONG))
 
-    assert client.get(f"/api/jobs/{Job}/result").status_code==409
+    assert client.get(f"/api/jobs/{x}/result").status_code==409
 
 @pytest.mark.parametrize(("request_body", "direct"), [(diode_request(voltages =(0.0, 0.2)), lambda :  iv_sweep(pn_diode(**  DIODE), 'anode', [0.0, 0.2], models=  TransportModels.for_device(pn_diode(** DIODE)),),), ({'device' : {'kind' : "mos_cap", "parameters" : {}}, 'sweep':{'kind'  :  'cv', "contact"  : "gate", 'voltages' :  [-1.0, 0.0, 1.0],},}, lambda  : cv_sweep(mos_cap(), 'gate', [- 1.0, 0.0, 1.0]),), ({'device' :  {'kind'  : "nmos", 'parameters'  : FET}, "sweep" : {"kind" : 'transfer', "contact" :  'gate', "voltages": [0.2, 0.4], "settings"  :{'step' :  0.2},},}, lambda :gate_sweep(nmos(** FET), [0.2, 0.4], step=  0.2, models = TransportModels.for_device(nmos(**FET)),),),], ids = ['diode', "capacitor", 'mosfet'],)
 
@@ -223,166 +223,166 @@ def test_a_result_asked_for_too_early_is_refused(client) ->None:
 def test_the_browser_gets_bit_for_bit_what_pytest_gets(
     client, request_body, direct
 )->None:
-    Job  = submit(client, request_body)
+    v  = submit(client, request_body)
 
 
-    drain(client, Job)
-    ser   =   client.get(f"/api/jobs/{Job}/result" ).json ( )
+    drain(client, v)
+    w   =   client.get(f"/api/jobs/{v}/result" ).json ( )
 
-    Expected= direct()
+    prev= direct()
 
-    temp2  =   ser['kind' ] == 'cv'
-    vallues  =   "capacitance"  if temp2 else  "current"
+    a  =   w['kind' ] == 'cv'
+    d  =   "capacitance"  if a else  "current"
 
-    assert[  val [  'voltage'  ]  for val  in ser[  "points" ]  ]   ==  list (
-        Expected.gate_voltage if  temp2 else Expected.voltage
+    assert[  z [  'voltage'  ]  for z  in w[  "points" ]  ]   ==  list (
+        prev.gate_voltage if  a else prev.voltage
     )
-    assert[val[vallues] for val in ser["points"]] == list(Expected.capacitance if temp2 else Expected.current)
+    assert[z[d] for z in w["points"]] == list(prev.capacitance if a else prev.current)
 
 def test_the_fields_of_a_point_come_back_as_float32_behind_a_header(
     client,
 )  ->None  :
-    zz=submit(client,diode_request())
-    drain( client,  zz)
+    i=submit(client,diode_request())
+    drain( client,  i)
 
-    min=client.get(f"/api/jobs/{zz}/fields/1")
-    assert min.status_code  ==  200
-    arr  =decode_fields(min.content)
-    assert list(arr)==["x","psi","n",'p',"Ec","Ev","Efn","Efp","Jx",'Jy']
-    assert np.max(arr["n"])>1e15
+    r=client.get(f"/api/jobs/{i}/fields/1")
+    assert r.status_code  ==  200
+    c  =decode_fields(r.content)
+    assert list(c)==["x","psi","n",'p',"Ec","Ev","Efn","Efp","Jx",'Jy']
+    assert np.max(c["n"])>1e15
 
 
 def test_the_fields_of_a_point_know_the_bias_it_was_swept_to(client)->None:
-    Job = submit(client,diode_request())
-    drain( client,   Job)
+    a = submit(client,diode_request())
+    drain( client,   a)
 
-    AtRest =decode_fields(client.get(f"/api/jobs/{Job}/fields/0").content)
-    cnt=decode_fields(client.get(f"/api/jobs/{Job}/fields/1").content)
+    d2 =decode_fields(client.get(f"/api/jobs/{a}/fields/0").content)
+    dd=decode_fields(client.get(f"/api/jobs/{a}/fields/1").content)
 
-    assert not  np.any(  AtRest[ "Jx" ] )
-    assert np.max(np.abs(cnt['Jx']))  >0.0
+    assert not  np.any(  d2[ "Jx" ] )
+    assert np.max(np.abs(dd['Jx']))  >0.0
 
 
 
 def test_the_fields_of_a_capacitance_point_carry_its_gate_bias(client)  ->  None  :
-    jobb   =  submit (
+    s   =  submit (
         client,
         {
             "device"  : {  'kind'  :   "mos_cap", 'parameters' : {  }  } ,
             "sweep"  :  { "kind" :  'cv',   'contact'  :  "gate",   "voltages"  :   [  -  1.0,   1.0  ] } ,
         },
     )
-    drain(client,jobb)
+    drain(client,s)
 
 
-    res=  client.get(f"/api/jobs/{jobb}/fields/1")
-    oct = json.loads(
-        res.content[4 : 4  +int.from_bytes(res.content[: 4], 'little')]
+    xx=  client.get(f"/api/jobs/{s}/fields/1")
+    c = json.loads(
+        xx.content[4 : 4  +int.from_bytes(xx.content[: 4], 'little')]
     )
-    assert oct["voltage"]== 1.0
-    assert oct["index"]== 1
+    assert c["voltage"]== 1.0
+    assert c["index"]== 1
 
 def test_the_fields_of_a_point_that_was_never_solved_are_not_found(
     client,
 )-> None:
-    Job= submit(client,diode_request())
-    drain(client, Job)
-    assert client.get(f"/api/jobs/{Job}/fields/9" ).status_code  ==  404
+    info= submit(client,diode_request())
+    drain(client, info)
+    assert client.get(f"/api/jobs/{info}/fields/9" ).status_code  ==  404
 
 
 
 def  test_the_fields_of_a_running_job_are_refused(  client)   ->  None  :
-    Job=submit(client,diode_request(voltages= LONG))
+    s=submit(client,diode_request(voltages= LONG))
 
-    assert client.get(f"/api/jobs/{Job}/fields/0").status_code ==409
+    assert client.get(f"/api/jobs/{s}/fields/0").status_code ==409
 
 
 def test_the_page_is_served_from_the_root(client )   -> None  :
 
-    reponse  =   client.get("/" )
-    assert reponse.status_code   ==  200
-    assert 'text/html'  in reponse.headers [  'content-type'  ]
+    u  =   client.get("/" )
+    assert u.status_code   ==  200
+    assert 'text/html'  in u.headers [  'content-type'  ]
 
 
 def test_the_page_is_revalidated_rather_than_cached(client)->  None  :
-    res   =  client.get(  "/"  )
+    num   =  client.get(  "/"  )
 
-    assert res.headers["cache-control"] ==  "no-cache"
+    assert num.headers["cache-control"] ==  "no-cache"
 
 def test_shutting_the_app_down_cancels_what_is_still_solving()->None :
-    Registry = JobRegistry()
-    with TestClient(create_app(Registry)) as cilent :
-        jobb  = submit (cilent,   diode_request(  voltages =  LONG ) )
+    ss = JobRegistry()
+    with TestClient(create_app(ss)) as z :
+        x2  = submit (z,   diode_request(  voltages =  LONG ) )
 
-    assert Registry.status(jobb)is JobStatus.CANCELLED
+    assert ss.status(x2)is JobStatus.CANCELLED
 
 def test_client_scripts_are_served_and_revalidated(client)  ->  None :
-    res  =  client.get( "/static/js/app.js" )
+    cc  =  client.get( "/static/js/app.js" )
 
-    assert res.status_code  == 200
-    assert "javascript" in res.headers["content-type"]
+    assert cc.status_code  == 200
+    assert "javascript" in cc.headers["content-type"]
 
 
-    assert res.headers["cache-control"]=="no-cache"
+    assert cc.headers["cache-control"]=="no-cache"
 
 def test_the_page_loads_its_script_rather_than_inlining_it(client)->None :
-    pag =client.get('/').text
+    t2 =client.get('/').text
 
-    assert '<script src="/static/js/app.js"></script>' in pag
+    assert '<script src="/static/js/app.js"></script>' in t2
 
 def  test_the_schema_offers_the_stack_regions(  client  )  -> None   :
-    schhema =  client.get('/api/schema').json()
-    assert schhema['regions']['stack'][0] ["dopant"]== 'p'
-    assert "pn_diode" not in schhema["regions"]
+    u =  client.get('/api/schema').json()
+    assert u['regions']['stack'][0] ["dopant"]== 'p'
+    assert "pn_diode" not in u["regions"]
 def  test_the_schema_offers_the_drawing_parts (  client  )   ->  None   :
-    Drawings  =   client.get('/api/schema' ).json () [ 'drawings']
-    assert set(Drawings) =={"drawing"}
-    assert Drawings["drawing"]["blocks"][0]["material"]=="silicon"
-    assert Drawings['drawing'] ["electrodes"]  [2]  ['name']== "gate"
+    e  =   client.get('/api/schema' ).json () [ 'drawings']
+    assert set(e) =={"drawing"}
+    assert e["drawing"]["blocks"][0]["material"]=="silicon"
+    assert e['drawing'] ["electrodes"]  [2]  ['name']== "gate"
 
 
 
 def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(  client  )   ->   None   :
 
 
-    k2=[
+    m=[
         {"dopant" :"p",'length' :5e-5,'concentration':1e16},
         {"dopant":"n","length":5e-5,"concentration":1e21},
     ]
-    res= client.post("/api/jobs", json= {'device':{'kind':'stack',"parameters" :{"regions": k2}}, "sweep":{'kind':'iv',"contact":"left","voltages" : [0.1]},},)
-    assert res.status_code  == 400;assert "region 2" in res.json()['detail']
-    assert "references/physics.md" in res.json() ['detail']
+    el= client.post("/api/jobs", json= {'device':{'kind':'stack',"parameters" :{"regions": m}}, "sweep":{'kind':'iv',"contact":"left","voltages" : [0.1]},},)
+    assert el.status_code  == 400;assert "region 2" in el.json()['detail']
+    assert "references/physics.md" in el.json() ['detail']
 
 
 
 
 def  test_a_device_can_be_checked_without_solving_it (  client  )   -> None :
-    Fine =  client.post("/api/devices/check", json = {"kind" :'pn_diode'})
+    info =  client.post("/api/devices/check", json = {"kind" :'pn_diode'})
 
-    shrt = client.post(
+    ok = client.post(
         "/api/devices/check",
         json  ={'kind'  : "pn_diode", "parameters" :  {"length" : 3e-5}},
     )
-    q =  client.post (
+    b =  client.post (
         "/api/devices/check",
         json =   {'kind' :  "pn_diode" ,   "parameters"  :   { 'n_nodes'  : 1001,  "h_min"   :  1e-6  }},
     )
 
-    assert Fine.status_code==200
-    assert shrt.status_code  ==   400  and  'inside'  in  shrt.json ( )  [  'detail' ]
-    assert q.status_code  == 400 and  "h_min" in  q.json()   [ "detail"]
+    assert info.status_code==200
+    assert ok.status_code  ==   400  and  'inside'  in  ok.json ( )  [  'detail' ]
+    assert b.status_code  == 400 and  "h_min" in  b.json()   [ "detail"]
 
 
 
 def test_the_schema_names_each_devices_contacts(client)-> None:
-    Contacts =  client.get("/api/schema").json()  ['contacts']
-    assert Contacts["pn_diode"]== ["anode", 'cathode']
-    assert Contacts["nmos"]== ["source", "drain", "gate", "body"]
+    bb =  client.get("/api/schema").json()  ['contacts']
+    assert bb["pn_diode"]== ["anode", 'cathode']
+    assert bb["nmos"]== ["source", "drain", "gate", "body"]
 
-    assert set(Contacts) ==set(client.get('/api/schema').json()['devices'])
+    assert set(bb) ==set(client.get('/api/schema').json()['devices'])
 
 def test_a_busy_server_answers_503_and_says_to_try_again()  ->  None:
-    with TestClient(create_app(JobRegistry(max_running  = 0))) as cli  :
-        stuff= cli.post("/api/jobs",json=diode_request())
+    with TestClient(create_app(JobRegistry(max_running  = 0))) as c2  :
+        item= c2.post("/api/jobs",json=diode_request())
 
-    assert  stuff.status_code   ==  503 ; assert 'try again' in stuff.json()  ['detail'].lower()
+    assert  item.status_code   ==  503 ; assert 'try again' in item.json()  ['detail'].lower()

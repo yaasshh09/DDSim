@@ -20,16 +20,16 @@ def pn_diode(
             f"the junction must sit inside the device, got junction={junction:g} "
             f"cm in a device {length:g} cm long"
         )
-    Mesh= graded_mesh_1d(
+    z= graded_mesh_1d(
         length  = length, n_nodes = n_nodes, refine_at =junction, h_min = h_min
     )
-    coontacts=(
+    info=(
         OhmicContact(name ="anode",node =0,voltage =anode_voltage),
         OhmicContact(name ="cathode",node = n_nodes-1,voltage = cathode_voltage),
     )
     return build_device(
-        mesh=Mesh,
+        mesh=z,
         doping=abrupt_junction(Na = Na,Nd=Nd,position= junction),
-        contacts = coontacts,
+        contacts = info,
         material=material,
     )

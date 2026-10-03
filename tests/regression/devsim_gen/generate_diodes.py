@@ -47,86 +47,86 @@ def devsim_version()->str :
 
 def build_mesh(benchmark   : P.DiodeBenchmark,   device  :  str,  refine   :  float  =   1.0)  ->  None  :
 
-    Mesh =device
-    hj = benchmark.devsim_h_junction  / refine
-    hb = benchmark.devsim_h_bulk/refine
+    e =device
+    j = benchmark.devsim_h_junction  / refine
+    f = benchmark.devsim_h_bulk/refine
 
 
-    create_1d_mesh(mesh=Mesh)
-    add_1d_mesh_line(mesh = Mesh, pos = 0.0, ps = hb, tag ='top')
-    add_1d_mesh_line(mesh = Mesh, pos = benchmark.junction, ps = hj, ns = hj, tag ="mid")
-    add_1d_mesh_line( mesh =   Mesh, pos =   benchmark.length,   ps  = hb,  ns =  hb,  tag  =  "bot"  )
+    create_1d_mesh(mesh=e)
+    add_1d_mesh_line(mesh = e, pos = 0.0, ps = f, tag ='top')
+    add_1d_mesh_line(mesh = e, pos = benchmark.junction, ps = j, ns = j, tag ="mid")
+    add_1d_mesh_line( mesh =   e, pos =   benchmark.length,   ps  = f,  ns =  f,  tag  =  "bot"  )
 
-    add_1d_contact(mesh=Mesh,name =ANODE,tag= 'top',material="metal")
-    add_1d_contact(mesh=Mesh,name = CATHODE,tag ="bot",material='metal')
-    add_1d_region(mesh=Mesh,material ='Silicon',region=REGION,tag1="top",tag2='bot')
-    finalize_mesh(mesh =Mesh);create_device(mesh= Mesh,device=device)
+    add_1d_contact(mesh=e,name =ANODE,tag= 'top',material="metal")
+    add_1d_contact(mesh=e,name = CATHODE,tag ="bot",material='metal')
+    add_1d_region(mesh=e,material ='Silicon',region=REGION,tag1="top",tag2='bot')
+    finalize_mesh(mesh =e);create_device(mesh= e,device=device)
 
 
 def set_silicon_parameters(device :str) -> None :
 
-    s2 :dict[str, float] = {'Permittivity'  : P.EPS_R_SI *P.EPS_0, 'ElectronCharge'  :P.Q, "n_i": P.N_I, "T" : P.T, "kT" : P.K_B *P.T, 'V_t' : P.V_T, 'mu_n'  :P.MU_N, "mu_p": P.MU_P, 'n1' : P.N_I, "p1"  : P.N_I,}
-    for r2, t2 in s2.items() :
-        set_parameter(device  =  device, region =REGION, name =r2, value  = t2)
+    cur :dict[str, float] = {'Permittivity'  : P.EPS_R_SI *P.EPS_0, 'ElectronCharge'  :P.Q, "n_i": P.N_I, "T" : P.T, "kT" : P.K_B *P.T, 'V_t' : P.V_T, 'mu_n'  :P.MU_N, "mu_p": P.MU_P, 'n1' : P.N_I, "p1"  : P.N_I,}
+    for info, tt in cur.items() :
+        set_parameter(device  =  device, region =REGION, name =info, value  = tt)
 
 def set_doping(benchmark  :  P.DiodeBenchmark,
           device:str)  ->None:
-    tmp   =  (
+    res2   =  (
         f"ifelse(x < {benchmark.junction:.16e}, "
         f"{-benchmark.Na:.16e}, {benchmark.Nd:.16e})"
     )
-    node_model(device=device,region =REGION,name='NetDoping',equation=tmp)
+    node_model(device=device,region =REGION,name='NetDoping',equation=res2)
 
 
 def set_lifetimes(device :str) -> None :
-    for Name,tauMax,tauu_min in(
+    for w,idx,u in(
         ('taun',P.TAU_N_MAX,P.TAU_N_MIN),
         ("taup",P.TAU_P_MAX,P.TAU_P_MIN),
     ) :
-        equ  =(
-            f"{tauu_min:.16e} + ({tauMax:.16e} - {tauu_min:.16e}) / "
+        k  =(
+            f"{u:.16e} + ({idx:.16e} - {u:.16e}) / "
             f"(1 + (abs(NetDoping)/{P.N_REF_SRH:.16e})^{P.GAMMA_SRH:.16e})"
         )
-        CreateNodeModel(device,REGION,Name,equ)
+        CreateNodeModel(device,REGION,w,k)
 def build_physics(device :str) ->None :
     CreateSolution(device, REGION, 'Potential')
     CreateSiliconPotentialOnly(device,REGION)
-    for conntact in(ANODE,
+    for u in(ANODE,
             CATHODE) :
-        set_parameter(device=device,name =f"{conntact}_bias",value=0.0)
-        CreateSiliconPotentialOnlyContact(device,REGION,conntact)
+        set_parameter(device=device,name =f"{u}_bias",value=0.0)
+        CreateSiliconPotentialOnlyContact(device,REGION,u)
 
     solve(
         type  =   "dc",   absolute_error   = 1.0, relative_error  =   1e-12 ,  maximum_iterations  = 60
     )
 
-    for buf,sou in(
+    for y,r2 in(
         ('Electrons',"IntrinsicElectrons"),
         ('Holes',"IntrinsicHoles"),
     ):
-        CreateSolution(device,REGION,buf)
-        set_node_values(device  =device, region =REGION, name =  buf, init_from= sou)
+        CreateSolution(device,REGION,y)
+        set_node_values(device  =device, region =REGION, name =  y, init_from= r2)
 
     set_lifetimes( device )
     CreateSiliconDriftDiffusion(device, REGION, mu_n=  'mu_n', mu_p =  'mu_p')
-    for conntact in(ANODE,
+    for u in(ANODE,
            CATHODE)  :
-        CreateSiliconDriftDiffusionAtContact(device,REGION,conntact)
+        CreateSiliconDriftDiffusionAtContact(device,REGION,u)
     solve(type="dc",absolute_error=1e10,relative_error = 1e-12,maximum_iterations=60)
 
 def anode_current(device :str)->float :
-    Electrons= get_contact_current(device = device, contact =  ANODE, equation =ece_name)
-    Holes=get_contact_current(device =device,contact= ANODE,equation =hce_name)
+    res= get_contact_current(device = device, contact =  ANODE, equation =ece_name)
+    zz=get_contact_current(device =device,contact= ANODE,equation =hce_name)
 
-    return Electrons +Holes
+    return res +zz
 
 
 
 
 def cathode_current (  device   : str  ) ->   float   :
-    format =get_contact_current(device=device, contact =  CATHODE, equation  = ece_name)
-    dict= get_contact_current(device =device, contact = CATHODE, equation = hce_name)
-    return format+ dict
+    zz =get_contact_current(device=device, contact =  CATHODE, equation  = ece_name)
+    cnt= get_contact_current(device =device, contact = CATHODE, equation = hce_name)
+    return zz+ cnt
 
 def ramp_to(  device : str,  target  :  float,   present   :  float,  step  :  float ) ->   float   :
     if  abs(  target  - present  )  < 1e-15  :
@@ -134,13 +134,13 @@ def ramp_to(  device : str,  target  :  float,   present   :  float,  step  :  f
 
 
 
-    len= 1.0 if target  > present else  -  1.0
-    set  =   max( 1 ,   int( round( abs(target  -  present )   /   step  )) )
-    for ind  in  range (1 ,  set  +  1)  :
-        filter = present + len * step* ind
-        if ind== set :
-            filter =  target
-        set_parameter(device = device, name  = f"{ANODE}_bias", value =  filter)
+    x2= 1.0 if target  > present else  -  1.0
+    num  =   max( 1 ,   int( round( abs(target  -  present )   /   step  )) )
+    for item  in  range (1 ,  num  +  1)  :
+        d = present + x2 * step* item
+        if item== num :
+            d =  target
+        set_parameter(device = device, name  = f"{ANODE}_bias", value =  d)
 
 
         solve(type= 'dc', absolute_error=1e10, relative_error=1e-12, maximum_iterations=60,)
@@ -148,55 +148,55 @@ def ramp_to(  device : str,  target  :  float,   present   :  float,  step  :  f
 def sweep(benchmark:  P.DiodeBenchmark, refine  : float  = 1.0) -> list[dict[str, Any]]  :
 
 
-    all=f"{benchmark.name}_r{refine:g}".replace(".",
+    d=f"{benchmark.name}_r{refine:g}".replace(".",
                   '_')
-    build_mesh(  benchmark ,  all,   refine = refine)
-    set_doping(benchmark, all)
-    set_silicon_parameters(all)
-    build_physics(all)
+    build_mesh(  benchmark ,  d,   refine = refine)
+    set_doping(benchmark, d)
+    set_silicon_parameters(d)
+    build_physics(d)
 
 
-    Negatives  =  sorted((  V for V  in  benchmark.voltages if V  < 0.0  ) ,  reverse  =  True  )
-    pos =  sorted(V for V in benchmark.voltages if V>=0.0)
+    j  =  sorted((  item for item  in  benchmark.voltages if item  < 0.0  ) ,  reverse  =  True  )
+    v =  sorted(x for x in benchmark.voltages if x>=0.0)
 
-    bar: dict[float, dict[str, Any]]= {}
-    Present   =  0.0
+    z2: dict[float, dict[str, Any]]= {}
+    a   =  0.0
 
-    for Leg in(Negatives,pos):
+    for z in(j,v):
 
-        Present= ramp_to(all, 0.0, Present, step =0.05)
+        a= ramp_to(d, 0.0, a, step =0.05)
 
-        for tar in Leg:
-            Present   = ramp_to(  all ,
-                          tar,
-                       Present,
+        for b in z:
+            a   = ramp_to(  d ,
+                          b,
+                       a,
                     step =  0.05)
-            bar[tar]  =  {
-                'voltage' :tar,
-                "current"  : anode_current(all),
-                "cathode": cathode_current(all),
+            z2[b]  =  {
+                'voltage' :b,
+                "current"  : anode_current(d),
+                "cathode": cathode_current(d),
             }
-    delete_device(device = all)
-    delete_mesh(  mesh  =  all )
+    delete_device(device = d)
+    delete_mesh(  mesh  =  d )
 
-    return[bar[V] for V in sorted(bar)]
+    return[z2[vals] for vals in sorted(z2)]
 
 
 
 def relative_difference(
     coarse: list[dict[str,Any]],fine:list[dict[str,Any]]
 )->tuple[float,float]:
-    thing=0.0
-    whe = 0.0
+    num=0.0
+    f = 0.0
 
-    for A, B in zip(coarse, fine, strict  =True):
-        if abs(A["current"])  <P.CURRENT_FLOOR and abs(B["current"]) <P.CURRENT_FLOOR:
+    for j, y2 in zip(coarse, fine, strict  =True):
+        if abs(j["current"])  <P.CURRENT_FLOOR and abs(y2["current"]) <P.CURRENT_FLOOR:
             continue
-        denominaotr  =  max( abs(A["current"  ]  ), abs (B[ 'current'] )  )
-        res=abs(A['current']-B['current'])/denominaotr
-        if res > thing  :
-            thing,  whe  =  res,   A[  "voltage"]
-    return thing,whe
+        a2  =  max( abs(j["current"  ]  ), abs (y2[ 'current'] )  )
+        i=abs(j['current']-y2['current'])/a2
+        if i > num  :
+            num,  f  =  i,   j[  "voltage"]
+    return num,f
 
 
 
@@ -207,14 +207,14 @@ def write_csv(
     path:str,
 )->None:
 
-    Stamp   =  datetime.datetime.now( datetime.UTC ).strftime("%Y-%m-%d" )
-    temp2: list[str] = [
+    out   =  datetime.datetime.now( datetime.UTC ).strftime("%Y-%m-%d" )
+    h: list[str] = [
         f"# device: {benchmark.name}",
         f"# benchmark: {benchmark.number} in docs/04-validation.md",
         '# generated by: tests/regression/devsim_gen/generate_diodes.py',
         f"# generator: devsim {devsim_version()} on python "
         f"{sys.version.split()[0]}",
-        f"# generated on: {Stamp}",
+        f"# generated on: {out}",
         f"# tolerance: {benchmark.tolerance}",
         f"# Na: {benchmark.Na:.6e}",
         f"# Nd: {benchmark.Nd:.6e}",
@@ -226,68 +226,68 @@ def write_csv(
     if mesh_check is not None :
 
 
-        Worst,Where=mesh_check
-        temp2.append(
-            f"# mesh convergence: {Worst:.3e} worst relative change in current "
-            f"when every spacing is halved, at {Where:+g} V"
+        item,k=mesh_check
+        h.append(
+            f"# mesh convergence: {item:.3e} worst relative change in current "
+            f"when every spacing is halved, at {k:+g} V"
         )
-    temp2.append( "# notes: "   + benchmark.notes)
-    temp2.append('# models:')
+    h.append( "# notes: "   + benchmark.notes)
+    h.append('# models:')
 
-    temp2.extend('#   '+line for line in P.MODEL_SUMMARY)
-    temp2.append(
+    h.extend('#   '+b2 for b2 in P.MODEL_SUMMARY)
+    h.append(
         "# columns: anode bias [V], anode current [A/cm^2], "
         "cathode current [A/cm^2]"
     )
-    temp2.append("voltage,current,cathode_current")
-    for  sorted  in rows  :
-        temp2.append(
-            f"{sorted['voltage']:.10g},{sorted['current']:.12e},{sorted['cathode']:.12e}"
+    h.append("voltage,current,cathode_current")
+    for  z  in rows  :
+        h.append(
+            f"{z['voltage']:.10g},{z['current']:.12e},{z['cathode']:.12e}"
         )
-    with open(path, "w", encoding ="utf-8", newline =  "\n")  as Handle  :
-        Handle.write("\n".join(temp2)+"\n")
+    with open(path, "w", encoding ="utf-8", newline =  "\n")  as obj  :
+        obj.write("\n".join(h)+"\n")
 
 def main()->int:
-    paser= argparse.ArgumentParser(description  =  "Generate the tier 4 golden diode curves with DEVSIM.")
-    paser.add_argument(
+    z= argparse.ArgumentParser(description  =  "Generate the tier 4 golden diode curves with DEVSIM.")
+    z.add_argument(
         "names",
         nargs =  "*",
         default=None,
         help=  "benchmark names to generate, default all",
     )
-    paser.add_argument('--out', default = os.path.join('data', "golden"), help=  "output directory for the CSV files",)
+    z.add_argument('--out', default = os.path.join('data', "golden"), help=  "output directory for the CSV files",)
 
-    paser.add_argument(
+    z.add_argument(
         "--no-mesh-check" ,
         action  =   "store_true" ,
         help = "skip the halved mesh rerun, which roughly doubles the runtime" ,
     )
-    Args=paser.parse_args()
+    bb=z.parse_args()
 
-    choesn  =   P.BENCHMARKS
-    if Args.names :
-        choesn =   tuple(P.BY_NAME [name]   for name  in Args.names)
-    os.makedirs(Args.out, exist_ok=True)
-    for  hash  in  choesn  :
-        print(f"[{hash.name}] solving on the reference mesh")
-        row=sweep(hash,refine= 1.0)
+    y  =   P.BENCHMARKS
+    if bb.names :
+        y =   tuple(P.BY_NAME [flag]   for flag  in bb.names)
+    os.makedirs(bb.out, exist_ok=True)
+    for  rr  in  y  :
+        print(f"[{rr.name}] solving on the reference mesh")
+        hh=sweep(rr,refine= 1.0)
 
-        stuff2 :  tuple[float, float] |  None  = None
-        if  not Args.no_mesh_check :
-            print(f"[{hash.name}] solving again on a halved mesh")
-            dict= sweep(hash,refine=2.0)
+        rows :  tuple[float, float] |  None  = None
+        if  not bb.no_mesh_check :
+            print(f"[{rr.name}] solving again on a halved mesh")
+            val2= sweep(rr,refine=2.0)
 
-            stuff2 = relative_difference(row,dict)
+            rows = relative_difference(hh,val2)
             print(
-                f"[{hash.name}] mesh convergence {stuff2[0]:.3e} "
-                f"at {stuff2[1]:+g} V"
+                f"[{rr.name}] mesh convergence {rows[0]:.3e} "
+                f"at {rows[1]:+g} V"
             )
 
 
 
-        ptah= os.path.join(Args.out,f"{hash.name}.csv")
-        write_csv (hash,  row , stuff2, ptah )
-        print(f"[{hash.name}] wrote {ptah} with {len(row)} points")
+        k= os.path.join(bb.out,f"{rr.name}.csv")
+        write_csv (rr,  hh , rows, k )
+        print(f"[{rr.name}] wrote {k} with {len(hh)} points")
 
     return 0
 

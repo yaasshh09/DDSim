@@ -24,15 +24,15 @@ MEASURED_BY_DEFAULT=  "drain"
 
 def _sweep( kind   : str  )  ->  Callable [  ...,   Any  ]   :
     if kind not in SWEEP_KINDS:
-        knwn  =', '.join(sorted(SWEEP_KINDS))
-        raise ValueError(f"unknown sweep {kind!r}. Known sweeps: {knwn}")
+        b  =', '.join(sorted(SWEEP_KINDS))
+        raise ValueError(f"unknown sweep {kind!r}. Known sweeps: {b}")
     return SWEEP_KINDS[kind]
 
 def sweep_parameters( kind : str) ->  tuple [ Parameter, ... ] :
     return  tuple(
-        parameter
-        for  parameter  in  parameters_of ( _sweep(  kind )  )
-        if parameter.name  not  in _REQUEST_ARGUMENTS
+        bar
+        for  bar  in  parameters_of ( _sweep(  kind )  )
+        if bar.name  not  in _REQUEST_ARGUMENTS
     )
 
 def  model_parameters () -> tuple[  Parameter ,   ...]  :
@@ -43,23 +43,23 @@ def build_models(
     device :  Device, flags  :  dict[str, Any]|  None = None
 ) ->TransportModels  :
 
-    off= {p.name: p for p in model_parameters()}
+    c= {p.name: p for p in model_parameters()}
 
-    item2: dict[str, Any] = dict(
-        checked_arguments("models", off, flags or{})
+    z: dict[str, Any] = dict(
+        checked_arguments("models", c, flags or{})
     )
-    return TransportModels.for_device(device, ** item2)
+    return TransportModels.for_device(device, ** z)
 
 def check_request(kind :  str, device : Device, contact:str, settings  : dict[str, Any] | None = None, models :  dict[str, Any] |None= None, measure_at :str | None  = None,)->  dict[str, Any]:
-    swep=_sweep(kind)
-    tmp2  = { p.name : p for  p in sweep_parameters(kind)}
+    vals=_sweep(kind)
+    prev  = { p.name : p for  p in sweep_parameters(kind)}
 
 
-    Accepted : dict[str,Any]= dict(checked_arguments(kind,tmp2,settings or{}))
+    d : dict[str,Any]= dict(checked_arguments(kind,prev,settings or{}))
 
-    for  Name,   Enum in  enum_arguments(swep ).items ( )  :
-        if Name in Accepted :
-            Accepted[Name] = as_enum(kind, Name, Enum, Accepted[Name])
+    for  c,   res in  enum_arguments(vals ).items ( )  :
+        if c in d :
+            d[c] = as_enum(kind, c, res, d[c])
 
     if models and kind not in _TRANSPORT :
         raise ValueError(
@@ -75,24 +75,24 @@ def check_request(kind :  str, device : Device, contact:str, settings  : dict[st
         )
 
     try :
-        temp= device.ohmic_contacts if kind=="iv" else device.contacts
-    except TypeError as hmm:
+        x= device.ohmic_contacts if kind=="iv" else device.contacts
+    except TypeError as d2:
         raise TypeError (
-            f"{hmm} An iv sweep cannot hold a gate anywhere on the device. "
+            f"{d2} An iv sweep cannot hold a gate anywhere on the device. "
             "To sweep a drain or a body with the gate held, use a transfer "
             "sweep with that terminal as its contact."
-        )  from  hmm
-    kno =  sorted (terminal.name  for  terminal  in  temp  )
+        )  from  d2
+    e =  sorted (k.name  for  k  in  x  )
     if kind  == "transfer" and measure_at is None  :
         measure_at=MEASURED_BY_DEFAULT
-    for buff in(contact,measure_at) :
+    for w in(contact,measure_at) :
 
-        if buff is not None and buff not in kno :
+        if w is not None and w not in e :
             raise KeyError(
-                f"no contact named {buff!r} that the {kind} sweep can "
-                f"use on this device, which has {kno}"
+                f"no contact named {w!r} that the {kind} sweep can "
+                f"use on this device, which has {e}"
             )
-    return Accepted
+    return d
 
 
 def run_sweep (
@@ -105,13 +105,13 @@ def run_sweep (
     measure_at   :   str  |  None  =   None ,
     on_frame  : Callable [[  object ] ,  None ]   |   None   =  None,
 )   ->   tuple[ IVCurve  |  CVCurve , TransportModels |  None  ]  :
-    thing = check_request(kind,device,contact,settings,models,measure_at)
+    row = check_request(kind,device,contact,settings,models,measure_at)
 
     if kind  not in _TRANSPORT  :
-        temp2  =   cv_sweep( device,   contact,  list(voltages ) ,   on_frame   =  on_frame ,  ** thing )
-        return temp2,   None
+        mm  =   cv_sweep( device,   contact,  list(voltages ) ,   on_frame   =  on_frame ,  ** row )
+        return mm,   None
 
-    Built  =  build_models(device, models)
+    ys  =  build_models(device, models)
     if kind=="transfer" :
         return(
             gate_sweep(
@@ -119,20 +119,20 @@ def run_sweep (
                 list(voltages),
                 contact=contact,
                 measure_at=MEASURED_BY_DEFAULT if measure_at is None else measure_at,
-                models=Built,
+                models=ys,
                 on_frame = on_frame,
-                **thing,
+                **row,
             ),
-            Built,
+            ys,
         )
     return(
         iv_sweep(
             device,
             contact,
             list(voltages),
-            models=Built,
+            models=ys,
             on_frame=on_frame,
-            **thing,
+            **row,
         ),
-        Built,
+        ys,
     )

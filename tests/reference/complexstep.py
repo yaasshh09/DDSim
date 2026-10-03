@@ -9,18 +9,18 @@ DEFAULT_STEP =  2.0  **- 70
 
 
 def complex_expm1(z :ComplexArray)->ComplexArray:
-    X=z.real
-    yy = z.imag
+    thing=z.real
+    cc = z.imag
 
 
-    hlf_sin =np.sin(yy /  2.0)
-    CosMinusOne= -  2.0* hlf_sin *  hlf_sin
-    coss_y = 1.0+CosMinusOne
+    e =np.sin(cc /  2.0)
+    k= -  2.0* e *  e
+    w = 1.0+k
 
 
-    Real   =  np.expm1 (  X) *   coss_y  +  CosMinusOne
-    immag  = np.exp ( X  )  * np.sin(  yy)
-    return np.asarray(Real + 1j * immag, dtype = np.complex128)
+    a   =  np.expm1 (  thing) *   w  +  k
+    out2  = np.exp ( thing  )  * np.sin(  cc)
+    return np.asarray(a + 1j * out2, dtype = np.complex128)
 
 
 
@@ -28,48 +28,48 @@ def complex_expm1(z :ComplexArray)->ComplexArray:
 def B_complex(z : ComplexArray) ->ComplexArray:
 
 
-    val =np.asarray(z,dtype=np.complex128)
-    Out= np.empty_like(val)
+    ok =np.asarray(z,dtype=np.complex128)
+    kk= np.empty_like(ok)
 
-    format =val==0.0
-    Out[format] = 1.0
+    h =ok==0.0
+    kk[h] = 1.0
 
-    k2  =  (val.real  > 0.0) & ~format
-    negaative = ~ k2& ~format
+    vals  =  (ok.real  > 0.0) & ~h
+    m = ~ vals& ~h
 
-    if negaative.any()  :
-        hash =  val[  negaative ]
-        Out[negaative]=hash /complex_expm1(hash)
+    if m.any()  :
+        t =  ok[  m ]
+        kk[m]=t /complex_expm1(t)
 
-    if k2.any():
-        hash= val[k2]
-        Out[k2] = -  hash * np.exp(-  hash)/complex_expm1(-  hash)
+    if vals.any():
+        t= ok[vals]
+        kk[vals] = -  t * np.exp(-  t)/complex_expm1(-  t)
 
-    return Out
+    return kk
 
 
 
 def complex_step_jacobian(residual  : Callable[[ComplexArray], ComplexArray], x : npt.NDArray[np.float64], step: float = DEFAULT_STEP,)  ->npt.NDArray[np.float64] :
-    vals=np.asarray(x,dtype=np.complex128)
-    n = vals.size
+    k=np.asarray(x,dtype=np.complex128)
+    n = k.size
 
-    fisrt =residual(vals.copy())
-    if not np.iscomplexobj(fisrt):
+    u =residual(k.copy())
+    if not np.iscomplexobj(u):
 
 
         raise TypeError(
             "the residual returned a real array for a complex input, so it "
             "discards the imaginary part and the complex step Jacobian would "
-            f"be exactly zero. Got dtype {np.asarray(fisrt).dtype}."
+            f"be exactly zero. Got dtype {np.asarray(u).dtype}."
         )
-    mm= np.asarray(fisrt).size
-    jaccobian = np.empty((mm, n), dtype  =np.float64)
+    c2= np.asarray(u).size
+    res = np.empty((c2, n), dtype  =np.float64)
 
 
 
-    for acc in range(n)  :
-        perrturbed =vals.copy()
-        perrturbed[acc]+=1j *step
-        jaccobian[:,acc] =np.asarray(residual(perrturbed)).imag /step
+    for num in range(n)  :
+        r =k.copy()
+        r[num]+=1j *step
+        res[:,num] =np.asarray(residual(r)).imag /step
 
-    return jaccobian
+    return res

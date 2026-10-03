@@ -81,23 +81,23 @@ class  Electrode  :
 Drawing =tuple[tuple[Block, ...], tuple[Implant, ...], tuple[Electrode, ...]]
 
 def _nmos_drawing()->Drawing:
-    L_gtae,sdd,tmp2,Na,x2 =1e-4,4e-5,2e-5,1e17,1e20;t ,  TSi   = 2e-6, 1e-4
-    wdith, w =2.0 *  sdd  + L_gtae, TSi  + t
-    simga,edg= implant_lengths(1.5e-5,1e-5,x2,Na)
-    return((Block("silicon", 0.0, wdith, 0.0, TSi), Block("oxide", 0.0, wdith, TSi, w),), (Implant('p', Na, 0.0, wdith, 0.0, TSi), Implant('n', x2, 0.0, sdd, TSi, w, "gaussian", simga, edg), Implant("n", x2, wdith - sdd, wdith, TSi, w, "gaussian", simga, edg),), (Electrode('source', "ohmic", 0.0, tmp2, TSi, TSi), Electrode('drain', 'ohmic', wdith -tmp2, wdith, TSi, TSi), Electrode('gate', "gate", sdd, wdith - sdd, w, w), Electrode('body', "ohmic", 0.0, wdith, 0.0, 0.0),),)
+    c,z,el,Na,g =1e-4,4e-5,2e-5,1e17,1e20;d ,  u   = 2e-6, 1e-4
+    x, info =2.0 *  z  + c, u  + d
+    xs,h= implant_lengths(1.5e-5,1e-5,g,Na)
+    return((Block("silicon", 0.0, x, 0.0, u), Block("oxide", 0.0, x, u, info),), (Implant('p', Na, 0.0, x, 0.0, u), Implant('n', g, 0.0, z, u, info, "gaussian", xs, h), Implant("n", g, x - z, x, u, info, "gaussian", xs, h),), (Electrode('source', "ohmic", 0.0, el, u, u), Electrode('drain', 'ohmic', x -el, x, u, u), Electrode('gate', "gate", z, x - z, info, info), Electrode('body', "ohmic", 0.0, x, 0.0, 0.0),),)
 
 def _mos_cap_drawing()-> Drawing :
-    Na, tOx, tSi, wid=  1e16, 1e-6, 2e-4, 1e-5
-    topp =  tSi  +  tOx
+    Na, el, b, dd=  1e16, 1e-6, 2e-4, 1e-5
+    m =  b  +  el
     return(
         (
-            Block("silicon",0.0,wid,0.0,tSi),
-            Block("oxide",0.0,wid,tSi,topp),
+            Block("silicon",0.0,dd,0.0,b),
+            Block("oxide",0.0,dd,b,m),
         ),
-        (Implant("p",Na,0.0,wid,0.0,tSi),),
+        (Implant("p",Na,0.0,dd,0.0,b),),
         (
-            Electrode('body',"ohmic",0.0,wid,0.0,0.0),
-            Electrode('gate','gate',0.0,wid,topp,topp),
+            Electrode('body',"ohmic",0.0,dd,0.0,0.0),
+            Electrode('gate','gate',0.0,dd,m,m),
         ),
     )
 
@@ -118,78 +118,78 @@ def _check_records(
     electrodes:tuple[Electrode,...],
     degenerate:bool,
 )->None:
-    for nmuber, sum in enumerate(blocks, start=1)  :
+    for kk, e in enumerate(blocks, start=1)  :
 
-        if sum.material not in MATERIALS :
+        if e.material not in MATERIALS :
             raise ValueError(
-                f"block {nmuber}: a block is silicon or oxide, got {sum.material!r}"
+                f"block {kk}: a block is silicon or oxide, got {e.material!r}"
             )
-        if not(sum.x0<sum.x1 and sum.y0<sum.y1) :
+        if not(e.x0<e.x1 and e.y0<e.y1) :
             raise ValueError(
-                f"block {nmuber}: a block needs a positive width and height, "
+                f"block {kk}: a block needs a positive width and height, "
                 "x0 < x1 and y0 < y1, got "
-                + _box('it', sum.x0, sum.x1, sum.y0, sum.y1)
+                + _box('it', e.x0, e.x1, e.y0, e.y1)
             )
 
-    tmp=DOPING_RANGE[0]
-    hig  =   DEGENERATE_DOPING_TOP  if  degenerate else  DOPING_RANGE[1  ]
-    for nmuber, q in enumerate(implants, start =  1):
-        if q.dopant not in('n','p'):
+    u=DOPING_RANGE[0]
+    m2  =   DEGENERATE_DOPING_TOP  if  degenerate else  DOPING_RANGE[1  ]
+    for kk, i in enumerate(implants, start =  1):
+        if i.dopant not in('n','p'):
 
 
             raise ValueError(
-                f"implant {nmuber}: the dopant is 'n' or 'p', got {q.dopant!r}"
+                f"implant {kk}: the dopant is 'n' or 'p', got {i.dopant!r}"
             )
-        if  q.profile not in(  'uniform', 'gaussian' )  :
+        if  i.profile not in(  'uniform', 'gaussian' )  :
 
 
             raise ValueError(
-                f"implant {nmuber}: a profile is uniform or gaussian, got "
-                f"{q.profile!r}"
+                f"implant {kk}: a profile is uniform or gaussian, got "
+                f"{i.profile!r}"
             )
-        if q.profile == "gaussian" and not(
-            q.straggle> 0.0 and q.lateral > 0.0
+        if i.profile == "gaussian" and not(
+            i.straggle> 0.0 and i.lateral > 0.0
         ) :
             raise ValueError(
-                f"implant {nmuber}: a gaussian implant needs a positive straggle "
-                f"and lateral, got straggle={q.straggle:g} and "
-                f"lateral={q.lateral:g} cm"
+                f"implant {kk}: a gaussian implant needs a positive straggle "
+                f"and lateral, got straggle={i.straggle:g} and "
+                f"lateral={i.lateral:g} cm"
             )
 
-        if not(q.x0< q.x1 and q.y0< q.y1):
+        if not(i.x0< i.x1 and i.y0< i.y1):
 
             raise  ValueError(
-                f"implant {nmuber}: an implant needs a positive width and "
+                f"implant {kk}: an implant needs a positive width and "
                 "height, x0 < x1 and y0 < y1"
             )
-        if not  tmp <=   q.concentration  <= hig   :
-            Why =(
+        if not  u <=   i.concentration  <= m2   :
+            d =(
                 ''
-                if degenerate or q.concentration<tmp
-                else f" Above {hig:g}, Boltzmann statistics put the Fermi level "
+                if degenerate or i.concentration<u
+                else f" Above {m2:g}, Boltzmann statistics put the Fermi level "
                 "in the wrong place. Turn on degenerate (Fermi-Dirac "
                 "statistics), the way nmos does."
             )
             raise ValueError(
-                f"implant {nmuber}: a concentration of {q.concentration:g} "
-                f"cm^-3 is outside {tmp:g} to {hig:g} cm^-3, the range the "
-                f"models here are built for (see references/physics.md).{Why}"
+                f"implant {kk}: a concentration of {i.concentration:g} "
+                f"cm^-3 is outside {u:g} to {m2:g} cm^-3, the range the "
+                f"models here are built for (see references/physics.md).{d}"
             )
-    for hmm in electrodes:
-        if hmm.kind not in("ohmic",'gate'):
+    for val in electrodes:
+        if val.kind not in("ohmic",'gate'):
             raise ValueError(
-                f"electrode {hmm.name!r}: an electrode is ohmic or gate, got "
-                f"{hmm.kind!r}. A metal on silicon that is not ohmic is a "
+                f"electrode {val.name!r}: an electrode is ohmic or gate, got "
+                f"{val.kind!r}. A metal on silicon that is not ohmic is a "
                 "Schottky contact, which this solver does not model."
             )
-        acr=hmm.x1 -hmm.x0
-        Up  = hmm.y1   - hmm.y0
-        if not((acr >  0.0 and Up ==  0.0)or(Up> 0.0 and acr  == 0.0)) :
+        val2=val.x1 -val.x0
+        flag  = val.y1   - val.y0
+        if not((val2 >  0.0 and flag ==  0.0)or(flag> 0.0 and val2  == 0.0)) :
             raise  ValueError(
-                f"electrode {hmm.name!r}: an electrode is a straight line "
+                f"electrode {val.name!r}: an electrode is a straight line "
                 'along x or along y, with x0 < x1 and y0 == y1 or the other way '
                 "round, got "
-                +  _box("it", hmm.x0,  hmm.x1 , hmm.y0 , hmm.y1 )
+                +  _box("it", val.x0,  val.x1 , val.y0 , val.y1 )
             )
 
 
@@ -198,25 +198,25 @@ def _check_records(
 def _lines(
     things :  list[tuple[str, float, float]], h_min:float, axis  :str
 ) ->  list[float]:
-    owers : dict[float,list[str]] ={}
-    for set,loww,hig in things:
-        owers.setdefault(loww, []).append(set)
-        owers.setdefault(hig,
-          []).append(set)
-    lin= sorted(owers)
-    for  aa ,   bb in  zip( lin [ :-   1  ],
-          lin[  1  :],
+    j : dict[float,list[str]] ={}
+    for dd,w,val2 in things:
+        j.setdefault(w, []).append(dd)
+        j.setdefault(val2,
+          []).append(dd)
+    u= sorted(j)
+    for  z ,   prev in  zip( u [ :-   1  ],
+          u[  1  :],
           strict  =  True  )  :
 
-        if bb  - aa<h_min:
+        if prev  - z<h_min:
             raise ValueError(
-                f"{', '.join(owers[aa])} and {', '.join(owers[bb])} put mesh "
-                f"lines {bb - aa:g} cm apart, at {axis} = {aa:g} and {bb:g} cm, "
+                f"{', '.join(j[z])} and {', '.join(j[prev])} put mesh "
+                f"lines {prev - z:g} cm apart, at {axis} = {z:g} and {prev:g} cm, "
                 f"closer than h_min_{axis}={h_min:g} cm. That is a feature "
                 'smaller than the mesh resolves. Line the edges up, or move them '
                 "at least h_min apart."
             )
-    return lin
+    return u
 
 
 def _paint(
@@ -224,52 +224,52 @@ def _paint(
     x_edges : npt.NDArray[np.float64],
     y_edges :npt.NDArray[np.float64],
 ) ->  npt.NDArray[np.int64] :
-    ceentre_x  =   0.5  * (  x_edges [ 1   :  ]   +  x_edges [  :-  1])
-    CentreY  = 0.5  *   (y_edges[  1  :]   +  y_edges[ :- 1  ])
-    cnt= np.full((CentreY.size, ceentre_x.size), -1, dtype = np.int64)
-    for all in  blocks   :
-        Inside= np.outer((CentreY>all.y0) &(CentreY<all.y1), (ceentre_x>all.x0) &(ceentre_x< all.x1),)
-        cnt[Inside]= MATERIALS[all.material]
-    return cnt
+    k  =   0.5  * (  x_edges [ 1   :  ]   +  x_edges [  :-  1])
+    r  = 0.5  *   (y_edges[  1  :]   +  y_edges[ :- 1  ])
+    foo= np.full((r.size, k.size), -1, dtype = np.int64)
+    for e in  blocks   :
+        tmp2= np.outer((r>e.y0) &(r<e.y1), (k>e.x0) &(k< e.x1),)
+        foo[tmp2]= MATERIALS[e.material]
+    return foo
 def _interfaces(
     cells:npt.NDArray[np.int64],
     x_edges:npt.NDArray[np.float64],
     y_edges : npt.NDArray[np.float64],
 ) -> tuple[set[float],set[float]]:
-    Across  =   cells[ : ,  1 :]  !=   cells[  : ,   :-  1 ]
-    id =  cells[1  :, :]!= cells[:-1, :]
-    myvar= {float(x_edges[ii + 1]) for ii in np.flatnonzero(Across.any(axis=0))}
-    Floors   =  {float(y_edges [jj   + 1 ]  ) for  jj  in np.flatnonzero(  id.any( axis  =  1))}
-    return myvar,Floors
+    y  =   cells[ : ,  1 :]  !=   cells[  : ,   :-  1 ]
+    dat =  cells[1  :, :]!= cells[:-1, :]
+    tmp2= {float(x_edges[u + 1]) for u in np.flatnonzero(y.any(axis=0))}
+    a2   =  {float(y_edges [res   + 1 ]  ) for  res  in np.flatnonzero(  dat.any( axis  =  1))}
+    return tmp2,a2
 
 
 
 def _implant_profile(implant  :  Implant,   width   :  float,   height :   float)  ->   DopingProfile  :
-    val= -math.inf if implant.x0 <=0.0 else implant.x0
-    zip=math.inf if implant.x1 >= width else implant.x1
-    bot= -math.inf if implant.y0<=0.0 else implant.y0
-    topp= math.inf if implant.y1>= height else implant.y1
+    tmp2= -math.inf if implant.x0 <=0.0 else implant.x0
+    xx=math.inf if implant.x1 >= width else implant.x1
+    jj= -math.inf if implant.y0<=0.0 else implant.y0
+    lst= math.inf if implant.y1>= height else implant.y1
     if  implant.profile ==  'uniform'  :
-        acrross =  Window(val, zip)
-        vars = Window(bot, topp)
+        v =  Window(tmp2, xx)
+        j = Window(jj, lst)
     else:
-        acrross = Window(val,zip,"erfc",implant.lateral)
-        vars= Window(bot,topp,'gaussian',implant.straggle)
-    sgin=1.0 if implant.dopant== "n" else- 1.0
+        v = Window(tmp2,xx,"erfc",implant.lateral)
+        j= Window(jj,lst,'gaussian',implant.straggle)
+    w=1.0 if implant.dopant== "n" else- 1.0
 
-    return  Along ( acrross ,   "x" ) * Along(  vars, 'y')  *   (  sgin   *  implant.concentration)
+    return  Along ( v ,   "x" ) * Along(  j, 'y')  *   (  w   *  implant.concentration)
 
 
 
 def _electrode_nodes(mesh  :  Mesh2D, electrode  : Electrode)->  tuple[int, ...]:
 
-    onn = (
+    r2 = (
         (mesh.node_x  >= electrode.x0)
         & (mesh.node_x  <=  electrode.x1)
         &(mesh.node_y >= electrode.y0)
         & (mesh.node_y <=electrode.y1)
     )
-    return tuple ( int(node)   for node  in np.flatnonzero( onn  )  )
+    return tuple ( int(out)   for out  in np.flatnonzero( r2  )  )
 
 
 
@@ -278,30 +278,30 @@ def drawing(blocks  : tuple[  Block,   ... ]  =  NMOS_DRAWING[  0] , implants  :
     if not blocks:
         raise ValueError("nothing is drawn: a device needs at least one block")
 
-    OriginX=  min(block.x0 for block in blocks)
-    oy =  min(block.y0  for  block  in blocks )
-    if  OriginX  !=   0.0  or  oy   !=  0.0 :
+    i=  min(jj.x0 for jj in blocks)
+    z2 =  min(tt.y0  for  tt  in blocks )
+    if  i  !=   0.0  or  z2   !=  0.0 :
 
         raise  ValueError(
-            f"the drawing starts at x={OriginX:g}, y={oy:g} cm; draw it "
+            f"the drawing starts at x={i:g}, y={z2:g} cm; draw it "
             "from the origin, x = 0 and y = 0 at its lower left corner"
         )
 
-    ret =max(block.x1 for block in blocks)
-    Height=max(block.y1 for block in blocks)
+    bar =max(ii.x1 for ii in blocks)
+    b=max(item.y1 for item in blocks)
 
-    draawn  : list[tuple [  str,
+    zz  : list[tuple [  str,
       Block | Implant  |   Electrode]  ]  = [ ]
-    draawn  += [(f"block {n}",   bb )   for  n ,   bb  in  enumerate(  blocks , start  = 1)]
-    draawn  +=   [ (  f"implant {n}",  ii  ) for n, ii in enumerate(  implants , start =  1)]
-    draawn  +=   [  (  f"electrode {E.name!r}" ,   E  ) for E in electrodes]
-    for whhat, thi in draawn :
-        isnide  =  (0.0 <= thi.x0 and thi.x1   <= ret and 0.0  <= thi.y0 and  thi.y1  <=  Height)
-        if not isnide:
+    zz  += [(f"block {n}",   u )   for  n ,   u  in  enumerate(  blocks , start  = 1)]
+    zz  +=   [ (  f"implant {n}",  kk  ) for n, kk in enumerate(  implants , start =  1)]
+    zz  +=   [  (  f"electrode {el.name!r}" ,   el  ) for el in electrodes]
+    for dd, vv in zz :
+        out  =  (0.0 <= vv.x0 and vv.x1   <= bar and 0.0  <= vv.y0 and  vv.y1  <=  b)
+        if not out:
             raise ValueError(
-                f"{_box(whhat, thi.x0, thi.x1, thi.y0, thi.y1)} reaches "
+                f"{_box(dd, vv.x0, vv.x1, vv.y0, vv.y1)} reaches "
                 f"outside the drawing, which is the blocks' extent: 0 to "
-                f"{ret:g} cm across and 0 to {Height:g} cm up"
+                f"{bar:g} cm across and 0 to {b:g} cm up"
             )
 
 
@@ -313,143 +313,143 @@ def drawing(blocks  : tuple[  Block,   ... ]  =  NMOS_DRAWING[  0] , implants  :
         )
 
 
-    item2 = _lines([(ww, tt.x0, tt.x1) for ww, tt in draawn], h_min_x, 'x');  ylines=_lines([(ww,tt.y0,tt.y1) for ww,tt in draawn],h_min_y,'y')
-    caorse =_paint(blocks,np.array(item2),np.array(ylines))
-    if(caorse < 0).any() :
-        jj, ii =(int(k[0]) for k in np.nonzero(caorse < 0))
+    ss = _lines([(thing, w2.x0, w2.x1) for thing, w2 in zz], h_min_x, 'x');  row=_lines([(thing,w2.y0,w2.y1) for thing,w2 in zz],h_min_y,'y')
+    m =_paint(blocks,np.array(ss),np.array(row))
+    if(m < 0).any() :
+        nxt, kk =(int(bb[0]) for bb in np.nonzero(m < 0))
         raise ValueError(
-            f"nothing is drawn between x = {item2[ii]:g} and {item2[ii + 1]:g} "
-            f"cm, y = {ylines[jj]:g} and {ylines[jj + 1]:g} cm. An undrawn gap "
+            f"nothing is drawn between x = {ss[kk]:g} and {ss[kk + 1]:g} "
+            f"cm, y = {row[nxt]:g} and {row[nxt + 1]:g} cm. An undrawn gap "
             'is vacuum, which this solver has no material for. Cover it with a '
             "block."
         )
 
-    if not(caorse== SILICON).any() :
+    if not(m== SILICON).any() :
         raise ValueError("the drawing has no silicon in it, so nothing to simulate")
-    wal, flo =  _interfaces(caorse, np.array(item2), np.array(ylines))
-    junk  =  wal  |  {ii.x0  for ii in implants if  ii.x0  >  0.0  }
-    junk |= {ii.x1 for ii in implants if ii.x1  <  ret}
+    mm, xs =  _interfaces(m, np.array(ss), np.array(row))
+    a2  =  mm  |  {kk.x0  for kk in implants if  kk.x0  >  0.0  }
+    a2 |= {kk.x1 for kk in implants if kk.x1  <  bar}
 
-    ypoints = flo|{ii.y0 for ii in implants if ii.y0 > 0.0}
-    ypoints  |={ii.y1 for ii in implants if ii.y1 <Height}
-    meesh  =  tensor_mesh_2d(graded_mesh_1d_through(ret,   nx, tuple(item2 ) ,  tuple (sorted(junk ) ), h_min_x) , graded_mesh_1d_through (Height,  ny ,  tuple(  ylines) , tuple(  sorted ( ypoints) ),  h_min_y),)
-    stuff,roows =meesh.x_axis.x,meesh.y_axis.x
-    for whhat,thi in draawn[:len(blocks) +len(implants)]:
-        insidex=int(np.count_nonzero((stuff>thi.x0)&(stuff < thi.x1)))
-        insidey = int(np.count_nonzero((roows>thi.y0)  &(roows < thi.y1)))
-        if thi.x0  ==  0.0 and  thi.x1  == ret :
-            insidex =   NODES_INSIDE
-        if  thi.y0 == 0.0 and  thi.y1  ==  Height  :
+    res2 = xs|{kk.y0 for kk in implants if kk.y0 > 0.0}
+    res2  |={kk.y1 for kk in implants if kk.y1 <b}
+    cc  =  tensor_mesh_2d(graded_mesh_1d_through(bar,   nx, tuple(ss ) ,  tuple (sorted(a2 ) ), h_min_x) , graded_mesh_1d_through (b,  ny ,  tuple(  row) , tuple(  sorted ( res2) ),  h_min_y),)
+    r2,v2 =cc.x_axis.x,cc.y_axis.x
+    for dd,vv in zz[:len(blocks) +len(implants)]:
+        prev=int(np.count_nonzero((r2>vv.x0)&(r2 < vv.x1)))
+        val2 = int(np.count_nonzero((v2>vv.y0)  &(v2 < vv.y1)))
+        if vv.x0  ==  0.0 and  vv.x1  == bar :
+            prev =   NODES_INSIDE
+        if  vv.y0 == 0.0 and  vv.y1  ==  b  :
 
 
-            insidey = NODES_INSIDE
-        if min(insidex, insidey)  <  NODES_INSIDE :
+            val2 = NODES_INSIDE
+        if min(prev, val2)  <  NODES_INSIDE :
             raise ValueError(
-                f"{_box(whhat, thi.x0, thi.x1, thi.y0, thi.y1)} is smaller "
-                f"than the mesh resolves: it holds {insidex} node columns and "
-                f"{insidey} node rows inside it and needs at least "
+                f"{_box(dd, vv.x0, vv.x1, vv.y0, vv.y1)} is smaller "
+                f"than the mesh resolves: it holds {prev} node columns and "
+                f"{val2} node rows inside it and needs at least "
                 f"{NODES_INSIDE} of each. Make it bigger, or refine the mesh "
                 'with more nodes or a smaller h_min.'
             )
 
-    res= _paint(blocks, stuff, roows); reions =region_map(meesh,res)
-    Silicon  = reions.semiconductor_volume   > 0.0
-    conttacts :  list[  Contact]  =  [ ]
-    tak :dict[int, str] = {}
-    for elecrtode in electrodes :
-        Nodes=_electrode_nodes(meesh,elecrtode)
-        id=_box(
-            f"electrode {elecrtode.name!r}",
-            elecrtode.x0,
-            elecrtode.x1,
-            elecrtode.y0,
-            elecrtode.y1,
+    ok= _paint(blocks, r2, v2); xx =region_map(cc,ok)
+    v  = xx.semiconductor_volume   > 0.0
+    yy :  list[  Contact]  =  [ ]
+    b2 :dict[int, str] = {}
+    for d2 in electrodes :
+        d=_electrode_nodes(cc,d2)
+        aa=_box(
+            f"electrode {d2.name!r}",
+            d2.x0,
+            d2.x1,
+            d2.y0,
+            d2.y1,
         )
-        if elecrtode.kind  ==  'ohmic'  :
-            if not Silicon[list(Nodes)].all() :
+        if d2.kind  ==  'ohmic'  :
+            if not v[list(d)].all() :
                 raise ValueError(
-                    f"{id} is ohmic, and part of it sits on oxide with no "
+                    f"{aa} is ohmic, and part of it sits on oxide with no "
                     "silicon under it, so no carrier density to pin there. Keep "
                     "it on silicon, or make it a gate."
                 )
-            conttacts.append(OhmicPlate(name =elecrtode.name,nodes=Nodes,voltage = elecrtode.voltage))
+            yy.append(OhmicPlate(name =d2.name,nodes=d,voltage = d2.voltage))
         else:
-            if Silicon[list(Nodes)].any():
+            if v[list(d)].any():
                 raise  ValueError(
-                    f"{id} is a gate touching silicon. A metal on silicon is "
+                    f"{aa} is a gate touching silicon. A metal on silicon is "
                     "a Schottky contact, which this solver does not model: a "
                     "gate sits on oxide. Put oxide under it, or make it ohmic."
                 )
-            conttacts.append(
+            yy.append(
                 GateContact(
-                    name =elecrtode.name,
-                    nodes = Nodes,
-                    voltage =elecrtode.voltage,
-                    work_function=elecrtode.work_function,
+                    name =d2.name,
+                    nodes = d,
+                    voltage =d2.voltage,
+                    work_function=d2.work_function,
                 )
             )
-        for filter in Nodes:
-            if filter  in tak  :
+        for hh in d:
+            if hh  in b2  :
                 raise ValueError(
-                    f"electrodes {tak[filter]!r} and {elecrtode.name!r} share "
-                    f"the node at x={meesh.node_x[filter]:g}, y={meesh.node_y[filter]:g}"
+                    f"electrodes {b2[hh]!r} and {d2.name!r} share "
+                    f"the node at x={cc.node_x[hh]:g}, y={cc.node_y[hh]:g}"
                     " cm. One node cannot hold two contacts."
                 )
-            tak[filter]  = elecrtode.name
+            b2[hh]  = d2.name
 
 
-    ohm= {
-        filter
-        for myvar in conttacts
-        if isinstance(myvar,OhmicPlate)
-        for filter in myvar.nodes
+    ys= {
+        hh
+        for val in yy
+        if isinstance(val,OhmicPlate)
+        for hh in val.nodes
     }
-    ord,  Count  = ndimage.label(res  ==  SILICON )
-    for isl in range(1, Count+  1) :
-        cel, hmm  = np.nonzero(ord ==isl)
-        data2 ={
-            meesh.node_at(int(ii)+ dii,int(jj) +djj)
-            for jj,ii in zip(cel,hmm,strict =True)
-            for djj in(0,1)
-            for dii in(0,1)
+    lst,  h  = ndimage.label(ok  ==  SILICON )
+    for t2 in range(1, h+  1) :
+        c, vals  = np.nonzero(lst ==t2)
+        m2 ={
+            cc.node_at(int(kk)+ arr,int(nxt) +tmp)
+            for nxt,kk in zip(c,vals,strict =True)
+            for tmp in(0,1)
+            for arr in(0,1)
         }
-        if not data2 &  ohm :
-            X =0.5* (stuff[hmm[0]] + stuff[hmm[0]+1])
-            dat=0.5 *(roows[cel[0]]+roows[cel[0]+ 1])
+        if not m2 &  ys :
+            out2 =0.5* (r2[vals[0]] + r2[vals[0]+1])
+            z=0.5 *(v2[c[0]]+v2[c[0]+ 1])
             raise ValueError(
-                f"the silicon around x={X:g}, y={dat:g} cm floats: no ohmic "
+                f"the silicon around x={out2:g}, y={z:g} cm floats: no ohmic "
                 'contact touches it, so nothing sets its Fermi level and its '
                 "charge is whatever the solver starts from. Put an ohmic "
                 'electrode on it.'
             )
 
 
-    Doping= Sum(tuple(_implant_profile(ii, ret, Height) for ii in implants))
+    j= Sum(tuple(_implant_profile(tmp3, bar, b) for tmp3 in implants))
 
-    nett =  Doping(  Coordinates ( meesh.node_x,  meesh.node_y)  ).reshape(  meesh.ny ,  meesh.nx)
-    onsilicon =Silicon.reshape(meesh.ny, meesh.nx)
-    for kiind, carrirs, OfType in(("p", 'holes', nett <  0.0), ('n', 'electrons', nett > 0.0),)  :
+    foo =  j(  Coordinates ( cc.node_x,  cc.node_y)  ).reshape(  cc.ny ,  cc.nx)
+    k2 =v.reshape(cc.ny, cc.nx)
+    for s2, c2, w in(("p", 'holes', foo <  0.0), ('n', 'electrons', foo > 0.0),)  :
 
-        reions_of_type, Count =ndimage.label(onsilicon &OfType)
-        for  x2  in  range(  1,  Count   +  1 )  :
-            Members=set(np.flatnonzero(reions_of_type.ravel()== x2).tolist())
-            if not Members  & ohm:
-                filter =   min(Members  )
+        y2, h =ndimage.label(k2 &w)
+        for  cur  in  range(  1,  h   +  1 )  :
+            rr=set(np.flatnonzero(y2.ravel()== cur).tolist())
+            if not rr  & ys:
+                hh =   min(rr  )
                 raise ValueError(
-                    f"the {kiind} silicon around x={meesh.node_x[filter]:g}, "
-                    f"y={meesh.node_y[filter]:g} cm floats: no ohmic contact "
-                    f"touches it, so its {carrirs} reach a contact only "
+                    f"the {s2} silicon around x={cc.node_x[hh]:g}, "
+                    f"y={cc.node_y[hh]:g} cm floats: no ohmic contact "
+                    f"touches it, so its {c2} reach a contact only "
                     'through a junction. That leakage is too small for the '
                     "solver to pin the region's potential, and the solve "
                     "stalls. This solver can't handle a floating body, so tie "
-                    f"it down with an ohmic electrode on the {kiind} region."
+                    f"it down with an ohmic electrode on the {s2} region."
                 )
 
     return  build_device(
-        mesh  = meesh ,
-        doping  = Doping,
-        contacts  = tuple (conttacts ),
+        mesh  = cc ,
+        doping  = j,
+        contacts  = tuple (yy ),
         material = material,
-        regions  = reions ,
+        regions  = xx ,
         degenerate  =   degenerate,
     )

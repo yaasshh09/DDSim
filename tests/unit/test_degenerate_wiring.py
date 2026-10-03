@@ -48,36 +48,36 @@ HEAVY =1e20
 
 
 def junction(degenerate: bool,n_nodes:int=N_NODES) :
-    mes  =uniform_mesh_1d(length= 1e-4, n_nodes  = n_nodes)
-    return build_device(mesh=mes, doping =  abrupt_junction(Na  =  1e17, Nd  = HEAVY, position  =  0.5e-4), contacts = (OhmicContact(name  = 'anode', node= 0, voltage =0.0), OhmicContact(name='cathode', node = n_nodes  - 1, voltage =  0.0),), degenerate= degenerate,)
+    tmp2  =uniform_mesh_1d(length= 1e-4, n_nodes  = n_nodes)
+    return build_device(mesh=tmp2, doping =  abrupt_junction(Na  =  1e17, Nd  = HEAVY, position  =  0.5e-4), contacts = (OhmicContact(name  = 'anode', node= 0, voltage =0.0), OhmicContact(name='cathode', node = n_nodes  - 1, voltage =  0.0),), degenerate= degenerate,)
 
 
 def flat_bar(doping :  float) :
-    mes  =   uniform_mesh_1d (length   =  1e-4 ,
+    s  =   uniform_mesh_1d (length   =  1e-4 ,
       n_nodes =  N_NODES  )
-    dev=build_device(mesh = mes, doping =Uniform(doping), contacts=(OhmicContact(name="anode",node =0,voltage =0.0), OhmicContact(name="cathode",node =N_NODES-1,voltage=0.0),), degenerate = True,)
-    Net = dev.net_doping_scaled.data; n,p=dev.degeneracy.equilibrium_densities(Net[0])
+    tt=build_device(mesh = s, doping =Uniform(doping), contacts=(OhmicContact(name="anode",node =0,voltage =0.0), OhmicContact(name="cathode",node =N_NODES-1,voltage=0.0),), degenerate = True,)
+    bb = tt.net_doping_scaled.data; n,p=tt.degeneracy.equilibrium_densities(bb[0])
 
-    psi   =  np.full(mes.n_nodes ,   float(dev.degeneracy.equilibrium_psi( Net[ 0  ]  )) )
-    X=pack(psi,np.full(mes.n_nodes,float(n)),np.full(mes.n_nodes,float(p)))
+    psi   =  np.full(s.n_nodes ,   float(tt.degeneracy.equilibrium_psi( bb[ 0  ]  )) )
+    v=pack(psi,np.full(s.n_nodes,float(n)),np.full(s.n_nodes,float(p)))
 
 
-    Scale  = dev.scale
+    k  = tt.scale
     return (
-        dev,
-        TransportModels.for_device(dev ),
-        mes.h   /  Scale.x_0 ,
-        mes.volume   /   Scale.x_0 ,
-        X,
+        tt,
+        TransportModels.for_device(tt ),
+        s.h   /  k.x_0 ,
+        s.volume   /   k.x_0 ,
+        v,
     )
 
 
 def perturbed(device):
-    State = initial_state(device)
-    kk =np.linspace(0.0,
+    thing = initial_state(device)
+    d =np.linspace(0.0,
                3.0 *  np.pi,
         device.mesh.n_nodes)
-    return pack(State.psi.data+0.35*np.cos(kk), State.n.data*np.exp(0.20* np.sin(kk)), State.p.data* np.exp(- 0.15*np.cos(2.0*kk)),)
+    return pack(thing.psi.data+0.35*np.cos(d), thing.n.data*np.exp(0.20* np.sin(d)), thing.p.data* np.exp(- 0.15*np.cos(2.0*d)),)
 
 
 def dense(rows,cols,values,size):
@@ -88,17 +88,17 @@ def dense(rows,cols,values,size):
 
 def blocks_agree(assembled,reference,rtol=1e-10):
 
-    for roww in Unknown  :
-        for Col in Unknown  :
-            gott =assembled[roww:: UNKNOWNS_PER_NODE,Col::UNKNOWNS_PER_NODE]
-            wnat=reference[roww::UNKNOWNS_PER_NODE,Col ::UNKNOWNS_PER_NODE]
-            Floor =max(float(np.max(np.abs(wnat))),1e-300)
+    for y in Unknown  :
+        for g in Unknown  :
+            tmp =assembled[y:: UNKNOWNS_PER_NODE,g::UNKNOWNS_PER_NODE]
+            xx=reference[y::UNKNOWNS_PER_NODE,g ::UNKNOWNS_PER_NODE]
+            v =max(float(np.max(np.abs(xx))),1e-300)
             np.testing.assert_allclose(
-                gott,
-                wnat ,
+                tmp,
+                xx ,
                 rtol  = rtol,
-                atol  =  rtol  *   Floor ,
-                err_msg  =  f"dF_{roww.name}/d{Col.name}",
+                atol  =  rtol  *   v ,
+                err_msg  =  f"dF_{y.name}/d{g.name}",
             )
 
 
@@ -110,8 +110,8 @@ def test_a_device_is_boltzmann_unless_it_says_otherwise()-> None:
     )
 
 def test_the_flag_builds_the_statistics_in_the_devices_own_scaling()  ->  None :
-    obj2  =junction(degenerate =  True); assert obj2.degeneracy== Degeneracy.for_silicon(obj2.scale.C_0)
-    assert obj2.degeneracy.Nc==pytest.approx(C.Nc(C.T_ROOM)/obj2.scale.C_0)
+    x2  =junction(degenerate =  True); assert x2.degeneracy== Degeneracy.for_silicon(x2.scale.C_0)
+    assert x2.degeneracy.Nc==pytest.approx(C.Nc(C.T_ROOM)/x2.scale.C_0)
 
 
 def test_the_contact_values_are_boltzmann_without_the_statistics() ->None:
@@ -121,81 +121,81 @@ def test_the_contact_values_are_boltzmann_without_the_statistics() ->None:
 
 def test_the_degenerate_contact_moves_the_potential_by_thirty_millivolts() ->None:
 
-    degeneacy  = Degeneracy.for_silicon (  C.n_i() )
-    Doping=  HEAVY / C.n_i()
-    sum =(ohmic_psi_scaled(Doping,0.0,degeneacy)-ohmic_psi_scaled(Doping,0.0))*C.V_T()*1e3
-    assert sum ==pytest.approx(30.5,rel= 1e-2)
+    b2  = Degeneracy.for_silicon (  C.n_i() )
+    x=  HEAVY / C.n_i()
+    j =(ohmic_psi_scaled(x,0.0,b2)-ohmic_psi_scaled(x,0.0))*C.V_T()*1e3
+    assert j ==pytest.approx(30.5,rel= 1e-2)
 
 def test_the_degenerate_contact_carries_the_applied_bias_unchanged()-> None :
 
-    ret =Degeneracy.for_silicon(C.n_i())
-    dir= HEAVY/C.n_i()
-    app  = 0.4 /C.V_T()
-    assert ohmic_psi_scaled(dir,app,ret)-ohmic_psi_scaled(dir,0.0,ret)== pytest.approx(app,rel=1e-14)
+    s =Degeneracy.for_silicon(C.n_i())
+    c= HEAVY/C.n_i()
+    flag  = 0.4 /C.V_T()
+    assert ohmic_psi_scaled(c,flag,s)-ohmic_psi_scaled(c,0.0,s)== pytest.approx(flag,rel=1e-14)
 
 
 def test_the_three_contact_values_are_one_state() -> None :
-    degenreacy = Degeneracy.for_silicon (  C.n_i( )  )
-    dopng=HEAVY/ C.n_i()
-    psi =ohmic_psi_scaled(dopng,0.0,degenreacy)
-    n= ohmic_density_scaled(dopng, Carrier.ELECTRON, degenreacy)
-    p= ohmic_density_scaled(dopng,Carrier.HOLE,degenreacy)
+    tmp3 = Degeneracy.for_silicon (  C.n_i( )  )
+    dd=HEAVY/ C.n_i()
+    psi =ohmic_psi_scaled(dd,0.0,tmp3)
+    n= ohmic_density_scaled(dd, Carrier.ELECTRON, tmp3)
+    p= ohmic_density_scaled(dd,Carrier.HOLE,tmp3)
 
-    assert n  - p==  pytest.approx(dopng, rel= 1e-14)
-    assert float(degenreacy.electron_potential(psi, n))  == pytest.approx(
+    assert n  - p==  pytest.approx(dd, rel= 1e-14)
+    assert float(tmp3.electron_potential(psi, n))  == pytest.approx(
         float(np.log(n)), rel =1e-14
     )
-    assert float(degenreacy.hole_potential(psi,p))==pytest.approx(
+    assert float(tmp3.hole_potential(psi,p))==pytest.approx(
         float(- np.log(p)),rel=1e-14
     )
 
 
 def  test_the_poisson_densities_are_their_own_derivatives_under_boltzmann (  )  ->  None   :
     psi= np.linspace(-10.0,10.0,7)
-    n,p,Dn,hash= _carrier_densities(psi,None,None);  np.testing.assert_array_equal(Dn,n)
+    n,p,zz,g= _carrier_densities(psi,None,None);  np.testing.assert_array_equal(zz,n)
 
 
-    np.testing.assert_array_equal(hash, p)
+    np.testing.assert_array_equal(g, p)
 
 def test_the_degenerate_poisson_diagonal_is_divided_by_the_einstein_ratio()->None:
-    s2   = Degeneracy.for_silicon( C.n_i () )
+    res2   = Degeneracy.for_silicon( C.n_i () )
     psi= np.array([0.0,10.0,20.0,24.0])
 
-    n, _, set, _ =_carrier_densities(psi, None, None, None, s2)
+    n, _, w, _ =_carrier_densities(psi, None, None, None, res2)
     np.testing.assert_allclose(
-        set,  n /  einstein_ratio ( n  /  s2.Nc ) ,   rtol   =  1e-14
+        w,  n /  einstein_ratio ( n  /  res2.Nc ) ,   rtol   =  1e-14
     )
-    assert np.all(set > 0.0)
+    assert np.all(w > 0.0)
 
-    assert np.all(set <=n)
+    assert np.all(w <=n)
 def test_an_insulator_node_holds_no_carriers_under_either_statistics() ->None :
-    deegeneracy=Degeneracy.for_silicon(C.n_i())
+    m2=Degeneracy.for_silicon(C.n_i())
     psi =np.array([800.0, 0.0])
-    carreirs = np.array([False, True])
-    n ,   p,  dnn ,  Dp   =   _carrier_densities( psi,   None, None ,  carreirs, deegeneracy)
+    it = np.array([False, True])
+    n ,   p,  w ,  f   =   _carrier_densities( psi,   None, None ,  it, m2)
     assert n[0]==0.0
     assert p [0  ] ==  0.0
-    assert dnn [0]  ==  0.0
-    assert Dp[0] ==0.0
+    assert w [0]  ==  0.0
+    assert f[0] ==0.0
 
 
 def test_boltzmann_returns_psi_itself_for_both_carriers()-> None:
     psi=np.linspace(- 5.0,5.0,11)
-    junk,idx2 = effective_potentials(psi,psi,psi,None)
-    assert junk is psi
-    assert idx2 is psi
+    obj,cnt = effective_potentials(psi,psi,psi,None)
+    assert obj is psi
+    assert cnt is psi
 
 
 def test_the_two_carriers_see_different_potentials_when_degenerate()->None :
 
-    list = Degeneracy.for_silicon(C.n_i()); psi  =  np.zeros( 3)
+    f = Degeneracy.for_silicon(C.n_i()); psi  =  np.zeros( 3)
     n= np.array([1e6, 1e9, 1e10])
-    PsiN,idx2 = effective_potentials(psi,n,n,list)
+    row,j = effective_potentials(psi,n,n,f)
 
-    assert np.all(PsiN<0.0)
-    assert np.all(idx2> 0.0)
+    assert np.all(row<0.0)
+    assert np.all(j> 0.0)
 
-    assert not np.allclose(PsiN,- idx2,rtol= 1e-3)
+    assert not np.allclose(row,- j,rtol= 1e-3)
 
 
 @pytest.mark.parametrize("doping",[HEAVY,-HEAVY],ids =['n+',"p+"])
@@ -204,31 +204,31 @@ def test_the_two_carriers_see_different_potentials_when_degenerate()->None :
 
 def test_every_block_matches_complex_step_on_a_flat_degenerate_bar(doping)-> None :
 
-    hex,modeels,range,Volume,bytes=flat_bar(doping)
+    y,s,b,j,item=flat_bar(doping)
 
-    Net = hex.net_doping_scaled.data
+    cc = y.net_doping_scaled.data
     def residual(v):
         return coupled_residual(
-            h= range,
-            volume=Volume,
+            h= b,
+            volume=j,
             x =v,
-            net_doping=Net,
-            Dn=modeels.Dn,
-            Dp=modeels.Dp,
-            recombination= modeels.recombination,
-            degeneracy=hex.degeneracy,
+            net_doping=cc,
+            Dn=s.Dn,
+            Dp=s.Dp,
+            recombination= s.recombination,
+            degeneracy=y.degeneracy,
         )
-    roows,  col,  Values  =   coupled_jacobian(
-        h  =   range,
-        volume  =  Volume,
-        x  =  bytes ,
-        Dn  = modeels.Dn,
-        Dp =  modeels.Dp,
-        recombination  =   modeels.recombination,
-        degeneracy  = hex.degeneracy,
+    z,  r,  d  =   coupled_jacobian(
+        h  =   b,
+        volume  =  j,
+        x  =  item ,
+        Dn  = s.Dn,
+        Dp =  s.Dp,
+        recombination  =   s.recombination,
+        degeneracy  = y.degeneracy,
     )
     blocks_agree(
-        dense(roows, col, Values, bytes.size), complex_step_jacobian(residual, bytes)
+        dense(z, r, d, item.size), complex_step_jacobian(residual, item)
     )
 
 @pytest.mark.parametrize(
@@ -240,174 +240,174 @@ def test_every_block_matches_complex_step_on_a_flat_degenerate_bar(doping)-> Non
 
 
 def test_every_block_matches_complex_step_at_a_perturbed_junction(mobility, field)->None :
-    stuff2  = junction(degenerate= True)
-    Models = TransportModels.for_device(stuff2, mobility =mobility, auger = True, field_dependent  =  field)
-    Scale = stuff2.scale;H  = stuff2.mesh.h /  Scale.x_0
-    t2=stuff2.mesh.volume /Scale.x_0
-    X  = perturbed(stuff2)
-    Net  = stuff2.net_doping_scaled.data
+    m  = junction(degenerate= True)
+    bb = TransportModels.for_device(m, mobility =mobility, auger = True, field_dependent  =  field)
+    i = m.scale;e  = m.mesh.h /  i.x_0
+    u=m.mesh.volume /i.x_0
+    t  = perturbed(m)
+    ys  = m.net_doping_scaled.data
     def residual(v) :
         return coupled_residual(
-            h =H,
-            volume  = t2,
+            h =e,
+            volume  = u,
             x=  v,
-            net_doping = Net,
-            Dn =Models.Dn,
-            Dp =Models.Dp,
-            recombination  = Models.recombination,
-            degeneracy= stuff2.degeneracy,
+            net_doping = ys,
+            Dn =bb.Dn,
+            Dp =bb.Dp,
+            recombination  = bb.recombination,
+            degeneracy= m.degeneracy,
         )
 
-    row, col, Values=  coupled_jacobian(h  = H, volume=  t2, x = X, Dn= Models.Dn, Dp  =  Models.Dp, recombination = Models.recombination, degeneracy  =  stuff2.degeneracy,)
-    blocks_agree(dense(row,col,Values,X.size),complex_step_jacobian(residual,X))
+    tmp3, arr, el=  coupled_jacobian(h  = e, volume=  u, x = t, Dn= bb.Dn, Dp  =  bb.Dp, recombination = bb.recombination, degeneracy  =  m.degeneracy,)
+    blocks_agree(dense(tmp3,arr,el,t.size),complex_step_jacobian(residual,t))
 
 
 def test_the_continuity_diagonal_picks_up_the_einstein_ratio()->None :
 
 
-    deviice,   moels,  H, vloume ,  buff =   flat_bar ( HEAVY )
-    _,n,_= unpack(buff);  Ratio  =  float( einstein_ratio(n[  0  ]  /  deviice.degeneracy.Nc))
-    assert Ratio == pytest.approx(2.13, rel=  1e-2)
+    res2,   g,  s, row ,  out =   flat_bar ( HEAVY )
+    _,n,_= unpack(out);  res  =  float( einstein_ratio(n[  0  ]  /  res2.degeneracy.Nc))
+    assert res == pytest.approx(2.13, rel=  1e-2)
 
     def off_diagonal(degeneracy)  :
-        rows, cols, values = coupled_jacobian(
-            h= H,
-            volume  = vloume,
-            x= buff,
-            Dn  =  moels.Dn,
-            Dp= moels.Dp,
-            recombination = moels.recombination,
+        m, j, c = coupled_jacobian(
+            h= s,
+            volume  = row,
+            x= out,
+            Dn  =  g.Dn,
+            Dp= g.Dp,
+            recombination = g.recombination,
             degeneracy  = degeneracy,
         )
-        matrix= dense(rows,
-                         cols,
-                       values,
-                          buff.size)
-        block  =  matrix[  Unknown.N  :: UNKNOWNS_PER_NODE,   Unknown.N ::  UNKNOWNS_PER_NODE]
-        return float(np.diag(block, 1) [N_NODES //  2])
+        a= dense(m,
+                         j,
+                       c,
+                          out.size)
+        xs  =  a[  Unknown.N  :: UNKNOWNS_PER_NODE,   Unknown.N ::  UNKNOWNS_PER_NODE]
+        return float(np.diag(xs, 1) [N_NODES //  2])
 
-    assert off_diagonal(  deviice.degeneracy)   ==  pytest.approx (off_diagonal(None )  *   Ratio,   rel   =   1e-12)
+    assert off_diagonal(  res2.degeneracy)   ==  pytest.approx (off_diagonal(None )  *   res,   rel   =   1e-12)
 
 def test_the_solver_entry_point_assembles_what_the_public_ones_do()  -> None :
-    vals = junction(degenerate =  True)
-    bb   =  TransportModels.for_device (  vals )
-    scle  =  vals.scale
-    out2 =vals.mesh.h /scle.x_0
-    vol= vals.mesh.volume/scle.x_0
-    xx  = perturbed(  vals )
-    blah  =vals.net_doping_scaled.data
+    u = junction(degenerate =  True)
+    w   =  TransportModels.for_device (  u )
+    a  =  u.scale
+    v =u.mesh.h /a.x_0
+    k= u.mesh.volume/a.x_0
+    out  = perturbed(  u )
+    tmp3  =u.net_doping_scaled.data
 
-    sum  =  assemble_coupled_terms (
-        out2 ,
-        vol,
-        xx,
-        blah ,
-        bb.Dn,
-        bb.Dp ,
-        bb.recombination,
-        degeneracy =  vals.degeneracy,
+    vv  =  assemble_coupled_terms (
+        v ,
+        k,
+        out,
+        tmp3 ,
+        w.Dn,
+        w.Dp ,
+        w.recombination,
+        degeneracy =  u.degeneracy,
     )
     np.testing.assert_allclose(
-        sum.assembly.residual,
+        vv.assembly.residual,
         coupled_residual(
-            h=out2,
-            volume =vol,
-            x=xx,
-            net_doping= blah,
-            Dn= bb.Dn,
-            Dp = bb.Dp,
-            recombination=bb.recombination,
-            degeneracy= vals.degeneracy,
+            h=v,
+            volume =k,
+            x=out,
+            net_doping= tmp3,
+            Dn= w.Dn,
+            Dp = w.Dp,
+            recombination=w.recombination,
+            degeneracy= u.degeneracy,
         ),
         rtol=1e-14,
     )
-    Rows,cools,dict= coupled_jacobian(h =out2, volume =vol, x= xx, Dn=bb.Dn, Dp = bb.Dp, recombination=bb.recombination, degeneracy=vals.degeneracy,)
-    np.testing.assert_allclose(dense(sum.assembly.rows, sum.assembly.cols, sum.assembly.values, xx.size,), dense(Rows, cools, dict, xx.size), rtol =  1e-14,)
-    sta =  residual_term_scales(
-        out2 ,
-        vol,
-        xx,
-        blah,
-        bb.Dn,
-        bb.Dp,
-        np.asarray (  bb.recombination.rate( *  unpack(xx  )  [1  :]),   dtype =   np.float64) ,
-        degeneracy  =  vals.degeneracy,
+    mm,j,flag= coupled_jacobian(h =v, volume =k, x= out, Dn=w.Dn, Dp = w.Dp, recombination=w.recombination, degeneracy=u.degeneracy,)
+    np.testing.assert_allclose(dense(vv.assembly.rows, vv.assembly.cols, vv.assembly.values, out.size,), dense(mm, j, flag, out.size), rtol =  1e-14,)
+    b =  residual_term_scales(
+        v ,
+        k,
+        out,
+        tmp3,
+        w.Dn,
+        w.Dp,
+        np.asarray (  w.recombination.rate( *  unpack(out  )  [1  :]),   dtype =   np.float64) ,
+        degeneracy  =  u.degeneracy,
     )
-    for fs , Alone in zip( sum.scales,   sta,  strict  =  True )   :
-        np.testing.assert_array_equal(fs, Alone)
+    for z , tmp2 in zip( vv.scales,   b,  strict  =  True )   :
+        np.testing.assert_array_equal(z, tmp2)
 
 
 
 def  test_the_coupled_contacts_pin_the_degenerate_values( )  ->  None :
-    myvar  =   junction(degenerate   =  True  )
-    Models=TransportModels.for_device(myvar)
-    sca =myvar.scale
-    zz =myvar.mesh.h /sca.x_0
-    Volume =  myvar.mesh.volume /sca.x_0
-    max=myvar.net_doping_scaled.data
-    id= float(max[myvar.mesh.n_nodes-1])
-    bol= pack(np.full(myvar.mesh.n_nodes,ohmic_psi_scaled(id,0.0)), np.full(myvar.mesh.n_nodes,ohmic_density_scaled(id,Carrier.ELECTRON)), np.full(myvar.mesh.n_nodes,ohmic_density_scaled(id,Carrier.HOLE)),)
-    Assembly = assemble_coupled_terms(
-        zz ,
-        Volume,
-        bol,
-        max,
-        Models.Dn,
-        Models.Dp,
-        Models.recombination,
-        degeneracy  =   myvar.degeneracy,
+    foo  =   junction(degenerate   =  True  )
+    s=TransportModels.for_device(foo)
+    d2 =foo.scale
+    s2 =foo.mesh.h /d2.x_0
+    kk =  foo.mesh.volume /d2.x_0
+    ss=foo.net_doping_scaled.data
+    row= float(ss[foo.mesh.n_nodes-1])
+    buf= pack(np.full(foo.mesh.n_nodes,ohmic_psi_scaled(row,0.0)), np.full(foo.mesh.n_nodes,ohmic_density_scaled(row,Carrier.ELECTRON)), np.full(foo.mesh.n_nodes,ohmic_density_scaled(row,Carrier.HOLE)),)
+    v = assemble_coupled_terms(
+        s2 ,
+        kk,
+        buf,
+        ss,
+        s.Dn,
+        s.Dp,
+        s.recombination,
+        degeneracy  =   foo.degeneracy,
     ).assembly
-    Pinned = apply_contacts_coupled(
-        Assembly,
-        bol,
-        max,
-        myvar.contacts,
-        sca,
-        degeneracy =  myvar.degeneracy,
+    y = apply_contacts_coupled(
+        v,
+        buf,
+        ss,
+        foo.contacts,
+        d2,
+        degeneracy =  foo.degeneracy,
     )
 
-    cat =  myvar.mesh.n_nodes -  1
-    blah=unknown_index(cat,Unknown.PSI)
-    assert Pinned.residual[blah] * C.V_T() * 1e3 == pytest.approx(-  30.5, rel  = 1e-2)
+    c =  foo.mesh.n_nodes -  1
+    m2=unknown_index(c,Unknown.PSI)
+    assert y.residual[m2] * C.V_T() * 1e3 == pytest.approx(-  30.5, rel  = 1e-2)
 
-    blah  = unknown_index(cat, Unknown.N)
-    assert  Pinned.residual[blah  ]   ==  pytest.approx (
-        bol[blah  ]
-        -  ohmic_density_scaled(  id , Carrier.ELECTRON,  myvar.degeneracy) ,
+    m2  = unknown_index(c, Unknown.N)
+    assert  y.residual[m2  ]   ==  pytest.approx (
+        buf[m2  ]
+        -  ohmic_density_scaled(  row , Carrier.ELECTRON,  foo.degeneracy) ,
         rel  =  1e-12 ,
     )
 
 def test_the_quasi_fermi_level_is_read_under_the_states_own_statistics() ->None :
 
-    sum  =  junction (  degenerate   =  True,  n_nodes  =   201)
-    cnt=solve_equilibrium(sum)
-    assert float(np.max(np.abs(cnt.phi_n.data)))<1e-12
-    assert float(np.max(np.abs(cnt.phi_p.data)))<1e-12
+    cur  =  junction (  degenerate   =  True,  n_nodes  =   201)
+    b=solve_equilibrium(cur)
+    assert float(np.max(np.abs(b.phi_n.data)))<1e-12
+    assert float(np.max(np.abs(b.phi_p.data)))<1e-12
 
-    bltzmann=replace(cnt,degeneracy = None)
-    ord=float(np.max(np.abs(bltzmann.phi_n.data))) *C.V_T()* 1e3
-    assert  ord   ==  pytest.approx( 30.5,   rel  =  1e-2 )
+    z=replace(b,degeneracy = None)
+    a=float(np.max(np.abs(z.phi_n.data))) *C.V_T()* 1e3
+    assert  a   ==  pytest.approx( 30.5,   rel  =  1e-2 )
 
 
 def  test_a_boltzmann_state_reads_its_levels_the_way_it_always_did ()  ->   None  :
-    dev = junction(degenerate= False, n_nodes=201); k2=solve_equilibrium(dev)
-    assert  k2.degeneracy is None
+    z = junction(degenerate= False, n_nodes=201); thing=solve_equilibrium(z)
+    assert  thing.degeneracy is None
     np.testing.assert_array_equal(
-        k2.phi_n.data, k2.psi.data - np.log(k2.n.data)
+        thing.phi_n.data, thing.psi.data - np.log(thing.n.data)
     )
 
 
 def  test_the_lagged_gummel_path_lands_where_the_coupled_newton_does(  ) -> None   :
-    deviice =replace(
+    c =replace(
         pn_diode(Na = 1e17, Nd  =  HEAVY, n_nodes = 201, anode_voltage =  0.3),
         degenerate=  True,
     )
-    x2  =  solve_bias(deviice)
-    assert x2.gummel.converged
-    ret = solve_bias_newton(deviice,guess =x2)
-    assert ret.newton.converged
-    np.testing.assert_allclose(ret.n.data, x2.n.data, rtol = 1e-8)
-    np.testing.assert_allclose(ret.psi.data, x2.psi.data, rtol =0.0, atol= 1e-8)
+    idx  =  solve_bias(c)
+    assert idx.gummel.converged
+    y = solve_bias_newton(c,guess =idx)
+    assert y.newton.converged
+    np.testing.assert_allclose(y.n.data, idx.n.data, rtol = 1e-8)
+    np.testing.assert_allclose(y.psi.data, idx.psi.data, rtol =0.0, atol= 1e-8)
 
 @pytest.mark.parametrize(
     "doping,make_block",
@@ -420,172 +420,172 @@ def  test_equilibrium_is_a_fixed_point_of_each_continuity_block(
     doping,  make_block
 )  -> None  :
 
-    vals=uniform_mesh_1d(length= 1e-4,n_nodes=51)
-    set = build_device(mesh  = vals, doping  =Uniform(doping), contacts  =  (OhmicContact(name = "left", node  = 0, voltage=0.0), OhmicContact(name  = 'right', node  =  50, voltage = 0.0),), degenerate  = True,)
+    dat=uniform_mesh_1d(length= 1e-4,n_nodes=51)
+    info = build_device(mesh  = dat, doping  =Uniform(doping), contacts  =  (OhmicContact(name = "left", node  = 0, voltage=0.0), OhmicContact(name  = 'right', node  =  50, voltage = 0.0),), degenerate  = True,)
 
-    min = solve_equilibrium(set)
-    _, Update = make_block(set, TransportModels.for_device(set)) (min)
-    assert Update <  1e-11
+    bar = solve_equilibrium(info)
+    _, x = make_block(info, TransportModels.for_device(info)) (bar)
+    assert x <  1e-11
 
 def test_the_two_contact_writers_name_the_same_density()  ->  None :
-    devvice   =   replace(  pn_diode (  Na  =   1e17,   Nd  =  HEAVY ,  n_nodes  =   51 ),  degenerate =  True);sate =  solve_equilibrium(devvice)
-    Doping= devvice.net_doping_scaled.data
+    r   =   replace(  pn_diode (  Na  =   1e17,   Nd  =  HEAVY ,  n_nodes  =   51 ),  degenerate =  True);e =  solve_equilibrium(r)
+    z= r.net_doping_scaled.data
 
 
-    imp =impose_ohmic_densities(
-        sate.n.data,
-        Doping,
-        devvice.ohmic_contacts,
+    b =impose_ohmic_densities(
+        e.n.data,
+        z,
+        r.ohmic_contacts,
         Carrier.ELECTRON,
-        devvice.degeneracy,
+        r.degeneracy,
     )
-    n =  Field(imp ,  'cm^-3' , ScalingState.SCALED, Location.NODE ,  name  =  "n" )
-    vals= apply_ohmic_densities(
+    n =  Field(b ,  'cm^-3' , ScalingState.SCALED, Location.NODE ,  name  =  "n" )
+    b2= apply_ohmic_densities(
         assemble_electron_continuity(
-            devvice.mesh_1d,
-            sate.psi,
+            r.mesh_1d,
+            e.psi,
             n,
-            sate.p,
-            TransportModels.for_device(devvice).recombination,
-            devvice.scale,
-            TransportModels.for_device(devvice).Dn,
+            e.p,
+            TransportModels.for_device(r).recombination,
+            r.scale,
+            TransportModels.for_device(r).Dn,
         ),
-        imp,
-        Doping,
-        devvice.ohmic_contacts,
+        b,
+        z,
+        r.ohmic_contacts,
         Carrier.ELECTRON,
-        devvice.degeneracy,
+        r.degeneracy,
     )
 
 
-    for arr in devvice.ohmic_contacts :
-        for Node in arr.nodes :
-            assert vals.residual[Node]==0.0
+    for u in r.ohmic_contacts :
+        for x in u.nodes :
+            assert b2.residual[x]==0.0
 
 
 def test_the_gummel_path_imposes_the_degenerate_contact_densities() ->None :
-    dev = replace(
+    y = replace(
         pn_diode(Na =  1e17, Nd = HEAVY, n_nodes=  201, anode_voltage = 0.3),
         degenerate = True,
     )
-    pow =  solve_bias(dev)
-    assert  pow.gummel.converged
-    obj2=float(dev.net_doping_scaled.data[0])
-    zip = ohmic_density_scaled(obj2,Carrier.ELECTRON,dev.degeneracy)
-    boltzmnn= ohmic_density_scaled(obj2,Carrier.ELECTRON)
+    ss =  solve_bias(y)
+    assert  ss.gummel.converged
+    i=float(y.net_doping_scaled.data[0])
+    d = ohmic_density_scaled(i,Carrier.ELECTRON,y.degeneracy)
+    x= ohmic_density_scaled(i,Carrier.ELECTRON)
 
-    assert float(pow.n.data[0]) ==pytest.approx(zip, rel = 1e-14)
-    assert abs(zip  /  boltzmnn  - 1.0  )  >   1e-3
+    assert float(ss.n.data[0]) ==pytest.approx(d, rel = 1e-14)
+    assert abs(d  /  x  - 1.0  )  >   1e-3
 
 def test_the_degenerate_diode_carries_a_current_close_to_the_boltzmann_one ( ) ->   None  :
-    cur =  {  }
-    for deg in(False,
+    rr =  {  }
+    for d in(False,
          True):
-        dev=replace(
+        val2=replace(
             pn_diode(Na = 1e17,Nd= HEAVY,n_nodes= 201,anode_voltage=0.5),
-            degenerate=deg,
+            degenerate=d,
         )
-        sttae= solve_bias_newton(dev,guess= solve_bias(dev)); assert sttae.newton.converged
-        cur[deg] = terminal_currents(dev,sttae)['anode']
+        j= solve_bias_newton(val2,guess= solve_bias(val2)); assert j.newton.converged
+        rr[d] = terminal_currents(val2,j)['anode']
 
-    assert  cur [  True]   == pytest.approx(cur [  False  ] , rel   =   1e-3)
-    assert cur[True]!=cur[False]
+    assert  rr [  True]   == pytest.approx(rr [  False  ] , rel   =   1e-3)
+    assert rr[True]!=rr[False]
 
 
 
 def  test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system(  )  ->   None  :
-    dev  =  junction(degenerate =  True, n_nodes=  201)
-    d2=TransportModels.for_device(dev)
+    yy  =  junction(degenerate =  True, n_nodes=  201)
+    u=TransportModels.for_device(yy)
 
-    sta  =  solve_equilibrium (  dev  )
-    bytes  = pack(sta.psi.data, sta.n.data, sta.p.data)
-    sclae   = dev.scale
-    H=dev.mesh.h /sclae.x_0
-    lst  =  dev.mesh.volume /   sclae.x_0
+    k2  =  solve_equilibrium (  yy  )
+    m  = pack(k2.psi.data, k2.n.data, k2.p.data)
+    kk   = yy.scale
+    g=yy.mesh.h /kk.x_0
+    a  =  yy.mesh.volume /   kk.x_0
 
-    val   =  dev.net_doping_scaled.data
-
-
-
-    _,  n, p   =  unpack( bytes  )
-    r = np.asarray(d2.recombination.rate(n, p), dtype =  np.float64)
+    thing   =  yy.net_doping_scaled.data
 
 
-    Scales =residual_term_scales(
-        H,lst,bytes,val,d2.Dn,d2.Dp,r,degeneracy= dev.degeneracy
+
+    _,  n, p   =  unpack( m  )
+    y = np.asarray(u.recombination.rate(n, p), dtype =  np.float64)
+
+
+    c =residual_term_scales(
+        g,a,m,thing,u.Dn,u.Dp,y,degeneracy= yy.degeneracy
     )
 
-    all =  coupled_residual(h  = H, volume =  lst, x= bytes, net_doping =  val, Dn =  d2.Dn, Dp = d2.Dp, recombination =d2.recombination, degeneracy = dev.degeneracy,)
+    r2 =  coupled_residual(h  = g, volume =  a, x= m, net_doping =  thing, Dn =  u.Dn, Dp = u.Dp, recombination =u.recombination, degeneracy = yy.degeneracy,)
 
 
     assert float(np.max(np.abs(n * p  - 1.0))) ==  pytest.approx(0.693, rel=1e-2)
-    PsiRow,nRow,p_roww =unpack(all)
-    out2 ,   ns, pScale  =  Scales
-    assert float(np.max(np.abs(PsiRow) /out2))<1e-14
-    assert float(np.max(np.abs(nRow -  r*lst) /  ns))  <  1e-13
-    assert float(np.max(np.abs(p_roww - r*lst)/pScale)) < 1e-13
+    z2,i,res2 =unpack(r2)
+    aa ,   arr, b  =  c
+    assert float(np.max(np.abs(z2) /aa))<1e-14
+    assert float(np.max(np.abs(i -  y*a) /  arr))  <  1e-13
+    assert float(np.max(np.abs(res2 - y*a)/b)) < 1e-13
 def test_a_boltzmann_equilibrium_has_no_recombination_to_subtract() -> None :
 
-    dev =junction(degenerate=False,n_nodes = 201)
-    mod=TransportModels.for_device(dev)
+    i =junction(degenerate=False,n_nodes = 201)
+    z2=TransportModels.for_device(i)
 
 
-    State  = solve_equilibrium(dev); X  = pack(State.psi.data, State.n.data, State.p.data)
-    Scale  = dev.scale
-    data2= dev.mesh.h/Scale.x_0
-    Volume  =  dev.mesh.volume  /   Scale.x_0
-    Net  =  dev.net_doping_scaled.data
+    cc  = solve_equilibrium(i); a2  = pack(cc.psi.data, cc.n.data, cc.p.data)
+    d  = i.scale
+    c= i.mesh.h/d.x_0
+    it  =  i.mesh.volume  /   d.x_0
+    u  =  i.net_doping_scaled.data
 
-    _,n,p=unpack(X)
-    RR   =  np.asarray (  mod.recombination.rate(n ,  p), dtype  =  np.float64 )
+    _,n,p=unpack(a2)
+    z   =  np.asarray (  z2.recombination.rate(n ,  p), dtype  =  np.float64 )
 
 
-    scaales =residual_term_scales(data2, Volume, X, Net, mod.Dn, mod.Dp, RR)
-    Residual = coupled_residual(
-        h  =data2,
-        volume= Volume,
-        x= X,
-        net_doping = Net,
-        Dn =  mod.Dn,
-        Dp =  mod.Dp,
-        recombination=  mod.recombination,
+    y =residual_term_scales(c, it, a2, u, z2.Dn, z2.Dp, z)
+    ss = coupled_residual(
+        h  =c,
+        volume= it,
+        x= a2,
+        net_doping = u,
+        Dn =  z2.Dn,
+        Dp =  z2.Dp,
+        recombination=  z2.recombination,
     )
     assert float(np.max(np.abs(n *p -1.0)))<1e-15
-    assert float(np.max(np.abs(RR* Volume))) < 1e-20
-    for fam,   res in zip(  unpack(Residual ),  scaales,  strict =   True) :
-        assert float(np.max(np.abs(fam) /res))  <1e-14
+    assert float(np.max(np.abs(z* it))) < 1e-20
+    for b,   r in zip(  unpack(ss ),  y,  strict =   True) :
+        assert float(np.max(np.abs(b) /r))  <1e-14
 
 def test_the_solved_state_holds_the_degenerate_relation_at_every_node()->None  :
 
-    x2  =  junction( degenerate   =   True ,   n_nodes  = 201 ) ; State =  solve_equilibrium(x2)
+    a  =  junction( degenerate   =   True ,   n_nodes  = 201 ) ; c =  solve_equilibrium(a)
 
-    psiN, PsiP  = effective_potentials(State.psi.data, State.n.data, State.p.data, x2.degeneracy)
+    f, item  = effective_potentials(c.psi.data, c.n.data, c.p.data, a.degeneracy)
 
-    assert  float(  np.ptp(np.log( State.n.data  )   -  psiN  ) ) <   1e-13
-    assert float(np.ptp(np.log(State.p.data) + PsiP)) <1e-13
+    assert  float(  np.ptp(np.log( c.n.data  )   -  f  ) ) <   1e-13
+    assert float(np.ptp(np.log(c.p.data) + item)) <1e-13
 
 
 
 def test_the_built_in_potential_rises_by_the_predicted_correction()-> None:
-    Contacts ={deg:solve_equilibrium(junction(deg,n_nodes = 201)).psi.data for deg in(False,True)}
-    bi = {sum :(psi[-1] -psi[0])* C.V_T() for sum, psi in Contacts.items()}
-    assert(bi[True] - bi[False])  * 1e3 == pytest.approx(30.5, rel=1e-2)
+    t ={x2:solve_equilibrium(junction(x2,n_nodes = 201)).psi.data for x2 in(False,True)}
+    h = {thing :(psi[-1] -psi[0])* C.V_T() for thing, psi in t.items()}
+    assert(h[True] - h[False])  * 1e3 == pytest.approx(30.5, rel=1e-2)
 
 def test_a_lightly_doped_device_barely_notices_the_statistics()-> None:
-    msh =   uniform_mesh_1d(length =  1e-4 , n_nodes = 101  )
-    idx2  =  {  }
-    for degnerate in(False, True):
-        dev =  build_device(
-            mesh = msh,
+    row =   uniform_mesh_1d(length =  1e-4 , n_nodes = 101  )
+    g  =  {  }
+    for bar in(False, True):
+        k =  build_device(
+            mesh = row,
             doping  =abrupt_junction(Na  = 1e16, Nd =1e16, position  =0.5e-4),
             contacts =(
                 OhmicContact(name= 'anode', node = 0, voltage  =  0.0),
                 OhmicContact(name='cathode', node= 100, voltage =  0.0),
             ),
-            degenerate =degnerate,
+            degenerate =bar,
         )
 
-        psi  =  solve_equilibrium (dev  ).psi.data
+        psi  =  solve_equilibrium (k  ).psi.data
 
-        idx2[degnerate ] =  (psi [ -  1  ]  -   psi[ 0]  ) *  C.V_T()
-    assert abs ( idx2[True] -   idx2[False  ]) *   1e3  < 0.2
+        g[bar ] =  (psi [ -  1  ]  -   psi[ 0]  ) *  C.V_T()
+    assert abs ( g[True] -   g[False  ]) *   1e3  < 0.2

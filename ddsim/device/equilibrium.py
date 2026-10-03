@@ -19,18 +19,18 @@ EPS=  float(np.finfo(np.float64).eps)
 
 FLUX_FLOOR_MARGIN =  16.0
 def frozen_quasi_fermi(device : Device)  -> tuple[Field, Field] :
-    Doping =   device.net_doping.data
+    k =   device.net_doping.data
 
-    NNodes  =device.mesh.n_nodes
+    e  =device.mesh.n_nodes
 
-    ohm  =[cc for cc in device.contacts if not isinstance(cc, GateContact)]; buf = [cc for cc in ohm if Doping[cc.nodes[0]] >= 0.0]
-    ps  = [cc for cc in ohm if Doping[cc.nodes[0]]  <  0.0]
+    j  =[a for a in device.contacts if not isinstance(a, GateContact)]; d = [a for a in j if k[a.nodes[0]] >= 0.0]
+    yy  = [a for a in j if k[a.nodes[0]]  <  0.0]
 
-    nbias  =   buf[ 0 ].voltage if buf else ps[  0  ].voltage
-    pb   =   ps[ 0 ].voltage if  ps  else buf[0  ].voltage
-    phi_n =Field(np.full(NNodes,nbias/device.scale.psi_0), "V", ScalingState.SCALED, Location.NODE, name="phi_n",)
+    it  =   d[ 0 ].voltage if d else yy[  0  ].voltage
+    y   =   yy[ 0 ].voltage if  yy  else d[0  ].voltage
+    phi_n =Field(np.full(e,it/device.scale.psi_0), "V", ScalingState.SCALED, Location.NODE, name="phi_n",)
     phi_p=Field(
-        np.full(NNodes,pb/device.scale.psi_0),
+        np.full(e,y/device.scale.psi_0),
         'V',
         ScalingState.SCALED,
         Location.NODE,
@@ -48,93 +48,93 @@ def insulator_guess(
     if device.regions is None or device.regions.oxide_nodes.size == 0:
         return psi
 
-    Scale =  device.scale
-    net_dooping   =  device.net_doping_scaled
-    feild=Field(psi, "V", ScalingState.SCALED, Location.NODE, name =  'psi')
+    xx =  device.scale
+    f   =  device.net_doping_scaled
+    w2=Field(psi, "V", ScalingState.SCALED, Location.NODE, name =  'psi')
 
-    asembly= assemble_poisson(
+    tmp= assemble_poisson(
         device.scaled_mesh,
-        feild,
-        net_dooping,
+        w2,
+        f,
         charge_volume=device.charge_volume_scaled,
         degeneracy =device.degeneracy,
     )
-    asembly =  apply_contacts(
-        asembly,
+    tmp =  apply_contacts(
+        tmp,
         psi,
-        net_dooping.data,
+        f.data,
         device.contacts,
-        Scale ,
+        xx ,
         device.material.T,
         device.degeneracy ,
     )
 
 
 
-    Held= np.flatnonzero(device.regions.semiconductor_volume> 0.0)
+    m= np.flatnonzero(device.regions.semiconductor_volume> 0.0)
 
-    asembly= apply_dirichlet_nodes(
-        asembly, psi, Held.tolist(), psi[Held].tolist()
+    tmp= apply_dirichlet_nodes(
+        tmp, psi, m.tolist(), psi[m].tolist()
     )
-    tuple  =  SparseLU ( )
-    tuple.factorize(
-        asembly.rows,asembly.cols,asembly.values,asembly.shape
+    bb  =  SparseLU ( )
+    bb.factorize(
+        tmp.rows,tmp.cols,tmp.values,tmp.shape
     )
-    return psi   +   tuple.solve(-  asembly.residual )
+    return psi   +   bb.solve(-  tmp.residual )
 
 
 def solve_poisson(device  :  Device, psi_initial  :   npt.NDArray [ np.float64 ], phi_n  : Field | None  =   None, phi_p   :  Field  |  None =   None, max_iterations  :  int   =  50, residual_rtol   :  float =  1e-10, update_tol  : float  =  1e-10, solver  :   SparseLU  | None  =  None , on_frame  :   Callable[ [ object  ] ,  None]  | None   =  None,)   ->  NewtonResult   :
-    buff=device.scale
-    meesh  = device.scaled_mesh
-    chargevolume =device.charge_volume_scaled
-    NetDoping = device.net_doping_scaled
+    ss=device.scale
+    hh  = device.scaled_mesh
+    f =device.charge_volume_scaled
+    cur = device.net_doping_scaled
 
-    dv=NetDoping.data
-    deg  = device.degeneracy
+    tmp2=cur.data
+    s  = device.degeneracy
     def assemble(psi_values : npt.NDArray[np.float64])->SparseAssembly :
         psi=Field(psi_values,'V',ScalingState.SCALED,Location.NODE,name = "psi")
-        assembly =  assemble_poisson(meesh, psi, NetDoping, phi_n, phi_p, charge_volume=chargevolume, degeneracy  = deg,)
+        rows =  assemble_poisson(hh, psi, cur, phi_n, phi_p, charge_volume=f, degeneracy  = s,)
         return apply_contacts(
-            assembly,
+            rows,
             psi_values,
-            dv,
+            tmp2,
             device.contacts,
-            buff,
+            ss,
             device.material.T,
-            deg,
+            s,
         )
-    min=float(np.max(np.abs(dv) * chargevolume))
-    dir , Right = meesh.geometry.ends ( meesh.n_edges )
-    ep = np.maximum(np.abs(psi_initial[dir]), np.abs(psi_initial[Right]))
-    fluxfloor= FLUX_FLOOR_MARGIN* EPS*float(np.max(meesh.geometry.weight*ep /meesh.h))
+    item=float(np.max(np.abs(tmp2) * f))
+    y , v = hh.geometry.ends ( hh.n_edges )
+    el = np.maximum(np.abs(psi_initial[y]), np.abs(psi_initial[v]))
+    aa= FLUX_FLOOR_MARGIN* EPS*float(np.max(hh.geometry.weight*el /hh.h))
 
-    residal_scale=min
-    if residual_rtol >  0.0 and residual_rtol  *   min  <   fluxfloor  :
-        residal_scale  =fluxfloor/ residual_rtol
-    return  newton_solve (assemble, psi_initial , max_step  =  MAX_PSI_STEP, residual_rtol  =  residual_rtol, residual_scale =  residal_scale , update_tol =  update_tol, max_iterations   =  max_iterations, solver  =  solver, on_iteration   = on_frame ,)
+    arr=item
+    if residual_rtol >  0.0 and residual_rtol  *   item  <   aa  :
+        arr  =aa/ residual_rtol
+    return  newton_solve (assemble, psi_initial , max_step  =  MAX_PSI_STEP, residual_rtol  =  residual_rtol, residual_scale =  arr , update_tol =  update_tol, max_iterations   =  max_iterations, solver  =  solver, on_iteration   = on_frame ,)
 
 def solve_equilibrium(device : Device, quasi_fermi  :  tuple[Field, Field] | None = None, max_iterations : int =50, residual_rtol  :  float= 1e-10, update_tol  : float = 1e-10, on_frame :Callable[[object], None] | None  = None,)  -> DeviceState :
     phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
-    dopingvalues =  device.net_doping_scaled.data
+    cc =  device.net_doping_scaled.data
 
-    degeneeracy = device.degeneracy
-    if degeneeracy is None:
-        id= np.asarray(psi_equilibrium_scaled(dopingvalues),dtype=np.float64)
+    b2 = device.degeneracy
+    if b2 is None:
+        item= np.asarray(psi_equilibrium_scaled(cc),dtype=np.float64)
     else :
-        id = np.asarray(
-            degeneeracy.equilibrium_psi(dopingvalues), dtype =np.float64
+        item = np.asarray(
+            b2.equilibrium_psi(cc), dtype =np.float64
         )
     if phi_n is not None and phi_p is not None:
-        out2= np.where(dopingvalues >=0.0,
+        k= np.where(cc >=0.0,
             phi_n.data,
                       phi_p.data)
-        id   =  id  + out2
+        item   =  item  + k
 
-    id= insulator_guess(device,id)
+    item= insulator_guess(device,item)
 
-    sum =solve_poisson(
+    w =solve_poisson(
         device,
-        id,
+        item,
         phi_n,
         phi_p,
         max_iterations =max_iterations,
@@ -143,34 +143,34 @@ def solve_equilibrium(device : Device, quasi_fermi  :  tuple[Field, Field] | Non
         on_frame=on_frame,
     )
 
-    if not  sum.converged  :
+    if not  w.converged  :
         raise RuntimeError(
-            f"equilibrium solve did not converge: {sum.message}. "
-            f"Residual history: {sum.residual_history}"
+            f"equilibrium solve did not converge: {w.message}. "
+            f"Residual history: {w.residual_history}"
         )
 
 
-    nlevel=0.0 if phi_n is None else phi_n.data
-    pl  =0.0 if phi_p is None else phi_p.data;psi =  Field(sum.x, "V", ScalingState.SCALED, Location.NODE, name= "psi")
+    w2=0.0 if phi_n is None else phi_n.data
+    yy  =0.0 if phi_p is None else phi_p.data;psi =  Field(w.x, "V", ScalingState.SCALED, Location.NODE, name= "psi")
 
-    xx =np.asarray(device.charge_volume_scaled)> 0.0
+    arr =np.asarray(device.charge_volume_scaled)> 0.0
     with np.errstate(over= "ignore"):
-        if degeneeracy is None  :
-            NRaw = np.asarray(n_boltzmann_scaled(sum.x,nlevel))
-            dir  =  np.asarray ( p_boltzmann_scaled (  sum.x,  pl  ))
+        if b2 is None  :
+            s = np.asarray(n_boltzmann_scaled(w.x,w2))
+            t  =  np.asarray ( p_boltzmann_scaled (  w.x,  yy  ))
         else:
-            NRaw=degeneeracy.electron_density(sum.x - nlevel)
+            s=b2.electron_density(w.x - w2)
 
-            dir = degeneeracy.hole_density(pl-sum.x)
-        nData=np.where(xx,NRaw,0.0)
-        PData   =  np.where(  xx,  dir,  0.0)
+            t = b2.hole_density(yy-w.x)
+        tmp=np.where(arr,s,0.0)
+        tmp2   =  np.where(  arr,  t,  0.0)
 
 
 
     return  DeviceState (
         psi  =  psi,
-        n  = Field (nData, "cm^-3" , ScalingState.SCALED ,  Location.NODE,   name =  "n"),
-        p  =   Field ( PData,   "cm^-3" ,   ScalingState.SCALED,  Location.NODE,   name   = "p" ),
-        newton  =  sum ,
-        degeneracy = degeneeracy ,
+        n  = Field (tmp, "cm^-3" , ScalingState.SCALED ,  Location.NODE,   name =  "n"),
+        p  =   Field ( tmp2,   "cm^-3" ,   ScalingState.SCALED,  Location.NODE,   name   = "p" ),
+        newton  =  w ,
+        degeneracy = b2 ,
     )

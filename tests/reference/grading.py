@@ -17,28 +17,28 @@ def  solve_ratio( side_length  : float, h_min  :  float, n_intervals   :  int ) 
         return None
     if  h_min >   side_length *   (  1.0  +  DEGENERATE_TOLERANCE  ) :
         return None
-    UniformTotal =  h_min  * n_intervals
-    if UniformTotal >side_length*(1.0 +DEGENERATE_TOLERANCE):
+    w =  h_min  * n_intervals
+    if w >side_length*(1.0 +DEGENERATE_TOLERANCE):
         return None
     if n_intervals  == 1 :
         return 1.0
-    if abs(UniformTotal-side_length)<=DEGENERATE_TOLERANCE *side_length:
+    if abs(w-side_length)<=DEGENERATE_TOLERANCE *side_length:
         return 1.0
 
-    Low, High =  1.0, 2.0
-    while geometric_sum(h_min,High,n_intervals)<side_length :
-        High *= 2.0
-        if High>1e6 :
+    x, t =  1.0, 2.0
+    while geometric_sum(h_min,t,n_intervals)<side_length :
+        t *= 2.0
+        if t>1e6 :
             return None
     for _ in range(200):
-        mid  =   0.5   *  ( Low  +  High  )
-        if  geometric_sum( h_min,  mid,   n_intervals  )  <  side_length  :
-            Low   = mid
+        a  =   0.5   *  ( x  +  t  )
+        if  geometric_sum( h_min,  a,   n_intervals  )  <  side_length  :
+            x   = a
         else :
-            High = mid
+            t = a
 
-        if High-Low<= RATIO_TOLERANCE *Low:
+        if t-x<= RATIO_TOLERANCE *x:
             break
 
 
-    return 0.5   *  (Low  +  High  )
+    return 0.5   *  (x  +  t  )

@@ -49,10 +49,10 @@ def surface_models(device) :
 
 
 def inverted(surface_models):
-    satte = None
-    for oct in(0.0,1.0,2.0) :
-        satte =solve_bias_newton(fet(oct),surface_models,guess=satte,max_iterations=60)
-    return satte
+    i = None
+    for y2 in(0.0,1.0,2.0) :
+        i =solve_bias_newton(fet(y2),surface_models,guess=i,max_iterations=60)
+    return i
 
 
 
@@ -66,32 +66,32 @@ def test_a_device_has_no_surface_model_unless_it_is_asked_for(bulk_models) :
 
 def test_a_solve_without_one_runs_a_single_newton_and_no_outer_loop(device,bulk_models):
 
-    vals  =  solve_bias_newton (  device,   bulk_models )
+    aa  =  solve_bias_newton (  device,   bulk_models )
 
-    assert vals.newton.converged
-    assert sweeps_taken(vals.newton) == 1
+    assert aa.newton.converged
+    assert sweeps_taken(aa.newton) == 1
 
 
 def test_surface_mobility_on_a_line_is_refused() :
-    dio =  pn_diode(Na   =  1e16 , Nd  =  1e16 ,  length = 2e-4, n_nodes  =   41 )
+    tmp3 =  pn_diode(Na   =  1e16 , Nd  =  1e16 ,  length = 2e-4, n_nodes  =   41 )
 
     with pytest.raises(TypeError, match=  "Mesh2D"):
-        TransportModels.for_device(dio, mobility = 'arora', surface  =True)
+        TransportModels.for_device(tmp3, mobility = 'arora', surface  =True)
 
 
 def test_the_converged_state_is_self_consistent(inverted,surface_models):
-    Device   = fet( 2.0  )
-    Refreshed  =   surface_models.at_state (
-        Device,   inverted.psi.data , inverted.n.data , inverted.p.data
+    row   = fet( 2.0  )
+    stuff  =   surface_models.at_state (
+        row,   inverted.psi.data , inverted.n.data , inverted.p.data
     )
 
 
 
-    Again  =  solve_bias_newton(Device, Refreshed, guess =  inverted, max_iterations= 60)
-    assert Again.newton.iterations  ==   0
-    np.testing.assert_array_equal(Again.psi.data, inverted.psi.data)
-    np.testing.assert_array_equal(Again.n.data,inverted.n.data)
-    np.testing.assert_array_equal(Again.p.data, inverted.p.data)
+    d2  =  solve_bias_newton(row, stuff, guess =  inverted, max_iterations= 60)
+    assert d2.newton.iterations  ==   0
+    np.testing.assert_array_equal(d2.psi.data, inverted.psi.data)
+    np.testing.assert_array_equal(d2.n.data,inverted.n.data)
+    np.testing.assert_array_equal(d2.p.data, inverted.p.data)
 
 
 
@@ -101,119 +101,119 @@ def test_reaching_it_takes_more_than_one_sweep(inverted)  :
 
 
 def  test_the_reported_cost_is_the_whole_cost(inverted  )  :
-    Result= inverted.newton
+    s= inverted.newton
 
-    assert  Result.converged
-    assert Result.iterations>=sweeps_taken(Result)
-    assert len(Result.update_history) == Result.iterations
+    assert  s.converged
+    assert s.iterations>=sweeps_taken(s)
+    assert len(s.update_history) == s.iterations
 
 
 
 def test_an_exhausted_sweep_budget_is_reported_as_not_converged(surface_models )  :
-    slice  =  solve_bias_newton(fet(2.0), surface_models, max_iterations  =  60, max_surface_sweeps = 1, surface_rtol  = 1e-14,)
-    assert not slice.newton.converged
-    assert "surface mobility" in slice.newton.message
+    res  =  solve_bias_newton(fet(2.0), surface_models, max_iterations  =  60, max_surface_sweeps = 1, surface_rtol  = 1e-14,)
+    assert not res.newton.converged
+    assert "surface mobility" in res.newton.message
 
 def test_the_oxide_keeps_its_bulk_mobility(inverted,
        surface_models):
-    deviice  =  fet(2.0)
-    Surface  = surface_models.surface
-    muN ,  mu  =  Surface.corrected(deviice,   inverted.psi.data, inverted.n.data,  inverted.p.data)
-    Oxide= list(deviice.carrier_free_nodes)
-    assert Oxide,'this device is supposed to have an oxide'
+    h  =  fet(2.0)
+    b  = surface_models.surface
+    tmp3 ,  a2  =  b.corrected(h,   inverted.psi.data, inverted.n.data,  inverted.p.data)
+    g= list(h.carrier_free_nodes)
+    assert g,'this device is supposed to have an oxide'
 
-    assert  np.all(  np.isfinite(muN  )  ) and  np.all (  np.isfinite (  mu))
-    np.testing.assert_array_equal(muN[Oxide], Surface.mu_bulk_n[Oxide])
-    np.testing.assert_array_equal(  mu[Oxide ],   Surface.mu_bulk_p [  Oxide ]  )
+    assert  np.all(  np.isfinite(tmp3  )  ) and  np.all (  np.isfinite (  a2))
+    np.testing.assert_array_equal(tmp3[g], b.mu_bulk_n[g])
+    np.testing.assert_array_equal(  a2[g ],   b.mu_bulk_p [  g ]  )
 
 
 
 def test_the_silicon_does_not_keep_its_bulk_mobility(inverted ,   surface_models)   :
-    item2 = surface_models.surface
-    mn,  _ =   item2.corrected(
+    d = surface_models.surface
+    cc,  _ =   d.corrected(
         fet(  2.0) ,   inverted.psi.data ,   inverted.n.data ,   inverted.p.data
     )
-    lst = item2.semiconductor
-    assert np.min(mn[lst] /item2.mu_bulk_n[lst])<0.5
+    t = d.semiconductor
+    assert np.min(cc[t] /d.mu_bulk_n[t])<0.5
 
 
 @pytest.fixture(scope ='module')
 
 
 def transfer_curves (device  )  :
-    Gates =[0.0, 1.0, 2.0]
+    z2 =[0.0, 1.0, 2.0]
 
-    tmp2={}
-    for Surface in(False,True) :
-        Models =TransportModels.for_device(device, mobility ="arora", surface  =  Surface)
-        cur =  gate_sweep(device, Gates, models= Models, max_iterations = 60)
-        tmp2[Surface]   = np.asarray(  cur.current.data  )
-    return tmp2
+    s2={}
+    for b in(False,True) :
+        zz =TransportModels.for_device(device, mobility ="arora", surface  =  b)
+        a =  gate_sweep(device, z2, models= zz, max_iterations = 60)
+        s2[b]   = np.asarray(  a.current.data  )
+    return s2
 
 def test_the_correction_dies_away_from_the_interface(inverted, surface_models)  :
 
-    Device = fet(2.0)
-    sur =surface_models.surface
-    MuN, _ =  sur.corrected(
-        Device, inverted.psi.data, inverted.n.data, inverted.p.data
+    g = fet(2.0)
+    m =surface_models.surface
+    t, _ =  m.corrected(
+        g, inverted.psi.data, inverted.n.data, inverted.p.data
     )
 
-    Ratio =(MuN /sur.mu_bulk_n).reshape(Device.mesh.y_axis.n_nodes,Device.mesh.x_axis.n_nodes)
-    Column= Ratio[:,Device.mesh.x_axis.n_nodes// 2]
+    z =(t /m.mu_bulk_n).reshape(g.mesh.y_axis.n_nodes,g.mesh.x_axis.n_nodes)
+    obj= z[:,g.mesh.x_axis.n_nodes// 2]
 
 
-    Interface =int(np.argmin(Column))
-    assert Column[Interface]  < 0.5
-    assert  Column [ 0  ]  == pytest.approx( 1.0,  abs  = 0.01 );assert np.all(np.diff(Column[:  Interface  +1]) <=0.0)
+    y =int(np.argmin(obj))
+    assert obj[y]  < 0.5
+    assert  obj [ 0  ]  == pytest.approx( 1.0,  abs  = 0.01 );assert np.all(np.diff(obj[:  y  +1]) <=0.0)
 
 
 def test_the_on_current_falls_by_the_factor_the_physics_doc_names(
     transfer_curves,
 ):
-    type=transfer_curves[False][-1]/transfer_curves[True][- 1]
+    z2=transfer_curves[False][-1]/transfer_curves[True][- 1]
 
-    assert 1.7 <type<3.0,f"on current fell by {type:.2f}x"
+    assert 1.7 <z2<3.0,f"on current fell by {z2:.2f}x"
 
 
 
 
 def  test_the_reduction_grows_with_gate_bias ( transfer_curves)  :
-    rtios   =   transfer_curves[False  ]  /  transfer_curves[ True  ]
-    assert np.all(np.diff(rtios) > 0.0)
+    dat   =   transfer_curves[False  ]  /  transfer_curves[ True  ]
+    assert np.all(np.diff(dat) > 0.0)
 
 
 
 
 def test_the_normal_field_at_the_channel_is_a_physical_number(inverted)  :
-    dev = fet(2.0)
-    Mesh =  dev.mesh
-    Silicon=np.ones(Mesh.n_nodes,
+    thing = fet(2.0)
+    tmp =  thing.mesh
+    e=np.ones(tmp.n_nodes,
           dtype=bool)
-    Silicon[list(dev.carrier_free_nodes)] =False
-    EE  =   normal_field (  Mesh, inverted.psi.data  *  dev.scale.psi_0)
-    arr= Mesh.nx //2
-    col  =  [ Mesh.node_at (  arr , Row )  for  Row in range(  Mesh.ny) ]
-    AtTheSurface = max(node for node in col if Silicon[node])
-    assert  1e5  < EE[AtTheSurface ]   <  2e6
+    e[list(thing.carrier_free_nodes)] =False
+    vals  =   normal_field (  tmp, inverted.psi.data  *  thing.scale.psi_0)
+    z= tmp.nx //2
+    a  =  [ tmp.node_at (  z , f )  for  f in range(  tmp.ny) ]
+    m = max(g for g in a if e[g])
+    assert  1e5  < vals[m ]   <  2e6
 
 
 def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
     device,surface_models
 ) :
-    Start=initial_state(device)
+    tt=initial_state(device)
 
-    X0 =pack(Start.psi.data,Start.n.data,Start.p.data)
+    y =pack(tt.psi.data,tt.n.data,tt.p.data)
 
-    buff= []
+    g= []
 
 
     def run(models,   x  )  :
-        buff.append(models)
-        if len(buff) ==  1:
+        g.append(models)
+        if len(g) ==  1:
 
             psi, n, p=  unpack(x)
-            moved  =pack(psi  + 0.5 *np.cos(np.arange(psi.size)), n, p)
-            return NewtonResult(x = moved , converged =   True, iterations   =   5, residual_history  = [ 1e-2, 1e-6 , 1e-9,   1e-12,  1e-14,   1e-15 ] , update_history =   [  1.0,  1e-3 ,   1e-6 ,  1e-9,   1e-12 ] ,)
+            out2  =pack(psi  + 0.5 *np.cos(np.arange(psi.size)), n, p)
+            return NewtonResult(x = out2 , converged =   True, iterations   =   5, residual_history  = [ 1e-2, 1e-6 , 1e-9,   1e-12,  1e-14,   1e-15 ] , update_history =   [  1.0,  1e-3 ,   1e-6 ,  1e-9,   1e-12 ] ,)
         return NewtonResult(
             x = x,
             converged=False,
@@ -223,29 +223,29 @@ def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
             message="stub refused to converge",
         )
 
-    resuult = _surface_fixed_point(device, surface_models, run, X0, max_sweeps = 10, rtol = 1e-8)
+    u = _surface_fixed_point(device, surface_models, run, y, max_sweeps = 10, rtol = 1e-8)
 
 
 
-    assert len(buff) == 2, "the first sweep converged, so a second must run";assert not resuult.converged
+    assert len(g) == 2, "the first sweep converged, so a second must run";assert not u.converged
 
-    assert  resuult.message  ==  'stub refused to converge'
-    assert resuult.iterations==7
-    assert len(resuult.update_history)==7
+    assert  u.message  ==  'stub refused to converge'
+    assert u.iterations==7
+    assert len(u.update_history)==7
 
 def test_at_state_leaves_models_without_a_surface_alone(bulk_models, device) :
 
-    sttate =  initial_state(device)
+    m =  initial_state(device)
 
 
-    assert(bulk_models.at_state(device,sttate.psi.data,sttate.n.data,sttate.p.data) is bulk_models)
+    assert(bulk_models.at_state(device,m.psi.data,m.n.data,m.p.data) is bulk_models)
 
 def test_the_constant_mobility_can_be_corrected_too(device) :
-    mod  =  TransportModels.for_device(
+    item  =  TransportModels.for_device(
         device,   mobility  = "constant" ,   surface  =   True
     )
-    Bulk =  mod.surface.mu_bulk_n
-    assert Bulk.shape == (device.mesh.n_nodes, );  np.testing.assert_allclose(Bulk,C.mu_n(device.material.T),rtol =1e-14)
+    b2 =  item.surface.mu_bulk_n
+    assert b2.shape == (device.mesh.n_nodes, );  np.testing.assert_allclose(b2,C.mu_n(device.material.T),rtol =1e-14)
 
 
 
@@ -269,130 +269,130 @@ def both_models(device) :
 
 
 def test_the_two_field_models_compose(both_models, transfer_curves, device) :
-    bin= gate_sweep(device, [0.0, 1.0, 2.0], models  = both_models, max_iterations  =60)
-    btoh =np.asarray(bin.current.data)
-    acc=transfer_curves[True]
+    g= gate_sweep(device, [0.0, 1.0, 2.0], models  = both_models, max_iterations  =60)
+    d =np.asarray(g.current.data)
+    it=transfer_curves[True]
 
-    assert  np.all(btoh[  1 :]   < acc[1 :] )
-    assert  np.all (  btoh[ 1  :] >  0.9  *  acc [  1 : ])
+    assert  np.all(d[  1 :]   < it[1 :] )
+    assert  np.all (  d[ 1  :] >  0.9  *  it [  1 : ])
 def test_the_fixed_point_reaches_through_the_saturation_wrapper(
     both_models,device
 ):
 
-    State =None
-    for gv in(0.0,1.0) :
-        State =  solve_bias_newton (fet( gv ),  both_models , guess  = State,   max_iterations  =  60)
-    assert State.newton.converged
+    d2 =None
+    for x2 in(0.0,1.0) :
+        d2 =  solve_bias_newton (fet( x2 ),  both_models , guess  = d2,   max_iterations  =  60)
+    assert d2.newton.converged
     assert isinstance (both_models.Dn ,
                     CaugheyThomas)
 
-    refreeshed  =  both_models.at_state(fet(  1.0 ),  State.psi.data,  State.n.data,  State.p.data)
-    assert isinstance (refreeshed.Dn,
+    bb  =  both_models.at_state(fet(  1.0 ),  d2.psi.data,  d2.n.data,  d2.p.data)
+    assert isinstance (bb.Dn,
                   CaugheyThomas  )
-    assert _surface_moved(refreeshed,refreeshed)==0.0
+    assert _surface_moved(bb,bb)==0.0
 
 
 
 def  test_a_cold_solve_with_velocity_saturation_converges(  )   :
-    Device=fet()
-    Models  =  TransportModels.for_device (
-        Device, mobility =  "arora",  field_dependent   =  True
+    tmp=fet()
+    m2  =  TransportModels.for_device (
+        tmp, mobility =  "arora",  field_dependent   =  True
     )
 
 
-    satte = solve_bias_newton(Device, Models, max_iterations= 60)
-    assert satte.newton.converged
-    assert satte.newton.iterations <  30
+    h = solve_bias_newton(tmp, m2, max_iterations= 60)
+    assert h.newton.converged
+    assert h.newton.iterations <  30
 
 
 def test_the_prelude_runs_only_where_it_is_needed(device) :
 
-    range = initial_state(device)
-    Field=TransportModels.for_device(
+    d = initial_state(device)
+    b=TransportModels.for_device(
         device, mobility = 'arora', field_dependent  = True
     )
-    bb= TransportModels.for_device(
+    bar= TransportModels.for_device(
         device,mobility="arora",surface=True
     )
 
-    Bulk  =TransportModels.for_device(device, mobility ="arora")
+    zz  =TransportModels.for_device(device, mobility ="arora")
 
-    assert _needs_a_low_field_prelude ( Field,  None )
-    assert not _needs_a_low_field_prelude(Field, range); assert not _needs_a_low_field_prelude(bb, None)
-    assert not  _needs_a_low_field_prelude(  Bulk ,  None)
+    assert _needs_a_low_field_prelude ( b,  None )
+    assert not _needs_a_low_field_prelude(b, d); assert not _needs_a_low_field_prelude(bar, None)
+    assert not  _needs_a_low_field_prelude(  zz ,  None)
 
 
 
 def test_the_prelude_models_carry_no_state_dependence(both_models):
-    loww  =  _low_field_models( both_models  )
+    num  =  _low_field_models( both_models  )
 
 
-    assert loww.surface is None ; assert not loww.field_dependent
-    assert not isinstance(loww.Dn, CaugheyThomas) ; assert not isinstance(loww.Dp, CaugheyThomas) ; np.testing.assert_array_equal(loww.Dn,both_models.Dn.low_field)
+    assert num.surface is None ; assert not num.field_dependent
+    assert not isinstance(num.Dn, CaugheyThomas) ; assert not isinstance(num.Dp, CaugheyThomas) ; np.testing.assert_array_equal(num.Dn,both_models.Dn.low_field)
 
 def test_the_prelude_is_counted_in_what_the_solve_cost(device) :
-    modls = TransportModels.for_device(device, mobility= "arora", field_dependent =True)
-    Cold   = solve_bias_newton(  device,  modls ,   max_iterations  =  60 )
-    data2  = solve_bias_newton(
-        device, _low_field_models(modls), max_iterations = 60
+    t = TransportModels.for_device(device, mobility= "arora", field_dependent =True)
+    k   = solve_bias_newton(  device,  t ,   max_iterations  =  60 )
+    xx  = solve_bias_newton(
+        device, _low_field_models(t), max_iterations = 60
     )
 
-    assert  Cold.newton.iterations >=  data2.newton.iterations
-    assert len(Cold.newton.update_history)==Cold.newton.iterations
+    assert  k.newton.iterations >=  xx.newton.iterations
+    assert len(k.newton.update_history)==k.newton.iterations
 
 
 def test_a_terminal_current_uses_the_diffusivity_the_answer_implies(
     surface_models,
 )   :
-    bytes =None
-    for bin in(0.0, 1.0, 2.0)  :
-        bytes   =  solve_bias_newton (fet(bin ) , surface_models, guess  = bytes, max_iterations  = 60, residual_rtol  =   1e-12,)
+    vv =None
+    for r in(0.0, 1.0, 2.0)  :
+        vv   =  solve_bias_newton (fet(r ) , surface_models, guess  = vv, max_iterations  = 60, residual_rtol  =   1e-12,)
 
 
 
-    currrents  =  terminal_currents(  fet(2.0 ),
-         bytes,
+    d  =  terminal_currents(  fet(2.0 ),
+         vv,
              surface_models )
-    tot= abs(sum(currrents.values()))
+    a= abs(sum(d.values()))
 
 
-    assert  tot   /  abs( currrents ["drain"  ] ) <  1e-8
+    assert  a   /  abs( d ["drain"  ] ) <  1e-8
 
 
 def test_a_vanished_diffusivity_counts_as_having_moved(surface_models) :
 
-    Ones   =   np.ones (  3 )
-    van=replace(surface_models,Dn= np.array([0.0,2.0,0.0]),Dp=Ones)
-    Grown  = replace (  surface_models,  Dn   =  np.array ([3.0,   2.0, 0.0  ]  ) ,   Dp  =  Ones  )
+    b   =   np.ones (  3 )
+    t=replace(surface_models,Dn= np.array([0.0,2.0,0.0]),Dp=b)
+    m  = replace (  surface_models,  Dn   =  np.array ([3.0,   2.0, 0.0  ]  ) ,   Dp  =  b  )
 
-    assert  _surface_moved (  van ,  Grown  ) ==  np.inf
-    assert _surface_moved(van,van)==0.0
-    assert _surface_moved(Grown,Grown)==0.0
+    assert  _surface_moved (  t ,  m  ) ==  np.inf
+    assert _surface_moved(t,t)==0.0
+    assert _surface_moved(m,m)==0.0
 
 
 def test_the_surface_model_alone_solves_at_a_drain_bias() :
 
-    Device  = nmos(**   { ** COARSE,   "gate_voltage"  : 1.2 ,   "drain_voltage"  :  0.3  } )
-    round=TransportModels.for_device(Device,mobility='arora',surface=True)
+    s  = nmos(**   { ** COARSE,   "gate_voltage"  : 1.2 ,   "drain_voltage"  :  0.3  } )
+    k=TransportModels.for_device(s,mobility='arora',surface=True)
 
-    gue=initial_state(Device)
-    at_guss =  round.at_state(Device, gue.psi.data, gue.n.data, gue.p.data)
-    assert np.any(np.asarray(at_guss.Dn) ==0.0),(
+    res=initial_state(s)
+    row =  k.at_state(s, res.psi.data, res.n.data, res.p.data)
+    assert np.any(np.asarray(row.Dn) ==0.0),(
         "the guess this test is about no longer has an edge with no mobility "
         "left on it, so the solve below proves nothing"
     )
 
-    sta=solve_bias_newton(Device,round,max_iterations =60)
+    m=solve_bias_newton(s,k,max_iterations =60)
 
 
-    assert sta.newton.converged,sta.newton.message
+    assert m.newton.converged,m.newton.message
 def  _trench_drawing(  ) :
     from ddsim.device.drawing import MOS_CAP_DRAWING, Block, drawing
-    blo, imp, t2 =MOS_CAP_DRAWING;  temp  =Block("oxide", 0.4e-5, 0.6e-5, 1.5e-4, 2e-4)
+    s, g, k =MOS_CAP_DRAWING;  f  =Block("oxide", 0.4e-5, 0.6e-5, 1.5e-4, 2e-4)
 
-    return drawing(  blo   +  (temp,   ),
-         imp ,
-                  t2,
+    return drawing(  s   +  (f,   ),
+         g ,
+                  k,
        nx  = 41)
 
 
@@ -406,13 +406,13 @@ def test_surface_mobility_refuses_a_vertical_interface() ->None:
 def test_the_trench_still_solves_without_surface_mobility( )  ->  None  :
     from ddsim.device.transport import TransportModels
 
-    Models  =  TransportModels.for_device(_trench_drawing( ) ,  mobility  = 'arora')
-    assert Models.surface is None
+    d  =  TransportModels.for_device(_trench_drawing( ) ,  mobility  = 'arora')
+    assert d.surface is None
 
 
 def test_a_drawing_with_only_flat_interfaces_takes_surface_mobility()->None :
 
     from ddsim.device.drawing import drawing; from ddsim.device.transport  import TransportModels
 
-    ord = TransportModels.for_device(drawing(), surface = True)
-    assert ord.surface  is not  None
+    j = TransportModels.for_device(drawing(), surface = True)
+    assert j.surface  is not  None

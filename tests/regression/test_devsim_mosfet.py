@@ -17,10 +17,10 @@ NOISE_FACTOR=3.0
 
 def test_process_mirrors_ddsim()  ->  None  :
     assert set(P.MOSFET_PROCESS )  ==  set(SHORT_CHANNEL_PROCESS ), ("the generator's process and ddsim's have different keys")
-    for val, iter in P.MOSFET_PROCESS.items()  :
-        assert  iter ==   SHORT_CHANNEL_PROCESS[val  ],  (
-            f"{val} is {iter} in the generator and "
-            f"{SHORT_CHANNEL_PROCESS[val]} in ddsim. The golden data was "
+    for r, k in P.MOSFET_PROCESS.items()  :
+        assert  k ==   SHORT_CHANNEL_PROCESS[r  ],  (
+            f"{r} is {k} in the generator and "
+            f"{SHORT_CHANNEL_PROCESS[r]} in ddsim. The golden data was "
             "solved with the generator's value, so it is stale. Regenerate "
             "it, do not edit the mirror."
         )
@@ -29,21 +29,21 @@ def test_process_mirrors_ddsim()  ->  None  :
 
 
 def test_the_surface_spacing_mirrors_ddsim() ->  None  :
-    ddsimspacing=inspect.signature(nmos).parameters["h_min_y"].default
-    for Benchmark in P.MOSFET_BENCHMARKS:
-        assert Benchmark.devsim_h_surface == pytest.approx(
-            ddsimspacing, rel  =1e-12
+    s2=inspect.signature(nmos).parameters["h_min_y"].default
+    for b in P.MOSFET_BENCHMARKS:
+        assert b.devsim_h_surface == pytest.approx(
+            s2, rel  =1e-12
         ), (
-            f"{Benchmark.name} meshes the silicon surface at "
-            f"{Benchmark.devsim_h_surface:.3e} cm for devsim and "
-            f"{ddsimspacing:.3e} for ddsim. Regenerate the golden data after "
+            f"{b.name} meshes the silicon surface at "
+            f"{b.devsim_h_surface:.3e} cm for devsim and "
+            f"{s2:.3e} for ddsim. Regenerate the golden data after "
             "matching them, do not edit one to suit the other."
         )
-        OxideCell  = float(P.MOSFET_PROCESS['t_ox']) / Benchmark.devsim_oxide_cells
-        assert OxideCell== pytest.approx(ddsimspacing,rel=1e-12),(
-            f"{Benchmark.name} puts a {OxideCell:.3e} cm oxide cell against a "
-            f"{ddsimspacing:.3e} silicon surface spacing, a seam ratio of "
-            f"{OxideCell / ddsimspacing:.3g}. Follow devsim_h_surface with "
+        info  = float(P.MOSFET_PROCESS['t_ox']) / b.devsim_oxide_cells
+        assert info== pytest.approx(s2,rel=1e-12),(
+            f"{b.name} puts a {info:.3e} cm oxide cell against a "
+            f"{s2:.3e} silicon surface spacing, a seam ratio of "
+            f"{info / s2:.3g}. Follow devsim_h_surface with "
             "devsim_oxide_cells, see references/pitfalls.md."
         )
 def test_full_stack_parameters_mirror_ddsim()->  None :
@@ -54,60 +54,60 @@ def test_full_stack_parameters_mirror_ddsim()->  None :
         JOYCE_DIXON_COEFFICIENTS,
         JOYCE_DIXON_MAX_U,
     )
-    for nmae, input, moedl in(
+    for dd, k, i in(
         ("electrons", P.ARORA_N, AroraMobility.electrons()),
         ("holes", P.ARORA_P, AroraMobility.holes()),
     ) :
-        assert input ==  (
-            moedl.mu_min,
-            moedl.mu_d,
-            moedl.N_ref,
-            moedl.exponent,
-        ), f"Arora for {nmae} has drifted from ddsim's"
-    for nmae,input,moedl in(
+        assert k ==  (
+            i.mu_min,
+            i.mu_d,
+            i.N_ref,
+            i.exponent,
+        ), f"Arora for {dd} has drifted from ddsim's"
+    for dd,k,i in(
         ("electrons",P.LOMBARDI_N,LombardiSurface.electrons()),
         ("holes",P.LOMBARDI_P,LombardiSurface.holes()),
     ):
-        assert  input   ==   {
-            "B"  : moedl.B,
-            "C"  :  moedl.C_ac,
-            "tau"  :  moedl.tau,
-            'delta'  :   moedl.delta ,
-            "A"   :  moedl.A ,
-            "alpha"  :  moedl.alpha ,
-            'eta'  :  moedl.eta,
-            'kappa'  : moedl.kappa,
-        }, f"Lombardi for {nmae} has drifted from ddsim's"
-        assert  P.E_PERP_FLOOR   ==   moedl.E_floor
+        assert  k   ==   {
+            "B"  : i.B,
+            "C"  :  i.C_ac,
+            "tau"  :  i.tau,
+            'delta'  :   i.delta ,
+            "A"   :  i.A ,
+            "alpha"  :  i.alpha ,
+            'eta'  :  i.eta,
+            'kappa'  : i.kappa,
+        }, f"Lombardi for {dd} has drifted from ddsim's"
+        assert  P.E_PERP_FLOOR   ==   i.E_floor
     assert P.V_SAT_N== C.V_SAT_N_300
     assert P.V_SAT_P  == C.V_SAT_P_300
     assert P.BETA_N==C.BETA_N
     assert  P.BETA_P ==   C.BETA_P
     assert P.NC_300==C.Nc()
     assert P.NV_300  == C.Nv(  )
-    assert P.JOYCE_DIXON ==  tuple(float(a) for a in JOYCE_DIXON_COEFFICIENTS)
+    assert P.JOYCE_DIXON ==  tuple(float(w) for w in JOYCE_DIXON_COEFFICIENTS)
     assert P.JOYCE_DIXON_MAX_U==JOYCE_DIXON_MAX_U
 
 
 
 def test_ddsim_resolves_the_implant()  ->None :
-    Process=SHORT_CHANNEL_PROCESS
-    sima, _ =  P.implant_shape(dict(Process))
-    stuff2 =  float( Process ['t_si'  ]  )
-    xj  = float(Process [ 'x_j'  ]  )
+    k=SHORT_CHANNEL_PROCESS
+    dd, _ =  P.implant_shape(dict(k))
+    d =  float( k ['t_si'  ]  )
+    t  = float(k [ 'x_j'  ]  )
 
-    vals =nmos(L_gate =  1e-4, degenerate =  False, ** Process)
-    Rows = np.asarray(vals.mesh.y_axis.x)
-    sil =  Rows[Rows <=  stuff2 *  ( 1.0 + 1e-12  )  ]
-    spaing   =  np.diff(  sil)
+    u =nmos(L_gate =  1e-4, degenerate =  False, ** k)
+    g = np.asarray(u.mesh.y_axis.x)
+    item =  g[g <=  d *  ( 1.0 + 1e-12  )  ]
+    flag   =  np.diff(  item)
 
 
-    ret =  spaing[sil[:- 1]  >  stuff2 - 2.0 * xj]
-    assert ret.size > 0
-    thing =  float(ret.max ( )  )
-    assert thing<0.5*sima,(
-        f"ddsim samples the implant at {thing / sima:.2f} sigma at worst "
-        f"({thing:.3e} cm against a sigma of {sima:.3e}), which is too coarse "
+    tmp3 =  flag[item[:- 1]  >  d - 2.0 * t]
+    assert tmp3.size > 0
+    arr =  float(tmp3.max ( )  )
+    assert arr<0.5*dd,(
+        f"ddsim samples the implant at {arr / dd:.2f} sigma at worst "
+        f"({arr:.3e} cm against a sigma of {dd:.3e}), which is too coarse "
         'to place the metallurgical junction. See P.H_DEPTH_SIGMAS for what '
         'that did to the reference.'
     )
@@ -115,43 +115,43 @@ def test_ddsim_resolves_the_implant()  ->None :
 @pytest.mark.parametrize('target',   [  1e-3 , 0.01, 0.1 , 0.5 ,  1.0,  1.5 ,  1.99  ] )
 
 def test_erfcinv_matches_the_library(target:float) -> None:
-    scipyspecial =  pytest.importorskip ( 'scipy.special' )
-    assert P.erfcinv(  target ) ==  pytest.approx (float( scipyspecial.erfcinv( target) ), rel   =  1e-12,   abs   = 1e-12)
+    z =  pytest.importorskip ( 'scipy.special' )
+    assert P.erfcinv(  target ) ==  pytest.approx (float( z.erfcinv( target) ), rel   =  1e-12,   abs   = 1e-12)
 
 def  test_first_resolved_point_trims_only_the_floor()   -> None :
 
 
-    next= 1e-2
-    hex = [1e-9, 1e-7, 1e-5, 1e-3, 1e-1]
-    assert P.first_resolved_point(  hex,  next )   == 0
+    kk= 1e-2
+    ys = [1e-9, 1e-7, 1e-5, 1e-3, 1e-1]
+    assert P.first_resolved_point(  ys,  kk )   == 0
 
-    Floored =[3.52e-11, 9.56e-12, 9.20e-10, 4.01e-9, 1.90e-8]
-    assert P.first_resolved_point(Floored,next)==1
+    k =[3.52e-11, 9.56e-12, 9.20e-10, 4.01e-9, 1.90e-8]
+    assert P.first_resolved_point(k,kk)==1
 
-    Negative  = [- 2.5e-10, -8.7e-11, 1.87e-12, 3.35e-10, 1.75e-9]
+    item  = [- 2.5e-10, -8.7e-11, 1.87e-12, 3.35e-10, 1.75e-9]
 
 
-    assert P.first_resolved_point(Negative, next)==2
+    assert P.first_resolved_point(item, kk)==2
 
 
 
 def test_first_resolved_point_refuses_to_trim_a_real_current() ->  None :
-    Target   =   1e-2
-    brokken   =  [5e-3 , 1e-3,  2e-2 ,   4e-2 , 8e-2 ]
+    u   =   1e-2
+    idx   =  [5e-3 , 1e-3,  2e-2 ,   4e-2 , 8e-2 ]
     with  pytest.raises(  AssertionError, match  =   'hiding a solver problem' )   :
-        P.first_resolved_point(brokken, Target)
+        P.first_resolved_point(idx, u)
 
 def test_implant_shape_matches_ddsim() ->None :
-    str ,  arr  =  P.implant_shape( P.MOSFET_PROCESS )
+    r ,  g  =  P.implant_shape( P.MOSFET_PROCESS )
 
-    Process=SHORT_CHANNEL_PROCESS
-    Na = - float(Process['substrate_doping'])
-    pea =  float(Process["sd_peak"])
-    item2  =  float(Process [  "x_j"] )  /   math.sqrt (2.0 *  math.log(  pea  /  Na))
-    assert str ==pytest.approx(item2,rel=1e-12)
-    assert arr > 0.0
+    h=SHORT_CHANNEL_PROCESS
+    Na = - float(h['substrate_doping'])
+    ys =  float(h["sd_peak"])
+    y  =  float(h [  "x_j"] )  /   math.sqrt (2.0 *  math.log(  ys  /  Na))
+    assert r ==pytest.approx(y,rel=1e-12)
+    assert g > 0.0
 
-    assert pea*0.5  *math.erfc(float(Process["lateral_diffusion"]) / arr) ==pytest.approx(Na, rel =  1e-9)
+    assert ys*0.5  *math.erfc(float(h["lateral_diffusion"]) / g) ==pytest.approx(Na, rel =  1e-9)
 
 
 
@@ -173,13 +173,13 @@ def test_golden_data_exists(benchmark : P.MosfetBenchmark) -> None  :
 def test_golden_header_records_its_provenance(
     benchmark  :  P.MosfetBenchmark,
 )  -> None :
-    cur = P.read_mosfet_golden(str(golden_path(benchmark)))
-    assert  cur.header["device" ]   == benchmark.name
-    assert cur.header["generator"].startswith('devsim ');  assert "generated on" in cur.header
-    assert 'mesh convergence' in cur.header
-    assert cur.header["statistics"]== "Boltzmann"
-    assert cur.header[ "mobility"  ].startswith(  "constant"  )
-    assert cur.header["recombination"].startswith('SRH only')
+    vv = P.read_mosfet_golden(str(golden_path(benchmark)))
+    assert  vv.header["device" ]   == benchmark.name
+    assert vv.header["generator"].startswith('devsim ');  assert "generated on" in vv.header
+    assert 'mesh convergence' in vv.header
+    assert vv.header["statistics"]== "Boltzmann"
+    assert vv.header[ "mobility"  ].startswith(  "constant"  )
+    assert vv.header["recombination"].startswith('SRH only')
 
 
 
@@ -188,19 +188,19 @@ def test_golden_header_matches_the_benchmark(
     benchmark:P.MosfetBenchmark,
 )->None:
 
-    cur=P.read_mosfet_golden(str(golden_path(benchmark)))
-    for  dir, sum  in (( "L_gate", benchmark.L_gate), (  "drain low" , benchmark.drain_low) , ( 'drain high',  benchmark.drain_high), ( "tolerance",   benchmark.tolerance ) ,)   :
-        assert float(cur.header[dir])  == pytest.approx(sum, rel = 1e-9), (
-            f"{dir} in {benchmark.name}.csv is {cur.header[dir]} but "
-            f"parameters.py now says {sum}. The golden data is stale."
+    k=P.read_mosfet_golden(str(golden_path(benchmark)))
+    for  m, d  in (( "L_gate", benchmark.L_gate), (  "drain low" , benchmark.drain_low) , ( 'drain high',  benchmark.drain_high), ( "tolerance",   benchmark.tolerance ) ,)   :
+        assert float(k.header[m])  == pytest.approx(d, rel = 1e-9), (
+            f"{m} in {benchmark.name}.csv is {k.header[m]} but "
+            f"parameters.py now says {d}. The golden data is stale."
         )
-    for dir,sum in P.MOSFET_PROCESS.items():
+    for m,d in P.MOSFET_PROCESS.items():
 
-        assert float (  cur.header [dir])  ==  pytest.approx( sum , rel  =   1e-9 ),  (
-            f"{dir} in {benchmark.name}.csv is {cur.header[dir]} but the "
-            f"process now says {sum}. The golden data is stale."
+        assert float (  k.header [m])  ==  pytest.approx( d , rel  =   1e-9 ),  (
+            f"{m} in {benchmark.name}.csv is {k.header[m]} but the "
+            f"process now says {d}. The golden data is stale."
         )
-    assert cur.gate_voltage ==pytest.approx(list(benchmark.gate_voltages)), (
+    assert k.gate_voltage ==pytest.approx(list(benchmark.gate_voltages)), (
         'the golden gate biases are not the ones parameters.py asks for'
     )
 
@@ -210,25 +210,25 @@ def test_golden_header_matches_the_benchmark(
 
 
 def test_golden_reference_is_converged(benchmark: P.MosfetBenchmark) ->  None:
-    cur = P.read_mosfet_golden(str(golden_path(benchmark)))
-    assert "mesh convergence" in cur.header,   (
+    ret = P.read_mosfet_golden(str(golden_path(benchmark)))
+    assert "mesh convergence" in ret.header,   (
         f"{benchmark.name} golden data carries no mesh convergence line, so "
         "the generator wrote its curves and then did not finish the halved "
         "mesh check. The curves may be fine and nothing here can tell. "
         'Re-run the generator.'
     )
 
-    temp= cur.header["mesh convergence"]; foo=temp.split()[0]
-    assert float(foo)< 0.1 * benchmark.tolerance,(
-        f"{benchmark.name} golden data is converged only to {foo}, which "
+    t= ret.header["mesh convergence"]; arr=t.split()[0]
+    assert float(arr)< 0.1 * benchmark.tolerance,(
+        f"{benchmark.name} golden data is converged only to {arr}, which "
         f"is not comfortably inside the {benchmark.tolerance} it is used to "
         "assert. Refine the generator mesh and regenerate."
     )
-    Skipped ,   Total   =   ( int ( word )   for word  in  temp.split (  )   if word.isdigit(  )  )
-    assert Skipped<0.5*Total,(
-        f"{benchmark.name} skipped {Skipped} of {Total} points as "
+    ii ,   num   =   ( int ( el )   for el  in  t.split (  )   if el.isdigit(  )  )
+    assert ii<0.5*num,(
+        f"{benchmark.name} skipped {ii} of {num} points as "
         "unmeasurable, so the convergence number covers less than half the "
-        f"curve and {foo} says little about the mesh."
+        f"curve and {arr} says little about the mesh."
     )
 
 
@@ -242,12 +242,12 @@ def test_golden_reference_is_converged(benchmark: P.MosfetBenchmark) ->  None:
 def test_golden_terminals_balance(
     benchmark:P.MosfetBenchmark,high:bool
 )->None :
-    cur = P.read_mosfet_golden(str(golden_path(benchmark)))
-    Worst  =  max(
-        cur.imbalance(index, high)  for index in range(len(cur.gate_voltage))
+    v = P.read_mosfet_golden(str(golden_path(benchmark)))
+    e  =  max(
+        v.imbalance(z2, high)  for z2 in range(len(v.gate_voltage))
     )
-    assert Worst<0.01,(
-        f"{benchmark.name} drain and source disagree by {Worst:.2%} at worst, "
+    assert e<0.01,(
+        f"{benchmark.name} drain and source disagree by {e:.2%} at worst, "
         "which is too much of the reference's own budget to be noise"
     )
 
@@ -256,12 +256,12 @@ _SOLVED:dict[tuple[str,float],IVCurve]={}
 
 
 def ddsim_curve(benchmark:P.MosfetBenchmark,drain:float)->IVCurve:
-    Key= (benchmark.name,drain)
-    if Key not in _SOLVED  :
-        dev = nmos(L_gate= benchmark.L_gate, drain_voltage = drain, degenerate  = False, **SHORT_CHANNEL_PROCESS,)
-        mdoels  = TransportModels.for_device(dev, mobility= 'constant')
-        _SOLVED[Key  ]  =   gate_sweep(dev ,  list ( benchmark.gate_voltages ) ,  models  =  mdoels)
-    return _SOLVED[Key]
+    mm= (benchmark.name,drain)
+    if mm not in _SOLVED  :
+        nxt = nmos(L_gate= benchmark.L_gate, drain_voltage = drain, degenerate  = False, **SHORT_CHANNEL_PROCESS,)
+        b  = TransportModels.for_device(nxt, mobility= 'constant')
+        _SOLVED[mm  ]  =   gate_sweep(nxt ,  list ( benchmark.gate_voltages ) ,  models  =  b)
+    return _SOLVED[mm]
 @pytest.mark.parametrize("benchmark", P.MOSFET_BENCHMARKS, ids = lambda b : b.name)
 
 @pytest.mark.parametrize("high",[False,True],ids= ["Vd_low",'Vd_high'])
@@ -273,11 +273,11 @@ def test_ddsim_reaches_every_golden_bias(
     benchmark :  P.MosfetBenchmark, high  : bool
 ) ->  None :
 
-    oct = benchmark.drain_high if high else benchmark.drain_low
-    idx2   =  ddsim_curve( benchmark ,  oct  )
+    res = benchmark.drain_high if high else benchmark.drain_low
+    r   =  ddsim_curve( benchmark ,  res  )
 
-    assert idx2.complete,f"ddsim stopped early: {idx2.message}"
-    assert  list(  idx2.voltage) ==  pytest.approx (list (benchmark.gate_voltages ))
+    assert r.complete,f"ddsim stopped early: {r.message}"
+    assert  list(  r.voltage) ==  pytest.approx (list (benchmark.gate_voltages ))
 
 
 
@@ -288,74 +288,74 @@ def test_ddsim_reaches_every_golden_bias(
 def test_ddsim_matches_devsim_drain_current(
     benchmark : P.MosfetBenchmark, high :bool
 )  -> None :
-    Golden  = P.read_mosfet_golden(str(golden_path(benchmark)))
-    drin = benchmark.drain_high if high else benchmark.drain_low;  currve=ddsim_curve(benchmark,drin)
-    Expected= Golden.drain_high if high else Golden.drain_low
-    fai :  list[str]  = []
-    wor=0.0
-    for Index, (ret, wnt, gott) in enumerate(
-        zip(Golden.gate_voltage, Expected, list(currve.current), strict  =True)
+    xs  = P.read_mosfet_golden(str(golden_path(benchmark)))
+    r2 = benchmark.drain_high if high else benchmark.drain_low;  h=ddsim_curve(benchmark,r2)
+    k= xs.drain_high if high else xs.drain_low
+    bb :  list[str]  = []
+    d=0.0
+    for y, (s2, t, m2) in enumerate(
+        zip(xs.gate_voltage, k, list(h.current), strict  =True)
     ):
-        if abs(wnt) < P.CURRENT_FLOOR_MOSFET :
-            if abs(gott)>=P.CURRENT_FLOOR_MOSFET:
+        if abs(t) < P.CURRENT_FLOOR_MOSFET :
+            if abs(m2)>=P.CURRENT_FLOOR_MOSFET:
 
-                fai.append(
-                    f"{ret:+.3f} V: devsim gives {wnt:.3e}, below the "
+                bb.append(
+                    f"{s2:+.3f} V: devsim gives {t:.3e}, below the "
                     f"{P.CURRENT_FLOOR_MOSFET:.3e} floor, but ddsim gives "
-                    f"{gott:.3e}"
+                    f"{m2:.3e}"
                 )
             continue
-        alloewd  =max(benchmark.tolerance, NOISE_FACTOR *Golden.imbalance(Index, high))
-        k2   =  abs(gott -   wnt )  /  abs( wnt  )
-        wor =max(wor, k2/ alloewd)
-        if k2 > alloewd :
-            fai.append(
-                f"{ret:+.3f} V: devsim {wnt:.6e}, ddsim {gott:.6e}, "
-                f"off by {k2:.2%}, allowed {alloewd:.2%}"
+        w  =max(benchmark.tolerance, NOISE_FACTOR *xs.imbalance(y, high))
+        c2   =  abs(m2 -   t )  /  abs( t  )
+        d =max(d, c2/ w)
+        if c2 > w :
+            bb.append(
+                f"{s2:+.3f} V: devsim {t:.6e}, ddsim {m2:.6e}, "
+                f"off by {c2:.2%}, allowed {w:.2%}"
             )
 
 
-    assert not  fai,   (
-        f"{benchmark.name} at Vd = {drin} V disagrees with DEVSIM at "
-        f"{len(fai)} of {len(Golden.gate_voltage)} points:\n  "
-        +  "\n  ".join(fai )
+    assert not  bb,   (
+        f"{benchmark.name} at Vd = {r2} V disagrees with DEVSIM at "
+        f"{len(bb)} of {len(xs.gate_voltage)} points:\n  "
+        +  "\n  ".join(bb )
     )
 
-    assert wor<=1.0
+    assert d<=1.0
 def _threshold(voltage:npt.NDArray[np.float64], current:npt.NDArray[np.float64], L_gate:float,)-> float:
-    v  =np.asarray(voltage, dtype = np.float64)
-    j=np.asarray(current, dtype = np.float64)
-    Target  = REFERENCE_CURRENT  /L_gate
+    hh  =np.asarray(voltage, dtype = np.float64)
+    h=np.asarray(current, dtype = np.float64)
+    idx  = REFERENCE_CURRENT  /L_gate
 
-    dir= P.first_resolved_point(j, Target)
-    return threshold_constant_current(v[dir :],j[dir:],Target)
+    prev= P.first_resolved_point(h, idx)
+    return threshold_constant_current(hh[prev :],h[prev:],idx)
 
 
 def  _devsim_thresholds(name  : str )  ->   tuple [float, float  ]   :
-    Benchmark =  P.MOSFET_BY_NAME[name]
-    gol  =  P.read_mosfet_golden (  str(golden_path(  Benchmark)  ) )
-    VV  =  np.asarray(gol.gate_voltage, dtype=  np.float64)
+    vals =  P.MOSFET_BY_NAME[name]
+    k  =  P.read_mosfet_golden (  str(golden_path(  vals)  ) )
+    h  =  np.asarray(k.gate_voltage, dtype=  np.float64)
     return(
-        _threshold(VV, np.asarray(gol.drain_low, dtype =  np.float64),
-                   Benchmark.L_gate),
-        _threshold(VV, np.asarray(gol.drain_high, dtype=np.float64),
-                   Benchmark.L_gate),
+        _threshold(h, np.asarray(k.drain_low, dtype =  np.float64),
+                   vals.L_gate),
+        _threshold(h, np.asarray(k.drain_high, dtype=np.float64),
+                   vals.L_gate),
     )
 def _ddsim_thresholds(name : str)->tuple[float,float] :
 
-    acc =P.MOSFET_BY_NAME[name]
-    Out  = [ ]
-    for zz in(acc.drain_low, acc.drain_high)  :
-        q   =   ddsim_curve( acc, zz )
-        assert q.complete ,   f"{name} at Vd = {zz} V: {q.message}"
-        Out.append(_threshold(q.voltage,q.current,acc.L_gate))
-    return Out[0],Out[1]
+    d =P.MOSFET_BY_NAME[name]
+    v  = [ ]
+    for z in(d.drain_low, d.drain_high)  :
+        r   =   ddsim_curve( d, z )
+        assert r.complete ,   f"{name} at Vd = {z} V: {r.message}"
+        v.append(_threshold(r.voltage,r.current,d.L_gate))
+    return v[0],v[1]
 
 @pytest.mark.parametrize( "name",   P.ROLLOFF_TREND )
 def  test_rolloff_golden_data_exists(  name  :  str  )   ->  None   :
-    obj2 = P.MOSFET_BY_NAME[name]
+    x = P.MOSFET_BY_NAME[name]
 
-    assert golden_path(obj2).is_file(), (
+    assert golden_path(x).is_file(), (
         f"no golden curves for {name}, so benchmark 9 is not running. "
         "Generate them with tests/regression/devsim_gen/generate_mosfet.py, "
         "see the README there."
@@ -364,41 +364,41 @@ def  test_rolloff_golden_data_exists(  name  :  str  )   ->  None   :
 
 @pytest.mark.parametrize('benchmark', P.ROLLOFF_BENCHMARKS, ids = lambda b : b.name)
 def test_rolloff_reference_is_converged(benchmark :P.MosfetBenchmark)->None:
-    Curve   =  P.read_mosfet_golden(  str(  golden_path(  benchmark )) )
-    assert 'mesh convergence' in Curve.header, (
+    g   =  P.read_mosfet_golden(  str(  golden_path(  benchmark )) )
+    assert 'mesh convergence' in g.header, (
         f"{benchmark.name} golden data carries no mesh convergence line, so "
         'the generator wrote its curves and then did not finish the halved '
         "mesh check. Re-run the generator."
     )
-    lne=  Curve.header["mesh convergence"]
+    x2=  g.header["mesh convergence"]
 
 
-    reportted =float(lne.split() [0])
-    assert reportted< benchmark.tolerance, (
-        f"{benchmark.name} golden data is converged only to {reportted:.3e}, "
+    s =float(x2.split() [0])
+    assert s< benchmark.tolerance, (
+        f"{benchmark.name} golden data is converged only to {s:.3e}, "
         f"which is not inside the {benchmark.tolerance} the roll-off and DIBL "
         'are compared to even before the attenuation is counted. Refine the '
         "generator mesh and regenerate."
     )
-    skippped,   tot = ( int (word)  for  word  in  lne.split ( )   if word.isdigit(  ))
-    assert skippped<0.5 *tot,(
-        f"{benchmark.name} skipped {skippped} of {tot} points as "
+    val,   t = ( int (b2)  for  b2  in  x2.split ( )   if b2.isdigit(  ))
+    assert val<0.5 *t,(
+        f"{benchmark.name} skipped {val} of {t} points as "
         "unmeasurable, so the convergence number covers less than half the "
-        f"curve and {reportted:.3e} says little about the mesh."
+        f"curve and {s:.3e} says little about the mesh."
     )
 
 @pytest.mark.parametrize("high",[False,True],ids =['Vd_low','Vd_high'])
 
 
 def test_rolloff_threshold_falls_in_both_codes(high:bool)->  None :
-    Index  =1 if high else 0
-    dev=[_devsim_thresholds(Name)[Index] for Name in P.ROLLOFF_TREND]
-    dds= [_ddsim_thresholds(Name) [Index]for Name in P.ROLLOFF_TREND]
-    for object, val in(('devsim', dev), ("ddsim", dds)) :
-        ste =  np.diff( np.asarray ( val)  )
-        assert np.all(ste <0.0), (
-            f"{object} threshold does not fall monotonically from 1 um to "
-            f"50 nm: {[f'{out2:+.4f}' for out2 in val]}"
+    s  =1 if high else 0
+    z2=[_devsim_thresholds(i)[s] for i in P.ROLLOFF_TREND]
+    v2= [_ddsim_thresholds(i) [s]for i in P.ROLLOFF_TREND]
+    for k, hh in(('devsim', z2), ("ddsim", v2)) :
+        w =  np.diff( np.asarray ( hh)  )
+        assert np.all(w <0.0), (
+            f"{k} threshold does not fall monotonically from 1 um to "
+            f"50 nm: {[f'{c:+.4f}' for c in hh]}"
         )
 
 
@@ -406,23 +406,23 @@ def test_rolloff_threshold_falls_in_both_codes(high:bool)->  None :
 
 def test_rolloff_magnitude_matches_devsim(high : bool)  ->None :
 
-    idex= 1 if high else 0
-    cnt=[_devsim_thresholds(Name)  [idex] for Name in P.ROLLOFF_TREND]
-    ddim  =  [ _ddsim_thresholds(  Name)  [ idex]  for Name  in P.ROLLOFF_TREND  ]
+    t2= 1 if high else 0
+    w=[_devsim_thresholds(t)  [t2] for t in P.ROLLOFF_TREND]
+    stuff  =  [ _ddsim_thresholds(  t)  [ t2]  for t  in P.ROLLOFF_TREND  ]
 
-    DevsimRolloff  =   cnt[ 0  ]   - cnt [  -  1  ]
-    ddsimRolloff =ddim[0]- ddim[- 1]
-    Relative =abs(ddsimRolloff -DevsimRolloff) / abs(DevsimRolloff)
+    e  =   w[ 0  ]   - w [  -  1  ]
+    g =stuff[0]- stuff[- 1]
+    x =abs(g -e) / abs(e)
 
-    pp="\n  ".join(
-        f"{Name}: devsim {d:+.4f} V, ddsim {s:+.4f} V, "
-        f"{(s - d) * 1000:+.1f} mV"
-        for Name,d,s in zip(P.ROLLOFF_TREND,cnt,ddim,strict=True)
+    c="\n  ".join(
+        f"{z2}: devsim {b:+.4f} V, ddsim {num:+.4f} V, "
+        f"{(num - b) * 1000:+.1f} mV"
+        for z2,b,num in zip(P.ROLLOFF_TREND,w,stuff,strict=True)
     )
-    assert Relative<= 0.10,(
-        f"roll-off from 1 um to 50 nm disagrees by {Relative:.1%}: devsim "
-        f"{DevsimRolloff * 1000:.1f} mV, ddsim {ddsimRolloff * 1000:.1f} mV."
-        f"\n  {pp}"
+    assert x<= 0.10,(
+        f"roll-off from 1 um to 50 nm disagrees by {x:.1%}: devsim "
+        f"{e * 1000:.1f} mV, ddsim {g * 1000:.1f} mV."
+        f"\n  {c}"
     )
 
 
@@ -433,20 +433,20 @@ def test_rolloff_magnitude_matches_devsim(high : bool)  ->None :
 def test_rolloff_dibl_matches_devsim(name  :  str)  ->None:
 
 
-    bar =P.MOSFET_BY_NAME[name]
-    stuff2  =  bar.drain_high -bar.drain_low
-    d, temp = _devsim_thresholds(name)
-    slin, sSat= _ddsim_thresholds(name)
-    dict=(d -temp)/ stuff2
-    k2=  (slin -sSat)  /stuff2
-    assert dict> 0.0, (
+    ok =P.MOSFET_BY_NAME[name]
+    num  =  ok.drain_high -ok.drain_low
+    t2, out2 = _devsim_thresholds(name)
+    dd, v= _ddsim_thresholds(name)
+    z=(t2 -out2)/ num
+    tmp3=  (dd -v)  /num
+    assert z> 0.0, (
         f"{name}: devsim puts the saturated threshold above the linear one, "
-        f"{temp:+.4f} V against {d:+.4f}, which is not DIBL"
+        f"{out2:+.4f} V against {t2:+.4f}, which is not DIBL"
     )
-    foo  = abs(k2  -dict)  / dict
-    assert foo<=0.10, (
-        f"{name} DIBL disagrees by {foo:.1%}: devsim "
-        f"{dict * 1000:.1f} mV/V, ddsim {k2 * 1000:.1f} mV/V"
+    y  = abs(tmp3  -z)  / z
+    assert y<=0.10, (
+        f"{name} DIBL disagrees by {y:.1%}: devsim "
+        f"{z * 1000:.1f} mV/V, ddsim {tmp3 * 1000:.1f} mV/V"
     )
 
 
@@ -456,37 +456,37 @@ _SOLVED_FULL : dict[tuple[str, float], IVCurve]= {}
 
 def ddsim_full_curve(benchmark:P.MosfetBenchmark,drain:float)->IVCurve:
 
-    next= (benchmark.name,drain)
-    if next not in _SOLVED_FULL:
-        dev = nmos(L_gate = benchmark.L_gate, drain_voltage=drain, **SHORT_CHANNEL_PROCESS,)
-        mod = TransportModels.for_device(dev, mobility =  "arora", field_dependent=True, surface  =True)
-        _SOLVED_FULL[next]= gate_sweep(
-            dev, list(benchmark.gate_voltages), models= mod
+    k= (benchmark.name,drain)
+    if k not in _SOLVED_FULL:
+        m = nmos(L_gate = benchmark.L_gate, drain_voltage=drain, **SHORT_CHANNEL_PROCESS,)
+        f = TransportModels.for_device(m, mobility =  "arora", field_dependent=True, surface  =True)
+        _SOLVED_FULL[k]= gate_sweep(
+            m, list(benchmark.gate_voltages), models= f
         )
-    return _SOLVED_FULL[next]
+    return _SOLVED_FULL[k]
 
 
 
 def _ddsim_full_thresholds(name:str)-> tuple[float,float]:
 
 
-    idx2 =   P.MOSFET_BY_NAME[ name ]
-    Out=  []
-    for dain in(idx2.drain_low,idx2.drain_high):
-        cur = ddsim_full_curve(idx2, dain)
-        assert cur.complete, f"{name} at Vd = {dain} V: {cur.message}"
-        Out.append(_threshold(cur.voltage,
-                     cur.current,
-               idx2.L_gate))
+    nxt =   P.MOSFET_BY_NAME[ name ]
+    a=  []
+    for bb in(nxt.drain_low,nxt.drain_high):
+        s = ddsim_full_curve(nxt, bb)
+        assert s.complete, f"{name} at Vd = {bb} V: {s.message}"
+        a.append(_threshold(s.voltage,
+                     s.current,
+               nxt.L_gate))
 
-    return Out[0], Out[1]
+    return a[0], a[1]
 
 
 @pytest.mark.parametrize ( "name" ,  P.FULL_STACK_TREND)
 
 def test_full_stack_golden_data_exists(name :str) ->None:
-    ben=P.MOSFET_BY_NAME[name]
-    assert golden_path(ben).is_file(),(
+    ret=P.MOSFET_BY_NAME[name]
+    assert golden_path(ret).is_file(),(
         f"no golden curves for {name}, so benchmark 10 is not running and "
         "nothing in tier 4 compares either mobility model or the statistics "
         'against an outside code. Generate them with '
@@ -500,10 +500,10 @@ def test_full_stack_golden_data_exists(name :str) ->None:
 
 
 def test_full_stack_header_records_the_models(name :  str) ->  None:
-    x2  =  P.read_mosfet_golden(  str(  golden_path(  P.MOSFET_BY_NAME [name  ])  ) )
-    assert x2.header["statistics"].startswith('Fermi-Dirac') ; assert x2.header['mobility'].startswith('Arora')
-    assert 'Lombardi' in x2.header['mobility']
-    assert 'Caughey-Thomas' in x2.header["mobility"]
+    e  =  P.read_mosfet_golden(  str(  golden_path(  P.MOSFET_BY_NAME [name  ])  ) )
+    assert e.header["statistics"].startswith('Fermi-Dirac') ; assert e.header['mobility'].startswith('Arora')
+    assert 'Lombardi' in e.header['mobility']
+    assert 'Caughey-Thomas' in e.header["mobility"]
 
 @pytest.mark.parametrize(
     "benchmark", P.FULL_STACK_BENCHMARKS, ids  =  lambda  b  :   b.name
@@ -512,26 +512,26 @@ def test_full_stack_header_records_the_models(name :  str) ->  None:
 def test_full_stack_reference_is_converged(
     benchmark : P.MosfetBenchmark,
 )->None :
-    Curve  =  P.read_mosfet_golden(  str(  golden_path( benchmark  )  ))
-    assert 'mesh convergence' in  Curve.header,   (
+    rr  =  P.read_mosfet_golden(  str(  golden_path( benchmark  )  ))
+    assert 'mesh convergence' in  rr.header,   (
         f"{benchmark.name} golden data carries no mesh convergence line, so "
         "the generator wrote its curves and then did not finish the halved "
         "mesh check. Re-run the generator."
     )
-    buff =Curve.header["mesh convergence"]
+    x =rr.header["mesh convergence"]
 
-    Reported=  float(buff.split() [0])
-    assert  Reported <  benchmark.tolerance,   (
-        f"{benchmark.name} golden data is converged only to {Reported:.3e}, "
+    d=  float(x.split() [0])
+    assert  d <  benchmark.tolerance,   (
+        f"{benchmark.name} golden data is converged only to {d:.3e}, "
         f"which is not inside the {benchmark.tolerance} the roll-off and DIBL "
         'are compared to even before the attenuation is counted. Refine the '
         "generator mesh and regenerate."
     )
-    Skipped, tot =(int(word) for word in buff.split() if word.isdigit())
-    assert Skipped <0.5 *tot,(
-        f"{benchmark.name} skipped {Skipped} of {tot} points as "
+    t, i =(int(v) for v in x.split() if v.isdigit())
+    assert t <0.5 *i,(
+        f"{benchmark.name} skipped {t} of {i} points as "
         "unmeasurable, so the convergence number covers less than half the "
-        f"curve and {Reported:.3e} says little about the mesh."
+        f"curve and {d:.3e} says little about the mesh."
     )
 
 FULL_STACK_FLOOR   =  1e-5
@@ -549,27 +549,27 @@ LOAD_BEARING   = 1e-4
 def test_full_stack_golden_terminals_balance(
     benchmark :P.MosfetBenchmark,high :bool
 ) ->None :
-    lst= P.read_mosfet_golden(str(golden_path(benchmark)))
-    arr =  lst.drain_high if high else lst.drain_low
-    flo=LOAD_BEARING*REFERENCE_CURRENT/benchmark.L_gate
+    w2= P.read_mosfet_golden(str(golden_path(benchmark)))
+    c =  w2.drain_high if high else w2.drain_low
+    e=LOAD_BEARING*REFERENCE_CURRENT/benchmark.L_gate
 
 
-    Worst,WorstAt= 0.0,0.0
+    m,d= 0.0,0.0
 
-    for Index, tmp2 in enumerate(arr):
-        if abs(tmp2)  <flo :
+    for ys, v in enumerate(c):
+        if abs(v)  <e :
 
             continue
 
 
-        outt =lst.imbalance(Index,
+        el =w2.imbalance(ys,
              high)
-        if outt > Worst  :
-            Worst , WorstAt  =   outt,  lst.gate_voltage[Index ]
+        if el > m  :
+            m , d  =   el,  w2.gate_voltage[ys ]
 
-    assert Worst<0.01,(
-        f"{benchmark.name} drain and source disagree by {Worst:.2%} at "
-        f"{WorstAt:+.2f} V of gate, where the current is within four decades "
+    assert m<0.01,(
+        f"{benchmark.name} drain and source disagree by {m:.2%} at "
+        f"{d:+.2f} V of gate, where the current is within four decades "
         'of the one the threshold is read at. That is too much of the '
         "reference's own budget to be noise"
     )
@@ -584,10 +584,10 @@ def test_full_stack_golden_terminals_balance(
 def  test_full_stack_ddsim_reaches_every_golden_bias(
     benchmark   :  P.MosfetBenchmark , high  : bool
 ) ->  None  :
-    drrain= benchmark.drain_high if high else benchmark.drain_low
-    cruve =ddsim_full_curve(benchmark, drrain)
+    k2= benchmark.drain_high if high else benchmark.drain_low
+    yy =ddsim_full_curve(benchmark, k2)
 
-    assert cruve.complete,f"ddsim stopped early: {cruve.message}";  assert list(cruve.voltage)==pytest.approx(list(benchmark.gate_voltages))
+    assert yy.complete,f"ddsim stopped early: {yy.message}";  assert list(yy.voltage)==pytest.approx(list(benchmark.gate_voltages))
 
 
 
@@ -600,37 +600,37 @@ def  test_full_stack_ddsim_reaches_every_golden_bias(
 @pytest.mark.parametrize("high",[False,True],ids=['Vd_low',"Vd_high"])
 
 def test_full_stack_drain_current_matches_devsim(benchmark:P.MosfetBenchmark,high :bool) ->None :
-    vals  = P.read_mosfet_golden(str(golden_path(benchmark)))
-    Drain  =  benchmark.drain_high if high  else benchmark.drain_low;idx2   =  ddsim_full_curve( benchmark,  Drain )
-    thing= vals.drain_high if high else vals.drain_low
-    flor = FULL_STACK_FLOOR *REFERENCE_CURRENT  / benchmark.L_gate
+    ii  = P.read_mosfet_golden(str(golden_path(benchmark)))
+    w  =  benchmark.drain_high if high  else benchmark.drain_low;r   =  ddsim_full_curve( benchmark,  w )
+    flag= ii.drain_high if high else ii.drain_low
+    d = FULL_STACK_FLOOR *REFERENCE_CURRENT  / benchmark.L_gate
 
 
 
-    fai:list[str] =[]
-    wor  =0.0
-    for Index,(sorted,Want,Got) in enumerate(zip(vals.gate_voltage,thing,list(idx2.current),strict=True)):
-        if abs(Want) <flor  :
-            if abs(Got)>= flor :
-                fai.append(
-                    f"{sorted:+.3f} V: devsim gives {Want:.3e}, below the "
-                    f"{flor:.3e} floor, but ddsim gives {Got:.3e}"
+    c:list[str] =[]
+    a2  =0.0
+    for x,(w2,buf,g) in enumerate(zip(ii.gate_voltage,flag,list(r.current),strict=True)):
+        if abs(buf) <d  :
+            if abs(g)>= d :
+                c.append(
+                    f"{w2:+.3f} V: devsim gives {buf:.3e}, below the "
+                    f"{d:.3e} floor, but ddsim gives {g:.3e}"
                 )
             continue
-        all = max(
-            benchmark.tolerance, NOISE_FACTOR* vals.imbalance(Index, high)
+        t = max(
+            benchmark.tolerance, NOISE_FACTOR* ii.imbalance(x, high)
         )
-        realtive=abs(Got- Want) / abs(Want)
-        wor =  max ( wor,   realtive )
-        if realtive> all:
-            fai.append (
-                f"{sorted:+.3f} V: devsim {Want:.6e}, ddsim {Got:.6e}, "
-                f"{realtive:.2%} against {all:.2%} allowed"
+        m=abs(g- buf) / abs(buf)
+        a2 =  max ( a2,   m )
+        if m> t:
+            c.append (
+                f"{w2:+.3f} V: devsim {buf:.6e}, ddsim {g:.6e}, "
+                f"{m:.2%} against {t:.2%} allowed"
             )
 
-    assert  not  fai,  (
-        f"{benchmark.name} at Vd = {Drain} V, worst {wor:.2%}:\n  "
-        +  "\n  ".join(  fai)
+    assert  not  c,  (
+        f"{benchmark.name} at Vd = {w} V, worst {a2:.2%}:\n  "
+        +  "\n  ".join(  c)
     )
 
 
@@ -641,17 +641,17 @@ def test_full_stack_drain_current_matches_devsim(benchmark:P.MosfetBenchmark,hig
 def test_full_stack_threshold_falls_in_both_codes(  high  :  bool)  -> None  :
 
 
-    Index=1 if high else 0
-    dev= [_devsim_thresholds(Name)  [Index] for Name in P.FULL_STACK_TREND]
+    k2=1 if high else 0
+    g= [_devsim_thresholds(t)  [k2] for t in P.FULL_STACK_TREND]
 
-    Ddsim  =  [_ddsim_full_thresholds(Name) [Index]  for Name in P.FULL_STACK_TREND]
+    k  =  [_ddsim_full_thresholds(t) [k2]  for t in P.FULL_STACK_TREND]
 
-    for res,val in(('devsim',dev),("ddsim",Ddsim)) :
-        ste=np.diff(np.asarray(val))
+    for ys,a in(('devsim',g),("ddsim",k)) :
+        c=np.diff(np.asarray(a))
 
-        assert np.all(ste  <   0.0 ),  (
-            f"{res} threshold does not fall monotonically from 1 um to "
-            f"50 nm: {[f'{lst:+.4f}' for lst in val]}"
+        assert np.all(c  <   0.0 ),  (
+            f"{ys} threshold does not fall monotonically from 1 um to "
+            f"50 nm: {[f'{tmp:+.4f}' for tmp in a]}"
         )
 
 
@@ -663,21 +663,21 @@ def test_full_stack_threshold_falls_in_both_codes(  high  :  bool)  -> None  :
 
 def  test_full_stack_rolloff_matches_devsim ( high  :  bool)   -> None :
 
-    Index  =   1  if  high  else  0
-    Devsim= [_devsim_thresholds(Name)[Index]for Name in P.FULL_STACK_TREND]
-    bin  =   [_ddsim_full_thresholds ( Name  )  [ Index  ]   for Name in P.FULL_STACK_TREND]
-    dev =  Devsim [ 0 ]  - Devsim[ -  1  ]
-    w=bin[0] -bin[-1]
-    rel=abs(w - dev)/abs(dev)
-    perPoint ="\n  ".join(
-        f"{Name}: devsim {d:+.4f} V, ddsim {s:+.4f} V, "
-        f"{(s - d) * 1000:+.1f} mV"
-        for Name, d, s in zip(P.FULL_STACK_TREND, Devsim, bin, strict=  True)
+    z2  =   1  if  high  else  0
+    ii= [_devsim_thresholds(j)[z2]for j in P.FULL_STACK_TREND]
+    out  =   [_ddsim_full_thresholds ( j  )  [ z2  ]   for j in P.FULL_STACK_TREND]
+    jj =  ii [ 0 ]  - ii[ -  1  ]
+    idx=out[0] -out[-1]
+    row=abs(idx - jj)/abs(jj)
+    t ="\n  ".join(
+        f"{w}: devsim {cur:+.4f} V, ddsim {val2:+.4f} V, "
+        f"{(val2 - cur) * 1000:+.1f} mV"
+        for w, cur, val2 in zip(P.FULL_STACK_TREND, ii, out, strict=  True)
     )
-    assert rel <= 0.10,(
-        f"roll-off from 1 um to 50 nm disagrees by {rel:.1%}: devsim "
-        f"{dev * 1000:.1f} mV, ddsim {w * 1000:.1f} mV."
-        f"\n  {perPoint}"
+    assert row <= 0.10,(
+        f"roll-off from 1 um to 50 nm disagrees by {row:.1%}: devsim "
+        f"{jj * 1000:.1f} mV, ddsim {idx * 1000:.1f} mV."
+        f"\n  {t}"
     )
 
 
@@ -685,23 +685,23 @@ def  test_full_stack_rolloff_matches_devsim ( high  :  bool)   -> None :
 
 
 def  test_full_stack_dibl_matches_devsim(name   :   str ) ->  None :
-    temp2  =   P.MOSFET_BY_NAME [  name  ]
-    idx2= temp2.drain_high -temp2.drain_low
+    out2  =   P.MOSFET_BY_NAME [  name  ]
+    j= out2.drain_high -out2.drain_low
 
-    DLin,d=_devsim_thresholds(name)
-    sLin,sSat= _ddsim_full_thresholds(name)
+    t,val2=_devsim_thresholds(name)
+    x,m= _ddsim_full_thresholds(name)
 
 
-    dd=(DLin- d) /idx2
-    ddsimDibl =  (  sLin - sSat  ) / idx2
+    a=(t- val2) /j
+    a2 =  (  x - m  ) / j
 
-    assert dd>0.0,(
+    assert a>0.0,(
         f"{name}: devsim puts the saturated threshold above the linear one, "
-        f"{d:+.4f} V against {DLin:+.4f}, which is not DIBL"
+        f"{val2:+.4f} V against {t:+.4f}, which is not DIBL"
     )
-    relaative =  abs ( ddsimDibl  - dd )  /  dd
-    assert relaative  <=0.10, (
-        f"{name}: DIBL disagrees by {relaative:.1%}, devsim "
-        f"{dd * 1000:.1f} mV/V against ddsim "
-        f"{ddsimDibl * 1000:.1f} mV/V"
+    jj =  abs ( a2  - a )  /  a
+    assert jj  <=0.10, (
+        f"{name}: DIBL disagrees by {jj:.1%}, devsim "
+        f"{a * 1000:.1f} mV/V against ddsim "
+        f"{a2 * 1000:.1f} mV/V"
     )

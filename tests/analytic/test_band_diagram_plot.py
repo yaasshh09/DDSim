@@ -12,64 +12,64 @@ OUTPUT  = pathlib.Path(__file__).parents[2] / 'images'
 
 
 def test_band_diagram_is_generated() -> None:
-    bb  =  pn_diode(Na = 1e16, Nd  = 1e16, length =  4e-4, junction=  2e-4, n_nodes= 801)
-    filter  =  solve_equilibrium( bb  )
+    z  =  pn_diode(Na = 1e16, Nd  = 1e16, length =  4e-4, junction=  2e-4, n_nodes= 801)
+    tmp  =  solve_equilibrium( z  )
 
-    X= bb.mesh.x*1e4
-    psi= filter.psi.to_physical(bb.scale).data
-    n=filter.n.to_physical(bb.scale).data
+    v= z.mesh.x*1e4
+    psi= tmp.psi.to_physical(z.scale).data
+    n=tmp.n.to_physical(z.scale).data
 
-    p=filter.p.to_physical(bb.scale).data
+    p=tmp.p.to_physical(z.scale).data
 
-    chr   =  0.5 *   C.Eg ()
-    EI = - psi
-    blah =  EI + chr ; EV  =EI - chr
-    EF =np.zeros_like(X)
+    b   =  0.5 *   C.Eg ()
+    s2 = - psi
+    k =  s2 + b ; c  =s2 - b
+    ys =np.zeros_like(v)
 
 
 
-    fieeld = -  np.diff (psi)  /   bb.mesh.h
-    cenrtes =0.5 * (X[:- 1] + X[1  :])
-    fig,aes = plt.subplots(3,1,figsize =(7.5,9),sharex= True)
-    aes[0].plot(X,blah,label= '$E_c$')
-    aes[0].plot(X,EV,label= '$E_v$')
-    aes[0  ].plot(X, EI,   "--",  linewidth  =   0.9 ,  label =   '$E_i$'  )
-    aes[0].plot(X,EF,':',linewidth =1.2,label= "$E_F$")
+    r = -  np.diff (psi)  /   z.mesh.h
+    tmp3 =0.5 * (v[:- 1] + v[1  :])
+    d,mm = plt.subplots(3,1,figsize =(7.5,9),sharex= True)
+    mm[0].plot(v,k,label= '$E_c$')
+    mm[0].plot(v,c,label= '$E_v$')
+    mm[0  ].plot(v, s2,   "--",  linewidth  =   0.9 ,  label =   '$E_i$'  )
+    mm[0].plot(v,ys,':',linewidth =1.2,label= "$E_F$")
 
-    aes[0].set_ylabel("energy [eV]")
-    aes[0].legend(loc =  'center right',
+    mm[0].set_ylabel("energy [eV]")
+    mm[0].legend(loc =  'center right',
               fontsize =  8)
-    res =  psi[- 1] -psi[0]
+    j =  psi[- 1] -psi[0]
 
-    aes[  0].set_title(
-        f"PN diode at equilibrium, 1e16 / 1e16, $V_{{bi}}$ = {res:.4f} V"
+    mm[  0].set_title(
+        f"PN diode at equilibrium, 1e16 / 1e16, $V_{{bi}}$ = {j:.4f} V"
     )
-    aes[1].semilogy(X, n, label=  "$n$")
-    aes[1].semilogy(X,
+    mm[1].semilogy(v, n, label=  "$n$")
+    mm[1].semilogy(v,
                    p,
                 label = "$p$")
-    aes[1 ].axhline(  C.n_i(  ) ,   color  =  "grey",   linestyle  =   ':' ,  linewidth  =  0.9)
-    aes[1].set_ylabel('density [cm$^{-3}$]')
-    aes[1].set_ylim(1e2, 1e18)
-    aes [  1 ].legend(  loc   =  "center right" ,  fontsize   =  8)
+    mm[1 ].axhline(  C.n_i(  ) ,   color  =  "grey",   linestyle  =   ':' ,  linewidth  =  0.9)
+    mm[1].set_ylabel('density [cm$^{-3}$]')
+    mm[1].set_ylim(1e2, 1e18)
+    mm [  1 ].legend(  loc   =  "center right" ,  fontsize   =  8)
 
-    aes[2].plot(cenrtes,fieeld*1e-3)
-    aes[2  ].set_ylabel( "field [kV/cm]" )
-    aes[2].set_xlabel("position [um]")
-    for axi in aes:
-        axi.grid(  alpha  =  0.25, linewidth  =   0.5)
-
-
-    fig.tight_layout()
-    OUTPUT.mkdir(parents  = True, exist_ok =  True) ; ret  =   OUTPUT  /   "pn_diode_equilibrium.png"
-    fig.savefig(ret,dpi = 140)
-    plt.close(fig)
-
-    assert ret.exists( )
-    assert ret.stat().st_size>10_000
+    mm[2].plot(tmp3,r*1e-3)
+    mm[2  ].set_ylabel( "field [kV/cm]" )
+    mm[2].set_xlabel("position [um]")
+    for g in mm:
+        g.grid(  alpha  =  0.25, linewidth  =   0.5)
 
 
-    assert  res  ==   pytest.approx (
+    d.tight_layout()
+    OUTPUT.mkdir(parents  = True, exist_ok =  True) ; u  =   OUTPUT  /   "pn_diode_equilibrium.png"
+    d.savefig(u,dpi = 140)
+    plt.close(d)
+
+    assert u.exists( )
+    assert u.stat().st_size>10_000
+
+
+    assert  j  ==   pytest.approx (
         C.V_T(  )   * math.log(1e16  * 1e16   /  C.n_i()  **  2  ) ,   rel  =  5e-3
     )
     assert n.max() /  n.min()  >  1e10

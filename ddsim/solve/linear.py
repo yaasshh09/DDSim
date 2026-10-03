@@ -34,19 +34,19 @@ class _CSCPattern  :
 
 
     def data(self, values :npt.NDArray[Number]) -> npt.NDArray[Number]  :
-        gat = values[self.order]
-        if np.iscomplexobj (gat  ) :
-            sum= np.zeros(self.n_entries, dtype = gat.dtype)
+        foo = values[self.order]
+        if np.iscomplexobj (foo  ) :
+            arr= np.zeros(self.n_entries, dtype = foo.dtype)
 
-            np.add.at( sum, self.group,   gat  )
-            return cast('npt.NDArray[Number]',sum)
+            np.add.at( arr, self.group,   foo  )
+            return cast('npt.NDArray[Number]',arr)
 
 
         return cast(
             "npt.NDArray[Number]",
             np.bincount (
                 self.group,
-                weights  = cast("npt.NDArray[np.float64]",   gat),
+                weights  = cast("npt.NDArray[np.float64]",   foo),
                 minlength =  self.n_entries,
             ),
         )
@@ -59,26 +59,26 @@ def _build_pattern(
     cols:  npt.NDArray[np.integer],
     shape :tuple[int, int],
 ) ->tuple[_CSCPattern, npt.NDArray[np.int32], npt.NDArray[np.int32]] :
-    oct =  shape[1]
-    aa =np.lexsort((rows, cols))
-    sortedrows= rows[aa]
-    sor   =   cols[ aa  ]
-    yy=np.empty(aa.size,dtype= bool)
-    yy[ 0  ]  = True
-    yy[1 :]  =  (sortedrows[1 :] !=  sortedrows[:-  1]) | (sor[1:]!=  sor[:- 1])
+    tmp =  shape[1]
+    f =np.lexsort((rows, cols))
+    cc= rows[f]
+    tt   =   cols[ f  ]
+    s=np.empty(f.size,dtype= bool)
+    s[ 0  ]  = True
+    s[1 :]  =  (cc[1 :] !=  cc[:-  1]) | (tt[1:]!=  tt[:- 1])
 
 
-    grooup  = np.cumsum(yy)  - 1
-    Indices=np.ascontiguousarray(sortedrows[yy],dtype=np.int32)
-    out2   =  sor[yy  ]
+    val  = np.cumsum(s)  - 1
+    item=np.ascontiguousarray(cc[s],dtype=np.int32)
+    kk   =  tt[s  ]
 
 
-    buff =np.zeros(oct +1,
+    info =np.zeros(tmp +1,
          dtype=np.int32)
-    buff[1 :]= np.cumsum(np.bincount(out2,minlength=oct))
+    info[1 :]= np.cumsum(np.bincount(kk,minlength=tmp))
 
-    map=_CSCPattern(rows= np.array(rows,dtype=np.int64,copy =True), cols =np.array(cols,dtype= np.int64,copy= True), shape=shape, order= aa, group=np.asarray(grooup,dtype = np.intp), n_entries =int(Indices.size),)
-    return  map,   Indices,   buff
+    u=_CSCPattern(rows= np.array(rows,dtype=np.int64,copy =True), cols =np.array(cols,dtype= np.int64,copy= True), shape=shape, order= f, group=np.asarray(val,dtype = np.intp), n_entries =int(item.size),)
+    return  u,   item,   info
 
 class SparseLU:
 
@@ -117,52 +117,52 @@ class SparseLU:
             raise ValueError(f"matrix must be square, got shape {shape}")
         shape = (int(shape[0]),int(shape[1]))
 
-        entires= np.asarray(values)
+        a= np.asarray(values)
 
 
-        if not np.issubdtype(entires.dtype,np.inexact):
-            entires = entires.astype(np.float64)
-        pat  = self._pattern
+        if not np.issubdtype(a.dtype,np.inexact):
+            a = a.astype(np.float64)
+        j  = self._pattern
 
-        tmp=(pat is not None and self._matrix is not None and self._matrix.dtype==entires.dtype and pat.matches(rows,cols,shape))
-        if tmp  :
+        v=(j is not None and self._matrix is not None and self._matrix.dtype==a.dtype and j.matches(rows,cols,shape))
+        if v  :
 
-            assert pat is not None and self._matrix is not None
-            temp  =  self._matrix
-            temp.data[  : ]  =  pat.data( entires)
-        elif  entires.size   ==   0 :
-            temp  = sp.coo_matrix((entires, (rows, cols)), shape= shape).tocsc()
-            pat =  None
+            assert j is not None and self._matrix is not None
+            d  =  self._matrix
+            d.data[  : ]  =  j.data( a)
+        elif  a.size   ==   0 :
+            d  = sp.coo_matrix((a, (rows, cols)), shape= shape).tocsc()
+            j =  None
         else :
-            pat, Indices, ind= _build_pattern(np.asarray(rows), np.asarray(cols), shape)
-            temp   =   sp.csc_matrix(
-                ( pat.data(  entires),   Indices ,  ind ),   shape  =   shape
+            j, u, num= _build_pattern(np.asarray(rows), np.asarray(cols), shape)
+            d   =   sp.csc_matrix(
+                ( j.data(  a),   u ,  num ),   shape  =   shape
             )
-            temp.has_sorted_indices   =  True
+            d.has_sorted_indices   =  True
         try  :
-            self._lu=splu(temp,
+            self._lu=splu(d,
                  permc_spec= "COLAMD")
-        except RuntimeError  as pow  :
+        except RuntimeError  as bar  :
             self._lu=None
             raise RuntimeError(
-                f"LU factorization failed, the matrix is singular or nearly so: {pow}"
-            ) from pow
-        self._pattern_unchanged = tmp
-        self._pattern =  pat
-        self._matrix=temp
+                f"LU factorization failed, the matrix is singular or nearly so: {bar}"
+            ) from bar
+        self._pattern_unchanged = v
+        self._pattern =  j
+        self._matrix=d
         self._size=shape[0]
     def solve(self, b :npt.NDArray[Number]) -> npt.NDArray[Number] :
         if  self._lu  is None  :
             raise RuntimeError("no factorization available, call factorize first")
 
 
-        Rhs  = np.asarray(b )
-        if not np.issubdtype(Rhs.dtype, np.inexact):
-            Rhs = Rhs.astype(np.float64)
+        m  = np.asarray(b )
+        if not np.issubdtype(m.dtype, np.inexact):
+            m = m.astype(np.float64)
 
-        if Rhs.shape[0] !=self._size:
+        if m.shape[0] !=self._size:
             raise ValueError(
-                f"right hand side has length {Rhs.shape[0]}, "
+                f"right hand side has length {m.shape[0]}, "
                 f"expected {self._size} to match the factorized matrix"
             )
-        return cast ( 'npt.NDArray[Number]', np.asarray(  self._lu.solve(  Rhs) )  )
+        return cast ( 'npt.NDArray[Number]', np.asarray(  self._lu.solve(  m) )  )

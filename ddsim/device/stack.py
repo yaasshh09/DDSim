@@ -50,24 +50,24 @@ def _check_regions(regions : tuple[Region, ...]) -> None :
             f"a stack of {len(regions)} regions has no junction: it needs at "
             'least two regions, with the doping changing between them'
         )
-    loww , buf = DOPING_RANGE
-    for Number,vars in enumerate(regions,start =1) :
-        if  vars.dopant  not in( 'n', 'p'  )  :
+    ok , u = DOPING_RANGE
+    for a2,z in enumerate(regions,start =1) :
+        if  z.dopant  not in( 'n', 'p'  )  :
             raise ValueError(
-                f"region {Number}: the dopant is 'n' or 'p', got "
-                f"{vars.dopant!r}. For an intrinsic layer, draw a lightly "
-                f"doped one instead, say {loww:g} n-type, the bottom of the "
+                f"region {a2}: the dopant is 'n' or 'p', got "
+                f"{z.dopant!r}. For an intrinsic layer, draw a lightly "
+                f"doped one instead, say {ok:g} n-type, the bottom of the "
                 "range the models are built for."
             )
-        if not vars.length> 0.0  :
+        if not z.length> 0.0  :
             raise ValueError(
-                f"region {Number}: the length must be positive, got "
-                f"{vars.length:g} cm"
+                f"region {a2}: the length must be positive, got "
+                f"{z.length:g} cm"
             )
-        if not loww<= vars.concentration<= buf  :
+        if not ok<= z.concentration<= u  :
             raise ValueError(
-                f"region {Number}: a doping of {vars.concentration:g} cm^-3 "
-                f"is outside {loww:g} to {buf:g} cm^-3, the range the mobility, "
+                f"region {a2}: a doping of {z.concentration:g} cm^-3 "
+                f"is outside {ok:g} to {u:g} cm^-3, the range the mobility, "
                 "recombination and statistics models here are built for (see "
                 'references/physics.md).'
             )
@@ -89,38 +89,38 @@ def stack(
     material  :  Material |None = None,
 ) ->Device :
     _check_regions(regions)
-    eds = np.cumsum([reg.length for reg in regions])
-    jun  = [float(End) for End, ( beore,  thing  ) in zip(eds[  :-   1 ],   zip ( regions[  :-  1 ],  regions[ 1 :], strict   =   True),  strict  =  True) if beore.net_doping   !=  thing.net_doping]
-    if not jun:
+    j = np.cumsum([lst.length for lst in regions])
+    h  = [float(f) for f, ( d,  m2  ) in zip(j[  :-   1 ],   zip ( regions[  :-  1 ],  regions[ 1 :], strict   =   True),  strict  =  True) if d.net_doping   !=  m2.net_doping]
+    if not h:
         raise ValueError(
             'this stack has no junction: every region has the same doping, so '
             "there is nothing for the mesh to grade towards and no device to "
             "see. Change the doping of one region."
         )
 
-    for yy, reg in enumerate(regions, start= 1) :
-        if reg.length<(NODES_INSIDE +1)*h_min:
-            raise _too_short(yy, reg, int(reg.length /h_min))
-    mes =graded_mesh_1d_at(float(eds[-1]), n_nodes, tuple(jun), h_min)
+    for m, lst in enumerate(regions, start= 1) :
+        if lst.length<(NODES_INSIDE +1)*h_min:
+            raise _too_short(m, lst, int(lst.length /h_min))
+    res =graded_mesh_1d_at(float(j[-1]), n_nodes, tuple(h), h_min)
 
 
-    sta=np.concatenate([[0.0],eds[:-1]])
-    for yy, (reg, Start, End)in enumerate(zip(regions, sta, eds, strict=True), start= 1)  :
-        insde=int(np.count_nonzero((mes.x >  Start)& (mes.x  <  End)))
-        if insde <  NODES_INSIDE:
-            raise _too_short(yy,reg,insde)
-    Contacts= (
+    b=np.concatenate([[0.0],j[:-1]])
+    for m, (lst, k, f)in enumerate(zip(regions, b, j, strict=True), start= 1)  :
+        xx=int(np.count_nonzero((res.x >  k)& (res.x  <  f)))
+        if xx <  NODES_INSIDE:
+            raise _too_short(m,lst,xx)
+    v= (
         OhmicContact(name='left',node=0,voltage=left_voltage),
-        OhmicContact(name = "right",node = mes.n_nodes - 1,voltage= right_voltage),
+        OhmicContact(name = "right",node = res.n_nodes - 1,voltage= right_voltage),
     )
 
 
     return build_device(
-        mesh  =  mes,
+        mesh  =  res,
         doping =  Layers (
-            boundaries   =  tuple(float(  End )  for  End  in eds [:-  1] ) ,
-            values  =  tuple ( reg.net_doping for  reg  in regions),
+            boundaries   =  tuple(float(  out )  for  out  in j [:-  1] ) ,
+            values  =  tuple ( z.net_doping for  z  in regions),
         ) ,
-        contacts   = Contacts,
+        contacts   = v,
         material   =  material,
     )

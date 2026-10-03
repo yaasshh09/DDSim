@@ -18,19 +18,19 @@ def F_series(eta : float,order : float =0.5) ->float :
             f"the alternating series converges for eta < 0 and is only "
             f"trusted below {SERIES_MAX_ETA}, got {eta}"
         )
-    K  = np.arange(1.0, SERIES_TERMS +1.0)
-    foo=((-1.0)  ** (K  + 1.0))  *np.exp(K *eta) / K **(order + 1.0)
-    return float ( math.gamma( order   + 1.0 )   *   np.sum( foo))
+    j  = np.arange(1.0, SERIES_TERMS +1.0)
+    c=((-1.0)  ** (j  + 1.0))  *np.exp(j *eta) / j **(order + 1.0)
+    return float ( math.gamma( order   + 1.0 )   *   np.sum( c))
 
 
 def F_quad(eta :float,order:float = 0.5) -> float:
-    sho=max(eta,0.0)
+    t=max(eta,0.0)
 
     def integrand(x:float) ->float:
         return x ** order  / (1.0 +  math.exp(x -eta))
 
-    Value,_ =quad(integrand,0.0,sho+ TAIL,limit=400,points= [sho])
-    return  float (  Value)
+    ys,_ =quad(integrand,0.0,t+ TAIL,limit=400,points= [t])
+    return  float (  ys)
 
 
 def u_reference(eta : float) -> float:
@@ -44,5 +44,5 @@ def  eta_reference( u  :  float)  ->   float  :
 
 
 def einstein_reference(u:float) ->  float  :
-    etaa =eta_reference(u)
-    return 2.0  *F_quad(etaa, 0.5) /F_quad(etaa, - 0.5)
+    y =eta_reference(u)
+    return 2.0  *F_quad(y, 0.5) /F_quad(y, - 0.5)

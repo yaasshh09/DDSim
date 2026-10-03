@@ -20,22 +20,22 @@ def diode() :
 
 
 def  as_json(frame)  -> dict   :
-    sorted= encode(frame)
+    s= encode(frame)
 
-    assert isinstance(sorted, str)
-    return  json.loads(sorted)
+    assert isinstance(s, str)
+    return  json.loads(s)
 
 
 def header_of(message : bytes) -> dict:
-    (hmm, )=  struct.unpack_from("<I", message, 0)
-    return json.loads(message[4: 4+  hmm])
+    (xs, )=  struct.unpack_from("<I", message, 0)
+    return json.loads(message[4: 4+  xs])
 
 
 
 def test_a_newton_iteration_crosses_as_the_numbers_it_carries() ->None :
-    bdoy= as_json(NewtonIteration(iteration= 3,residual=1.5e-7,update=2.0e-4,damping=0.5,limited=True))
+    k= as_json(NewtonIteration(iteration= 3,residual=1.5e-7,update=2.0e-4,damping=0.5,limited=True))
 
-    assert  bdoy  ==  {
+    assert  k  ==  {
         'type'  :  "newton",
         'iteration'  : 3,
         "residual"   :  1.5e-7,
@@ -51,26 +51,26 @@ def test_a_newton_iteration_crosses_as_the_numbers_it_carries() ->None :
 
 def test_a_newton_iteration_carries_its_split_by_equation_family()->None:
 
-    ret=as_json(NewtonIteration(iteration = 2, residual =math.inf, update=1e-3, damping= 1.0, limited= False, residual_by_family = {'psi':1e-9,"n":math.inf,"p" :3e-7}, update_by_family= {"psi":1e-3,"n":2e-4,'p' :5e-5},))
-    assert ret["residual_by_family" ]   ==  { "psi" :   1e-9,   'n'  :  None,   'p'  : 3e-7  }
-    assert  ret["update_by_family"  ]  ==   {"psi"  :  1e-3 ,   "n"  :  2e-4,   "p"  :   5e-5  }
+    y=as_json(NewtonIteration(iteration = 2, residual =math.inf, update=1e-3, damping= 1.0, limited= False, residual_by_family = {'psi':1e-9,"n":math.inf,"p" :3e-7}, update_by_family= {"psi":1e-3,"n":2e-4,'p' :5e-5},))
+    assert y["residual_by_family" ]   ==  { "psi" :   1e-9,   'n'  :  None,   'p'  : 3e-7  }
+    assert  y["update_by_family"  ]  ==   {"psi"  :  1e-3 ,   "n"  :  2e-4,   "p"  :   5e-5  }
 
 
 def test_the_first_newton_iteration_says_there_was_no_step()-> None  :
-    buf  = as_json(NewtonIteration(iteration  = 0, residual  = 8.0, update = None, damping =None, limited=False))
+    tmp  = as_json(NewtonIteration(iteration  = 0, residual  = 8.0, update = None, damping =None, limited=False))
 
-    assert buf["update"] is None
-    assert buf["damping"]  is None
+    assert tmp["update"] is None
+    assert tmp["damping"]  is None
 
 @pytest.mark.parametrize ("value",   [  math.inf,   -  math.inf, math.nan  ] )
 
 
 def test_a_number_that_is_not_finite_crosses_as_null(value) ->  None:
 
-    Message = encode(GummelIteration(iteration=  4, update= value))
-    assert "Infinity" not in Message
-    assert 'NaN' not in Message
-    assert json.loads(Message) ['update'] is None
+    b2 = encode(GummelIteration(iteration=  4, update= value))
+    assert "Infinity" not in b2
+    assert 'NaN' not in b2
+    assert json.loads(b2) ['update'] is None
 
 
 
@@ -85,9 +85,9 @@ def test_a_gummel_cycle_crosses_as_a_cycle()->None:
 
 
 def  test_a_continuation_attempt_carries_whether_it_was_accepted(  )  ->   None :
-    format=as_json(ContinuationEvent(parameter=0.35,step= 0.05,converged=False,message ="halving"))
+    vv=as_json(ContinuationEvent(parameter=0.35,step= 0.05,converged=False,message ="halving"))
 
-    assert format=={'type':'continuation', 'parameter': 0.35, 'step':0.05, 'converged': False, 'message': 'halving',}
+    assert vv=={'type':'continuation', 'parameter': 0.35, 'step':0.05, 'converged': False, 'message': 'halving',}
 
 
 def test_a_finished_current_point_crosses_as_a_point()  ->None :
@@ -99,12 +99,12 @@ def test_a_finished_current_point_crosses_as_a_point()  ->None :
     }
 
 def test_a_finished_capacitance_point_crosses_as_its_own_kind()->None :
-    Body = as_json(
+    b = as_json(
         CVFrame(index = 0,gate_voltage =- 1.0,capacitance=3.4e-8,charge=1e-8)
     )
 
-    assert  Body [  "type"  ]  == "cv_point"
-    assert Body["capacitance"]==3.4e-8
+    assert  b [  "type"  ]  == "cv_point"
+    assert b["capacitance"]==3.4e-8
 
 
 def test_something_that_is_not_a_frame_is_refused()->None:
@@ -115,17 +115,17 @@ def test_something_that_is_not_a_frame_is_refused()->None:
 
 
 def test_a_field_frame_is_a_json_header_followed_by_float32()  ->None :
-    dev   =  diode(  )
-    State= solve_equilibrium(dev)
-    mes=encode(field_frame(dev,State,index=0,voltage=0.0))
-    assert isinstance(mes, bytes)
-    hea=  header_of(mes)
-    (Length, )  =  struct.unpack_from("<I", mes, 0)
-    pay=mes[4+Length:]
-    assert hea['type']=="fields"
-    tottal = sum(array["length"]for array in hea["arrays"])
+    ok   =  diode(  )
+    w2= solve_equilibrium(ok)
+    z=encode(field_frame(ok,w2,index=0,voltage=0.0))
+    assert isinstance(z, bytes)
+    x=  header_of(z)
+    (j, )  =  struct.unpack_from("<I", z, 0)
+    h=z[4+j:]
+    assert x['type']=="fields"
+    row = sum(r["length"]for r in x["arrays"])
 
-    assert len(pay)==4 *tottal
+    assert len(h)==4 *row
 
 
 
@@ -134,89 +134,89 @@ def test_a_field_frame_is_a_json_header_followed_by_float32()  ->None :
 
 
 def test_the_float32_payload_starts_on_a_four_byte_boundary(index) ->None:
-    stuff=  FieldFrame(
+    b=  FieldFrame(
         index= index,
         voltage =0.5,
         shape= (3, ),
         arrays =  (('psi', 'V', np.array([0.1, 0.2, 0.3])), ),
     )
 
-    Message= encode(stuff);(Length,)=struct.unpack_from('<I',Message,0)
-    assert(4+Length)%4==0;  assert header_of(Message) ["index"] == index
-    np.testing.assert_allclose(decode_fields(Message)  ["psi"], [0.1, 0.2, 0.3], rtol= 1e-6)
+    r2= encode(b);(y,)=struct.unpack_from('<I',r2,0)
+    assert(4+y)%4==0;  assert header_of(r2) ["index"] == index
+    np.testing.assert_allclose(decode_fields(r2)  ["psi"], [0.1, 0.2, 0.3], rtol= 1e-6)
 
 
 def test_the_arrays_arrive_in_the_order_the_header_lists_them()->None:
 
-    next= diode()
-    State=solve_equilibrium(next)
+    y2= diode()
+    d=solve_equilibrium(y2)
 
 
-    res =decode_fields(encode(field_frame(next,State,index = 0,voltage =0.0)))
+    g =decode_fields(encode(field_frame(y2,d,index = 0,voltage =0.0)))
 
 
 
-    assert list(res)== ['x',"psi","n","p","Ec",'Ev',"Efn","Efp"] ; np.testing.assert_allclose(res['x'], next.mesh.x, rtol =1e-6)
+    assert list(g)== ['x',"psi","n","p","Ec",'Ev',"Efn","Efp"] ; np.testing.assert_allclose(g['x'], y2.mesh.x, rtol =1e-6)
 
 
 
 def test_the_fields_cross_in_physical_units() ->None:
-    devcie=diode()
+    s2=diode()
 
 
-    satte = solve_equilibrium(devcie)
+    m = solve_equilibrium(s2)
 
-    tmp  =  decode_fields(encode (field_frame (devcie,   satte, index  =  0,   voltage  =  0.0  )  ) )
+    r  =  decode_fields(encode (field_frame (s2,   m, index  =  0,   voltage  =  0.0  )  ) )
 
     np.testing.assert_allclose(
-        tmp[ "psi"] , satte.psi.to_physical(  devcie.scale ).data ,  rtol  =  1e-6
+        r[ "psi"] , m.psi.to_physical(  s2.scale ).data ,  rtol  =  1e-6
     )
-    assert np.max(np.abs(tmp["psi"]))<5.0
-    assert np.max(tmp [ "n"  ] )   > 1e15
+    assert np.max(np.abs(r["psi"]))<5.0
+    assert np.max(r [ "n"  ] )   > 1e15
 
 def test_a_one_dimensional_device_says_it_has_one_axis( )  -> None :
-    deivce  =   diode()
-    satte=solve_equilibrium(deivce)
+    jj  =   diode()
+    val=solve_equilibrium(jj)
 
-    Header =header_of(encode(field_frame(deivce,satte,index=0,voltage =0.0)))
-    assert Header [ 'shape' ]   ==   [  deivce.mesh.n_nodes]
+    k =header_of(encode(field_frame(jj,val,index=0,voltage =0.0)))
+    assert k [ 'shape' ]   ==   [  jj.mesh.n_nodes]
 
 
 def test_a_two_dimensional_device_carries_both_axes_and_its_shape()   ->  None  :
-    dev  = nmos(**  COARSE_FET )
-    staate =solve_bias_ramped(dev)
+    i  = nmos(**  COARSE_FET )
+    d =solve_bias_ramped(i)
 
-    sum  =  encode (  field_frame(dev ,  staate , index  =   0, voltage  = 0.0))
-    d2 =  header_of(sum)
-    Arrays  = decode_fields(sum)
+    s  =  encode (  field_frame(i ,  d , index  =   0, voltage  = 0.0))
+    cnt =  header_of(s)
+    c  = decode_fields(s)
 
-    assert d2["shape"] ==  [dev.mesh.ny, dev.mesh.nx]
+    assert cnt["shape"] ==  [i.mesh.ny, i.mesh.nx]
 
 
-    assert list(Arrays)==["x","y","psi",'n',"p",'Ec',"Ev","Efn",'Efp']
-    assert Arrays["psi"].size ==  dev.mesh.ny *  dev.mesh.nx
-    np.testing.assert_allclose(Arrays["x"],dev.mesh.x_axis.x,rtol=1e-6)
-    np.testing.assert_allclose(Arrays["y"],dev.mesh.y_axis.x,rtol=1e-6)
+    assert list(c)==["x","y","psi",'n',"p",'Ec',"Ev","Efn",'Efp']
+    assert c["psi"].size ==  i.mesh.ny *  i.mesh.nx
+    np.testing.assert_allclose(c["x"],i.mesh.x_axis.x,rtol=1e-6)
+    np.testing.assert_allclose(c["y"],i.mesh.y_axis.x,rtol=1e-6)
 
 
 def test_a_field_frame_says_which_bias_it_is_of() ->None:
-    dev = mos_cap(gate_voltage =-1.0)
-    sta=solve_equilibrium(dev)
-    Header =  header_of(encode(field_frame(dev, sta, index=3, voltage =- 1.0)))
+    e = mos_cap(gate_voltage =-1.0)
+    w2=solve_equilibrium(e)
+    v =  header_of(encode(field_frame(e, w2, index=3, voltage =- 1.0)))
 
 
-    assert Header["index"] == 3
-    assert Header[ 'voltage' ]  == -  1.0
+    assert v["index"] == 3
+    assert v[ 'voltage' ]  == -  1.0
 
 def test_the_units_of_every_array_travel_with_it ( )  ->   None :
-    dev =diode();  sttae   =  solve_equilibrium (dev  )
+    i =diode();  tt   =  solve_equilibrium (i  )
 
 
-    hea=header_of(encode(field_frame(dev,sttae,index= 0,voltage=0.0)))
+    f=header_of(encode(field_frame(i,tt,index= 0,voltage=0.0)))
 
-    bb ={Array['name']:Array["unit"]for Array in hea['arrays']}
+    b ={item['name']:item["unit"]for item in f['arrays']}
 
-    assert  bb   ==   {
+    assert  b   ==   {
         "x"  :   "cm" ,
         "psi"  :   "V",
         "n"   : "cm^-3",
@@ -230,51 +230,51 @@ def test_the_units_of_every_array_travel_with_it ( )  ->   None :
 
 
 def  test_a_transport_frame_carries_the_node_currents()   ->   None :
-    dvice= nmos(**COARSE_FET)
+    j= nmos(**COARSE_FET)
 
 
-    lst  =   solve_bias_ramped ( dvice)
-    mod  = TransportModels.for_device(dvice)
+    buf  =   solve_bias_ramped ( j)
+    x  = TransportModels.for_device(j)
 
-    k2 = decode_fields(
-        encode(field_frame(dvice, lst, index = 0, voltage =  0.0, models  =mod))
+    r = decode_fields(
+        encode(field_frame(j, buf, index = 0, voltage =  0.0, models  =x))
     )
-    assert list(k2) [- 2:] ==["Jx",
+    assert list(r) [- 2:] ==["Jx",
          'Jy']
 
-    assert k2["Jx"].size  == dvice.mesh.nx * dvice.mesh.ny
+    assert r["Jx"].size  == j.mesh.nx * j.mesh.ny
 
 
 def test_a_device_with_every_contact_at_one_bias_carries_no_current()  -> None:
-    Device= nmos(**COARSE_FET).with_bias(gate= 0.5,drain = 0.0)
-    stte=solve_bias_ramped(Device)
-    moddels=TransportModels.for_device(Device)
+    item= nmos(**COARSE_FET).with_bias(gate= 0.5,drain = 0.0)
+    xx=solve_bias_ramped(item)
+    m=TransportModels.for_device(item)
 
-    Arrays = decode_fields(
-        encode(field_frame(Device,stte,index =0,voltage=0.5,models=moddels))
+    buf = decode_fields(
+        encode(field_frame(item,xx,index =0,voltage=0.5,models=m))
     )
 
-    assert not np.any(Arrays['Jx'])
-    assert  not  np.any(  Arrays [ "Jy"])
+    assert not np.any(buf['Jx'])
+    assert  not  np.any(  buf [ "Jy"])
 
 def test_a_drain_bias_leaves_the_current_in() -> None:
-    sorted  = nmos (  ** COARSE_FET  ).with_bias(gate  = 0.5,   drain  = 0.1)
-    State=solve_bias_ramped(sorted)
-    Models =TransportModels.for_device(sorted)
+    r  = nmos (  ** COARSE_FET  ).with_bias(gate  = 0.5,   drain  = 0.1)
+    lst=solve_bias_ramped(r)
+    m =TransportModels.for_device(r)
 
-    Arrays =decode_fields(
-        encode(field_frame(sorted, State, index = 0, voltage=0.5, models  = Models))
+    f =decode_fields(
+        encode(field_frame(r, lst, index = 0, voltage=0.5, models  = m))
     )
 
 
-    assert  np.nanmax (  np.abs(  Arrays["Jx" ] )  ) >  0.0
+    assert  np.nanmax (  np.abs(  f["Jx" ] )  ) >  0.0
 
 
 def  test_the_band_edges_cross_in_ev()  ->  None  :
-    Device  =diode()
-    State   =   solve_equilibrium ( Device )
+    h  =diode()
+    z   =   solve_equilibrium ( h )
 
 
-    arryas =decode_fields(encode(field_frame(Device,State,index= 0,voltage= 0.0)))
+    tmp3 =decode_fields(encode(field_frame(h,z,index= 0,voltage= 0.0)))
 
-    np.testing.assert_allclose(arryas["Ec"],band_edges(Device,State).Ec,rtol=1e-6)
+    np.testing.assert_allclose(tmp3["Ec"],band_edges(h,z).Ec,rtol=1e-6)

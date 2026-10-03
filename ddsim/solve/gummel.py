@@ -35,11 +35,11 @@ class GummelResult(  Generic [StateT] )   :
     message : str= ""
     def __repr__(self) ->str :
 
-        sta="converged" if self.converged else 'did not converge'; las   =   self.update_history[-  1  ]   if  self.update_history  else float( "nan" )
+        c2="converged" if self.converged else 'did not converge'; u   =   self.update_history[-  1  ]   if  self.update_history  else float( "nan" )
 
         return(
-            f"GummelResult {sta} in {self.iterations} iterations, "
-            f"final update {las:.3e}"
+            f"GummelResult {c2} in {self.iterations} iterations, "
+            f"final update {u:.3e}"
         )
 
 
@@ -56,39 +56,39 @@ def gummel_solve(
     if  update_tol <= 0.0   :
         raise ValueError(f"update_tol must be positive, got {update_tol}")
 
-    updatehistory:list[float]=[]
-    Message =''
+    z2:list[float]=[]
+    s =''
 
-    for Iteration in range(1, max_iterations + 1) :
-        cycleupdate   =  0.0
-        for Step in steps:
-            state , yy =  Step(  state  )
-            cycleupdate  =  max( cycleupdate , yy)
-        updatehistory.append(  cycleupdate )
+    for j in range(1, max_iterations + 1) :
+        kk   =  0.0
+        for c in steps:
+            state , tmp3 =  c(  state  )
+            kk  =  max( kk , tmp3)
+        z2.append(  kk )
         if on_iteration is not None :
-            on_iteration(GummelIteration(iteration =Iteration, update  =cycleupdate))
+            on_iteration(GummelIteration(iteration =j, update  =kk))
 
-        if  not  isfinite(  cycleupdate  )   :
-            Message  =  (
-                f"update was not finite at iteration {Iteration}, the "
+        if  not  isfinite(  kk  )   :
+            s  =  (
+                f"update was not finite at iteration {j}, the "
                 'iteration has diverged. Check signs before reaching for '
                 "damping, per references/pitfalls.md."
             )
             break
 
 
-        if cycleupdate <  update_tol  :
-            return GummelResult(state=state, converged= True, iterations = Iteration, update_history=updatehistory,)
-    if not Message :
-        Message= (
+        if kk <  update_tol  :
+            return GummelResult(state=state, converged= True, iterations = j, update_history=z2,)
+    if not s :
+        s= (
             f"did not converge in {max_iterations} iterations, "
-            f"final update {updatehistory[-1]:.3e}"
+            f"final update {z2[-1]:.3e}"
         )
 
     return  GummelResult(
         state  =  state,
         converged  =   False,
-        iterations   =   len( updatehistory  ),
-        update_history   =   updatehistory ,
-        message   =   Message,
+        iterations   =   len( z2  ),
+        update_history   =   z2 ,
+        message   =   s,
     )

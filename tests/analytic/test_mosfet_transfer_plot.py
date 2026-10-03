@@ -37,10 +37,10 @@ needs_golden= pytest.mark.skipif(
 
 
 def gate_points()->list[float] :
-    loww  =  min( BENCHMARK.gate_voltages)
-    High =  max (  BENCHMARK.gate_voltages )
-    cuont= int(round((High- loww) /  STEP)) + 1
-    return[round(loww +STEP*inndex,6)for inndex in range(cuont)]
+    c  =  min( BENCHMARK.gate_voltages)
+    stuff =  max (  BENCHMARK.gate_voltages )
+    u= int(round((stuff- c) /  STEP)) + 1
+    return[round(c +STEP*z,6)for z in range(u)]
 
 
 
@@ -49,14 +49,14 @@ def gate_points()->list[float] :
 
 
 def curve():
-    temp=nmos(
+    res2=nmos(
         L_gate= BENCHMARK.L_gate,
         drain_voltage= DRAIN,
         degenerate = False,
         **SHORT_CHANNEL_PROCESS,
     )
-    mod=TransportModels.for_device(temp, mobility ='constant')
-    return gate_sweep(temp,gate_points(),models= mod)
+    h=TransportModels.for_device(res2, mobility ='constant')
+    return gate_sweep(res2,gate_points(),models= h)
 
 @pytest.fixture(scope =  'module')
 
@@ -92,45 +92,45 @@ def  test_the_golden_points_are_all_sixteen(golden  )   ->   None   :
 def test_the_on_state_agreement_is_what_the_figure_claims(curve,golden)->None :
 
 
-    ddssim=  np.interp(np.array(golden.gate_voltage), np.array(list(curve.voltage)), np.array(list(curve.current)),)
-    wor   =  0.0
-    wheere =0.0
-    for v, round, Got in zip(golden.gate_voltage, golden.drain_low, ddssim, strict  = True)  :
-        if v< ABOVE_THRESHOLD :
+    k=  np.interp(np.array(golden.gate_voltage), np.array(list(curve.voltage)), np.array(list(curve.current)),)
+    ii   =  0.0
+    y =0.0
+    for cnt, t, res in zip(golden.gate_voltage, golden.drain_low, k, strict  = True)  :
+        if cnt< ABOVE_THRESHOLD :
             continue
-        d2 =  abs(Got -round)/  abs(round)
-        if d2> wor:
-            wor, wheere  =  d2,   v
-    assert wor <=CLAIM,(
+        mm =  abs(res -t)/  abs(t)
+        if mm> ii:
+            ii, y  =  mm,   cnt
+    assert ii <=CLAIM,(
         f"above {ABOVE_THRESHOLD} V of gate the two codes disagree by "
-        f"{wor:.2%} at {wheere:+g} V, past the {CLAIM:.0%} this figure claims"
+        f"{ii:.2%} at {y:+g} V, past the {CLAIM:.0%} this figure claims"
     )
 
 
 @needs_golden
 def test_mosfet_transfer_plot_is_generated ( curve,   golden )  -> None  :
-    Gate  =   np.array( list (curve.voltage)  );  cur=np.abs(np.array(list(curve.current)))
-    ref=np.abs(np.array(golden.drain_low))
+    r2  =   np.array( list (curve.voltage)  );  tmp3=np.abs(np.array(list(curve.current)))
+    u=np.abs(np.array(golden.drain_low))
 
 
-    arr= np.interp(
-        np.array(golden.gate_voltage),Gate,np.array(list(curve.current))
+    b= np.interp(
+        np.array(golden.gate_voltage),r2,np.array(list(curve.current))
     )
-    wor =max(
-        abs(got -  want)/  abs(want)
-        for v_gate, want, got in zip(
-            golden.gate_voltage, golden.drain_low, arr, strict= True
+    r =max(
+        abs(ret -  foo)/  abs(foo)
+        for t, foo, ret in zip(
+            golden.gate_voltage, golden.drain_low, b, strict= True
         )
-        if v_gate >= ABOVE_THRESHOLD
+        if t >= ABOVE_THRESHOLD
     )
-    figrue, aes = plt.subplots(figsize  = (7.6,
+    m2, i = plt.subplots(figsize  = (7.6,
                   5.6))
 
 
-    aes.semilogy(Gate, cur, "-", color = 'tab:blue', linewidth = 2.0, label= 'ddsim', zorder =2,)
-    aes.semilogy(
+    i.semilogy(r2, tmp3, "-", color = 'tab:blue', linewidth = 2.0, label= 'ddsim', zorder =2,)
+    i.semilogy(
         golden.gate_voltage,
-        ref,
+        u,
         "o",
         markerfacecolor =  'none',
         markeredgecolor ='tab:red',
@@ -140,41 +140,41 @@ def test_mosfet_transfer_plot_is_generated ( curve,   golden )  -> None  :
         label =  f"DEVSIM {golden.header.get('generator', '').split()[1]}",
         zorder  = 3,
     )
-    stuff  = np.log10(  cur.max(  )  /  cur.min (  ) )
-    aes.axvspan(
+    v  = np.log10(  tmp3.max(  )  /  tmp3.min (  ) )
+    i.axvspan(
         ABOVE_THRESHOLD,
-        Gate.max(),
+        r2.max(),
         color="tab:blue",
         alpha=0.06,
         zorder= 1,
-        label=f"agree to {wor:.2%} here",
+        label=f"agree to {r:.2%} here",
     )
 
-    aes.set_xlabel ( "gate voltage [V]"  )
+    i.set_xlabel ( "gate voltage [V]"  )
 
-    aes.set_ylabel (  "drain current [A/cm]")
-    aes.set_xlim(Gate.min(), Gate.max())
+    i.set_ylabel (  "drain current [A/cm]")
+    i.set_xlim(r2.min(), r2.max())
 
-    aes.grid (  alpha =  0.25,  which  =  "both")
-    aes.legend(fontsize=9.5,frameon=False,loc= "lower right")
-    aes.set_title (
+    i.grid (  alpha =  0.25,  which  =  "both")
+    i.legend(fontsize=9.5,frameon=False,loc= "lower right")
+    i.set_title (
         f"NMOS transfer curve, $L_g$ = {BENCHMARK.L_gate * 1e7:.0f} nm, "
         f"$V_d$ = {DRAIN} V" ,
         fontsize  =   12 ,
     )
-    figrue.text(
+    m2.text(
         0.5,
         0.005,
-        f"{stuff:.1f} decades of drain current across the sweep. "
+        f"{v:.1f} decades of drain current across the sweep. "
         'Boltzmann statistics, constant mobility, both codes.',
         fontsize  =9,
         color  = "dimgrey",
         ha = "center",
     )
-    figrue.tight_layout(  )
+    m2.tight_layout(  )
 
     OUTPUT.mkdir(  parents  = True,  exist_ok  =   True)
-    taarget  =   OUTPUT  / 'mosfet_transfer_1um.png'
-    figrue.savefig(taarget, dpi = 140, bbox_inches= 'tight')
-    plt.close(figrue)
-    assert taarget.exists()
+    obj  =   OUTPUT  / 'mosfet_transfer_1um.png'
+    m2.savefig(obj, dpi = 140, bbox_inches= 'tight')
+    plt.close(m2)
+    assert obj.exists()

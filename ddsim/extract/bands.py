@@ -14,22 +14,22 @@ class BandEdges:
     Efp :  npt.NDArray[np.float64]
 def band_edges(device  : Device, state : DeviceState) ->  BandEdges :
 
-    TT = device.material.T
-    hmm=C.V_T(TT)
-    ni= device.material.n_i
+    m2 = device.material.T
+    dd=C.V_T(m2)
+    cur= device.material.n_i
     psi = np.asarray(state.psi.to_physical(device.scale).data,dtype = np.float64)
 
 
-    d2  = - psi
-    all=d2 +hmm* math.log(C.Nc(TT) /ni)
-    Evv = d2 -hmm *math.log(C.Nv(TT)  /ni)
-    Efnn= - np.asarray(state.phi_n.to_physical(device.scale).data,dtype=np.float64)
-    temp2  = -np.asarray(state.phi_p.to_physical(device.scale).data, dtype  = np.float64)
+    f  = - psi
+    jj=f +dd* math.log(C.Nc(m2) /cur)
+    arr = f -dd *math.log(C.Nv(m2)  /cur)
+    hh= - np.asarray(state.phi_n.to_physical(device.scale).data,dtype=np.float64)
+    c  = -np.asarray(state.phi_p.to_physical(device.scale).data, dtype  = np.float64)
 
     if device.regions is not None:
-        oxdie = device.regions.oxide_nodes
-        for Array in(all,Evv,Efnn,temp2) :
+        tt = device.regions.oxide_nodes
+        for num in(jj,arr,hh,c) :
 
-            Array[oxdie] = np.nan
+            num[tt] = np.nan
 
-    return BandEdges(Ec= all,Ev=Evv,Efn =Efnn,Efp =temp2)
+    return BandEdges(Ec= jj,Ev=arr,Efn =hh,Efp =c)

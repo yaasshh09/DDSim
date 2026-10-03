@@ -47,24 +47,24 @@ def n_on_the_left(offset :float)  -> Device :
 
 def anode_current(device: Device, voltage :float)-> float  :
 
-    bia=device.with_bias(anode =voltage)
-    foo =  solve_bias(bia)
+    xs=device.with_bias(anode =voltage)
+    t =  solve_bias(xs)
 
-    assert foo.gummel is not None and foo.gummel.converged,(
-        f"the solve at {voltage:+g} V did not converge: {foo.gummel}"
+    assert t.gummel is not None and t.gummel.converged,(
+        f"the solve at {voltage:+g} V did not converge: {t.gummel}"
     )
-    return terminal_currents( bia , foo) [ "anode"  ]
+    return terminal_currents( xs , t) [ "anode"  ]
 
 
 
 def test_the_graded_mesh_is_symmetric_about_a_central_refinement() ->  None :
-    xx  =  mesh().x
-    np.testing.assert_allclose(xx,LENGTH-xx[::-1],rtol= 0.0,atol= 1e-18)
+    z  =  mesh().x
+    np.testing.assert_allclose(z,LENGTH-z[::-1],rtol= 0.0,atol= 1e-18)
 
 def test_the_dual_cells_mirror_too()-> None :
-    vloume=mesh().volume
-    data2 =   8.0 *  EPS *  LENGTH  / vloume.min ( )
-    object  = float(np.max(np.abs(vloume- vloume[::-  1]) /vloume));  assert object < data2,f"worst {object:.3e}, accumulation floor {data2:.3e}"
+    d2=mesh().volume
+    b =   8.0 *  EPS *  LENGTH  / d2.min ( )
+    idx  = float(np.max(np.abs(d2- d2[::-  1]) /d2));  assert idx < b,f"worst {idx:.3e}, accumulation floor {b:.3e}"
 
 
 
@@ -72,79 +72,79 @@ def test_the_dual_cells_mirror_too()-> None :
 
 
 def test_a_mirrored_diode_gives_the_same_terminal_current(voltage: float) ->None :
-    vars= anode_current(p_on_the_left(OFF_NODE),voltage)
-    bac  =  anode_current( n_on_the_left(OFF_NODE),   voltage)
+    out2= anode_current(p_on_the_left(OFF_NODE),voltage)
+    z2  =  anode_current( n_on_the_left(OFF_NODE),   voltage)
 
-    assert vars ==   pytest.approx( bac,   rel =  1e-12),   (
-        f"at {voltage:+g} V the p-on-the-left diode gives {vars:.9e} and the "
-        f"n-on-the-left diode gives {bac:.9e}. The mesh and the doping "
+    assert out2 ==   pytest.approx( z2,   rel =  1e-12),   (
+        f"at {voltage:+g} V the p-on-the-left diode gives {out2:.9e} and the "
+        f"n-on-the-left diode gives {z2:.9e}. The mesh and the doping "
         "mirror exactly, so a difference here is a left-right bias in the "
         'assembly, the boundary conditions or the flux.'
     )
 
 
 def  test_the_built_in_potential_mirrors_and_changes_sign ( )   ->  None   :
-    dir = solve_bias(p_on_the_left(OFF_NODE))
-    bac   =  solve_bias(  n_on_the_left( OFF_NODE  ) )
-    Rise = float(dir.psi.data[-1]  - dir.psi.data[0]); Fall =float(bac.psi.data[-1]-bac.psi.data[0])
-    assert Rise > 0.0
-    assert Fall==  pytest.approx(-  Rise, rel =1e-12)
+    rows = solve_bias(p_on_the_left(OFF_NODE))
+    cnt   =  solve_bias(  n_on_the_left( OFF_NODE  ) )
+    m = float(rows.psi.data[-1]  - rows.psi.data[0]); a2 =float(cnt.psi.data[-1]-cnt.psi.data[0])
+    assert m > 0.0
+    assert a2==  pytest.approx(-  m, rel =1e-12)
 
 
 def test_the_solved_profiles_are_reflections_of_each_other()   -> None :
-    foorward=solve_bias(p_on_the_left(OFF_NODE).with_bias(anode= 0.4))
-    bac= solve_bias(n_on_the_left(OFF_NODE).with_bias(anode=0.4))
+    t=solve_bias(p_on_the_left(OFF_NODE).with_bias(anode= 0.4))
+    kk= solve_bias(n_on_the_left(OFF_NODE).with_bias(anode=0.4))
 
     np.testing.assert_allclose(
-        foorward.n.data,bac.n.data[::- 1],rtol=1e-11,atol=0.0
+        t.n.data,kk.n.data[::- 1],rtol=1e-11,atol=0.0
     )
-    np.testing.assert_allclose(foorward.p.data , bac.p.data[::-  1 ], rtol  =  1e-11,   atol =  0.0)
+    np.testing.assert_allclose(t.p.data , kk.p.data[::-  1 ], rtol  =  1e-11,   atol =  0.0)
 
 
 
 
 def test_the_current_densities_mirror_with_a_sign_change()-> None:
 
-    w  =  p_on_the_left ( OFF_NODE  ).with_bias(  anode  =  0.4 )
-    len = n_on_the_left(OFF_NODE).with_bias(anode =0.4)
+    g  =  p_on_the_left ( OFF_NODE  ).with_bias(  anode  =  0.4 )
+    prev = n_on_the_left(OFF_NODE).with_bias(anode =0.4)
 
 
-    State  =  solve_bias( w);Models=TransportModels.for_device(w)
-    Jnn, type= current_densities(w, State, Models)
-    idx2, jm   =  current_densities(  len,  solve_bias ( len )  )
-    yy=3.0 * EPS *largest_flux_term(w,State,Models)/(np.abs(Jnn.data).max()/w.scale.J_0)
+    jj  =  solve_bias( g);s=TransportModels.for_device(g)
+    num, tmp= current_densities(g, jj, s)
+    m, r   =  current_densities(  prev,  solve_bias ( prev )  )
+    c=3.0 * EPS *largest_flux_term(g,jj,s)/(np.abs(num.data).max()/g.scale.J_0)
 
-    for mea, buff, nme in((Jnn.data, idx2.data, "Jn"), (type.data, jm.data, 'Jp'),):
-        wor   = float (
-            np.max ( np.abs (mea  +  buff [  ::-   1 ])  /  np.abs(mea ).max(  )  )
+    for v, rows, dat in((num.data, m.data, "Jn"), (tmp.data, r.data, 'Jp'),):
+        buf   = float (
+            np.max ( np.abs (v  +  rows [  ::-   1 ])  /  np.abs(v ).max(  )  )
         )
-        assert wor <  yy, (
-            f"{nme} disagrees with its reflection by {wor:.3e}, above the "
-            f"cancellation floor of {yy:.3e}. A difference above the floor "
+        assert buf <  c, (
+            f"{dat} disagrees with its reflection by {buf:.3e}, above the "
+            f"cancellation floor of {c:.3e}. A difference above the floor "
             'is a left-right bias in the flux, not arithmetic.'
         )
 
 
 def test_a_node_on_the_step_is_the_only_thing_that_breaks_the_mirror()-> None :
-    onnode=  p_on_the_left(0.0).net_doping.data
-    OnNodeMirror = n_on_the_left(0.0).net_doping.data
+    d=  p_on_the_left(0.0).net_doping.data
+    s = n_on_the_left(0.0).net_doping.data
 
-    assert np.count_nonzero(onnode != OnNodeMirror[::-1])== 1
-    bar = p_on_the_left(OFF_NODE).net_doping.data
-    OffNodeMirror =n_on_the_left(OFF_NODE).net_doping.data
-    np.testing.assert_array_equal(bar,OffNodeMirror[::-1])
+    assert np.count_nonzero(d != s[::-1])== 1
+    row = p_on_the_left(OFF_NODE).net_doping.data
+    e =n_on_the_left(OFF_NODE).net_doping.data
+    np.testing.assert_array_equal(row,e[::-1])
 
 
 
 def test_one_cell_of_base_width_is_worth_about_a_tenth_of_a_percent() ->None :
-    Voltage =0.5
-    Unshifted =  anode_current( p_on_the_left(0.0) ,  Voltage  )
-    Shifted=anode_current(p_on_the_left(H_MIN),Voltage)
-    junk=anode_current(n_on_the_left(0.0),Voltage)
+    obj =0.5
+    w =  anode_current( p_on_the_left(0.0) ,  obj  )
+    y=anode_current(p_on_the_left(H_MIN),obj)
+    c=anode_current(n_on_the_left(0.0),obj)
 
 
-    tmp= (Shifted- Unshifted)/Unshifted
-    bytes=(junk-Unshifted)/Unshifted
-    assert tmp <0.0,'widening the p side base must lower the current'
-    assert abs(tmp) ==  pytest.approx(abs(bytes), rel = 1e-6)
-    assert 5e-4  <   abs(  bytes)   < 5e-3
+    v= (y- w)/w
+    num=(c-w)/w
+    assert v <0.0,'widening the p side base must lower the current'
+    assert abs(v) ==  pytest.approx(abs(num), rel = 1e-6)
+    assert 5e-4  <   abs(  num)   < 5e-3

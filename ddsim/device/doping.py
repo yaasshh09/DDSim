@@ -100,7 +100,7 @@ class Step(DopingProfile) :
     position : float
 
     def __call__(self, at: Position) -> npt.NDArray[np.float64] :
-        vaalues=Coordinates.of(at).x; return np.where(vaalues <self.position,self.left,self.right)
+        w=Coordinates.of(at).x; return np.where(w <self.position,self.left,self.right)
 
 
 
@@ -129,8 +129,8 @@ class Layers(DopingProfile):
                 f"layer boundaries must be increasing, got {self.boundaries}"
             )
     def __call__(  self ,   at :  Position )  ->  npt.NDArray[  np.float64 ]   :
-        regoin =np.searchsorted(self.boundaries, Coordinates.of(at).x, side= 'right')
-        return np.asarray(self.values,dtype=np.float64) [regoin]
+        u =np.searchsorted(self.boundaries, Coordinates.of(at).x, side= 'right')
+        return np.asarray(self.values,dtype=np.float64) [u]
 
 @dataclass(frozen = True)
 
@@ -149,8 +149,8 @@ class Gaussian(DopingProfile) :
         if self.sigma<= 0.0:
             raise ValueError(f"sigma must be positive, got {self.sigma}")
     def __call__(self, at : Position) ->  npt.NDArray[np.float64] :
-        off=Coordinates.of(at).x -self.centre
-        return np.asarray(self.peak *  np.exp( -  (off  **   2 ) /  (  2.0  *  self.sigma  **   2 )  ))
+        v=Coordinates.of(at).x -self.centre
+        return np.asarray(self.peak *  np.exp( -  (v  **   2 ) /  (  2.0  *  self.sigma  **   2 )  ))
 
 
 
@@ -166,8 +166,8 @@ class  Erfc(DopingProfile )   :
             raise ValueError(f"length must be positive, got {self.length}")
 
     def  __call__(  self,  at  :  Position )   -> npt.NDArray[ np.float64  ]   :
-        Values= Coordinates.of(at).x
-        return np.asarray(self.peak * _erfc((Values - self.position)/  self.length))
+        c= Coordinates.of(at).x
+        return np.asarray(self.peak * _erfc((c - self.position)/  self.length))
 
 
 WindowEdge=Literal['abrupt','gaussian',"erfc"]
@@ -206,18 +206,18 @@ class  Window(DopingProfile  )   :
             )
 
     def __call__(self,at :Position)-> npt.NDArray[np.float64]:
-        xx=Coordinates.of(at).x
+        g=Coordinates.of(at).x
         if self.edge=="abrupt" :
 
-            return np.where((xx >= self.low)&(xx<=self.high),1.0,0.0)
+            return np.where((g >= self.low)&(g<=self.high),1.0,0.0)
 
 
         if self.edge ==  "gaussian" :
-            outsdie  =  np.maximum(np.maximum(self.low - xx, xx - self.high), 0.0)
-            return np.asarray(np.exp(-(outsdie ** 2) / (2.0 *self.length  ** 2)))
+            kk  =  np.maximum(np.maximum(self.low - g, g - self.high), 0.0)
+            return np.asarray(np.exp(-(kk ** 2) / (2.0 *self.length  ** 2)))
         if math.isinf(self.high) and not math.isinf(self.low)  :
-            return np.asarray(0.5  * _erfc((self.low -  xx) / self.length))
-        return np.asarray(0.5 * (_erfc((xx  - self.high) / self.length) -_erfc((xx-  self.low) /  self.length)))
+            return np.asarray(0.5  * _erfc((self.low -  g) / self.length))
+        return np.asarray(0.5 * (_erfc((g  - self.high) / self.length) -_erfc((g-  self.low) /  self.length)))
 @dataclass(frozen =True)
 
 
@@ -227,11 +227,11 @@ class Sum(DopingProfile):
     terms  :  tuple[  DopingProfile,   ...]
 
     def __call__(self,at: Position) -> npt.NDArray[np.float64]:
-        x2= np.zeros_like(Coordinates.of(at).x)
-        for vals in self.terms:
-            x2=x2+vals(at)
+        b= np.zeros_like(Coordinates.of(at).x)
+        for y in self.terms:
+            b=b+y(at)
 
-        return x2
+        return b
 
 
 @dataclass (frozen  = True)
@@ -259,12 +259,12 @@ class Product(  DopingProfile  )  :
 
     def __call__(self,at:Position)->npt.NDArray[np.float64]:
 
-        bb= self.factors[0](at)
+        d2= self.factors[0](at)
 
 
-        for faactor in self.factors[1:]  :
-            bb   =   bb   *  faactor(  at)
-        return np.asarray(bb)
+        for y2 in self.factors[1:]  :
+            d2   =   d2   *  y2(  at)
+        return np.asarray(d2)
 
 
 @dataclass( frozen  =   True)
@@ -278,8 +278,8 @@ class Mirrored(DopingProfile):
     about:float
 
     def __call__(self, at:Position)->  npt.NDArray[np.float64] :
-        heere=Coordinates.of(at)
-        return self.profile(Coordinates(2.0* self.about -heere.x,heere.y))
+        z=Coordinates.of(at)
+        return self.profile(Coordinates(2.0* self.about -z.x,z.y))
 
 
 

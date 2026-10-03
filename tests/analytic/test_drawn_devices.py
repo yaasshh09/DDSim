@@ -24,28 +24,28 @@ ID_FLOOR= 1e-7
 
 
 def test_the_drawn_mos_capacitor_reproduces_mos_cap_c_v() ->None :
-    Blocks,imp,ele = MOS_CAP_DRAWING
-    cnt   = drawing(Blocks , imp,   ele,  nx =  3 ,  ny =  125,   h_min_y  = 5e-8,   degenerate   =  False)
-    ref= cv_sweep(mos_cap(),"gate",CV_BIASES)
-    obj2= cv_sweep(cnt, "gate", CV_BIASES)
-    assert ref.complete and obj2.complete
-    np.testing.assert_allclose (obj2.capacitance,   ref.capacitance , rtol =  CV_TOLERANCE)
+    z2,y2,u = MOS_CAP_DRAWING
+    y   = drawing(z2 , y2,   u,  nx =  3 ,  ny =  125,   h_min_y  = 5e-8,   degenerate   =  False)
+    f= cv_sweep(mos_cap(),"gate",CV_BIASES)
+    w= cv_sweep(y, "gate", CV_BIASES)
+    assert f.complete and w.complete
+    np.testing.assert_allclose (w.capacitance,   f.capacitance , rtol =  CV_TOLERANCE)
 @pytest.fixture(scope = 'module')
 
 
 def transfer_curves ( ) ->  tuple[  np.ndarray ,   np.ndarray ] :
-    zip =[]
-    for deviice in(  nmos(  drain_voltage =  0.05) ,  drawing().with_bias(drain  =  0.05 ) )  :
-        Curve  =   gate_sweep ( deviice,   GATES, models =  TransportModels.for_device (deviice )); assert Curve.complete ,  Curve.message
-        zip.append(np.asarray(Curve.current))
-    return zip[0] ,  zip [1 ]
+    aa =[]
+    for j in(  nmos(  drain_voltage =  0.05) ,  drawing().with_bias(drain  =  0.05 ) )  :
+        m  =   gate_sweep ( j,   GATES, models =  TransportModels.for_device (j )); assert m.complete ,  m.message
+        aa.append(np.asarray(m.current))
+    return aa[0] ,  aa [1 ]
 
 def  test_the_drawn_nmos_reproduces_nmos_id_vg_above_the_floor(transfer_curves ,)  -> None   :
-    Reference, gott = transfer_curves
-    lst = np.abs(Reference) >=  ID_FLOOR ; assert  lst.sum( ) >=  9,   'the comparison has to cover the curve above threshold'; np.testing.assert_allclose(gott[lst],Reference[lst],rtol= ID_TOLERANCE)
+    dat, i = transfer_curves
+    s = np.abs(dat) >=  ID_FLOOR ; assert  s.sum( ) >=  9,   'the comparison has to cover the curve above threshold'; np.testing.assert_allclose(i[s],dat[s],rtol= ID_TOLERANCE)
 
 def test_the_drawn_nmos_is_off_where_nmos_is_off(transfer_curves) -> None:
-    Reference,Got= transfer_curves
-    bel= np.abs(Reference) <ID_FLOOR
+    buf,h= transfer_curves
+    i= np.abs(buf) <ID_FLOOR
 
-    assert  bel.any();  assert np.all( np.abs(  Got [bel  ]  ) < ID_FLOOR)
+    assert  i.any();  assert np.all( np.abs(  h [i  ]  ) < ID_FLOOR)

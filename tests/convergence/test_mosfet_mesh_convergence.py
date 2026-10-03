@@ -18,8 +18,8 @@ CONVERGED =  5e-3
 
 def working_mesh ()  ->  dict[str ,   float | int]  :
 
-    defauults =  inspect.signature(nmos).parameters
-    return {'n_silicon'   :  defauults [  'n_silicon' ].default, 'n_oxide' :   defauults[ "n_oxide"].default, "h_min_y"  :   defauults[ "h_min_y" ].default,}
+    b =  inspect.signature(nmos).parameters
+    return {'n_silicon'   :  b [  'n_silicon' ].default, 'n_oxide' :   b[ "n_oxide"].default, "h_min_y"  :   b[ "h_min_y" ].default,}
 
 
 def  halve(  mesh  :   dict[ str , float |   int  ]  )   ->  dict[  str ,   float |  int ]   :
@@ -39,11 +39,11 @@ def double(mesh :dict[str,float|int]) ->dict[str,float|int] :
 
 
 def drain_current(mesh  : dict[str, float |  int])  ->list[float]  :
-    Device =nmos(L_gate=L_GATE, drain_voltage=DRAIN, degenerate=False, **mesh, **SHORT_CHANNEL_PROCESS,)
-    mdels  = TransportModels.for_device(Device, mobility= "constant")
-    x2 = gate_sweep(Device,list(GATES),models=mdels)
-    assert x2.complete,x2.message
-    return[float(Value) for Value in x2.current]
+    ret =nmos(L_gate=L_GATE, drain_voltage=DRAIN, degenerate=False, **mesh, **SHORT_CHANNEL_PROCESS,)
+    f  = TransportModels.for_device(ret, mobility= "constant")
+    ys = gate_sweep(ret,list(GATES),models=f)
+    assert ys.complete,ys.message
+    return[float(thing) for thing in ys.current]
 
 
 
@@ -52,8 +52,8 @@ def drain_current(mesh  : dict[str, float |  int])  ->list[float]  :
 
 
 def ladder()  ->  dict [  str, list [  float]]  :
-    woring  =  working_mesh(  )
-    return{"coarse" : drain_current(double(woring)), 'working' :drain_current(woring), "fine" : drain_current(halve(woring)),}
+    tmp3  =  working_mesh(  )
+    return{"coarse" : drain_current(double(tmp3)), 'working' :drain_current(tmp3), "fine" : drain_current(halve(tmp3)),}
 
 
 
@@ -64,11 +64,11 @@ def test_the_working_mesh_is_already_converged(
     ladder :  dict[str,   list[  float ]  ], index   : int
 )   ->   None  :
 
-    workiing   =   ladder ["working"  ] [index ]
-    lst =ladder["fine"][index]
-    mov  =abs(lst  - workiing) / abs(lst)
-    assert mov < CONVERGED, (
-        f"at Vg = {GATES[index]} V the drain current still moves {mov:.2%} "
+    y   =   ladder ["working"  ] [index ]
+    mm =ladder["fine"][index]
+    x  =abs(mm  - y) / abs(mm)
+    assert x < CONVERGED, (
+        f"at Vg = {GATES[index]} V the drain current still moves {x:.2%} "
         f"when the vertical mesh is halved, which is not comfortably inside "
         f"the 5 percent benchmark 6 asserts. Refine the nmos defaults."
     )
@@ -82,11 +82,11 @@ def test_the_working_mesh_is_already_converged(
 def test_the_refinement_converges_rather_than_wandering(
     ladder :dict[str,list[float]],index:int
 )->None :
-    carse =ladder["coarse"] [index]; wor = ladder["working"][index]
-    fin = ladder['fine'][index]
-    assert abs(fin -wor)  <  abs(wor  - carse), (
+    yy =ladder["coarse"] [index]; e = ladder["working"][index]
+    res = ladder['fine'][index]
+    assert abs(res -e)  <  abs(e  - yy), (
         f"at Vg = {GATES[index]} V the last halving moved the drain current "
-        f"{abs(fin - wor):.4g} against {abs(wor - carse):.4g} for "
+        f"{abs(res - e):.4g} against {abs(e - yy):.4g} for "
         'the one before it, so this is drift and not convergence'
     )
 
@@ -95,12 +95,12 @@ def test_the_refinement_converges_rather_than_wandering(
 def test_the_oxide_and_silicon_spacings_stay_matched() ->None  :
 
 
-    list  = working_mesh( )
-    tOx   =  SHORT_CHANNEL_PROCESS [ 't_ox'  ]
-    oxidecell=tOx/(int(list['n_oxide']) -1)
-    Ratio= oxidecell/float(list['h_min_y'])
-    assert Ratio == pytest.approx(1.0,rel =1e-12),(
-        f"the oxide cell is {oxidecell:.3e} cm against a silicon surface "
-        f"spacing of {list['h_min_y']:.3e}, a seam ratio of {Ratio:.3g}. "
+    k  = working_mesh( )
+    y   =  SHORT_CHANNEL_PROCESS [ 't_ox'  ]
+    j=y/(int(k['n_oxide']) -1)
+    tmp3= j/float(k['h_min_y'])
+    assert tmp3 == pytest.approx(1.0,rel =1e-12),(
+        f"the oxide cell is {j:.3e} cm against a silicon surface "
+        f"spacing of {k['h_min_y']:.3e}, a seam ratio of {tmp3:.3g}. "
         "Refine n_oxide alongside h_min_y."
     )

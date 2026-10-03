@@ -82,24 +82,24 @@ class ScaleFactors :
 
     def factor (  self ,  unit : str  ) -> float   :
 
-        reistry =self._registry
+        xx =self._registry
 
-        if  unit  not  in reistry  :
-            list  = ", ".join(sorted(reistry))
+        if  unit  not  in xx  :
+            w  = ", ".join(sorted(xx))
 
-            raise  KeyError( f"unknown unit {unit!r}. Known units are: {list}"  )
-        return reistry[unit]
+            raise  KeyError( f"unknown unit {unit!r}. Known units are: {w}"  )
+        return xx[unit]
     def to_scaled(  self,  value  :  float   |   np.ndarray ,  unit  :  str )   ->  float  |  np.ndarray  :
-        t2   =   self.factor( unit)
+        jj   =   self.factor( unit)
         if isinstance(value,
                  np.ndarray):
-            return value/ t2
-        return float(value)/ t2
+            return value/ jj
+        return float(value)/ jj
 
     def to_physical(self, value :  float | np.ndarray, unit  :  str) ->  float|  np.ndarray :
-        input =self.factor(unit)
+        it =self.factor(unit)
 
         if isinstance(value, np.ndarray) :
 
-            return value  * input
-        return float(  value)   *  input
+            return value  * it
+        return float(  value)   *  it

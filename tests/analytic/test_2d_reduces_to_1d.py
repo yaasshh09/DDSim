@@ -31,101 +31,101 @@ HEIGHT =  2e-5
 
 
 def setup():
-    xa  =graded_mesh_1d(
+    w  =graded_mesh_1d(
         length  =1e-4, n_nodes  =NX, refine_at =  0.5e-4, h_min = 2e-6
     )
-    YAxis=uniform_mesh_1d(length = HEIGHT,n_nodes=NY)
-    Mesh2d  =  tensor_mesh_2d(xa, YAxis)
+    kk=uniform_mesh_1d(length = HEIGHT,n_nodes=NY)
+    x  =  tensor_mesh_2d(w, kk)
 
-    dev  =  build_device(
-        mesh  =   xa ,
+    m2  =  build_device(
+        mesh  =   w ,
         doping  = abrupt_junction(  Na =  1e18, Nd =  1e15,   position  = 0.5e-4 ),
         contacts   =  (
             OhmicContact(name =  'anode' , node  =  0 ,  voltage  =  0.0  ) ,
             OhmicContact(  name = "cathode",  node  = NX  -  1, voltage =  0.0) ,
         ),
     )
-    stuff =  dev.scale
-    rec  =  SumOfRecombination(
+    z =  m2.scale
+    v  =  SumOfRecombination(
         (
             SRHRecombination (
-                tau_n = C.TAU_N_MAX   /  stuff.t_0 ,
-                tau_p =   C.TAU_P_MAX  /   stuff.t_0,
-                ni2 = (dev.material.n_i   /   stuff.C_0 )  **   2,
-                n1 =  dev.material.n_i  /   stuff.C_0 ,
-                p1 = dev.material.n_i  /   stuff.C_0 ,
+                tau_n = C.TAU_N_MAX   /  z.t_0 ,
+                tau_p =   C.TAU_P_MAX  /   z.t_0,
+                ni2 = (m2.material.n_i   /   z.C_0 )  **   2,
+                n1 =  m2.material.n_i  /   z.C_0 ,
+                p1 = m2.material.n_i  /   z.C_0 ,
             ) ,
             AugerRecombination(
-                C_n   =  C.AUGER_C_N *  stuff.C_0  **  2  * stuff.t_0,
-                C_p  = C.AUGER_C_P  *  stuff.C_0  **  2 *  stuff.t_0,
-                ni2   =   (dev.material.n_i  / stuff.C_0)  **  2,
+                C_n   =  C.AUGER_C_N *  z.C_0  **  2  * z.t_0,
+                C_p  = C.AUGER_C_P  *  z.C_0  **  2 *  z.t_0,
+                ni2   =   (m2.material.n_i  / z.C_0)  **  2,
             ),
         )
     )
-    hmm = TransportModels.for_device(dev, recombination =  rec, mobility =  'arora')
+    k = TransportModels.for_device(m2, recombination =  v, mobility =  'arora')
 
 
-    tmp2 =  stuff.x_0
+    flag =  z.x_0
 
 
-    sttae  =  initial_state(  dev)
-    K =np.linspace(0.0,3.0 *np.pi,NX);  psi= sttae.psi.data+ 0.35 * np.cos(K)
-    n =sttae.n.data*np.exp(0.3*np.sin(K))
+    rows  =  initial_state(  m2)
+    f =np.linspace(0.0,3.0 *np.pi,NX);  psi= rows.psi.data+ 0.35 * np.cos(f)
+    n =rows.n.data*np.exp(0.3*np.sin(f))
 
-    p  = sttae.p.data*np.exp(- 0.3 *np.sin(K))
+    p  = rows.p.data*np.exp(- 0.3 *np.sin(f))
 
     return{
-        "device":dev,
-        'models': hmm,
-        'mesh_2d':Mesh2d,
-        'x_0':tmp2,
+        "device":m2,
+        'models': k,
+        'mesh_2d':x,
+        'x_0':flag,
         "psi":psi,
         "n" : n,
         "p":p,
-        "y_axis" :YAxis,
+        "y_axis" :kk,
     }
 
 
 
 def residual_1d(setup)  :
 
-    dev,Models,xx_0 =setup["device"],setup["models"],setup['x_0']
+    w,k,d =setup["device"],setup["models"],setup['x_0']
     return coupled_residual(
-        h =  dev.mesh.h / xx_0,
-        volume = dev.mesh.volume / xx_0,
+        h =  w.mesh.h / d,
+        volume = w.mesh.volume / d,
         x = pack(setup["psi"], setup['n'], setup['p']),
-        net_doping = dev.net_doping_scaled.data,
-        Dn = Models.Dn,
-        Dp = Models.Dp,
-        recombination = Models.recombination,
+        net_doping = w.net_doping_scaled.data,
+        Dn = k.Dn,
+        Dp = k.Dp,
+        recombination = k.recombination,
         geometry= UNIFORM_1D,
     )
 def residual_2d(setup)  :
-    mseh, pow, x0=setup['mesh_2d'], setup["models"], setup["x_0"]
-    Device = setup['device']
+    u, c2, r=setup['mesh_2d'], setup["models"], setup["x_0"]
+    s = setup['device']
 
-    Tile = np.tile
-    Geometry=  mseh.edge_geometry()
-    sg =type(Geometry) (edge_nodes = Geometry.edge_nodes, dual_face=mseh.dual_face /x0, eps_r = 1.0,)
+    c = np.tile
+    ss=  u.edge_geometry()
+    bb =type(ss) (edge_nodes = ss.edge_nodes, dual_face=u.dual_face /r, eps_r = 1.0,)
 
-    vars= np.broadcast_to(np.asarray(pow.Dn),(NX- 1,)); dp1d =np.broadcast_to(np.asarray(pow.Dp), (NX -  1, ))
-    dnNode   = np.concatenate(  [  vars[:  1] , vars  ])
-    DpNode = np.concatenate([dp1d[: 1],dp1d])
+    i= np.broadcast_to(np.asarray(c2.Dn),(NX- 1,)); e =np.broadcast_to(np.asarray(c2.Dp), (NX -  1, ))
+    d   = np.concatenate(  [  i[:  1] , i  ])
+    tmp3 = np.concatenate([e[: 1],e])
 
 
-    Dnn=np.concatenate([Tile(vars,NY),Tile(dnNode,NY-1)])
-    dp=np.concatenate([Tile(dp1d, NY), Tile(DpNode, NY- 1)])
+    a=np.concatenate([c(i,NY),c(d,NY-1)])
+    rr=np.concatenate([c(e, NY), c(tmp3, NY- 1)])
     return coupled_residual(
-        h=mseh.h /x0,
-        volume=  mseh.volume / x0  **2,
+        h=u.h /r,
+        volume=  u.volume / r  **2,
         x  =  pack(
-            Tile(setup['psi'], NY), Tile(setup["n"], NY), Tile(setup["p"], NY)
+            c(setup['psi'], NY), c(setup["n"], NY), c(setup["p"], NY)
         ),
-        net_doping=  Tile(Device.net_doping_scaled.data, NY),
-        Dn =  Dnn,
-        Dp = dp,
-        recombination = pow.recombination,
-        geometry =  sg,
+        net_doping=  c(s.net_doping_scaled.data, NY),
+        Dn =  a,
+        Dp = rr,
+        recombination = c2.recombination,
+        geometry =  bb,
     )
 
 
@@ -133,24 +133,24 @@ def residual_2d(setup)  :
 
 def test_the_2d_residual_is_the_1d_one_scaled_by_the_row_height(setup, component):
 
-    oneD  =   unpack(residual_1d ( setup))   [  component  ]
+    t2  =   unpack(residual_1d ( setup))   [  component  ]
 
-    td=unpack(residual_2d(setup))[component]
-    daul_y= setup['y_axis'].volume  / setup["x_0"]
+    obj=unpack(residual_2d(setup))[component]
+    buf= setup['y_axis'].volume  / setup["x_0"]
 
 
-    for roww in range(NY) :
-        gott =td[roww * NX : (roww +1)  *  NX]
+    for cc in range(NY) :
+        flag =obj[cc * NX : (cc +1)  *  NX]
 
-        np.testing.assert_allclose(gott, daul_y[roww]  * oneD, rtol =1e-12, atol= 1e-13  *  np.abs(oneD).max())
+        np.testing.assert_allclose(flag, buf[cc]  * t2, rtol =1e-12, atol= 1e-13  *  np.abs(t2).max())
 def test_the_row_factor_is_not_the_same_on_every_row(  setup  )   :
 
-    duual_y  =  setup["y_axis"].volume;assert duual_y[0]==pytest.approx(0.5 *duual_y[1],rel=1e-15)
-    assert len(set(np.round(duual_y,20)))==2
+    f  =  setup["y_axis"].volume;assert f[0]==pytest.approx(0.5 *f[1],rel=1e-15)
+    assert len(set(np.round(f,20)))==2
 def test_the_vertical_edges_carry_no_current_in_a_y_uniform_state(setup):
 
-    Mesh =setup["mesh_2d"]
+    z =setup["mesh_2d"]
     psi = np.tile(setup['psi'], NY)
 
-    ver= Mesh.edge_nodes[Mesh.n_horizontal:]
-    np.testing.assert_array_equal(psi[ver[:, 0]], psi[ver[:, 1]])
+    d= z.edge_nodes[z.n_horizontal:]
+    np.testing.assert_array_equal(psi[d[:, 0]], psi[d[:, 1]])

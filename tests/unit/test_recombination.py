@@ -50,9 +50,9 @@ def test_rate_is_negative_below_equilibrium() -> None :
 def test_rate_is_symmetric_under_swapping_the_carriers ( )   ->  None   :
 
 
-    Forward =srh_rate(1e4,1e-2,TAU_N,TAU_P)
-    buf   =   srh_rate(  1e-2 , 1e4 ,   TAU_P,   TAU_N )
-    assert Forward ==buf
+    g =srh_rate(1e4,1e-2,TAU_N,TAU_P)
+    res   =   srh_rate(  1e-2 , 1e4 ,   TAU_P,   TAU_N )
+    assert g ==res
 
 
 def test_low_injection_limit_in_n_type( )  ->  None  :
@@ -81,46 +81,46 @@ def test_rate_works_on_arrays()-> None:
 
 def  test_lifetimes_may_vary_per_node()  ->   None :
     n = np.full(3, 1e8)
-    p = np.full(3, 1e-8+ 1e-4);tauu_p  = np.array ( [ 1.0,   2.0, 4.0 ]  )
-    np.testing.assert_allclose(srh_rate(n,p,TAU_N,tauu_p),1e-4/tauu_p,rtol=1e-6)
+    p = np.full(3, 1e-8+ 1e-4);f  = np.array ( [ 1.0,   2.0, 4.0 ]  )
+    np.testing.assert_allclose(srh_rate(n,p,TAU_N,f),1e-4/f,rtol=1e-6)
 
 
 
 
 def test_scaled_and_physical_routes_agree()-> None :
-    sca=ScaleFactors.for_silicon()
-    r2= C.n_i()
+    a=ScaleFactors.for_silicon()
+    res2= C.n_i()
 
-    n_pyhs ,   p_pys  =   1e16 , 1e6
-    tauNPhys, foo = 1e-5, 3e-6
-    t2=srh_rate(
-        n_pyhs,
-        p_pys,
-        tauNPhys,
-        foo,
-        ni2=r2 * r2,
-        n1 =r2,
-        p1= r2,
+    thing ,   b  =   1e16 , 1e6
+    r, m = 1e-5, 3e-6
+    v=srh_rate(
+        thing,
+        b,
+        r,
+        m,
+        ni2=res2 * res2,
+        n1 =res2,
+        p1= res2,
     )
-    sccaled=srh_rate(n_pyhs / sca.C_0, p_pys  /sca.C_0, tauNPhys  /  sca.t_0, foo / sca.t_0, ni2 = (r2/ sca.C_0)  **2, n1  =  r2 / sca.C_0, p1= r2 / sca.C_0,)
-    np.testing.assert_allclose(sccaled*sca.R_0,t2,rtol=1e-12)
+    val2=srh_rate(thing / a.C_0, b  /a.C_0, r  /  a.t_0, m / a.t_0, ni2 = (res2/ a.C_0)  **2, n1  =  res2 / a.C_0, p1= res2 / a.C_0,)
+    np.testing.assert_allclose(val2*a.R_0,v,rtol=1e-12)
 
 
 
 def test_rate_against_a_hand_computed_value() -> None :
-    Rate = srh_rate(1e16, 1e12, 1e-5, 3e-6, ni2 = 1e20, n1  = 1e10, p1=  1e10)
+    m = srh_rate(1e16, 1e12, 1e-5, 3e-6, ni2 = 1e20, n1  = 1e10, p1=  1e10)
 
-    str=1e16 * 1e12- 1e20
-    Denominator =3e-6*(1e16 + 1e10)+1e-5*(1e12+1e10)
-    np.testing.assert_allclose(Rate,str /Denominator,rtol=1e-14)
-    np.testing.assert_allclose( Rate, 3.3322e17,  rtol   =  1e-4)
+    j=1e16 * 1e12- 1e20
+    tmp3 =3e-6*(1e16 + 1e10)+1e-5*(1e12+1e10)
+    np.testing.assert_allclose(m,j /tmp3,rtol=1e-14)
+    np.testing.assert_allclose( m, 3.3322e17,  rtol   =  1e-4)
 
 
 
 def complex_step(function : Callable[[complex], complex], x : float)-> float:
-    Step=1e-30
+    a=1e-30
     return float(np.imag(function(complex(x,
-       Step)))/Step)
+       a)))/a)
 
 
 
@@ -131,10 +131,10 @@ def complex_step(function : Callable[[complex], complex], x : float)-> float:
 
 
 def test_dR_dn_against_complex_step(n:float,p: float)-> None :
-    xx = SRHRecombination(tau_n=  TAU_N,
+    r = SRHRecombination(tau_n=  TAU_N,
               tau_p = TAU_P)
-    ref =complex_step(lambda z:srh_rate(z,p,TAU_N,TAU_P),n)
-    np.testing.assert_allclose(as_float(xx.d_rate_dn(n, p)), ref, rtol=  1e-12)
+    t =complex_step(lambda z:srh_rate(z,p,TAU_N,TAU_P),n)
+    np.testing.assert_allclose(as_float(r.d_rate_dn(n, p)), t, rtol=  1e-12)
 
 
 
@@ -143,29 +143,29 @@ def test_dR_dn_against_complex_step(n:float,p: float)-> None :
 
 
 def test_dR_dp_against_complex_step(n :  float, p :  float)-> None  :
-    Model = SRHRecombination(tau_n = TAU_N, tau_p= TAU_P)
-    ref = complex_step(lambda z:srh_rate(n,
+    f = SRHRecombination(tau_n = TAU_N, tau_p= TAU_P)
+    ok = complex_step(lambda z:srh_rate(n,
                    z,
              TAU_N,
                    TAU_P),
            p)
-    np.testing.assert_allclose(as_float(Model.d_rate_dp(n,p)),ref,rtol =1e-12)
+    np.testing.assert_allclose(as_float(f.d_rate_dp(n,p)),ok,rtol =1e-12)
 
 
 @pytest.mark.parametrize(  ("n",  "p" ),   DENSITY_PAIRS)
 
 def test_both_derivatives_are_positive(n  : float,   p  :  float )  -> None :
-    mdoel= SRHRecombination(tau_n= TAU_N,tau_p=TAU_P)
-    assert as_float(mdoel.d_rate_dn(n,p))> 0.0
-    assert as_float(  mdoel.d_rate_dp(  n,   p)  ) >  0.0
+    r= SRHRecombination(tau_n= TAU_N,tau_p=TAU_P)
+    assert as_float(r.d_rate_dn(n,p))> 0.0
+    assert as_float(  r.d_rate_dp(  n,   p)  ) >  0.0
 
 @pytest.mark.parametrize(("n", "p"), DENSITY_PAIRS)
 
 
 
 def  test_electron_linearization_reproduces_the_rate( n  :   float, p  :  float  )   ->  None :
-    stuff,w=srh_electron_linearization(n,p,TAU_N,TAU_P)
-    np.testing.assert_allclose(stuff*n-w,srh_rate(n,p,TAU_N,TAU_P),rtol=1e-13)
+    val,a=srh_electron_linearization(n,p,TAU_N,TAU_P)
+    np.testing.assert_allclose(val*n-a,srh_rate(n,p,TAU_N,TAU_P),rtol=1e-13)
 
 
 
@@ -174,27 +174,27 @@ def  test_electron_linearization_reproduces_the_rate( n  :   float, p  :  float 
 
 
 def test_hole_linearization_reproduces_the_rate(n  :float, p : float)->  None :
-    cc, gg=srh_hole_linearization(n, p, TAU_N, TAU_P)
+    m2, s=srh_hole_linearization(n, p, TAU_N, TAU_P)
 
-    np.testing.assert_allclose( cc   * p  - gg ,   srh_rate ( n ,  p, TAU_N, TAU_P  ) ,  rtol =  1e-13 )
+    np.testing.assert_allclose( m2   * p  - s ,   srh_rate ( n ,  p, TAU_N, TAU_P  ) ,  rtol =  1e-13 )
 
 
 @pytest.mark.parametrize(("n", "p"), DENSITY_PAIRS)
 def test_linearization_coefficients_are_non_negative( n :   float , p  :   float  )  ->  None  :
-    for cc, G in(
+    for d, lst in(
         srh_electron_linearization(n, p, TAU_N, TAU_P),
         srh_hole_linearization(n, p, TAU_N, TAU_P),
     )  :
-        assert as_float(cc) >=0.0
-        assert as_float(G)>=0.0
+        assert as_float(d) >=0.0
+        assert as_float(lst)>=0.0
 
 
 def test_linearization_slope_is_not_the_exact_derivative()->None:
     n, p=1e6, 1e2
-    range=SRHRecombination(tau_n= TAU_N, tau_p= TAU_P)
-    cc, _ = srh_electron_linearization(n, p, TAU_N, TAU_P)
+    t2=SRHRecombination(tau_n= TAU_N, tau_p= TAU_P)
+    i, _ = srh_electron_linearization(n, p, TAU_N, TAU_P)
 
-    assert as_float(cc) != as_float(range.d_rate_dn(n, p))
+    assert as_float(i) != as_float(t2.d_rate_dn(n, p))
 
 
 def test_lifetime_is_tau_max_in_undoped_material()-> None :
@@ -202,10 +202,10 @@ def test_lifetime_is_tau_max_in_undoped_material()-> None :
 
 
 def test_lifetime_is_the_midpoint_at_the_reference_doping() -> None :
-    Tau  =  scharfetter_lifetime(
+    j  =  scharfetter_lifetime(
         C.N_REF_SRH,   tau_max  = 1e-5, tau_min  =  1e-7,  N_ref = C.N_REF_SRH
     )
-    np.testing.assert_allclose( Tau,
+    np.testing.assert_allclose( j,
                       0.5   * (1e-5  +  1e-7 ),
               rtol  =  1e-14  )
 
@@ -217,16 +217,16 @@ def  test_lifetime_approaches_tau_min_at_high_doping() ->  None  :
     )
 
 def test_lifetime_decreases_with_doping()  -> None :
-    hmm= np.array([0.0, 1e14, 1e16, 1e18, 1e20])
-    assert np.all(np.diff(scharfetter_lifetime(hmm,tau_max =1e-5)) < 0.0)
+    lst= np.array([0.0, 1e14, 1e16, 1e18, 1e20])
+    assert np.all(np.diff(scharfetter_lifetime(lst,tau_max =1e-5)) < 0.0)
 
 
 
 def test_lifetime_gamma_sharpens_the_transition() -> None :
-    Gentle= scharfetter_lifetime(1e17,tau_max= 1e-5,gamma=1.0)
-    Steep= scharfetter_lifetime(1e17, tau_max  = 1e-5, gamma  = 2.0)
+    m= scharfetter_lifetime(1e17,tau_max= 1e-5,gamma=1.0)
+    ret= scharfetter_lifetime(1e17, tau_max  = 1e-5, gamma  = 2.0)
 
-    assert Steep  <Gentle
+    assert ret  <m
 
 def test_lifetime_at_1e16_matches_the_documented_defaults()  ->  None:
 
@@ -242,58 +242,58 @@ def test_negative_doping_raises() -> None  :
 
 
 def  test_srh_model_matches_the_free_function( )  ->  None :
-    Model=SRHRecombination(tau_n= TAU_N,tau_p=TAU_P)
+    d=SRHRecombination(tau_n= TAU_N,tau_p=TAU_P)
     n, p= 1e6, 1e2
 
-    np.testing.assert_allclose(np.asarray(Model.rate(n, p)), srh_rate(n, p, TAU_N, TAU_P), rtol=1e-14)
+    np.testing.assert_allclose(np.asarray(d.rate(n, p)), srh_rate(n, p, TAU_N, TAU_P), rtol=1e-14)
 
 def test_srh_model_carries_its_own_intrinsic_density()->None :
 
-    min =SRHRecombination(tau_n= TAU_N, tau_p= TAU_P, ni2= 4.0, n1  = 2.0, p1  = 2.0)
-    assert  as_float(min.rate(  2.0 ,   2.0 ) )  ==   0.0
+    arr =SRHRecombination(tau_n= TAU_N, tau_p= TAU_P, ni2= 4.0, n1  = 2.0, p1  = 2.0)
+    assert  as_float(arr.rate(  2.0 ,   2.0 ) )  ==   0.0
 
 
 def test_srh_model_linearizations_match_the_free_functions()  ->  None:
 
-    Model = SRHRecombination(tau_n= TAU_N, tau_p =TAU_P)
+    x2 = SRHRecombination(tau_n= TAU_N, tau_p =TAU_P)
     n, p = 1e6, 1e2
 
-    w,gmodel=Model.electron_linearization(n,p)
-    oct,bb=srh_electron_linearization(n,p,TAU_N,TAU_P)
-    np.testing.assert_allclose(np.asarray(w), oct, rtol= 1e-14)
-    np.testing.assert_allclose(np.asarray(gmodel), bb, rtol =1e-14)
+    h,out=x2.electron_linearization(n,p)
+    x,j=srh_electron_linearization(n,p,TAU_N,TAU_P)
+    np.testing.assert_allclose(np.asarray(h), x, rtol= 1e-14)
+    np.testing.assert_allclose(np.asarray(out), j, rtol =1e-14)
 
-    w, gmodel=Model.hole_linearization(n, p)
-    oct, bb  = srh_hole_linearization(n, p, TAU_N, TAU_P)
-    np.testing.assert_allclose(np.asarray(w), oct, rtol  =  1e-14)
-    np.testing.assert_allclose(np.asarray(gmodel), bb, rtol =1e-14)
+    h, out=x2.hole_linearization(n, p)
+    x, j  = srh_hole_linearization(n, p, TAU_N, TAU_P)
+    np.testing.assert_allclose(np.asarray(h), x, rtol  =  1e-14)
+    np.testing.assert_allclose(np.asarray(out), j, rtol =1e-14)
 
 
 
 
 def test_no_recombination_returns_zeros()->None:
-    Model=NoRecombination()
+    dat=NoRecombination()
     n = np.array([1e6, 1.0, 1e-6])
     p=np.array([1e-6,1.0,1e6])
-    ElectronC,eg= Model.electron_linearization(n,p)
-    HoleC,  holeG =  Model.hole_linearization( n ,   p)
-    for Values in(
-        Model.rate(n,p),
-        Model.d_rate_dn(n,p),
-        Model.d_rate_dp(n,p),
-        ElectronC,
-        eg,
-        HoleC,
-        holeG,
+    c,y= dat.electron_linearization(n,p)
+    f,  i =  dat.hole_linearization( n ,   p)
+    for u in(
+        dat.rate(n,p),
+        dat.d_rate_dn(n,p),
+        dat.d_rate_dp(n,p),
+        c,
+        y,
+        f,
+        i,
     ):
-        np.testing.assert_array_equal(np.asarray(Values),np.zeros(3))
+        np.testing.assert_array_equal(np.asarray(u),np.zeros(3))
 
 
 
 
 def test_no_recombination_broadcasts_to_the_input_shape()-> None  :
-    Model  =   NoRecombination ( )
-    assert np.asarray(Model.rate(np.zeros(5), np.zeros(5))).shape  == (5, )
+    x  =   NoRecombination ( )
+    assert np.asarray(x.rate(np.zeros(5), np.zeros(5))).shape  == (5, )
 
 
 
@@ -317,56 +317,56 @@ def auger():
     return AugerRecombination(C_n =C.AUGER_C_N,C_p = C.AUGER_C_P)
 
 def  test_auger_vanishes_at_equilibrium (  )  ->  None   :
-    mod  =  auger(  )
+    val  =  auger(  )
     for n in(1e-6,1.0,1e3,1e8):
-        assert mod.rate(n,AUGER_NI2 /n) == 0.0
+        assert val.rate(n,AUGER_NI2 /n) == 0.0
 
 
 
 def test_auger_recombines_above_equilibrium_and_generates_below()->None:
-    Model =auger()
+    k =auger()
 
 
 
-    assert Model.rate( 1e6,  1e6 ) >  0.0
+    assert k.rate( 1e6,  1e6 ) >  0.0
 
-    assert Model.rate(1e-3,1e-3)<0.0
+    assert k.rate(1e-3,1e-3)<0.0
 
 
 
 def test_auger_is_cubic_in_the_carrier_density()->None :
 
-    mdel =auger()
-    loww = mdel.rate(1e6, 1e6)
-    High  =  mdel.rate (  1e7,   1e7 )
+    ss =auger()
+    t = ss.rate(1e6, 1e6)
+    d  =  ss.rate (  1e7,   1e7 )
 
 
-    assert High/loww== pytest.approx(1000.0,rel= 1e-3)
+    assert d/t== pytest.approx(1000.0,rel= 1e-3)
 
 def test_auger_electron_and_hole_channels_are_separately_visible() ->None:
-    str=AugerRecombination(C_n=C.AUGER_C_N,C_p = 0.0)
-    tuple= AugerRecombination(C_n =  0.0, C_p  = C.AUGER_C_P)
+    g=AugerRecombination(C_n=C.AUGER_C_N,C_p = 0.0)
+    y= AugerRecombination(C_n =  0.0, C_p  = C.AUGER_C_P)
 
-    assert str.rate(1e6,1e2)>tuple.rate(1e6,1e2)
+    assert g.rate(1e6,1e2)>y.rate(1e6,1e2)
 
 @pytest.mark.parametrize ( "n,p", [(  1e6,   1e2 ) ,  (  1e2,   1e6  ) ,  (  1e3 ,   1e3 ),   (  1e-2,  1e-2 )  ])
 
 def test_auger_derivatives_match_complex_step(n:float,p:float)->None:
 
-    obj2   =  auger( )
-    junk  =   1e-20
-    Dn =(obj2.rate(complex(n,junk),p)).imag /junk
-    Dp =(obj2.rate(n, complex(p, junk))).imag/ junk
+    a   =  auger( )
+    f  =   1e-20
+    foo =(a.rate(complex(n,f),p)).imag /f
+    k =(a.rate(n, complex(p, f))).imag/ f
 
 
-    assert  obj2.d_rate_dn(n ,   p  )  ==   pytest.approx (Dn ,  rel  = 1e-12  )
-    assert obj2.d_rate_dp(n, p)==pytest.approx(Dp, rel =1e-12)
+    assert  a.d_rate_dn(n ,   p  )  ==   pytest.approx (foo ,  rel  = 1e-12  )
+    assert a.d_rate_dp(n, p)==pytest.approx(k, rel =1e-12)
 
 
 def test_the_auger_electron_tangent_goes_negative_in_depletion() -> None:
-    moedl= auger()
-    assert moedl.d_rate_dn(1e-8, 1e-8) < 0.0
-    assert moedl.d_rate_dn(1e6,1e6)> 0.0
+    d2= auger()
+    assert d2.d_rate_dn(1e-8, 1e-8) < 0.0
+    assert d2.d_rate_dn(1e6,1e6)> 0.0
 
 
 
@@ -374,79 +374,79 @@ def test_the_auger_electron_tangent_goes_negative_in_depletion() -> None:
 
 
 def test_the_auger_linearization_keeps_both_coefficients_non_negative(n :  float, p :float)-> None:
-    Model = auger()
-    for cc, gg in(Model.electron_linearization(n, p), Model.hole_linearization(n, p)) :
-        assert cc>=0.0
+    stuff = auger()
+    for s, j in(stuff.electron_linearization(n, p), stuff.hole_linearization(n, p)) :
+        assert s>=0.0
 
 
-        assert gg>=0.0
+        assert j>=0.0
 
 
 @pytest.mark.parametrize("n,p",[(1e6,1e2),(1e-3,1e-3),(1e3,1e3)])
 def test_the_auger_linearization_is_exact_at_the_current_state(
     n  :  float, p :float
 )->None  :
-    len = auger()
+    stuff = auger()
 
 
-    cN, gn  =  len.electron_linearization(n,
+    v, res2  =  stuff.electron_linearization(n,
                    p)
-    vals ,   gP  =  len.hole_linearization (  n ,  p )
-    assert cN  *  n  -   gn ==   pytest.approx( len.rate (  n, p ), rel  =   1e-12,   abs = 1e-30)
-    assert vals *  p - gP== pytest.approx(len.rate(n, p), rel =  1e-12, abs  =1e-30)
+    yy ,   t  =  stuff.hole_linearization (  n ,  p )
+    assert v  *  n  -   res2 ==   pytest.approx( stuff.rate (  n, p ), rel  =   1e-12,   abs = 1e-30)
+    assert yy *  p - t== pytest.approx(stuff.rate(n, p), rel =  1e-12, abs  =1e-30)
 
 
 
 
 def test_a_sum_of_models_adds_their_rates()->None:
-    srhh  =  SRHRecombination(  tau_n   =  1e3 , tau_p  =   1e3 )
-    tottal=SumOfRecombination((srhh,auger()))
+    u  =  SRHRecombination(  tau_n   =  1e3 , tau_p  =   1e3 )
+    h=SumOfRecombination((u,auger()))
 
 
     n, p = 1e5, 1e4
-    assert tottal.rate(n, p)==pytest.approx(srhh.rate(n, p)+ auger().rate(n, p), rel=  1e-14)
+    assert h.rate(n, p)==pytest.approx(u.rate(n, p)+ auger().rate(n, p), rel=  1e-14)
 
 def test_a_sum_of_models_adds_their_derivatives()->None:
 
 
-    srhh=SRHRecombination(tau_n= 1e3,tau_p =1e3)
-    Total  =SumOfRecombination((srhh, auger()))
+    r=SRHRecombination(tau_n= 1e3,tau_p =1e3)
+    t  =SumOfRecombination((r, auger()))
 
 
     n, p =  1e5, 1e4
-    assert Total.d_rate_dn(n, p)== pytest.approx(
-        srhh.d_rate_dn(n, p)  +  auger().d_rate_dn(n, p), rel  = 1e-14
+    assert t.d_rate_dn(n, p)== pytest.approx(
+        r.d_rate_dn(n, p)  +  auger().d_rate_dn(n, p), rel  = 1e-14
     )
-    assert Total.d_rate_dp(n, p)  ==pytest.approx(srhh.d_rate_dp(n, p)  +  auger().d_rate_dp(n, p), rel  =  1e-14)
+    assert t.d_rate_dp(n, p)  ==pytest.approx(r.d_rate_dp(n, p)  +  auger().d_rate_dp(n, p), rel  =  1e-14)
 
 
 def test_a_sum_of_models_adds_their_linearizations() -> None  :
-    ret= SRHRecombination(tau_n =1e3,tau_p=1e3)
+    u= SRHRecombination(tau_n =1e3,tau_p=1e3)
 
-    foo= SumOfRecombination((ret,auger()))
+    v= SumOfRecombination((u,auger()))
     n,p =1e5,1e4
-    w, G= foo.electron_linearization(n, p)
-    cSrh, gsrh=ret.electron_linearization(n, p)
-    CAug,g_augg= auger().electron_linearization(n,p)
+    ss, y= v.electron_linearization(n, p)
+    f, a=u.electron_linearization(n, p)
+    mm,r= auger().electron_linearization(n,p)
 
 
 
-    assert w ==pytest.approx(cSrh  +  CAug, rel =1e-14)
-    assert G == pytest.approx(gsrh + g_augg, rel  = 1e-14)
+    assert ss ==pytest.approx(f  +  mm, rel =1e-14)
+    assert y == pytest.approx(a + r, rel  = 1e-14)
 
-    assert w*n- G== pytest.approx(foo.rate(n,p),rel= 1e-12)
+    assert ss*n- y== pytest.approx(v.rate(n,p),rel= 1e-12)
 
 def test_an_empty_sum_is_no_recombination()->  None:
-    tot= SumOfRecombination(())
-    assert tot.rate(np.full(4, 1e5), np.full(4, 1e4)).tolist() ==[0.0]*4
-    assert tot.d_rate_dn (np.full(  4, 1e5 ) ,   np.full(  4, 1e4)).tolist(  ) == [ 0.0 ]   *   4
+    jj= SumOfRecombination(())
+    assert jj.rate(np.full(4, 1e5), np.full(4, 1e4)).tolist() ==[0.0]*4
+    assert jj.d_rate_dn (np.full(  4, 1e5 ) ,   np.full(  4, 1e4)).tolist(  ) == [ 0.0 ]   *   4
 
 
 
 def test_a_sum_of_one_model_is_that_model()-> None:
-    data2= SRHRecombination(tau_n =1e3, tau_p = 1e3)
-    tot   = SumOfRecombination( (  data2, ) )
-    assert tot.rate(1e5, 1e4) ==  pytest.approx(data2.rate(1e5, 1e4), rel =  1e-15)
+    t= SRHRecombination(tau_n =1e3, tau_p = 1e3)
+    f   = SumOfRecombination( (  t, ) )
+    assert f.rate(1e5, 1e4) ==  pytest.approx(t.rate(1e5, 1e4), rel =  1e-15)
 
 
 def test_a_summed_model_satisfies_the_protocol()   ->  None  :
@@ -457,15 +457,15 @@ def test_a_summed_model_satisfies_the_protocol()   ->  None  :
 
 def test_a_sum_of_models_adds_their_hole_linearizations() -> None  :
 
-    srhh= SRHRecombination(tau_n =  1e3, tau_p = 1e3)
+    s= SRHRecombination(tau_n =  1e3, tau_p = 1e3)
 
 
-    foo  = SumOfRecombination(  (srhh,   auger())  )
+    c  = SumOfRecombination(  (s,   auger())  )
     n, p= 1e5, 1e4
-    cc,   gg  =  foo.hole_linearization(  n,   p  )
-    cs,r2=srhh.hole_linearization(n,p);  junk, GAug= auger().hole_linearization(n, p)
+    i,   w2  =  c.hole_linearization(  n,   p  )
+    arr,w=s.hole_linearization(n,p);  f, res= auger().hole_linearization(n, p)
 
-    assert cc==pytest.approx(cs+junk,rel= 1e-14)
-    assert gg==pytest.approx(r2+ GAug,
+    assert i==pytest.approx(arr+f,rel= 1e-14)
+    assert w2==pytest.approx(w+ res,
           rel =1e-14)
-    assert cc* p  -gg == pytest.approx(foo.rate(n, p), rel  =1e-12)
+    assert i* p  -w2 == pytest.approx(c.rate(n, p), rel  =1e-12)

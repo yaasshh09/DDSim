@@ -4,20 +4,20 @@ import pytest
 from  ddsim.api.jobs import  BusyError, CancelledError,   JobRegistry,  JobStatus
 
 def test_a_job_runs_and_finishes()-> None :
-    arr   =   JobRegistry(  )
-    jobb= arr.submit(lambda send:send('only frame'))
-    arr.wait( jobb.id, timeout  = 5.0 )
+    val   =   JobRegistry(  )
+    w= val.submit(lambda send:send('only frame'))
+    val.wait( w.id, timeout  = 5.0 )
 
-    assert  arr.status(jobb.id )  is JobStatus.DONE
+    assert  val.status(w.id )  is JobStatus.DONE
 
 
 
 def  test_the_frames_arrive_in_the_order_they_were_sent(  )  -> None :
-    jbos=JobRegistry()
+    j=JobRegistry()
 
-    jobb= jbos.submit(lambda send :[send(n)for n in range(5)])
+    res2= j.submit(lambda send :[send(n)for n in range(5)])
 
-    assert list(jbos.frames(jobb.id,
+    assert list(j.frames(res2.id,
                    timeout = 5.0))  == [0,
            1,
                    2,
@@ -26,96 +26,96 @@ def  test_the_frames_arrive_in_the_order_they_were_sent(  )  -> None :
 
 
 def test_the_stream_ends_when_the_work_does() -> None:
-    jbs=JobRegistry()
+    kk=JobRegistry()
 
-    jobb=jbs.submit(lambda send :send("done"))
-    zz =  list ( jbs.frames( jobb.id,   timeout =  5.0 )  )
+    d=kk.submit(lambda send :send("done"))
+    y =  list ( kk.frames( d.id,   timeout =  5.0 )  )
 
-    assert zz ==  ["done"]
-    assert jbs.status(jobb.id) is JobStatus.DONE
+    assert y ==  ["done"]
+    assert kk.status(d.id) is JobStatus.DONE
 
 
 
 def  test_submitting_does_not_wait_for_the_work() ->   None  :
-    k2=threading.Event()
-    stuff2=JobRegistry()
-    jobb= stuff2.submit(lambda send :k2.wait(timeout =5.0))
-    assert stuff2.status(jobb.id)  in(JobStatus.PENDING, JobStatus.RUNNING)
-    k2.set()
-    stuff2.wait(jobb.id,timeout=5.0)
+    j=threading.Event()
+    item=JobRegistry()
+    a2= item.submit(lambda send :j.wait(timeout =5.0))
+    assert item.status(a2.id)  in(JobStatus.PENDING, JobStatus.RUNNING)
+    j.set()
+    item.wait(a2.id,timeout=5.0)
 
 def test_work_that_raises_leaves_the_job_failed_with_the_reason() -> None :
 
     def explode(send :object)-> None :
 
         raise RuntimeError("the Jacobian is singular")
-    Jobs  =  JobRegistry()
+    c2  =  JobRegistry()
 
 
-    jobb = Jobs.submit(explode)
-    Jobs.wait(jobb.id, timeout =  5.0)
-    assert Jobs.status(jobb.id)  is JobStatus.FAILED
-    assert "singular" in Jobs.message(jobb.id)
+    c = c2.submit(explode)
+    c2.wait(c.id, timeout =  5.0)
+    assert c2.status(c.id)  is JobStatus.FAILED
+    assert "singular" in c2.message(c.id)
 
 def test_cancelling_stops_the_work_at_its_next_frame()->None:
-    statred= threading.Event()
-    FramesSent  =  [  ]
+    f= threading.Event()
+    g  =  [  ]
 
     def forever(send) ->None :
-        statred.set ( )
+        f.set ( )
 
 
         for n in range(1_000_000) :
             send(n)
-            FramesSent.append(n)
-    Jobs =  JobRegistry()
-    filter =Jobs.submit(forever)
-    statred.wait(timeout=5.0)
+            g.append(n)
+    dat =  JobRegistry()
+    bb =dat.submit(forever)
+    f.wait(timeout=5.0)
 
 
-    assert  Jobs.cancel(filter.id )   is True
-    Jobs.wait(filter.id,timeout=5.0)
-    assert Jobs.status(filter.id)  is JobStatus.CANCELLED
-    assert len(FramesSent)  < 1_000_000
+    assert  dat.cancel(bb.id )   is True
+    dat.wait(bb.id,timeout=5.0)
+    assert dat.status(bb.id)  is JobStatus.CANCELLED
+    assert len(g)  < 1_000_000
 
 
 
 def test_a_cancelled_job_ends_its_stream() -> None :
 
-    sta  =  threading.Event()
+    tmp  =  threading.Event()
     def forever(send) -> None :
 
 
-        sta.set ( )
+        tmp.set ( )
 
         while True:
             send("tick")
-    jbos  =   JobRegistry ( )
-    str  = jbos.submit(forever)
-    sta.wait(timeout = 5.0)
-    jbos.cancel( str.id  )
-    draiined =list(jbos.frames(str.id, timeout  = 5.0))
+    z  =   JobRegistry ( )
+    nxt  = z.submit(forever)
+    tmp.wait(timeout = 5.0)
+    z.cancel( nxt.id  )
+    e =list(z.frames(nxt.id, timeout  = 5.0))
 
 
 
-    assert draiined[- 1]== 'tick'
-    assert jbos.status(str.id)is JobStatus.CANCELLED
+    assert e[- 1]== 'tick'
+    assert z.status(nxt.id)is JobStatus.CANCELLED
 
 
 
 
 def test_cancelling_a_finished_job_changes_nothing() -> None :
-    Jobs =  JobRegistry (  )
+    r =  JobRegistry (  )
 
-    jobb =  Jobs.submit(lambda send :  send('one'))
-    Jobs.wait(jobb.id,timeout= 5.0)
-    assert Jobs.cancel(jobb.id) is False
-    assert Jobs.status(jobb.id)is JobStatus.DONE
+    k =  r.submit(lambda send :  send('one'))
+    r.wait(k.id,timeout= 5.0)
+    assert r.cancel(k.id) is False
+    assert r.status(k.id)is JobStatus.DONE
 
 
 def test_the_work_can_see_that_it_was_cancelled(  )   ->  None  :
 
-    Caught  :  list[  str ]  =  [ ]
+    dd  :  list[  str ]  =  [ ]
 
     def tidy(send)-> None  :
         try :
@@ -124,228 +124,228 @@ def test_the_work_can_see_that_it_was_cancelled(  )   ->  None  :
             while  True :
                 send('tick')
         except CancelledError :
-            Caught.append('cleaned up')
+            dd.append('cleaned up')
             raise
 
 
-    sta  = threading.Event()
-    Jobs  = JobRegistry(); myvar  =   Jobs.submit ( lambda send  :  (  sta.set(  ),  tidy(send )  ))
+    u  = threading.Event()
+    x  = JobRegistry(); y  =   x.submit ( lambda send  :  (  u.set(  ),  tidy(send )  ))
 
-    sta.wait(timeout =5.0)
+    u.wait(timeout =5.0)
 
-    Jobs.cancel(myvar.id)
-    Jobs.wait(myvar.id, timeout  = 5.0)
+    x.cancel(y.id)
+    x.wait(y.id, timeout  = 5.0)
 
-    assert Caught   ==  [ "cleaned up"]
+    assert dd   ==  [ "cleaned up"]
 
 
 
 
 def test_two_jobs_do_not_share_a_stream()->None:
-    jbs=JobRegistry()
+    w2=JobRegistry()
 
 
-    fir  =  jbs.submit (  lambda send  :  send("first"))
-    data2 =  jbs.submit(lambda send : send('second'))
+    e  =  w2.submit (  lambda send  :  send("first"))
+    d =  w2.submit(lambda send : send('second'))
 
-    assert list(jbs.frames(fir.id,timeout =5.0)) ==["first"]
-    assert list(jbs.frames(data2.id,timeout=5.0))==['second']
+    assert list(w2.frames(e.id,timeout =5.0)) ==["first"]
+    assert list(w2.frames(d.id,timeout=5.0))==['second']
 
 
 def test_an_unknown_job_is_refused()->None:
-    Jobs= JobRegistry()
+    j= JobRegistry()
 
     with pytest.raises(KeyError) :
-        Jobs.status("no-such-job")
+        j.status("no-such-job")
 
 
 def test_every_job_gets_its_own_id() -> None :
-    Jobs=JobRegistry()
-    idss={Jobs.submit(lambda send :None).id for _ in range(10)}
+    c=JobRegistry()
+    it={c.submit(lambda send :None).id for _ in range(10)}
 
 
-    assert len(  idss) ==   10
+    assert len(  it) ==   10
 def test_a_full_queue_drops_its_oldest_frame_and_counts_the_loss() ->None:
-    jbos   =  JobRegistry( queue_size  =  4  )
-    jobb=  jbos.submit(lambda send : [send(n) for n in range(10)])
-    jbos.wait(jobb.id,timeout=5.0)
-    assert  jbos.dropped( jobb.id  )   ==  6
-    assert list(jbos.frames(jobb.id, timeout = 5.0))==  [6, 7, 8, 9]
+    thing   =  JobRegistry( queue_size  =  4  )
+    f=  thing.submit(lambda send : [send(n) for n in range(10)])
+    thing.wait(f.id,timeout=5.0)
+    assert  thing.dropped( f.id  )   ==  6
+    assert list(thing.frames(f.id, timeout = 5.0))==  [6, 7, 8, 9]
 
 
 
 
 def test_a_job_finishes_even_when_nobody_drains_its_queue()->None:
 
-    Jobs  = JobRegistry( queue_size  = 2  )
+    xs  = JobRegistry( queue_size  = 2  )
 
-    jobb=  Jobs.submit(lambda send:  [send(n)for n in range(50)])
-    assert Jobs.wait(jobb.id,timeout =5.0) is JobStatus.DONE
+    s2=  xs.submit(lambda send:  [send(n)for n in range(50)])
+    assert xs.wait(s2.id,timeout =5.0) is JobStatus.DONE
 
 
 
 
 def test_reading_frames_gives_up_rather_than_waiting_forever()-> None:
-    vals=JobRegistry()
+    x2=JobRegistry()
 
-    jobb = vals.submit(lambda send:threading.Event().wait(timeout= 5.0))
+    j = x2.submit(lambda send:threading.Event().wait(timeout= 5.0))
 
     with pytest.raises(TimeoutError):
-        list(vals.frames(jobb.id,timeout = 0.05))
+        list(x2.frames(j.id,timeout = 0.05))
 
 
 
 
 def test_waiting_for_a_job_gives_up_rather_than_hanging()->None:
-    joobs= JobRegistry()
-    Job=joobs.submit(lambda send: threading.Event().wait(timeout = 5.0))
+    y= JobRegistry()
+    x=y.submit(lambda send: threading.Event().wait(timeout = 5.0))
 
     with  pytest.raises ( TimeoutError )   :
-        joobs.wait(Job.id,
+        y.wait(x.id,
              timeout= 0.05)
 
 
 def test_a_finished_job_keeps_what_the_work_returned() -> None  :
-    max  = JobRegistry()
-    Job =max.submit(lambda send :'the curve')
+    f  = JobRegistry()
+    u =f.submit(lambda send :'the curve')
 
-    max.wait(Job.id,timeout= 5.0)
-    assert max.result(Job.id)=="the curve"
+    f.wait(u.id,timeout= 5.0)
+    assert f.result(u.id)=="the curve"
 
 
 
 def test_a_job_that_is_still_running_has_no_result_yet() ->None :
 
-    joobs = JobRegistry()
-    hodling = threading.Event()
-    Job=joobs.submit(lambda send:hodling.wait(timeout=5.0))
+    w = JobRegistry()
+    prev = threading.Event()
+    i=w.submit(lambda send:prev.wait(timeout=5.0))
     try :
-        assert joobs.result(Job.id) is None
+        assert w.result(i.id) is None
     finally:
-        hodling.set()
-    joobs.wait ( Job.id ,   timeout  =   5.0 )
+        prev.set()
+    w.wait ( i.id ,   timeout  =   5.0 )
 
 
 def test_a_failed_job_has_no_result() ->None :
-    jbos =  JobRegistry()
+    el =  JobRegistry()
 
-    Job=jbos.submit(lambda send :1/ 0)
-    jbos.wait(Job.id,
+    buf=el.submit(lambda send :1/ 0)
+    el.wait(buf.id,
         timeout  = 5.0)
 
-    assert jbos.status (  Job.id)  is  JobStatus.FAILED
-    assert jbos.result(Job.id) is None
+    assert el.status (  buf.id)  is  JobStatus.FAILED
+    assert el.result(buf.id) is None
 
 def test_a_cancelled_job_keeps_nothing_either (  )   ->   None  :
-    Jobs=JobRegistry()
-    Cancelled = threading.Event()
+    dd=JobRegistry()
+    r = threading.Event()
 
     def work(send):
         send("one")
-        Cancelled.wait(timeout  =5.0)
+        r.wait(timeout  =5.0)
         send( "two" )
         return  "finished"
-    junk= Jobs.submit(work);next(Jobs.frames(junk.id, timeout=  5.0))
-    assert Jobs.cancel(junk.id)
-    Cancelled.set()
+    ss= dd.submit(work);next(dd.frames(ss.id, timeout=  5.0))
+    assert dd.cancel(ss.id)
+    r.set()
 
-    assert Jobs.wait(junk.id, timeout=  5.0) is JobStatus.CANCELLED
-    assert Jobs.result(junk.id) is None
+    assert dd.wait(ss.id, timeout=  5.0) is JobStatus.CANCELLED
+    assert dd.result(ss.id) is None
 
 
 def  test_closing_the_registry_stops_every_running_job(  )  -> None :
-    jbs = JobRegistry()
+    flag = JobRegistry()
 
 
     def  forever( send) ->  None  :
         while  True  :
             send("iteration")
-    xx= [jbs.submit(forever)for _ in range(3)]
-    Finished  =   jbs.submit(lambda  send   :   send( 'done'  )  ) ; jbs.wait(Finished.id,timeout= 5.0)
+    c= [flag.submit(forever)for _ in range(3)]
+    buf  =   flag.submit(lambda  send   :   send( 'done'  )  ) ; flag.wait(buf.id,timeout= 5.0)
 
-    jbs.close(timeout = 5.0)
+    flag.close(timeout = 5.0)
 
 
 
-    assert all(jbs.status(job.id) is JobStatus.CANCELLED for job in xx)
+    assert all(flag.status(jj.id) is JobStatus.CANCELLED for jj in c)
 
-    assert jbs.status(Finished.id)is JobStatus.DONE
+    assert flag.status(buf.id)is JobStatus.DONE
 
 
 
 def test_closing_gives_up_on_work_that_never_reports()->None :
-    dir = threading.Event()
-    joobs  = JobRegistry()
-    joobs.submit(lambda send:dir.wait(timeout=5.0))
+    thing = threading.Event()
+    y  = JobRegistry()
+    y.submit(lambda send:thing.wait(timeout=5.0))
 
     with pytest.raises(TimeoutError)  :
-        joobs.close(timeout =0.1)
+        y.close(timeout =0.1)
 
 
-    dir.set()
+    thing.set()
 
 
 
 def test_a_full_registry_refuses_a_new_job_rather_than_queueing_it(  )  ->   None :
-    vals  =  threading.Event(  )
-    bb  = JobRegistry(max_running =2)
-    hled =[bb.submit(lambda send :vals.wait(timeout= 5.0)) for _ in range(2)]
+    x  =  threading.Event(  )
+    t  = JobRegistry(max_running =2)
+    ok =[t.submit(lambda send :x.wait(timeout= 5.0)) for _ in range(2)]
 
 
     with  pytest.raises(  BusyError  )  :
-        bb.submit(lambda send : None)
+        t.submit(lambda send : None)
 
-    vals.set()
-    for Job in hled  :
-        bb.wait ( Job.id,  timeout   =   5.0  )
-    bb.wait(bb.submit(lambda send : None).id, timeout=5.0)
+    x.set()
+    for c in ok  :
+        t.wait ( c.id,  timeout   =   5.0  )
+    t.wait(t.submit(lambda send : None).id, timeout=5.0)
 
 
 def test_a_finished_job_is_forgotten_once_it_is_old_enough()->None:
 
-    Now  =   [  0.0 ]
-    joobs=  JobRegistry(keep_for =  60.0, clock =  lambda :  Now[0])
-    Old = joobs.submit(lambda send  : None)
-    joobs.wait(Old.id, timeout =  5.0)
+    obj  =   [  0.0 ]
+    j=  JobRegistry(keep_for =  60.0, clock =  lambda :  obj[0])
+    tt = j.submit(lambda send  : None)
+    j.wait(tt.id, timeout =  5.0)
 
-    Now[0]  =  30.0
-    joobs.wait(joobs.submit(lambda send : None).id, timeout= 5.0)
-    assert joobs.status(Old.id)is JobStatus.DONE
+    obj[0]  =  30.0
+    j.wait(j.submit(lambda send : None).id, timeout= 5.0)
+    assert j.status(tt.id)is JobStatus.DONE
 
-    Now[0] = 61.0
-    joobs.wait(joobs.submit(lambda send: None).id,timeout =5.0)
+    obj[0] = 61.0
+    j.wait(j.submit(lambda send: None).id,timeout =5.0)
 
     with pytest.raises(KeyError) :
-        joobs.status(  Old.id )
+        j.status(  tt.id )
 
 
 
 
 def  test_a_running_job_is_never_forgotten_however_old(  ) ->   None  :
-    Now =   [0.0]
-    relaese = threading.Event() ; d2 =JobRegistry(keep_for= 60.0,clock=lambda:Now[0])
-    sow  =  d2.submit(lambda send  : relaese.wait(  timeout   =  5.0))
+    w =   [0.0]
+    k = threading.Event() ; w2 =JobRegistry(keep_for= 60.0,clock=lambda:w[0])
+    vals  =  w2.submit(lambda send  : k.wait(  timeout   =  5.0))
 
 
 
-    Now[0] = 1000.0
-    d2.wait(d2.submit(lambda send:None).id,timeout= 5.0)
+    w[0] = 1000.0
+    w2.wait(w2.submit(lambda send:None).id,timeout= 5.0)
 
-    assert d2.status(sow.id)in(JobStatus.PENDING,JobStatus.RUNNING)
-    relaese.set();  d2.wait(sow.id, timeout  = 5.0)
+    assert w2.status(vals.id)in(JobStatus.PENDING,JobStatus.RUNNING)
+    k.set();  w2.wait(vals.id, timeout  = 5.0)
 
 def test_a_job_past_its_time_limit_stops_and_says_why()  ->  None  :
-    round =[0.0]
-    foo = JobRegistry(time_limit=60.0, clock = lambda :round[0])
+    v =[0.0]
+    w = JobRegistry(time_limit=60.0, clock = lambda :v[0])
 
 
 
     def  forever (send)   -> None :
         while  True   :
-            send("iteration") ; round[0] += 1.0
+            send("iteration") ; v[0] += 1.0
 
-    Job = foo.submit(forever)
+    b = w.submit(forever)
 
 
-    assert foo.wait(Job.id, timeout=5.0) is JobStatus.CANCELLED
-    assert "60 s" in foo.message(Job.id)
+    assert w.wait(b.id, timeout=5.0) is JobStatus.CANCELLED
+    assert "60 s" in w.message(b.id)

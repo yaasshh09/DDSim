@@ -29,31 +29,31 @@ def solver_history(state:Any)->list[float] :
 
 
 def test_a_current_sweep_is_bit_for_bit_unchanged_by_watching_it(what, sweep) :
-    map=sweep(None)
-    fra : list[Any] = []
-    blah  =   sweep ( fra.append )
+    hh=sweep(None)
+    c : list[Any] = []
+    e  =   sweep ( c.append )
 
 
-    assert fra,f"the {what} sweep reported nothing, so this proves nothing"
-    assert blah.complete == map.complete ; np.testing.assert_array_equal(blah.voltage, map.voltage)
-    np.testing.assert_array_equal(blah.current,map.current)
-    for vars,s2 in zip(blah.points,map.points,strict=True):
-        assert  solver_history( vars.state  )   ==   solver_history (  s2.state)
-        np.testing.assert_array_equal(vars.state.psi.data,   s2.state.psi.data  ); np.testing.assert_array_equal(vars.state.n.data, s2.state.n.data)
-        np.testing.assert_array_equal(vars.state.p.data,s2.state.p.data)
+    assert c,f"the {what} sweep reported nothing, so this proves nothing"
+    assert e.complete == hh.complete ; np.testing.assert_array_equal(e.voltage, hh.voltage)
+    np.testing.assert_array_equal(e.current,hh.current)
+    for bb,x in zip(e.points,hh.points,strict=True):
+        assert  solver_history( bb.state  )   ==   solver_history (  x.state)
+        np.testing.assert_array_equal(bb.state.psi.data,   x.state.psi.data  ); np.testing.assert_array_equal(bb.state.n.data, x.state.n.data)
+        np.testing.assert_array_equal(bb.state.p.data,x.state.p.data)
 
 
 
 
 def test_a_capacitance_sweep_is_bit_for_bit_unchanged_by_watching_it():
 
-    vol= [-1.0, 0.0, 1.0]
-    hex   =   cv_sweep( mos_cap( ),  'gate',   vol  )
-    Frames   :  list[Any]  =  [  ]
-    wathed=  cv_sweep(mos_cap(), 'gate', vol, on_frame  =Frames.append)
-    assert Frames
-    np.testing.assert_array_equal(wathed.capacitance, hex.capacitance)
-    np.testing.assert_array_equal(wathed.charge,hex.charge)
-    for Seen,exxpected in zip(wathed.points,hex.points,strict=True):
-        assert  solver_history(  Seen.state  )  ==  solver_history ( exxpected.state  )
-        np.testing.assert_array_equal(Seen.state.psi.data,exxpected.state.psi.data)
+    tmp3= [-1.0, 0.0, 1.0]
+    a   =   cv_sweep( mos_cap( ),  'gate',   tmp3  )
+    x   :  list[Any]  =  [  ]
+    y=  cv_sweep(mos_cap(), 'gate', tmp3, on_frame  =x.append)
+    assert x
+    np.testing.assert_array_equal(y.capacitance, a.capacitance)
+    np.testing.assert_array_equal(y.charge,a.charge)
+    for jj,val in zip(y.points,a.points,strict=True):
+        assert  solver_history(  jj.state  )  ==  solver_history ( val.state  )
+        np.testing.assert_array_equal(jj.state.psi.data,val.state.psi.data)

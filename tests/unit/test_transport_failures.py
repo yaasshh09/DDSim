@@ -22,11 +22,11 @@ def diode() :
 
 def shifted_state(device, shift :float) :
 
-    State=initial_state(device)
+    i=initial_state(device)
     return  replace (
-        State,
+        i,
         psi =  Field(
-            State.psi.data  +   shift,
+            i.psi.data  +   shift,
             'V' ,
             ScalingState.SCALED,
             Location.NODE ,
@@ -36,70 +36,70 @@ def shifted_state(device, shift :float) :
 
 
 def test_a_stalled_poisson_block_raises_with_the_reason() -> None :
-    Device=diode()
-    zz   =  shifted_state( Device ,  400.0)
+    dat=diode()
+    v   =  shifted_state( dat ,  400.0)
 
 
     with pytest.raises(TransportError,match='Poisson block did not converge'):
-        poisson_block(Device)(zz)
+        poisson_block(dat)(v)
 
 
 def test_a_stalled_block_carries_the_state_that_failed() -> None:
-    Device  =  diode(  )
+    val  =  diode(  )
 
-    farAway = shifted_state(Device, 400.0)
+    buf = shifted_state(val, 400.0)
     try :
-        poisson_block(Device) (farAway)
-    except  TransportError  as fialure  :
-        assert fialure.state is farAway
+        poisson_block(val) (buf)
+    except  TransportError  as v  :
+        assert v.state is buf
     else :
         pytest.fail('the block should not have converged')
 
 def test_solve_bias_reports_a_stalled_block_rather_than_raising()->None:
-    bytes =  diode()
-    data2 = solve_bias(bytes, guess =shifted_state(bytes, 400.0))
-    assert data2.gummel is not None
-    assert not data2.gummel.converged
-    assert 'Poisson' in data2.gummel.message
+    info =  diode()
+    t = solve_bias(info, guess =shifted_state(info, 400.0))
+    assert t.gummel is not None
+    assert not t.gummel.converged
+    assert 'Poisson' in t.gummel.message
 
 
 
 def  test_a_non_positive_density_is_refused_rather_than_clamped( )   -> None :
-    pow =diode()
+    thing =diode()
 
-    sttae = initial_state(pow)
+    d = initial_state(thing)
 
-    den =  np.full(pow.mesh.n_nodes, 1.0)
-    den[ 7  ] = -   3.5e-9
+    tmp2 =  np.full(thing.mesh.n_nodes, 1.0)
+    tmp2[ 7  ] = -   3.5e-9
 
     with pytest.raises(TransportError, match ="node 7"):
-        _check_positive(den, "n", sttae)
+        _check_positive(tmp2, "n", d)
 
 def test_a_positive_density_passes_the_check() ->  None  :
-    Device=diode()
-    sttate= initial_state(Device)
+    t=diode()
+    a= initial_state(t)
 
-    _check_positive(np.full(Device.mesh.n_nodes,
+    _check_positive(np.full(t.mesh.n_nodes,
           1e-30),
               "n",
-               sttate)
+               a)
 
 
 def test_the_refusal_names_the_carrier()->None:
-    dev=diode()
-    stte= initial_state(dev)
-    Density= np.full(dev.mesh.n_nodes,1.0)
-    Density[0]=0.0
+    w=diode()
+    x= initial_state(w)
+    flag= np.full(w.mesh.n_nodes,1.0)
+    flag[0]=0.0
 
     with pytest.raises(TransportError,match ='^p came out'):
-        _check_positive(Density, 'p', stte)
+        _check_positive(flag, 'p', x)
 def test_the_state_repr_reports_the_ranges() -> None :
-    val =   repr( initial_state (  diode( )  )  )
-    assert '101 nodes' in val
-    assert "psi" in val
-    assert "n" in val
+    m2 =   repr( initial_state (  diode( )  )  )
+    assert '101 nodes' in m2
+    assert "psi" in m2
+    assert "n" in m2
 
 def test_the_overflow_guard_is_unreachable_by_arithmetic()-> None  :
 
-    LargestShift  =  MAX_PSI_STEP  *   50
-    assert np.exp(LargestShift) *  1e10 < np.finfo(np.float64).max
+    num  =  MAX_PSI_STEP  *   50
+    assert np.exp(num) *  1e10 < np.finfo(np.float64).max

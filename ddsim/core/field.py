@@ -60,9 +60,9 @@ class Field:
 
         return int(self.data.shape[0])
     def __repr__(self) -> str:
-        Label  =  f" {self.name!r}"  if  self.name  is  not  None  else ""
+        z  =  f" {self.name!r}"  if  self.name  is  not  None  else ""
         return(
-            f"Field{Label} [{self.unit}] {self.scaling.name} "
+            f"Field{z} [{self.unit}] {self.scaling.name} "
             f"{self.location.name} n={self.size}"
         )
 

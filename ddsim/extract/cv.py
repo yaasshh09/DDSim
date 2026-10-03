@@ -27,24 +27,24 @@ class Response(Enum) :
 
 
 def _charge_unit(  device   :   Device, width  : float |  None )  ->  float   :
-    sca= device.scale
+    e= device.scale
 
     if  isinstance (  device.mesh ,   Mesh1D )  :
-        etent=1.0 if width is None else width
-        return C.q* sca.C_0* sca.x_0/etent
-    etent = device.mesh.x_axis.length if width is None else width
-    return C.q*sca.C_0 *sca.x_0**2/etent
+        res=1.0 if width is None else width
+        return C.q* e.C_0* e.x_0/res
+    res = device.mesh.x_axis.length if width is None else width
+    return C.q*e.C_0 *e.x_0**2/res
 
 
 def _contact_nodes(device:Device,contact : str) ->tuple[int,...]:
-    for  chr  in device.contacts  :
+    for  z2  in device.contacts  :
 
 
-        if chr.name==contact:
-            return chr.nodes
+        if z2.name==contact:
+            return z2.nodes
     raise KeyError(
         f"no contact named {contact!r} on this device, which has "
-        f"{sorted(chr.name for chr in device.contacts)}"
+        f"{sorted(d.name for d in device.contacts)}"
     )
 QuasiFermi = tuple[Field, Field] | None
 
@@ -66,17 +66,17 @@ def terminal_charge(
     width  : float | None = None,
 )-> float:
 
-    Assembly = _bare_poisson(device, state, quasi_fermi)
-    junk =list(_contact_nodes(device,contact))
+    zz = _bare_poisson(device, state, quasi_fermi)
+    info =list(_contact_nodes(device,contact))
 
-    return float(np.sum(Assembly.residual[junk]))*  _charge_unit(device, width)
+    return float(np.sum(zz.residual[info]))*  _charge_unit(device, width)
 
 def _frozen_diagonal(
     device:Device,state:DeviceState
 )->npt.NDArray[np.float64]:
 
-    Doping   =   device.net_doping_scaled.data;min   = np.where( Doping  <  0.0,  state.n.data,   state.p.data )
-    return np.asarray(min *device.charge_volume_scaled)
+    x   =   device.net_doping_scaled.data;r   = np.where( x  <  0.0,  state.n.data,   state.p.data )
+    return np.asarray(r *device.charge_volume_scaled)
 def small_signal_capacitance(
     device:Device,
     state:DeviceState,
@@ -85,22 +85,22 @@ def small_signal_capacitance(
     quasi_fermi:QuasiFermi =None,
     width :float|None=None,
 )->float :
-    assmbly =  _bare_poisson(device, state, quasi_fermi)
-    row, Cols,   vales  =   assmbly.rows, assmbly.cols,   assmbly.values
+    jj =  _bare_poisson(device, state, quasi_fermi)
+    k, obj,   res  =   jj.rows, jj.cols,   jj.values
 
     if response is Response.HIGH_FREQUENCY:
-        bin  =  np.arange(device.mesh.n_nodes, dtype  =  row.dtype)
-        row  = np.concatenate([row, bin])
-        Cols  = np.concatenate( [Cols,   bin ]  )
-        vales = np.concatenate([vales, -_frozen_diagonal(device, state)])
+        x  =  np.arange(device.mesh.n_nodes, dtype  =  k.dtype)
+        k  = np.concatenate([k, x])
+        obj  = np.concatenate( [obj,   x ]  )
+        res = np.concatenate([res, -_frozen_diagonal(device, state)])
 
-    Nodes= list(_contact_nodes(device,contact))
-    Dpsi = _potential_derivative(device,contact,row,Cols,vales)
+    b= list(_contact_nodes(device,contact))
+    t = _potential_derivative(device,contact,k,obj,res)
 
 
-    scattred=  np.zeros(device.mesh.n_nodes, dtype  =np.float64)
-    np.add.at(scattred,row,vales*Dpsi[Cols])
-    return float(np.sum(scattred[Nodes])) * _charge_unit(device, width)
+    dat=  np.zeros(device.mesh.n_nodes, dtype  =np.float64)
+    np.add.at(dat,k,res*t[obj])
+    return float(np.sum(dat[b])) * _charge_unit(device, width)
 
 
 def _potential_derivative(
@@ -110,18 +110,18 @@ def _potential_derivative(
     cols: npt.NDArray[np.int64],
     values: npt.NDArray[np.float64],
 )  ->npt.NDArray[np.float64]  :
-    NNodes   = device.mesh.n_nodes
-    nod : list[int]  =  []
+    y   = device.mesh.n_nodes
+    arr : list[int]  =  []
 
-    lst  : list[  float  ]  =  [ ]
-    for sorted in device.contacts   :
-        derivvative  =  1.0 / device.scale.psi_0 if sorted.name ==  contact  else  0.0
-        nod.extend(sorted.nodes)
-        lst.extend([derivvative] *len(sorted.nodes))
+    aa  : list[  float  ]  =  [ ]
+    for k in device.contacts   :
+        b2  =  1.0 / device.scale.psi_0 if k.name ==  contact  else  0.0
+        arr.extend(k.nodes)
+        aa.extend([b2] *len(k.nodes))
 
-    System= apply_dirichlet_nodes(SparseAssembly(residual =np.zeros(NNodes), rows=rows, cols =cols, values=values, shape= (NNodes, NNodes),), np.zeros(NNodes), nod, lst,)
-    slver  =  SparseLU ( )
-    slver.factorize(System.rows, System.cols, System.values, System.shape);  return slver.solve(-System.residual)
+    g= apply_dirichlet_nodes(SparseAssembly(residual =np.zeros(y), rows=rows, cols =cols, values=values, shape= (y, y),), np.zeros(y), arr, aa,)
+    z  =  SparseLU ( )
+    z.factorize(g.rows, g.cols, g.values, g.shape);  return z.solve(-g.residual)
 
 
 
@@ -157,28 +157,28 @@ class CVCurve :
 
     @property
     def gate_voltage(self)  -> npt.NDArray[np.float64] :
-        return np.array([piont.gate_voltage for piont in self.points])
+        return np.array([t.gate_voltage for t in self.points])
 
 
     @property
     def capacitance(self)->npt.NDArray[np.float64]:
-        return np.array([Point.capacitance for Point in self.points])
+        return np.array([s2.capacitance for s2 in self.points])
 
 
     @property
     def charge(self) ->npt.NDArray[np.float64] :
-        return np.array([item2.charge for item2 in self.points])
+        return np.array([c.charge for c in self.points])
 
 
 
     def __repr__(self)->str:
-        State = "complete" if self.complete else "stopped early"
+        aa = "complete" if self.complete else "stopped early"
         if not self.points  :
-            return  f"CVCurve {self.contact} empty, {State}"
+            return  f"CVCurve {self.contact} empty, {aa}"
         return(
             f"CVCurve {self.contact} {len(self.points)} points "
             f"{self.gate_voltage[0]:+.3g} to {self.gate_voltage[-1]:+.3g} V, "
-            f"{self.response.value}, {State}"
+            f"{self.response.value}, {aa}"
         )
 
 @dataclass(frozen=True)
@@ -204,44 +204,44 @@ def cv_sweep(
     on_frame:Callable[[object], None] |  None = None,
 )  ->CVCurve :
     _contact_nodes(device, contact)
-    Points:  list[CVPoint]= []
-    for yy in voltages  :
-        chr  =  device.with_bias (  ** {  contact  :  yy  }  )
-        lev= frozen_quasi_fermi(chr)
+    m:  list[CVPoint]= []
+    for x2 in voltages  :
+        e  =  device.with_bias (  ** {  contact  :  x2  }  )
+        t= frozen_quasi_fermi(e)
         try :
-            sta =solve_equilibrium(
-                chr,
-                quasi_fermi =lev,
+            zz =solve_equilibrium(
+                e,
+                quasi_fermi =t,
                 max_iterations=max_iterations,
                 on_frame= on_frame,
             )
-        except RuntimeError  as Error  :
+        except RuntimeError  as a  :
 
 
             return CVCurve(
                 contact  = contact,
                 response = response,
-                points = tuple(Points),
+                points = tuple(m),
                 complete  =False,
-                message  =  f"did not converge at {yy:+g} V: {Error}",
+                message  =  f"did not converge at {x2:+g} V: {a}",
             )
-        Capacitance =small_signal_capacitance(
-            chr,
-            sta,
+        i =small_signal_capacitance(
+            e,
+            zz,
             contact,
             response  =response,
-            quasi_fermi  = lev,
+            quasi_fermi  = t,
             width =width,
         )
-        s2  =terminal_charge(chr, sta, contact, quasi_fermi=  lev, width = width)
+        d  =terminal_charge(e, zz, contact, quasi_fermi=  t, width = width)
 
-        Points.append (CVPoint (gate_voltage   =  yy , capacitance   =  Capacitance , charge  =  s2, state  =  sta ,))
+        m.append (CVPoint (gate_voltage   =  x2 , capacitance   =  i , charge  =  d, state  =  zz ,))
 
         if on_frame is not None  :
-            on_frame(CVFrame (index   =   len(  Points  )  -  1 , gate_voltage   =  yy, capacitance   = Capacitance, charge   =   s2 ,))
+            on_frame(CVFrame (index   =   len(  m  )  -  1 , gate_voltage   =  x2, capacitance   = i, charge   =   d ,))
     return CVCurve(
         contact = contact,
         response = response,
-        points  = tuple(Points),
+        points  = tuple(m),
         complete  =True,
     )

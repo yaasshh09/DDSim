@@ -25,99 +25,99 @@ N_NODES =20
 
 
 def problem():
-    Mesh=uniform_mesh_1d(length =1e-4,n_nodes = N_NODES)
-    item2 =build_device(
-        mesh = Mesh,
+    w=uniform_mesh_1d(length =1e-4,n_nodes = N_NODES)
+    mm =build_device(
+        mesh = w,
         doping=abrupt_junction(Na =1e18, Nd = 1e15, position=  0.5e-4),
         contacts =  (
             OhmicContact(name = "anode", node =0, voltage =0.0),
             OhmicContact(name  = "cathode", node  =  N_NODES-1, voltage =  0.0),
         ),
     )
-    range= TransportModels.for_device(item2,mobility= "arora")
-    tmp= item2.scale
+    b= TransportModels.for_device(mm,mobility= "arora")
+    arr= mm.scale
 
-    bb=initial_state(item2)
+    y=initial_state(mm)
 
-    K=np.linspace(0.0,3.0 *np.pi,Mesh.n_nodes)
-    xx  = pack(
-        bb.psi.data + 0.35*np.cos(K),
-        bb.n.data *  np.exp(0.3  *  np.sin(K)),
-        bb.p.data *  np.exp(-  0.3 * np.sin(K)),
+    rows=np.linspace(0.0,3.0 *np.pi,w.n_nodes)
+    u  = pack(
+        y.psi.data + 0.35*np.cos(rows),
+        y.n.data *  np.exp(0.3  *  np.sin(rows)),
+        y.p.data *  np.exp(-  0.3 * np.sin(rows)),
     )
 
     return{
-        'h': Mesh.h/ tmp.x_0,
-        "volume":Mesh.volume/tmp.x_0,
-        "x":xx,
-        "net_doping":item2.net_doping_scaled.data,
-        'models': range,
-        "n_edges":Mesh.n_edges,
+        'h': w.h/ arr.x_0,
+        "volume":w.volume/arr.x_0,
+        "x":u,
+        "net_doping":mm.net_doping_scaled.data,
+        'models': b,
+        "n_edges":w.n_edges,
     }
 
 
 
 def residual_of(problem,geometry,order=None):
     geometry= UNIFORM_1D if geometry is None else geometry
-    mod  =   problem["models"]
-    dn =np.asarray(mod.Dn)
-    pow=np.asarray(mod.Dp)
+    res  =   problem["models"]
+    hh =np.asarray(res.Dn)
+    tmp2=np.asarray(res.Dp)
     if order  is  not None  :
-        dn,pow=dn[order],pow[order]
-    return  coupled_residual (h   =  problem[  "h"  ]  if  order  is None  else problem [ "h" ]   [  order], volume  =  problem[  'volume'  ], x  =  problem[  'x' ], net_doping  = problem [  "net_doping" ], Dn = dn , Dp  =  pow , recombination   = mod.recombination, geometry =   geometry,)
+        hh,tmp2=hh[order],tmp2[order]
+    return  coupled_residual (h   =  problem[  "h"  ]  if  order  is None  else problem [ "h" ]   [  order], volume  =  problem[  'volume'  ], x  =  problem[  'x' ], net_doping  = problem [  "net_doping" ], Dn = hh , Dp  =  tmp2 , recombination   = res.recombination, geometry =   geometry,)
 def matrix_of(problem, geometry, order =  None) :
     geometry=  UNIFORM_1D if geometry is None else geometry
-    mod =problem['models']
-    Dnn = np.asarray(mod.Dn)
-    dp  =   np.asarray(mod.Dp)
+    hh =problem['models']
+    a = np.asarray(hh.Dn)
+    c  =   np.asarray(hh.Dp)
     if order is not None:
-        Dnn ,   dp  =  Dnn[ order ],   dp[  order ]
-    t2, Cols, format  = coupled_jacobian(
+        a ,   c  =  a[ order ],   c[  order ]
+    g, r, j  = coupled_jacobian(
         h= problem["h"]if order is None else problem["h"] [order],
         volume =problem["volume"],
         x = problem["x"],
-        Dn  = Dnn,
-        Dp =dp,
-        recombination = mod.recombination,
+        Dn  = a,
+        Dp =c,
+        recombination = hh.recombination,
         geometry = geometry,
     )
-    Size = problem[  'x'].size
+    w = problem[  'x'].size
 
-    return  coo_matrix((  format, ( t2, Cols ) ),   shape  =  (  Size ,  Size )).toarray( )
+    return  coo_matrix((  j, ( g, r ) ),   shape  =  (  w ,  w )).toarray( )
 
 
 def  chain (n_edges) :
-    return np.array([[ee,ee+ 1] for ee in range(n_edges)],dtype= np.int64)
+    return np.array([[el,el+ 1] for el in range(n_edges)],dtype= np.int64)
 def test_the_explicit_1d_edge_list_reproduces_the_default_bit_for_bit(problem) :
-    speled_out  = EdgeGeometry( edge_nodes  = chain(problem["n_edges"  ]) )
+    rows  = EdgeGeometry( edge_nodes  = chain(problem["n_edges"  ]) )
 
 
     np.testing.assert_array_equal (
-        residual_of (  problem, speled_out  ), residual_of (problem,  None)
+        residual_of (  problem, rows  ), residual_of (problem,  None)
     )
     np.testing.assert_array_equal(
-        matrix_of(problem, speled_out ) ,   matrix_of(problem , None  )
+        matrix_of(problem, rows ) ,   matrix_of(problem , None  )
     )
 
 def test_the_answer_does_not_depend_on_the_order_the_edges_are_listed_in(problem):
-    rngg =  np.random.default_rng(20260825)
-    Order  =  rngg.permutation(problem['n_edges'])
-    cnt =EdgeGeometry(edge_nodes=chain(problem['n_edges'])[Order])
+    zz =  np.random.default_rng(20260825)
+    g  =  zz.permutation(problem['n_edges'])
+    i =EdgeGeometry(edge_nodes=chain(problem['n_edges'])[g])
     np.testing.assert_allclose(
-        residual_of(problem, cnt, Order),
+        residual_of(problem, i, g),
         residual_of(problem, None),
         rtol = 1e-13,
         atol = 0.0,
     )
-    np.testing.assert_allclose(matrix_of(problem,cnt,Order), matrix_of(problem,None), rtol=1e-13, atol=0.0,)
+    np.testing.assert_allclose(matrix_of(problem,i,g), matrix_of(problem,None), rtol=1e-13, atol=0.0,)
 
 def test_the_answer_does_not_depend_on_which_end_of_an_edge_is_called_left(problem)  :
 
-    re = chain(problem['n_edges'])[:,::-1].copy()
-    geo=  EdgeGeometry(edge_nodes =re)
-    np.testing.assert_allclose(residual_of (problem, geo) , residual_of (  problem ,  None  ) , rtol =  1e-13 , atol  =   0.0,)
+    g = chain(problem['n_edges'])[:,::-1].copy()
+    m=  EdgeGeometry(edge_nodes =g)
+    np.testing.assert_allclose(residual_of (problem, m) , residual_of (  problem ,  None  ) , rtol =  1e-13 , atol  =   0.0,)
     np.testing.assert_allclose(
-        matrix_of(  problem , geo),
+        matrix_of(  problem , m),
         matrix_of (  problem ,   None  ),
         rtol  =  1e-13,
         atol  =  0.0,
@@ -126,16 +126,16 @@ def test_the_answer_does_not_depend_on_which_end_of_an_edge_is_called_left(probl
 
 def test_the_term_scales_do_not_depend_on_the_edge_order_either(problem):
 
-    mod= problem['models']
-    Rng=np.random.default_rng(11)
-    order  =  Rng.permutation ( problem[ 'n_edges']  )
-    Shuffled=EdgeGeometry(edge_nodes= chain(problem["n_edges"]) [order])
+    tmp2= problem['models']
+    row=np.random.default_rng(11)
+    el  =  row.permutation ( problem[ 'n_edges']  )
+    hh=EdgeGeometry(edge_nodes= chain(problem["n_edges"]) [el])
 
     def scales(geometry, order  =  None):
         geometry =UNIFORM_1D if geometry is None else geometry
-        return residual_term_scales(h =problem['h']if order is None else problem["h"] [order], volume =problem['volume'], x =  problem['x'], net_doping =problem["net_doping"], Dn  =np.asarray(mod.Dn) if order is None else np.asarray(mod.Dn)  [order], Dp =np.asarray(mod.Dp) if order is None else np.asarray(mod.Dp)  [order], geometry = geometry,)
+        return residual_term_scales(h =problem['h']if order is None else problem["h"] [order], volume =problem['volume'], x =  problem['x'], net_doping =problem["net_doping"], Dn  =np.asarray(tmp2.Dn) if order is None else np.asarray(tmp2.Dn)  [order], Dp =np.asarray(tmp2.Dp) if order is None else np.asarray(tmp2.Dp)  [order], geometry = geometry,)
 
 
     np.testing.assert_allclose(
-        scales(Shuffled, order), scales(None), rtol  = 1e-13, atol = 0.0
+        scales(hh, el), scales(None), rtol  = 1e-13, atol = 0.0
     )

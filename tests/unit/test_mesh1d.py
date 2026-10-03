@@ -7,22 +7,22 @@ MICRON =1e-4
 NANOMETRE= 1e-7
 
 def test_uniform_mesh_has_the_requested_node_count()->None:
-    mseh  = uniform_mesh_1d(MICRON, 101)
-    assert mseh.n_nodes==101 ; assert mseh.n_edges  == 100
+    t  = uniform_mesh_1d(MICRON, 101)
+    assert t.n_nodes==101 ; assert t.n_edges  == 100
 
 def test_uniform_mesh_spans_the_requested_length()-> None:
-    zz  =  uniform_mesh_1d (MICRON, 101 )
-    assert zz.x[0]==0.0; assert zz.x[-1]== pytest.approx(MICRON,rel= 1e-15)
-    assert zz.length   ==   pytest.approx(MICRON,   rel   = 1e-15 )
+    c  =  uniform_mesh_1d (MICRON, 101 )
+    assert c.x[0]==0.0; assert c.x[-1]== pytest.approx(MICRON,rel= 1e-15)
+    assert c.length   ==   pytest.approx(MICRON,   rel   = 1e-15 )
 
 
 
 def  test_uniform_mesh_edge_lengths_are_all_equal ( )   -> None  :
 
 
-    mes=uniform_mesh_1d(MICRON,
+    k=uniform_mesh_1d(MICRON,
                      101)
-    np.testing.assert_allclose(mes.h, MICRON / 100.0, rtol =  1e-13)
+    np.testing.assert_allclose(k.h, MICRON / 100.0, rtol =  1e-13)
 
 
 
@@ -56,9 +56,9 @@ class TestMeshInvariants:
     def  test_interior_cell_volume_is_the_half_sum_of_its_edges(
         self, mesh : Mesh1D
     )  -> None   :
-        for ii in range(1, mesh.n_nodes - 1) :
-            exected =  0.5  *(mesh.h[ii-  1] +  mesh.h[ii])
-            assert  mesh.volume [ ii ]  == pytest.approx(  exected,   rel  = 1e-15)
+        for foo in range(1, mesh.n_nodes - 1) :
+            aa =  0.5  *(mesh.h[foo-  1] +  mesh.h[foo])
+            assert  mesh.volume [ foo ]  == pytest.approx(  aa,   rel  = 1e-15)
     def test_boundary_cell_volumes_are_half_edges(self, mesh :Mesh1D) -> None  :
 
 
@@ -67,14 +67,14 @@ class TestMeshInvariants:
 
     def test_edge_nodes_map_each_edge_to_its_two_endpoints(self,mesh:Mesh1D)->None:
         assert  mesh.edge_nodes.shape  == ( mesh.n_edges, 2  )
-        for ege in range(mesh.n_edges) :
-            k2, Right= mesh.edge_nodes[ege]
-            assert(k2,Right)== (ege,ege +1)
+        for cnt in range(mesh.n_edges) :
+            k, c2= mesh.edge_nodes[cnt]
+            assert(k,c2)== (cnt,cnt +1)
 
     def test_node_edges_is_the_inverse_of_edge_nodes(self,mesh:Mesh1D)->None:
-        for nod in range(mesh.n_nodes):
-            for edg in mesh.node_edges[nod] :
-                assert nod in tuple(mesh.edge_nodes[edg])
+        for num in range(mesh.n_nodes):
+            for r in mesh.node_edges[num] :
+                assert num in tuple(mesh.edge_nodes[r])
     def test_interior_nodes_touch_two_edges_and_boundaries_touch_one(
         self,mesh:Mesh1D
     )->None:
@@ -82,25 +82,25 @@ class TestMeshInvariants:
         assert len(  mesh.node_edges[  0  ]  ) ==  1
         assert len(mesh.node_edges[-1]) == 1
 
-        for Node in range(1, mesh.n_nodes - 1) :
-            assert len(mesh.node_edges[Node]) == 2
+        for c2 in range(1, mesh.n_nodes - 1) :
+            assert len(mesh.node_edges[c2]) == 2
 
 
 
 def test_graded_mesh_has_the_requested_node_count ( )  ->   None  :
-    Mesh = graded_mesh_1d(MICRON, 200, refine_at =0.5 * MICRON, h_min = NANOMETRE)
-    assert Mesh.n_nodes==200
+    ok = graded_mesh_1d(MICRON, 200, refine_at =0.5 * MICRON, h_min = NANOMETRE)
+    assert ok.n_nodes==200
 
 
 
 def test_graded_mesh_spans_the_requested_length_exactly()->None :
-    map  =   graded_mesh_1d(MICRON,  200 ,   refine_at   =  0.5  *   MICRON , h_min =  NANOMETRE)
-    assert map.x[0]== 0.0
-    assert map.x[- 1]  == pytest.approx(MICRON, rel  = 1e-12)
+    k  =   graded_mesh_1d(MICRON,  200 ,   refine_at   =  0.5  *   MICRON , h_min =  NANOMETRE)
+    assert k.x[0]== 0.0
+    assert k.x[- 1]  == pytest.approx(MICRON, rel  = 1e-12)
 def  test_graded_mesh_achieves_the_requested_minimum_spacing()   -> None  :
-    mseh =   graded_mesh_1d(  MICRON ,  200, refine_at   =  0.5  *  MICRON,  h_min   =   NANOMETRE)
+    m =   graded_mesh_1d(  MICRON ,  200, refine_at   =  0.5  *  MICRON,  h_min   =   NANOMETRE)
 
-    assert mseh.h.min()==pytest.approx(NANOMETRE,rel =1e-9)
+    assert m.h.min()==pytest.approx(NANOMETRE,rel =1e-9)
 
 
 
@@ -108,71 +108,71 @@ def  test_graded_mesh_achieves_the_requested_minimum_spacing()   -> None  :
 def test_graded_mesh_puts_the_finest_spacing_at_the_refinement_point()  ->  None :
 
 
-    refineat= 0.5 * MICRON
-    Mesh  = graded_mesh_1d(MICRON, 200, refine_at = refineat, h_min=  NANOMETRE)
-    Finest=int(np.argmin(Mesh.h))
-    data2=  0.5 * (Mesh.x[Finest] +  Mesh.x[Finest+1])
-    assert abs(data2-refineat)< 2.0*NANOMETRE
+    u= 0.5 * MICRON
+    a  = graded_mesh_1d(MICRON, 200, refine_at = u, h_min=  NANOMETRE)
+    w=int(np.argmin(a.h))
+    t2=  0.5 * (a.x[w] +  a.x[w+1])
+    assert abs(t2-u)< 2.0*NANOMETRE
 
 
 def test_graded_mesh_places_a_node_at_the_refinement_point()->None :
-    RefineAt=0.5 *MICRON
-    res = graded_mesh_1d(MICRON, 200, refine_at= RefineAt, h_min= NANOMETRE)
+    dat=0.5 *MICRON
+    ret = graded_mesh_1d(MICRON, 200, refine_at= dat, h_min= NANOMETRE)
 
-    assert np.min(np.abs(res.x -RefineAt)) <1e-16
+    assert np.min(np.abs(ret.x -dat)) <1e-16
 
 def test_graded_mesh_spacing_is_monotonic_on_each_side() -> None :
-    ref= 0.5 *MICRON
-    mes=  graded_mesh_1d(MICRON, 200, refine_at= ref, h_min  = NANOMETRE)
-    piv  =int(np.argmin(np.abs(mes.x- ref)))
+    w= 0.5 *MICRON
+    v2=  graded_mesh_1d(MICRON, 200, refine_at= w, h_min  = NANOMETRE)
+    b  =int(np.argmin(np.abs(v2.x- w)))
 
-    type = mes.h[ :  piv  ]
-    rig  = mes.h[piv  :]
-    assert np.all(np.diff(type)<0.0),"left spacing must shrink toward the junction"
-    assert np.all(np.diff(rig) > 0.0), 'right spacing must grow away from it'
+    f = v2.h[ :  b  ]
+    g  = v2.h[b  :]
+    assert np.all(np.diff(f)<0.0),"left spacing must shrink toward the junction"
+    assert np.all(np.diff(g) > 0.0), 'right spacing must grow away from it'
 
 def test_graded_mesh_growth_ratio_is_gentle() -> None  :
 
-    buff= graded_mesh_1d(MICRON,200,refine_at= 0.5*MICRON,h_min= NANOMETRE)
-    rtios =buff.h[1:] / buff.h[:- 1]
-    assert np.all(rtios < 1.10)
-    assert np.all(rtios>1.0/1.10)
+    buf= graded_mesh_1d(MICRON,200,refine_at= 0.5*MICRON,h_min= NANOMETRE)
+    xs =buf.h[1:] / buf.h[:- 1]
+    assert np.all(xs < 1.10)
+    assert np.all(xs>1.0/1.10)
 
 
 
 
 def test_graded_mesh_refined_at_the_left_boundary() -> None :
-    d2= graded_mesh_1d(MICRON,51,refine_at=0.0,h_min= NANOMETRE)
-    assert d2.h[0] ==  pytest.approx(NANOMETRE, rel  = 1e-9)
-    assert np.all(np.diff(d2.h)> 0.0)
+    row= graded_mesh_1d(MICRON,51,refine_at=0.0,h_min= NANOMETRE)
+    assert row.h[0] ==  pytest.approx(NANOMETRE, rel  = 1e-9)
+    assert np.all(np.diff(row.h)> 0.0)
 
 
 
 def test_graded_mesh_refined_at_the_right_boundary ( )   ->  None :
-    mes =  graded_mesh_1d(MICRON, 51, refine_at =MICRON, h_min = NANOMETRE)
+    m =  graded_mesh_1d(MICRON, 51, refine_at =MICRON, h_min = NANOMETRE)
 
-    assert  mes.h[  -  1]  ==  pytest.approx( NANOMETRE ,
+    assert  m.h[  -  1]  ==  pytest.approx( NANOMETRE ,
                  rel =  1e-9  )
-    assert np.all(np.diff(mes.h)  <0.0)
+    assert np.all(np.diff(m.h)  <0.0)
 
 
 
 def test_graded_mesh_refined_off_centre() ->  None :
 
-    hex   =   0.2   *   MICRON
-    mes = graded_mesh_1d(MICRON, 200, refine_at =hex, h_min =NANOMETRE);  assert mes.h.min() ==pytest.approx(NANOMETRE, rel=1e-9)
-    assert mes.volume.sum() == pytest.approx(MICRON,
+    c   =   0.2   *   MICRON
+    v = graded_mesh_1d(MICRON, 200, refine_at =c, h_min =NANOMETRE);  assert v.h.min() ==pytest.approx(NANOMETRE, rel=1e-9)
+    assert v.volume.sum() == pytest.approx(MICRON,
                 rel =1e-12)
 
 
 
 
 def test_graded_mesh_supports_a_spacing_ratio_of_1000() ->None :
-    foo = graded_mesh_1d(
+    row = graded_mesh_1d(
         100.0  *MICRON, 400, refine_at  =50.0 * MICRON, h_min = NANOMETRE
     )
-    assert  foo.h.max( ) / foo.h.min() >  1000.0
-    assert foo.volume.sum()==pytest.approx(100.0 * MICRON,rel=1e-12)
+    assert  row.h.max( ) / row.h.min() >  1000.0
+    assert row.volume.sum()==pytest.approx(100.0 * MICRON,rel=1e-12)
 
 
 def test_graded_mesh_rejects_a_refinement_point_outside_the_domain() -> None:
@@ -188,26 +188,26 @@ def test_graded_mesh_rejects_an_infeasible_minimum_spacing() -> None:
 
 
 def  test_graded_mesh_reduces_to_uniform_when_h_min_is_the_uniform_spacing ()  ->  None  :
-    nn = 101
-    t2 =  MICRON   /   (  nn   -   1 )
-    mes= graded_mesh_1d(MICRON,nn,refine_at=0.5 *MICRON,h_min =t2);  np.testing.assert_allclose( mes.h,   t2, rtol  =  1e-9)
+    m = 101
+    j =  MICRON   /   (  m   -   1 )
+    b= graded_mesh_1d(MICRON,m,refine_at=0.5 *MICRON,h_min =j);  np.testing.assert_allclose( b.h,   j, rtol  =  1e-9)
 
 
 
 
 def test_phase0_acceptance_200_nodes_1nm_at_half_a_micron() ->None:
-    lst =  graded_mesh_1d(MICRON, 200, refine_at =0.5 *MICRON, h_min  = NANOMETRE)
-    assert  lst.n_nodes  == 200
+    m =  graded_mesh_1d(MICRON, 200, refine_at =0.5 *MICRON, h_min  = NANOMETRE)
+    assert  m.n_nodes  == 200
 
 
-    assert lst.h.min() == pytest.approx(NANOMETRE, rel=  1e-9)
-    assert lst.length ==pytest.approx(MICRON,rel=1e-12)
-    assert lst.volume.sum()== pytest.approx(MICRON,rel=1e-12)
+    assert m.h.min() == pytest.approx(NANOMETRE, rel=  1e-9)
+    assert m.length ==pytest.approx(MICRON,rel=1e-12)
+    assert m.volume.sum()== pytest.approx(MICRON,rel=1e-12)
 
-    stuff =   int(np.argmin (np.abs(  lst.x   -   0.5  *   MICRON  )) )
-    assert np.all(np.diff(lst.h[: stuff])  < 0.0)
+    ys =   int(np.argmin (np.abs(  m.x   -   0.5  *   MICRON  )) )
+    assert np.all(np.diff(m.h[: ys])  < 0.0)
 
-    assert  np.all(np.diff(  lst.h[  stuff  :]  )  >  0.0)
+    assert  np.all(np.diff(  m.h[  ys  :]  )  >  0.0)
 
 
 def test_graded_mesh_rejects_non_positive_length()  ->None :
@@ -240,17 +240,17 @@ def test_graded_mesh_rejects_a_mesh_harsher_than_max_ratio() -> None:
 
 def test_max_ratio_can_be_raised_deliberately()-> None:
 
-    Mesh =  graded_mesh_1d(1.0, 4, refine_at= 0.5, h_min = 1e-3, max_ratio  = 1e4)
-    assert Mesh.n_nodes== 4
-    assert Mesh.volume.sum() == pytest.approx(1.0, rel = 1e-12)
+    b =  graded_mesh_1d(1.0, 4, refine_at= 0.5, h_min = 1e-3, max_ratio  = 1e4)
+    assert b.n_nodes== 4
+    assert b.volume.sum() == pytest.approx(1.0, rel = 1e-12)
 
 
 def test_repr_reports_size_and_spacing_range()-> None:
-    tmp2=repr(uniform_mesh_1d(MICRON,11))
+    v=repr(uniform_mesh_1d(MICRON,11))
 
-    assert "n_nodes=11" in tmp2
-    assert 'h_min' in tmp2
-    assert 'h_max' in tmp2
+    assert "n_nodes=11" in v
+    assert 'h_min' in v
+    assert 'h_max' in v
 
 
 
@@ -258,28 +258,28 @@ def test_repr_reports_size_and_spacing_range()-> None:
 def test_geometric_sum_handles_a_ratio_of_exactly_one() -> None:
     from ddsim.mesh.mesh1d import _geometric_sums
 
-    idx2= _geometric_sums(
+    t= _geometric_sums(
         2.0,np.array([1.0,2.0]),np.array([5.0,3.0])
     )
-    assert idx2[0] == pytest.approx(10.0, rel =1e-15)
-    assert  idx2[  1 ]   ==  pytest.approx(  14.0, rel  =  1e-15 )
+    assert t[0] == pytest.approx(10.0, rel =1e-15)
+    assert  t[  1 ]   ==  pytest.approx(  14.0, rel  =  1e-15 )
 
 
 def test_graded_mesh_handles_many_cells_with_a_very_small_h_min()->None:
-    mes=  graded_mesh_1d(4.0 * MICRON, 1201, refine_at =  2.0 * MICRON, h_min = 2e-8)
-    assert  mes.n_nodes  ==  1201
-    assert  mes.h.min(  )  ==  pytest.approx ( 2e-8,  rel   = 1e-6)
-    assert  mes.volume.sum ()  ==   pytest.approx(4.0  * MICRON,  rel =  1e-12 )
+    v=  graded_mesh_1d(4.0 * MICRON, 1201, refine_at =  2.0 * MICRON, h_min = 2e-8)
+    assert  v.n_nodes  ==  1201
+    assert  v.h.min(  )  ==  pytest.approx ( 2e-8,  rel   = 1e-6)
+    assert  v.volume.sum ()  ==   pytest.approx(4.0  * MICRON,  rel =  1e-12 )
 
 def test_geometric_sum_saturates_instead_of_overflowing()->None:
     from ddsim.mesh.mesh1d import _geometric_sums
 
 
-    tot=_geometric_sums(
+    t=_geometric_sums(
         1e-8,np.array([2.0,1.001]),np.array([1199.0,100.0])
     )
-    assert tot[0]==float("inf")
-    assert tot[1] <1e-5
+    assert t[0]==float("inf")
+    assert t[1] <1e-5
 
 
 class TestRatioSolveMatchesTheScalarReference  :
@@ -301,23 +301,23 @@ class TestRatioSolveMatchesTheScalarReference  :
         from ddsim.mesh.mesh1d import _solve_ratios
 
 
-        Counts   =  np.arange( 1,  n_intervals   + 1, dtype   = np.int64)
+        w2   =  np.arange( 1,  n_intervals   + 1, dtype   = np.int64)
 
 
-        vec  =  _solve_ratios( side_length,  h_min, Counts  )
+        num  =  _solve_ratios( side_length,  h_min, w2  )
 
 
-        for Index,cou in enumerate(Counts) :
-            Expected =  reference_solve_ratio( side_length,   h_min,   int(  cou ))
-            if Expected is None :
-                assert np.isnan(vec[Index]),(
-                    f"{cou} intervals is infeasible for the reference but "
-                    f"the vectorised solver returned {vec[Index]}"
+        for rr,s in enumerate(w2) :
+            c =  reference_solve_ratio( side_length,   h_min,   int(  s ))
+            if c is None :
+                assert np.isnan(num[rr]),(
+                    f"{s} intervals is infeasible for the reference but "
+                    f"the vectorised solver returned {num[rr]}"
                 )
 
             else:
-                assert vec[Index]   ==  Expected , (
-                    f"{cou} intervals: {vec[Index]!r} != {Expected!r}"
+                assert num[rr]   ==  c , (
+                    f"{s} intervals: {num[rr]!r} != {c!r}"
                 )
 
 
@@ -325,8 +325,8 @@ class TestRatioSolveMatchesTheScalarReference  :
 
         from ddsim.mesh.mesh1d import _solve_ratios
 
-        cou =np.array([5,10,20],dtype =np.int64)
-        assert np.all(np.isnan(_solve_ratios(NANOMETRE, MICRON, cou)))
+        d =np.array([5,10,20],dtype =np.int64)
+        assert np.all(np.isnan(_solve_ratios(NANOMETRE, MICRON, d)))
     def test_a_zero_interval_count_is_infeasible(self)  ->  None  :
 
         from ddsim.mesh.mesh1d import _solve_ratios
@@ -337,56 +337,56 @@ class TestStackedMesh :
 
 
     def  test_the_layers_span_their_total_length (self)  ->   None :
-        Stack = stacked_mesh_1d(uniform_mesh_1d(2  * MICRON, 5), uniform_mesh_1d(MICRON, 3))
-        assert Stack.x[0]== 0.0
-        assert Stack.length  == pytest.approx(  3 *   MICRON ,   rel  =  1e-15)
+        hh = stacked_mesh_1d(uniform_mesh_1d(2  * MICRON, 5), uniform_mesh_1d(MICRON, 3))
+        assert hh.x[0]== 0.0
+        assert hh.length  == pytest.approx(  3 *   MICRON ,   rel  =  1e-15)
 
 
 
     def test_the_join_is_a_node_and_is_not_duplicated(self) -> None :
-        Stack  =  stacked_mesh_1d(
+        it  =  stacked_mesh_1d(
             uniform_mesh_1d (  2  * MICRON ,   5  ) , uniform_mesh_1d( MICRON,   3 )
         )
-        assert Stack.n_nodes  ==   5 +  3 -  1
-        assert np.count_nonzero(Stack.x  ==2  * MICRON) ==  1
-        assert  np.all(Stack.h  >  0.0)
+        assert it.n_nodes  ==   5 +  3 -  1
+        assert np.count_nonzero(it.x  ==2  * MICRON) ==  1
+        assert  np.all(it.h  >  0.0)
 
     def  test_the_join_lands_exactly_on_the_layer_boundary(  self ) ->  None :
 
-        obj2   =  stacked_mesh_1d (graded_mesh_1d(length =  5  *   MICRON, n_nodes   =   41,   refine_at  =  5   * MICRON, h_min =  NANOMETRE,), uniform_mesh_1d( 10  *  NANOMETRE,  5) ,)
+        k2   =  stacked_mesh_1d (graded_mesh_1d(length =  5  *   MICRON, n_nodes   =   41,   refine_at  =  5   * MICRON, h_min =  NANOMETRE,), uniform_mesh_1d( 10  *  NANOMETRE,  5) ,)
 
 
-        assert obj2.x[40] ==5* MICRON
+        assert k2.x[40] ==5* MICRON
 
     def test_each_layer_keeps_its_own_spacing(self)-> None:
 
 
-        myvar=uniform_mesh_1d(MICRON,11)
-        Coarse  =   uniform_mesh_1d (MICRON, 3)
-        stck =  stacked_mesh_1d( myvar,
-             Coarse )
+        ss=uniform_mesh_1d(MICRON,11)
+        out2  =   uniform_mesh_1d (MICRON, 3)
+        k =  stacked_mesh_1d( ss,
+             out2 )
 
-        np.testing.assert_allclose(stck.h[: 10], myvar.h, rtol  =1e-15)
-        np.testing.assert_allclose(stck.h[10:],Coarse.h,rtol=1e-15)
+        np.testing.assert_allclose(k.h[: 10], ss.h, rtol  =1e-15)
+        np.testing.assert_allclose(k.h[10:],out2.h,rtol=1e-15)
     def test_a_single_layer_is_returned_unchanged ( self  ) ->  None  :
-        onee =   graded_mesh_1d (
+        val =   graded_mesh_1d (
             length  =  MICRON ,  n_nodes = 81,  refine_at   =   0.5 *   MICRON,  h_min  =   NANOMETRE
         )
-        np.testing.assert_array_equal ( stacked_mesh_1d(  onee ).x, onee.x)
+        np.testing.assert_array_equal ( stacked_mesh_1d(  val ).x, val.x)
     def  test_the_dual_cells_still_sum_to_the_total_length(self  )   ->  None  :
-        lst = stacked_mesh_1d(uniform_mesh_1d(2* MICRON, 5), uniform_mesh_1d(MICRON, 9))
+        v = stacked_mesh_1d(uniform_mesh_1d(2* MICRON, 5), uniform_mesh_1d(MICRON, 9))
 
-        assert lst.volume.sum()  == pytest.approx(3 *  MICRON, rel=1e-14)
+        assert v.volume.sum()  == pytest.approx(3 *  MICRON, rel=1e-14)
 
     def  test_the_cell_across_the_join_is_not_averaged(  self  )   ->   None  :
-        sack  =stacked_mesh_1d(uniform_mesh_1d(2*MICRON, 3), uniform_mesh_1d(MICRON, 3))
+        aa  =stacked_mesh_1d(uniform_mesh_1d(2*MICRON, 3), uniform_mesh_1d(MICRON, 3))
 
 
-        assert sack.h[1]  == pytest.approx(MICRON, rel =1e-15)
+        assert aa.h[1]  == pytest.approx(MICRON, rel =1e-15)
 
-        assert sack.h[2]== pytest.approx(0.5*MICRON,rel= 1e-15)
+        assert aa.h[2]== pytest.approx(0.5*MICRON,rel= 1e-15)
 
-        assert sack.volume[2] ==pytest.approx(0.75 * MICRON,rel =1e-14)
+        assert aa.volume[2] ==pytest.approx(0.75 * MICRON,rel =1e-14)
 
     def test_no_layers_is_refused(self)  -> None:
 
@@ -396,7 +396,7 @@ class TestStackedMesh :
             stacked_mesh_1d()
 
     def  test_a_layer_that_does_not_start_at_zero_is_refused ( self  )  ->   None  :
-        round =  Mesh1D(
+        t =  Mesh1D(
             x =  np.array([1.0, 2.0]),
             h  = np.array([1.0]),
             volume= np.array([0.5, 0.5]),
@@ -405,7 +405,7 @@ class TestStackedMesh :
         )
         with pytest.raises(ValueError,
                    match =  "starts at"):
-            stacked_mesh_1d (uniform_mesh_1d ( MICRON,   3 ),   round )
+            stacked_mesh_1d (uniform_mesh_1d ( MICRON,   3 ),   t )
 
 
 THIN_BASE = (10  *  MICRON, 10.05 *  MICRON, 10.1  *MICRON)
@@ -413,8 +413,8 @@ THIN_BASE = (10  *  MICRON, 10.05 *  MICRON, 10.1  *MICRON)
 
 
 def worst_ratio(mesh : Mesh1D) -> float  :
-    rattios =  mesh.h[1:] /mesh.h[:- 1]
-    return float(max(rattios.max(),(1.0 /rattios).max()))
+    i =  mesh.h[1:] /mesh.h[:- 1]
+    return float(max(i.max(),(1.0 /i).max()))
 
 
 
@@ -428,48 +428,48 @@ def test_one_point_is_graded_mesh_1d_bit_for_bit()->None :
 
 
 def test_every_point_is_a_node_with_h_min_either_side ( n_nodes  ) ->  None   :
-    myvar= graded_mesh_1d_at(20.1*MICRON, n_nodes, THIN_BASE, NANOMETRE)
-    assert myvar.n_nodes == n_nodes
-    assert myvar.x[  -  1] ==  20.1 *   MICRON
-    for poi in THIN_BASE :
+    ss= graded_mesh_1d_at(20.1*MICRON, n_nodes, THIN_BASE, NANOMETRE)
+    assert ss.n_nodes == n_nodes
+    assert ss.x[  -  1] ==  20.1 *   MICRON
+    for z in THIN_BASE :
 
-        nde   = int( np.flatnonzero ( myvar.x   == poi )  [ 0  ]  ) ; np.testing.assert_allclose(  myvar.h[ nde  -   1  :   nde  +  1], NANOMETRE, rtol =  1e-6  )
+        r   = int( np.flatnonzero ( ss.x   == z )  [ 0  ]  ) ; np.testing.assert_allclose(  ss.h[ r  -   1  :   r  +  1], NANOMETRE, rtol =  1e-6  )
 
 
 @pytest.mark.parametrize('n_nodes', [201, 301, 401, 801])
 
 
 def test_several_points_grade_as_gently_as_one(n_nodes)-> None:
-    mes  =graded_mesh_1d_at(20.1 *MICRON, n_nodes, THIN_BASE, NANOMETRE)
-    assert worst_ratio(mes)<=1.5
+    info  =graded_mesh_1d_at(20.1 *MICRON, n_nodes, THIN_BASE, NANOMETRE)
+    assert worst_ratio(info)<=1.5
 def test_more_nodes_grade_more_gently()->None :
-    raitos =[
+    g =[
         worst_ratio(graded_mesh_1d_at(20.1  * MICRON, n, THIN_BASE, NANOMETRE))
         for n in(201, 401, 801)
     ]
 
-    assert raitos[  0  ]  >   raitos[1]   >   raitos [  2]
+    assert g[  0  ]  >   g[1]   >   g [  2]
 
 
 def test_the_spacing_grows_away_from_every_point()  ->None:
-    Mesh =  graded_mesh_1d_at(20.1 *MICRON, 301, THIN_BASE, NANOMETRE)
-    bin=[0]+[int(np.flatnonzero(Mesh.x == p) [0]) for p in THIN_BASE]
-    bin.append(Mesh.n_nodes -  1)
-    max = Mesh.h[: bin[1]]
+    g =  graded_mesh_1d_at(20.1 *MICRON, 301, THIN_BASE, NANOMETRE)
+    c=[0]+[int(np.flatnonzero(g.x == p) [0]) for p in THIN_BASE]
+    c.append(g.n_nodes -  1)
+    s2 = g.h[: c[1]]
 
-    assert np.all(np.diff(max) <= 0.0)
-    chr=Mesh.h[bin[-2]:]
-    assert np.all(np.diff(chr) >=0.0)
-    for tmp2, riht in zip(bin[1:-  2], bin[2 :-1], strict= True) :
-        Between=Mesh.h[tmp2 :riht]; d2= int(np.argmax(Between))
-        assert np.all(np.diff(Between[:d2 +1])>=0.0)
-        assert np.all(np.diff(Between[d2:])<= 0.0)
+    assert np.all(np.diff(s2) <= 0.0)
+    ss=g.h[c[-2]:]
+    assert np.all(np.diff(ss) >=0.0)
+    for u, m in zip(c[1:-  2], c[2 :-1], strict= True) :
+        a=g.h[u :m]; thing= int(np.argmax(a))
+        assert np.all(np.diff(a[:thing +1])>=0.0)
+        assert np.all(np.diff(a[thing:])<= 0.0)
 
 
 
 
 def test_the_dual_cells_still_sum_to_the_length()-> None:
-    msh=graded_mesh_1d_at(20.1*MICRON,301,THIN_BASE,NANOMETRE);  assert msh.volume.sum()== pytest.approx(20.1 * MICRON,rel =1e-14)
+    v=graded_mesh_1d_at(20.1*MICRON,301,THIN_BASE,NANOMETRE);  assert v.volume.sum()== pytest.approx(20.1 * MICRON,rel =1e-14)
 
 
 
@@ -512,48 +512,48 @@ DRAWN_POINTS=(0.4 * MICRON,1.4*MICRON)
 
 
 def test_every_line_and_point_is_a_node(n_nodes) ->None:
-    mseh  = graded_mesh_1d_through(
+    k2  = graded_mesh_1d_through(
         1.8  * MICRON,  n_nodes, DRAWN_LINES,   DRAWN_POINTS, 2  *  NANOMETRE
     )
-    assert mseh.n_nodes==n_nodes
-    assert mseh.x[0] ==  0.0
-    assert mseh.x[- 1] ==1.8*MICRON
-    for  blah in DRAWN_LINES  +   DRAWN_POINTS  :
-        assert blah in mseh.x
+    assert k2.n_nodes==n_nodes
+    assert k2.x[0] ==  0.0
+    assert k2.x[- 1] ==1.8*MICRON
+    for  r in DRAWN_LINES  +   DRAWN_POINTS  :
+        assert r in k2.x
 
 
 def test_the_spacing_at_every_point_is_near_h_min()   ->  None :
 
-    Mesh  = graded_mesh_1d_through(
+    k  = graded_mesh_1d_through(
         1.8  * MICRON, 121, DRAWN_LINES, DRAWN_POINTS, 2*  NANOMETRE
     )
-    for pint in DRAWN_POINTS :
-        len =  int(np.flatnonzero(Mesh.x ==  pint) [0])
-        np.testing.assert_allclose(Mesh.h[len  - 1  :  len + 1], 2 *NANOMETRE, rtol=0.1)
+    for idx in DRAWN_POINTS :
+        rows =  int(np.flatnonzero(k.x ==  idx) [0])
+        np.testing.assert_allclose(k.h[rows  - 1  :  rows + 1], 2 *NANOMETRE, rtol=0.1)
 
 
 @pytest.mark.parametrize("n_nodes",[81,121,161])
 def test_lines_do_not_break_the_grading(n_nodes)->None:
-    meesh =  graded_mesh_1d_through(1.8 * MICRON, n_nodes, DRAWN_LINES, DRAWN_POINTS, 2*  NANOMETRE)
-    assert worst_ratio( meesh )  <=  1.5
+    s =  graded_mesh_1d_through(1.8 * MICRON, n_nodes, DRAWN_LINES, DRAWN_POINTS, 2*  NANOMETRE)
+    assert worst_ratio( s )  <=  1.5
 
 def test_the_spacing_grows_away_from_a_point() ->  None  :
 
-    lst  =graded_mesh_1d_through(MICRON, 101, (0.3 * MICRON, ), (0.5 * MICRON, ), NANOMETRE)
-    cen  =   int(np.flatnonzero(  lst.x  ==  0.5 * MICRON )  [ 0] )
-    assert lst.h[cen] < lst.h[cen  + 10]  < lst.h[-  1]; assert  lst.h [  cen -   1] <  lst.h [ cen -   10]  <  lst.h [ 0  ]
+    y  =graded_mesh_1d_through(MICRON, 101, (0.3 * MICRON, ), (0.5 * MICRON, ), NANOMETRE)
+    c  =   int(np.flatnonzero(  y.x  ==  0.5 * MICRON )  [ 0] )
+    assert y.h[c] < y.h[c  + 10]  < y.h[-  1]; assert  y.h [  c -   1] <  y.h [ c -   10]  <  y.h [ 0  ]
 
 def test_with_no_points_the_lines_share_the_nodes_evenly()->None :
 
-    mes =graded_mesh_1d_through(MICRON,11,(0.35 *MICRON,),(),NANOMETRE)
-    assert 0.35* MICRON in mes.x
-    np.testing.assert_allclose(mes.h,0.1*MICRON,rtol= 0.2)
+    f =graded_mesh_1d_through(MICRON,11,(0.35 *MICRON,),(),NANOMETRE)
+    assert 0.35* MICRON in f.x
+    np.testing.assert_allclose(f.h,0.1*MICRON,rtol= 0.2)
 
 
 
 def test_the_dual_cells_sum_to_the_length_through_lines( ) ->  None   :
-    mes  =  graded_mesh_1d_through (1.8 *  MICRON,  121, DRAWN_LINES ,  DRAWN_POINTS ,  2 *   NANOMETRE)
-    assert mes.volume.sum() ==  pytest.approx(1.8  * MICRON, rel =1e-14)
+    r  =  graded_mesh_1d_through (1.8 *  MICRON,  121, DRAWN_LINES ,  DRAWN_POINTS ,  2 *   NANOMETRE)
+    assert r.volume.sum() ==  pytest.approx(1.8  * MICRON, rel =1e-14)
 
 
 
@@ -584,9 +584,9 @@ def test_lines_and_points_must_lie_on_the_axis()->None :
 def test_with_no_points_h_min_limits_nothing()->None:
 
 
-    val  =   graded_mesh_1d_through(  0.1 *  MICRON,  63,   (  ) , (),  2   * NANOMETRE)
+    z  =   graded_mesh_1d_through(  0.1 *  MICRON,  63,   (  ) , (),  2   * NANOMETRE)
 
-    np.testing.assert_allclose(val.h, 0.1 *  MICRON /  62, rtol =  1e-12)
+    np.testing.assert_allclose(z.h, 0.1 *  MICRON /  62, rtol =  1e-12)
 
 
 

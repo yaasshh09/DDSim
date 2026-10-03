@@ -25,46 +25,46 @@ V_DS_LINEAR= 0.05
 
 def  transfer()   :
 
-    Device  = nmos(drain_voltage  =  V_DS_LINEAR)
-    return gate_sweep(Device, voltages = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5], models = TransportModels.for_device(Device), step= 0.1,)
+    y  = nmos(drain_voltage  =  V_DS_LINEAR)
+    return gate_sweep(y, voltages = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5], models = TransportModels.for_device(y), step= 0.1,)
 
 
 @pytest.fixture(scope= 'module')
 
 
 def solved_on():
-    slice  =   nmos(  gate_voltage   = 1.5,   drain_voltage  =  V_DS_LINEAR )
-    mdels  =  TransportModels.for_device( slice )
-    sta = None
-    for Gate in(0.0, 0.5, 1.0, 1.5) :
-        ste=nmos(gate_voltage= Gate,drain_voltage =V_DS_LINEAR)
-        sta =  solve_bias_newton(ste, models= mdels, guess  =  sta);assert  sta.newton.converged
-    return slice,sta
+    j  =   nmos(  gate_voltage   = 1.5,   drain_voltage  =  V_DS_LINEAR )
+    z  =  TransportModels.for_device( j )
+    a = None
+    for arr in(0.0, 0.5, 1.0, 1.5) :
+        r=nmos(gate_voltage= arr,drain_voltage =V_DS_LINEAR)
+        a =  solve_bias_newton(r, models= z, guess  =  a);assert  a.newton.converged
+    return j,a
 
 def test_the_terminal_currents_sum_to_zero(solved_on):
-    dev, sta  = solved_on
-    Currents =  terminal_currents(dev,
-            sta)
+    a, zz  = solved_on
+    hh =  terminal_currents(a,
+            zz)
 
 
 
-    tot= sum(Currents.values())
-    assert abs(tot) <1e-6 *abs(Currents[DRAIN])
+    x= sum(hh.values())
+    assert abs(x) <1e-6 *abs(hh[DRAIN])
 
 
 
 
 def test_the_gate_carries_no_dc_current(solved_on) :
-    dvice, sttae  =solved_on
+    i, u  =solved_on
 
-    assert  terminal_currents(  dvice,   sttae) [GATE]   == 0.0
+    assert  terminal_currents(  i,   u) [GATE]   == 0.0
 def test_the_drain_current_comes_out_of_the_source(solved_on):
-    dev, buff = solved_on
-    divmod = terminal_currents(dev, buff)
+    a, w2 = solved_on
+    h = terminal_currents(a, w2)
 
-    assert divmod [ DRAIN  ]   > 0.0
-    assert divmod[ SOURCE ]  ==   pytest.approx( - divmod[DRAIN ] ,  rel  =   1e-6)
-    assert abs(divmod[BODY]) <1e-9*abs(divmod[DRAIN])
+    assert h [ DRAIN  ]   > 0.0
+    assert h[ SOURCE ]  ==   pytest.approx( - h[DRAIN ] ,  rel  =   1e-6)
+    assert abs(h[BODY]) <1e-9*abs(h[DRAIN])
 
 def test_the_sweep_reaches_every_gate_bias ( transfer  )   :
     assert  transfer.complete,  transfer.message; assert transfer.contact == GATE
@@ -81,9 +81,9 @@ def test_the_drain_current_rises_with_every_step_of_gate_bias(transfer):
 
 
 def test_the_transistor_switches(transfer):
-    raio = transfer.current[- 1]  / transfer.current[0]
+    u = transfer.current[- 1]  / transfer.current[0]
 
-    assert raio >1e5
+    assert u >1e5
 
 
 def test_the_subthreshold_slope_beats_no_thermal_limit( transfer  )  :
@@ -93,60 +93,60 @@ def test_the_subthreshold_slope_beats_no_thermal_limit( transfer  )  :
 
 
 def depletion_approximation_slope(Na  :  float,  t_ox :  float) ->  float  :
-    phi =  C.V_T(  )  *  np.log( Na   /  C.n_i( ) )
-    data2 =np.sqrt(2.0*C.eps_Si() *2.0*phi /(C.q*Na))
-    return  float (1e3  *   C.V_T()  *   np.log( 10.0 )  * (1.0   +  (  C.eps_Si(  ) /   data2 )  /  (  C.eps_ox()   / t_ox)  ))
+    rows =  C.V_T(  )  *  np.log( Na   /  C.n_i( ) )
+    b =np.sqrt(2.0*C.eps_Si() *2.0*rows /(C.q*Na))
+    return  float (1e3  *   C.V_T()  *   np.log( 10.0 )  * (1.0   +  (  C.eps_Si(  ) /   b )  /  (  C.eps_ox()   / t_ox)  ))
 
 def test_the_subthreshold_slope_matches_the_body_factor(transfer)  :
-    temp2 = depletion_approximation_slope(NA_SUBSTRATE, T_OX); q =  subthreshold_slope( transfer.voltage,   transfer.current  )
+    v = depletion_approximation_slope(NA_SUBSTRATE, T_OX); j =  subthreshold_slope( transfer.voltage,   transfer.current  )
 
 
-    assert temp2  == pytest.approx(93.9, abs = 0.5)
+    assert v  == pytest.approx(93.9, abs = 0.5)
 
 
-    assert q==pytest.approx(temp2,rel=0.15)
-    assert q  >  temp2
+    assert j==pytest.approx(v,rel=0.15)
+    assert j  >  v
 
 def test_the_channel_is_ohmic_at_a_small_drain_bias():
-    modls  = TransportModels.for_device(nmos())
-    State  =  None
-    for  gtae in(0.0 ,  0.5,   1.0 ,   1.5)  :
+    z  = TransportModels.for_device(nmos())
+    m  =  None
+    for  tmp2 in(0.0 ,  0.5,   1.0 ,   1.5)  :
 
-        State =solve_bias_newton(
-            nmos(gate_voltage=gtae), models  =  modls, guess = State
+        m =solve_bias_newton(
+            nmos(gate_voltage=tmp2), models  =  z, guess = m
         )
-        assert State.newton.converged
-    Conductance= []
-    for object in(0.02, 0.04):
-        res  =   nmos( gate_voltage   =   1.5 ,  drain_voltage   =  object)
+        assert m.newton.converged
+    w= []
+    for d2 in(0.02, 0.04):
+        ys  =   nmos( gate_voltage   =   1.5 ,  drain_voltage   =  d2)
 
-        t2 =solve_bias_newton(res,models=modls,guess=State)
+        b2 =solve_bias_newton(ys,models=z,guess=m)
 
-        assert  t2.newton.converged
-        Conductance.append(terminal_currents(res, t2)  [DRAIN] /  object)
+        assert  b2.newton.converged
+        w.append(terminal_currents(ys, b2)  [DRAIN] /  d2)
 
-    assert Conductance[1] == pytest.approx(Conductance[0],rel=0.03)
+    assert w[1] == pytest.approx(w[0],rel=0.03)
 
 
 def test_the_conductance_rises_with_gate_bias() :
-    Models= TransportModels.for_device(nmos())
-    staate  =  None
-    chr={}
-    for dat in(0.0,  0.5,  1.0,  1.5  )  :
-        round= nmos(gate_voltage=dat,drain_voltage=V_DS_LINEAR)
-        staate   = solve_bias_newton(round,   models  =  Models ,  guess  =  staate)
-        assert  staate.newton.converged
-        chr[dat]=(
-            terminal_currents(round,staate)[DRAIN]/V_DS_LINEAR
+    i= TransportModels.for_device(nmos())
+    yy  =  None
+    u={}
+    for d2 in(0.0,  0.5,  1.0,  1.5  )  :
+        y= nmos(gate_voltage=d2,drain_voltage=V_DS_LINEAR)
+        yy   = solve_bias_newton(y,   models  =  i ,  guess  =  yy)
+        assert  yy.newton.converged
+        u[d2]=(
+            terminal_currents(y,yy)[DRAIN]/V_DS_LINEAR
         )
 
-    assert chr[1.5]>1e4 *  chr[0.0]
+    assert u[1.5]>1e4 *  u[0.0]
 
 def test_a_gate_sweep_stops_and_says_where_when_it_stalls():
-    Curve = gate_sweep(nmos(drain_voltage = V_DS_LINEAR), voltages = [0.4, 4.0], step=  0.4, min_step = 0.25, max_iterations =  7,)
-    assert not Curve.complete
-    assert "stalled on the way to +4 V" in Curve.message
-    assert list(Curve.voltage  ) ==   [  0.4  ]
+    w = gate_sweep(nmos(drain_voltage = V_DS_LINEAR), voltages = [0.4, 4.0], step=  0.4, min_step = 0.25, max_iterations =  7,)
+    assert not w.complete
+    assert "stalled on the way to +4 V" in w.message
+    assert list(w.voltage  ) ==   [  0.4  ]
 
 
 def test_a_gate_sweep_that_cannot_even_start_raises():

@@ -70,9 +70,9 @@ exclude_lines = [
   '^\s*if\s+run\s+is\s+None\s*:\s*$',
   '''^if\s+__name__\s*==\s*['"]__main__['"]\s*:\s*$''',
   '^\s*if\s*not\s*\(\s*np\s*\.\s*all\s*\(\s*np\s*\.\s*isfinite\s*\(\s*n\s*\)\s*\)\s*and\s*np\s*\.\s*all\s*\(\s*np\s*\.\s*isfinite\s*\(\s*p\s*\)\s*\)\s*\)\s*:\s*$',
-  '^\s*if\s+np\s*\.\s*any\s*\(\s*high\s*>\s*1e6\s*\)\s*:\s*$',
-  '^\s*if\s+best_score\s*>\s*best_bound\s*\*\s*\(\s*1\.0\s*\+\s*_SCORE_SLACK\s*\)\s*:\s*$',
-  '^\s*if\s+short\s*:\s*$',
+  '^\s*if\s+np\s*\.\s*any\s*\(\s*m\s*>\s*1e6\s*\)\s*:\s*$',
+  '^\s*if\s+cur\s*>\s*k\s*\*\s*\(\s*1\.0\s*\+\s*_SCORE_SLACK\s*\)\s*:\s*$',
+  '^\s*if\s+rows\s*:\s*$',
 ]
 
 [tool.ruff]

@@ -22,90 +22,90 @@ DEVICES={
 @pytest.fixture(params=sorted(DEVICES),ids= sorted(DEVICES))
 
 def solved(request) :
-    dev =DEVICES[request.param]  ()
-    return dev, solve_equilibrium(dev)
+    c =DEVICES[request.param]  ()
+    return c, solve_equilibrium(c)
 
 
 
 def test_np_equals_n_i_squared_everywhere(solved)  ->  None  :
-    _ ,   State   = solved
-    max = State.n.data  *  State.p.data
+    _ ,   f   = solved
+    xx = f.n.data  *  f.p.data
 
-    np.testing.assert_allclose(max,1.0,rtol = 1e-8)
+    np.testing.assert_allclose(xx,1.0,rtol = 1e-8)
 
 
 
 def test_np_equals_n_i_squared_in_physical_units(solved)->None :
-    w,   buf =  solved
-    n  = buf.n.to_physical(w.scale).data
-    p = buf.p.to_physical(w.scale).data
-    np.testing.assert_allclose(n *p,w.material.n_i** 2,rtol =1e-8)
+    f,   m =  solved
+    n  = m.n.to_physical(f.scale).data
+    p = m.p.to_physical(f.scale).data
+    np.testing.assert_allclose(n *p,f.material.n_i** 2,rtol =1e-8)
 
 
 def test_carrier_densities_are_strictly_positive(solved)->None:
-    _, blah =solved
-    assert  np.all(blah.n.data  >  0.0  )
-    assert np.all(blah.p.data>0.0)
+    _, ys =solved
+    assert  np.all(ys.n.data  >  0.0  )
+    assert np.all(ys.p.data>0.0)
 
 
 
 def  test_carrier_densities_are_finite (  solved)  ->  None   :
-    _, sttate =  solved
-    assert np.all(np.isfinite(sttate.n.data));assert np.all(np.isfinite(sttate.p.data))
+    _, e =  solved
+    assert np.all(np.isfinite(e.n.data));assert np.all(np.isfinite(e.p.data))
 
 def test_bulk_is_charge_neutral(solved)  -> None :
 
-    dveice,sttate = solved
-    Doping  =  dveice.net_doping_scaled.data
+    c,buf = solved
+    y  =  c.net_doping_scaled.data
 
-    netcharge =sttate.p.data -sttate.n.data+ Doping
+    j =buf.p.data -buf.n.data+ y
 
-    dir = np.abs(dveice.net_doping.data)
-    Lightest =float(np.min(dir[dir  >  0.0]))
-    myvar = math.sqrt (C.eps_Si(  )   *   C.V_T() /  (  C.q  *  Lightest )  )
+    b = np.abs(c.net_doping.data)
+    w =float(np.min(b[b  >  0.0]))
+    m2 = math.sqrt (C.eps_Si(  )   *   C.V_T() /  (  C.q  *  w )  )
 
-    d2= dveice.mesh.x[int(np.argmax(np.abs(np.diff(np.sign(Doping)))))]
-    farr   =  np.abs(  dveice.mesh.x   -   d2)  >  25.0 *  myvar
-    assert farr.sum() >10,"device is too short to have a neutral bulk"
-    rel  =  np.abs (  netcharge [  farr  ]  )  /  np.abs (Doping[farr  ]  )
-    assert rel.max() <1e-6, (
-        f"worst {rel.max():.3e}, local L_D = {myvar * 1e7:.1f} nm"
+    cnt= c.mesh.x[int(np.argmax(np.abs(np.diff(np.sign(y)))))]
+    u   =  np.abs(  c.mesh.x   -   cnt)  >  25.0 *  m2
+    assert u.sum() >10,"device is too short to have a neutral bulk"
+    ok  =  np.abs (  j [  u  ]  )  /  np.abs (y[u  ]  )
+    assert ok.max() <1e-6, (
+        f"worst {ok.max():.3e}, local L_D = {m2 * 1e7:.1f} nm"
     )
 def test_total_charge_in_the_device_is_conserved(solved) -> None :
-    devcie, range  =  solved
-    Doping= devcie.net_doping_scaled.data
+    rr, f  =  solved
+    bar= rr.net_doping_scaled.data
 
 
-    d2=range.p.data -range.n.data+Doping
-    out2=devcie.mesh.volume/ devcie.scale.x_0
+    j=f.p.data -f.n.data+bar
+    z=rr.mesh.volume/ rr.scale.x_0
 
 
 
-    temp  = float(np.sum(d2* out2))
-    reefrence =float(np.sum(np.abs(d2)*out2))
-    assert abs(temp) / reefrence  <1e-6
+    v  = float(np.sum(j* z))
+    v2 =float(np.sum(np.abs(j)*z))
+    assert abs(v) / v2  <1e-6
 
 def test_densities_agree_with_boltzmann_applied_to_psi(solved) ->None :
-    _, State = solved;np.testing.assert_allclose(State.n.data,np.exp(State.psi.data),rtol = 1e-12)
-    np.testing.assert_allclose(State.p.data, np.exp(- State.psi.data), rtol= 1e-12)
+    _, f = solved;np.testing.assert_allclose(f.n.data,np.exp(f.psi.data),rtol = 1e-12)
+    np.testing.assert_allclose(f.p.data, np.exp(- f.psi.data), rtol= 1e-12)
 
 
 def test_majority_carrier_matches_the_doping_in_the_bulk(solved)->None:
-    vars, satte= solved; dopiing= vars.net_doping_scaled.data
+    v2, zz= solved; s= v2.net_doping_scaled.data
 
 
-    tmp=dopiing>0.0
-    p_bluk =  dopiing<  0.0
-    atNContact= int(np.flatnonzero(tmp)  [-1])
-    at_p_cotact =int(np.flatnonzero(p_bluk)  [0])
+    m=s>0.0
+    s2 =  s<  0.0
+    res= int(np.flatnonzero(m)  [-1])
+    h =int(np.flatnonzero(s2)  [0])
 
 
-    assert satte.n.data[atNContact] ==pytest.approx(dopiing[atNContact],rel=1e-6)
-    assert satte.p.data[at_p_cotact] == pytest.approx(-  dopiing[at_p_cotact], rel  =1e-6)
+    assert zz.n.data[res] ==pytest.approx(s[res],rel=1e-6)
+    assert zz.p.data[h] == pytest.approx(-  s[h], rel  =1e-6)
 
 def test_potential_is_monotonic_across_the_junction(solved)->None:
-    _, sta = solved
-    assert  np.all( np.diff(sta.psi.data )  > -  1e-12)
+    _, w = solved
+    assert  np.all( np.diff(w.psi.data )  > -  1e-12)
 
 
 
@@ -113,48 +113,48 @@ def test_potential_is_monotonic_across_the_junction(solved)->None:
 def test_invariants_hold_for_a_gaussian_profile()-> None:
 
 
-    mseh =uniform_mesh_1d(8.0 *MICRON,601)
-    res  = build_device (
-        mesh  =  mseh ,
+    j =uniform_mesh_1d(8.0 *MICRON,601)
+    z  = build_device (
+        mesh  =  j ,
         doping  = Uniform (  -  1e16)  +   Gaussian(peak   =  5e17 , centre  =  0.0,   sigma   = 0.5 *  MICRON  ),
         contacts =   (
             OhmicContact(  'anode',   0,   0.0  ) ,
-            OhmicContact( "cathode",  mseh.n_nodes  -  1,   0.0  ),
+            OhmicContact( "cathode",  j.n_nodes  -  1,   0.0  ),
         ),
     )
-    set = solve_equilibrium(res)
+    h = solve_equilibrium(z)
 
-    np.testing.assert_allclose(set.n.data* set.p.data,1.0,rtol =1e-8)
-    assert np.all(set.n.data >0.0)
-    assert np.all(set.p.data>  0.0)
+    np.testing.assert_allclose(h.n.data* h.p.data,1.0,rtol =1e-8)
+    assert np.all(h.n.data >0.0)
+    assert np.all(h.p.data>  0.0)
 
 def test_invariants_hold_for_a_compensated_profile() ->None:
-    msh = uniform_mesh_1d(8.0 *  MICRON, 601)
-    t2  = build_device(mesh =msh, doping= Step(left  =-  1e16, right = 1e16, position=4.0  *  MICRON)+Uniform(0.0), contacts  = (OhmicContact("anode", 0, 0.0), OhmicContact("cathode", msh.n_nodes -1, 0.0),),)
-    satte=solve_equilibrium(t2)
+    x = uniform_mesh_1d(8.0 *  MICRON, 601)
+    a  = build_device(mesh =x, doping= Step(left  =-  1e16, right = 1e16, position=4.0  *  MICRON)+Uniform(0.0), contacts  = (OhmicContact("anode", 0, 0.0), OhmicContact("cathode", x.n_nodes -1, 0.0),),)
+    g=solve_equilibrium(a)
 
-    np.testing.assert_allclose(satte.n.data*satte.p.data,1.0,rtol = 1e-8)
-    assert np.all(np.isfinite(satte.psi.data))
+    np.testing.assert_allclose(g.n.data*g.p.data,1.0,rtol = 1e-8)
+    assert np.all(np.isfinite(g.psi.data))
 
 def test_invariants_hold_under_reverse_bias()->None:
 
-    Device =  pn_diode(Na =  1e16, Nd  =  1e16, length =  12e-4, junction =  6e-4, anode_voltage =- 1.0)
-    QuasiFermi = solve_equilibrium ( Device, frozen_quasi_fermi(Device  ) )
-    phi_n, phi_p  =frozen_quasi_fermi(Device)
+    cc =  pn_diode(Na =  1e16, Nd  =  1e16, length =  12e-4, junction =  6e-4, anode_voltage =- 1.0)
+    h = solve_equilibrium ( cc, frozen_quasi_fermi(cc  ) )
+    phi_n, phi_p  =frozen_quasi_fermi(cc)
 
 
-    id =  np.exp(phi_p.data - phi_n.data)
-    set = QuasiFermi.n.data * QuasiFermi.p.data
-    np.testing.assert_allclose(  set ,  id,   rtol  =  1e-8)
-    assert np.all(QuasiFermi.n.data>0.0)
-    assert np.all(QuasiFermi.p.data  >  0.0)
+    y =  np.exp(phi_p.data - phi_n.data)
+    bb = h.n.data * h.p.data
+    np.testing.assert_allclose(  bb ,  y,   rtol  =  1e-8)
+    assert np.all(h.n.data>0.0)
+    assert np.all(h.p.data  >  0.0)
 
 
 
 def test_intrinsic_material_stays_intrinsic() ->None:
-    mes=uniform_mesh_1d(MICRON,51)
-    thing =  build_device(mesh  =  mes, doping  =Uniform(0.0), contacts= (OhmicContact("left", 0, 0.0), OhmicContact("right", mes.n_nodes  -  1, 0.0),),)
-    sta=solve_equilibrium(thing)
-    np.testing.assert_allclose(sta.psi.data,0.0,atol =1e-12)
-    np.testing.assert_allclose(sta.n.data, 1.0, rtol =1e-12)
-    np.testing.assert_allclose(sta.p.data ,  1.0,  rtol =  1e-12 )
+    w=uniform_mesh_1d(MICRON,51)
+    arr =  build_device(mesh  =  w, doping  =Uniform(0.0), contacts= (OhmicContact("left", 0, 0.0), OhmicContact("right", w.n_nodes  -  1, 0.0),),)
+    m=solve_equilibrium(arr)
+    np.testing.assert_allclose(m.psi.data,0.0,atol =1e-12)
+    np.testing.assert_allclose(m.n.data, 1.0, rtol =1e-12)
+    np.testing.assert_allclose(m.p.data ,  1.0,  rtol =  1e-12 )

@@ -12,48 +12,48 @@ EPS  = float(np.finfo(np.float64).eps)
 
 
 def diode(voltage:float  = 0.0, ** overrides  :  float) :
-    set: dict =  {"Na" : 1e16, 'Nd':  1e16, "length"  : 12 * MICRON, "junction" : 6 *MICRON, 'n_nodes' :  201, "h_min":  5e-7,}
-    set.update(overrides)
-    return  pn_diode (** set).with_bias (anode  =  voltage)
+    tmp: dict =  {"Na" : 1e16, 'Nd':  1e16, "length"  : 12 * MICRON, "junction" : 6 *MICRON, 'n_nodes' :  201, "h_min":  5e-7,}
+    tmp.update(overrides)
+    return  pn_diode (** tmp).with_bias (anode  =  voltage)
 
 def solved(voltage :  float, recombination  = None, update_tol : float =1e-8):
 
-    Device=diode(voltage)
-    Models =TransportModels.for_device(Device,recombination=recombination)
-    staate = solve_bias(Device, models  =  Models, update_tol = update_tol)
-    assert staate.gummel  is  not None and staate.gummel.converged,   (
-        f"the solve at {voltage:+g} V did not converge: {staate.gummel}"
+    h=diode(voltage)
+    c2 =TransportModels.for_device(h,recombination=recombination)
+    j = solve_bias(h, models  =  c2, update_tol = update_tol)
+    assert j.gummel  is  not None and j.gummel.converged,   (
+        f"the solve at {voltage:+g} V did not converge: {j.gummel}"
     )
-    return Device, staate,  Models
+    return h, j,  c2
 
 
 def spread(values:np.ndarray) -> float:
     return float(np.max(np.abs(values - values.mean())) / abs(values.mean()))
 def  largest_flux_term(device,  state , models)  ->   float  :
-    hh =  device.mesh.h/  device.scale.x_0
-    data2=np.diff(state.psi.data)
+    ys =  device.mesh.h/  device.scale.x_0
+    v=np.diff(state.psi.data)
 
 
-    BPlus =  np.asarray( B(data2 )  )
-    BMinus   = np.asarray(  B( -   data2  ) )
-    ter = [
-        (models.Dn/hh) * BPlus *state.n.data[1 :],
-        (models.Dn /  hh)*BMinus * state.n.data[:-  1],
-        (models.Dp / hh) * BPlus*state.p.data[:- 1],
-        (models.Dp  /hh) *BMinus * state.p.data[1 :],
+    c =  np.asarray( B(v )  )
+    a   = np.asarray(  B( -   v  ) )
+    x = [
+        (models.Dn/ys) * c *state.n.data[1 :],
+        (models.Dn /  ys)*a * state.n.data[:-  1],
+        (models.Dp / ys) * c*state.p.data[:- 1],
+        (models.Dp  /ys) *a * state.p.data[1 :],
     ]
-    return float(max(np.max(np.abs(term)) for term in ter))
+    return float(max(np.max(np.abs(ret)) for ret in x))
 
 
 @pytest.mark.parametrize( "voltage",   [ 0.3 , 0.4, 0.5  ] )
 
 def  test_total_current_is_constant_across_the_device(  voltage :  float ) ->  None   :
-    temp, bin, modeels  = solved(voltage, NoRecombination())
-    jn , Jpp  =   current_densities ( temp,  bin, modeels  )
+    x, w, a  = solved(voltage, NoRecombination())
+    it , thing  =   current_densities ( x,  w, a  )
 
 
-    deviaiton  =  spread(jn.data   +  Jpp.data )
-    assert deviaiton<1e-6,f"Jn + Jp varies by {deviaiton:.2e} at {voltage} V"
+    j  =  spread(it.data   +  thing.data )
+    assert j<1e-6,f"Jn + Jp varies by {j:.2e} at {voltage} V"
 
 
 
@@ -62,11 +62,11 @@ def  test_total_current_is_constant_across_the_device(  voltage :  float ) ->  N
 
 
 def test_each_carrier_current_is_separately_constant(voltage : float) ->  None :
-    Device, stte, idx2 = solved(voltage, NoRecombination())
-    zz, all =current_densities(Device, stte, idx2)
+    cc, jj, tt = solved(voltage, NoRecombination())
+    h, xs =current_densities(cc, jj, tt)
 
-    assert spread(zz.data) < 1e-6
-    assert spread(all.data)<1e-6
+    assert spread(h.data) < 1e-6
+    assert spread(xs.data)<1e-6
 
 @pytest.mark.parametrize('voltage',[0.4,0.5])
 
@@ -74,10 +74,10 @@ def test_recombination_moves_current_between_carriers_but_not_the_total (
     voltage :   float,
 ) ->  None   :
 
-    dev, junk, min= solved(voltage)
-    res , jp   =  current_densities(dev,   junk , min )
+    row, c, arr= solved(voltage)
+    z , mm   =  current_densities(row,   c , arr )
 
-    assert spread(res.data +   jp.data  )   <  1e-6;  assert spread(res.data)> 1e-3,"recombination should bend Jn on its own"
+    assert spread(z.data +   mm.data  )   <  1e-6;  assert spread(z.data)> 1e-3,"recombination should bend Jn on its own"
 
 
 
@@ -87,15 +87,15 @@ def test_recombination_moves_current_between_carriers_but_not_the_total (
 def  test_the_low_bias_deviation_is_cancellation_and_not_a_broken_scheme(
     voltage   :   float,
 )  -> None  :
-    dev, w, modles  = solved(voltage, NoRecombination())
-    dir,jp=current_densities(dev,
-          w,
-             modles)
-    tootal=dir.data+jp.data
-    ScaledCurrent= abs(tootal.mean())/ dev.scale.J_0
-    bb=largest_flux_term(dev,w,modles)/ ScaledCurrent
+    mm, t2, m  = solved(voltage, NoRecombination())
+    w2,i=current_densities(mm,
+          t2,
+             m)
+    obj=w2.data+i.data
+    a2= abs(obj.mean())/ mm.scale.J_0
+    y=largest_flux_term(mm,t2,m)/ a2
 
-    assert spread( tootal)   <  3.0  *   EPS *  bb
+    assert spread( obj)   <  3.0  *   EPS *  y
 
 
 @pytest.mark.parametrize("voltage", [0.3, 0.4, 0.5])
@@ -104,31 +104,31 @@ def  test_the_low_bias_deviation_is_cancellation_and_not_a_broken_scheme(
 
 
 def test_terminal_currents_sum_to_zero(  voltage : float)   ->  None   :
-    ord,  sta,   len =  solved(voltage  )
-    cur  =  terminal_currents(ord, sta, len)
+    f,  tt,   b2 =  solved(voltage  )
+    s2  =  terminal_currents(f, tt, b2)
 
 
-    w  =   max(abs(value )   for  value  in  cur.values () ); assert abs(sum(cur.values())) <1e-8* w
+    c  =   max(abs(r )   for  r  in  s2.values () ); assert abs(sum(s2.values())) <1e-8* c
 @pytest.mark.parametrize("voltage",[- 1.0,0.0])
 def test_the_terminal_sum_is_at_the_arithmetic_floor_at_low_current(
     voltage :float,
 )->None:
-    object, hmm, moels =  solved(voltage)
-    input=terminal_currents(object,hmm,moels)
+    z, v, jj =  solved(voltage)
+    h=terminal_currents(z,v,jj)
 
-    Floor= EPS* largest_flux_term(object,hmm,moels)*object.scale.J_0
+    ret= EPS* largest_flux_term(z,v,jj)*z.scale.J_0
 
-    assert abs (sum(  input.values()  ))  <=  Floor
+    assert abs (sum(  h.values()  ))  <=  ret
 def  test_current_flows_from_the_anode_under_forward_bias( ) ->  None :
-    dev, sta, max  = solved(0.4)
-    assert  terminal_currents( dev, sta ,   max  )  [ "anode"]  >  0.0
-    assert  terminal_currents( dev , sta, max  )  [  'cathode'  ]   < 0.0
+    r, a2, kk  = solved(0.4)
+    assert  terminal_currents( r, a2 ,   kk  )  [ "anode"]  >  0.0
+    assert  terminal_currents( r , a2, kk  )  [  'cathode'  ]   < 0.0
 
 
 def test_current_reverses_under_reverse_bias() ->None :
-    Device, sttae, Models = solved(-  0.5)
+    a, cnt, w = solved(-  0.5)
 
-    assert  terminal_currents(  Device,  sttae, Models) [ 'anode'  ]  <   0.0
+    assert  terminal_currents(  a,  cnt, w) [ 'anode'  ]  <   0.0
 
 
 @pytest.mark.parametrize('voltage', [- 1.0, 0.0, 0.3, 0.5])
@@ -139,12 +139,12 @@ def test_current_reverses_under_reverse_bias() ->None :
 def test_densities_are_positive_at_every_node(voltage  :  float) -> None :
 
 
-    _,list,_=solved(voltage)
+    _,c,_=solved(voltage)
 
 
-    assert np.all(list.n.data >  0.0)
+    assert np.all(c.n.data >  0.0)
 
-    assert  np.all (list.p.data  > 0.0  )
+    assert  np.all (c.p.data  > 0.0  )
 
 
 
@@ -156,26 +156,26 @@ def test_densities_are_positive_at_every_node(voltage  :  float) -> None :
 
 def test_mass_action_holds_at_zero_bias(doping : float) -> None :
 
-    deviice  =  diode ( 0.0, Na  =   doping,  Nd   =  doping  ); data2=solve_bias(deviice)
-    np.testing.assert_allclose(data2.n.data*  data2.p.data, 1.0, rtol= 1e-10)
+    w  =  diode ( 0.0, Na  =   doping,  Nd   =  doping  ); t2=solve_bias(w)
+    np.testing.assert_allclose(t2.n.data*  t2.p.data, 1.0, rtol= 1e-10)
 
 
 def test_the_recombination_rate_vanishes_at_zero_bias (  )  -> None :
 
-    devce,r2,Models = solved(0.0)
-    Rate= np.asarray(Models.recombination.rate(r2.n.data,r2.p.data))
+    s,u,c2 = solved(0.0)
+    s2= np.asarray(c2.recombination.rate(u.n.data,u.p.data))
 
-    d2=  devce.mesh.volume  /devce.scale.x_0
-    spu  = abs(float(np.sum(Rate * d2)))* devce.scale.J_0;assert spu<1e-23
+    arr=  s.mesh.volume  /s.scale.x_0
+    z  = abs(float(np.sum(s2 * arr)))* s.scale.J_0;assert z<1e-23
 
 def solved_by_newton(voltage : float,recombination= None):
-    deivce=diode(voltage)
-    moedls  =  TransportModels.for_device(  deivce ,   recombination  =  recombination )
-    t2=solve_bias_newton(deivce,models= moedls)
-    assert t2.newton is not None and t2.newton.converged, (
-        f"the solve at {voltage:+g} V did not converge: {t2.newton.message}"
+    item=diode(voltage)
+    c  =  TransportModels.for_device(  item ,   recombination  =  recombination )
+    res=solve_bias_newton(item,models= c)
+    assert res.newton is not None and res.newton.converged, (
+        f"the solve at {voltage:+g} V did not converge: {res.newton.message}"
     )
-    return deivce, t2, moedls
+    return item, res, c
 
 
 @pytest.mark.parametrize('voltage', [0.4, 0.5])
@@ -183,11 +183,11 @@ def solved_by_newton(voltage : float,recombination= None):
 
 def test_the_newton_solution_conserves_current(voltage : float) -> None :
 
-    Device, State, mod  = solved_by_newton(voltage, NoRecombination())
-    jn,jp =current_densities(Device,State,mod)
+    k, r, d  = solved_by_newton(voltage, NoRecombination())
+    out2,x =current_densities(k,r,d)
 
-    Deviation=spread(jn.data+jp.data)
-    assert Deviation<1e-6,f"Jn + Jp varies by {Deviation:.2e} at {voltage} V"
+    dd=spread(out2.data+x.data)
+    assert dd<1e-6,f"Jn + Jp varies by {dd:.2e} at {voltage} V"
 
 @pytest.mark.parametrize("voltage",
        [0.5,
@@ -199,14 +199,14 @@ def test_the_newton_solution_conserves_current(voltage : float) -> None :
 def test_newton_and_gummel_report_the_same_terminal_current (
     voltage : float,
 )  ->  None   :
-    min, gum, mdels=solved(voltage, update_tol  = 1e-10)
-    deice_n,new,_=solved_by_newton(voltage)
+    d, d2, w2=solved(voltage, update_tol  = 1e-10)
+    t,kk,_=solved_by_newton(voltage)
 
-    fromGummel = terminal_currents(min, gum, mdels);hmm =terminal_currents(deice_n,new,mdels)
-    for yy,val in fromGummel.items():
-        assert hmm[yy] ==  pytest.approx(  val,  rel   =  1e-10 ),   (
-            f"{yy} current differs at {voltage} V: "
-            f"gummel {val:.12e}, newton {hmm[yy]:.12e}"
+    tmp3 = terminal_currents(d, d2, w2);j =terminal_currents(t,kk,w2)
+    for ii,out in tmp3.items():
+        assert j[ii] ==  pytest.approx(  out,  rel   =  1e-10 ),   (
+            f"{ii} current differs at {voltage} V: "
+            f"gummel {out:.12e}, newton {j[ii]:.12e}"
         )
 
 @pytest.mark.parametrize('voltage', [0.5, 0.8, 1.0])
@@ -216,9 +216,9 @@ def test_newton_and_gummel_report_the_same_terminal_current (
 def  test_the_newton_terminal_currents_sum_to_zero(  voltage  : float )  ->   None :
 
 
-    Device,satte,Models =solved_by_newton(voltage)
+    w,x2,z =solved_by_newton(voltage)
 
-    Currents  =   terminal_currents(  Device , satte ,   Models  )
-    lar=max(abs(value) for value in Currents.values())
+    tt  =   terminal_currents(  w , x2 ,   z  )
+    t=max(abs(h) for h in tt.values())
 
-    assert abs(sum(Currents.values()))<1e-8*lar
+    assert abs(sum(tt.values()))<1e-8*t

@@ -37,47 +37,47 @@ COLUMN  =  1
 
 
 def stack () :
-    res  =int(round((T_SI+ T_OX)  / DY)) + 1
-    meesh  =  tensor_mesh_2d(uniform_mesh_1d( length   =  WIDTH,  n_nodes   =   NX), uniform_mesh_1d( length =  T_SI   +  T_OX,   n_nodes   =  res ) ,)
-    map  =   stacked_regions(  meesh,  interface_y   = T_SI)
-    return meesh,map,ScaleFactors.for_silicon()
+    k  =int(round((T_SI+ T_OX)  / DY)) + 1
+    j  =  tensor_mesh_2d(uniform_mesh_1d( length   =  WIDTH,  n_nodes   =   NX), uniform_mesh_1d( length =  T_SI   +  T_OX,   n_nodes   =  k ) ,)
+    v  =   stacked_regions(  j,  interface_y   = T_SI)
+    return j,v,ScaleFactors.for_silicon()
 
 
 def solve_at(stack,v_gate,regions=None) :
 
-    Mesh,stuff2,sca= stack
-    regions  = stuff2 if regions is None  else  regions
-    Scaled  =  Mesh.scaled (  sca,  eps_r =   regions.eps_r  )
-    ret =regions.semiconductor_volume/sca.x_0 **  2
-    dop  =  np.where(
-        regions.semiconductor_volume   > 0.0, -  NA   /  sca.C_0,  0.0
+    v,b,e= stack
+    regions  = b if regions is None  else  regions
+    c  =  v.scaled (  e,  eps_r =   regions.eps_r  )
+    a =regions.semiconductor_volume/e.x_0 **  2
+    j  =  np.where(
+        regions.semiconductor_volume   > 0.0, -  NA   /  e.C_0,  0.0
     )
 
 
-    sub=  [Mesh.node_at(open, 0)for open in range(Mesh.nx)]
-    Gate  = [Mesh.node_at(open, Mesh.ny - 1)  for open in range(Mesh.nx)]
-    psiSub=ohmic_psi_scaled(-NA/sca.C_0,0.0)
-    psiGate   =  gate_psi_scaled (  v_gate  /  sca.psi_0,  METAL )
+    u=  [v.node_at(y, 0)for y in range(v.nx)]
+    info  = [v.node_at(y, v.ny - 1)  for y in range(v.nx)]
+    w=ohmic_psi_scaled(-NA/e.C_0,0.0)
+    s   =  gate_psi_scaled (  v_gate  /  e.psi_0,  METAL )
 
 
-    nod = sub +Gate
-    tar  =[psiSub] *  len(sub)  +  [psiGate] *  len(Gate)
+    g = u +info
+    x2  =[w] *  len(u)  +  [s] *  len(info)
     def assemble(psi_values) :
-        residual = poisson_residual(Scaled.h, ret, psi_values, dop, geometry= Scaled.geometry)
-        rows,cols,values = poisson_jacobian(
-            Scaled.h,ret,psi_values,dop,geometry=Scaled.geometry
+        w2 = poisson_residual(c.h, a, psi_values, j, geometry= c.geometry)
+        x,yy,tmp = poisson_jacobian(
+            c.h,a,psi_values,j,geometry=c.geometry
         )
-        return apply_dirichlet_nodes(SparseAssembly(residual   =  residual, rows   =   rows, cols   =  cols, values =   values, shape  =  ( Mesh.n_nodes ,  Mesh.n_nodes  ),) , psi_values , nod , tar,)
+        return apply_dirichlet_nodes(SparseAssembly(residual   =  w2, rows   =   x, cols   =  yy, values =   tmp, shape  =  ( v.n_nodes ,  v.n_nodes  ),) , psi_values , g , x2,)
 
-    q  =  np.full(Mesh.n_nodes, psiSub)
-    q[Gate] = psiGate
-    res  = newton_solve( assemble ,   q,  max_step  =  5.0,  max_iterations =  60 )
-    assert res.converged,f"MOS solve did not converge at {v_gate} V"
-    return res,psiSub,psiGate
+    k  =  np.full(v.n_nodes, w)
+    k[info] = s
+    aa  = newton_solve( assemble ,   k,  max_step  =  5.0,  max_iterations =  60 )
+    assert aa.converged,f"MOS solve did not converge at {v_gate} V"
+    return aa,w,s
 
 def column_psi(stack, result):
-    Mesh=  stack[0]
-    return result.x[[Mesh.node_at(COLUMN, s2)  for s2 in range(Mesh.ny)]]
+    s=  stack[0]
+    return result.x[[s.node_at(COLUMN, w)  for w in range(s.ny)]]
 
 
 def interface_row(  )  :
@@ -91,15 +91,15 @@ def flatband_voltage():
 
 def test_the_flatband_voltage_is_the_work_function_difference ( stack )  :
 
-    res, psiSub, PsiGate = solve_at(stack, flatband_voltage())
-    psi = column_psi(stack, res)
+    vals, mm, h = solve_at(stack, flatband_voltage())
+    psi = column_psi(stack, vals)
 
-    assert PsiGate ==  pytest.approx(psiSub, abs =1e-12);  assert psi.max() -  psi.min() < 1e-12
-    assert res.iterations== 0
+    assert h ==  pytest.approx(mm, abs =1e-12);  assert psi.max() -  psi.min() < 1e-12
+    assert vals.iterations== 0
 
 def test_a_millivolt_off_flatband_is_visible(stack) :
-    res,_,_ = solve_at(stack,flatband_voltage()+ 1e-3)
-    psi= column_psi(stack, res)
+    num,_,_ = solve_at(stack,flatband_voltage()+ 1e-3)
+    psi= column_psi(stack, num)
 
 
 
@@ -113,20 +113,20 @@ def test_a_millivolt_off_flatband_is_visible(stack) :
 
 
 def test_the_potential_in_the_oxide_is_a_straight_line(stack,v_gate):
-    res , _,  _   = solve_at( stack,
+    foo , _,  _   = solve_at( stack,
         v_gate)
-    psi= column_psi(stack,res)
-    J = interface_row()
+    psi= column_psi(stack,foo)
+    r = interface_row()
 
-    yy = stack[0].y_axis.x[J:]
+    tmp = stack[0].y_axis.x[r:]
 
-    Oxide=psi[J :]
-    dorp  =   abs ( Oxide [-  1]   -  Oxide[ 0] )
-    assert dorp>1.0,"no field across the oxide, so linearity means nothing"
+    w=psi[r :]
+    i  =   abs ( w [-  1]   -  w[ 0] )
+    assert i>1.0,"no field across the oxide, so linearity means nothing"
 
 
-    striaght=  np.polyval(np.polyfit(yy, Oxide, 1), yy)
-    assert np.max(np.abs(striaght -Oxide))  / dorp < 1e-12
+    thing=  np.polyval(np.polyfit(tmp, w, 1), tmp)
+    assert np.max(np.abs(thing -w))  / i < 1e-12
 
 
 
@@ -134,43 +134,43 @@ def test_the_slope_changes_across_the_interface_by_the_permittivity_ratio(
     stack,
 ) :
 
-    res ,   _ , _  =   solve_at( stack,  0.0  )
+    t ,   _ , _  =   solve_at( stack,  0.0  )
 
-    psi =  column_psi(stack, res)
-    map =  interface_row()
+    psi =  column_psi(stack, t)
+    ii =  interface_row()
 
-    sorted= (psi[map] -psi[map  -  1])/ DY
+    ss= (psi[ii] -psi[ii  -  1])/ DY
 
 
-    tmp2  =  (psi[ map  + 1  ]   -  psi[ map ]  )  /  DY
-    assert sorted  / tmp2 ==pytest.approx(C.EPS_R_OX /  C.EPS_R_SI, rel =  0.01)
+    r  =  (psi[ ii  + 1  ]   -  psi[ ii ]  )  /  DY
+    assert ss  / r ==pytest.approx(C.EPS_R_OX /  C.EPS_R_SI, rel =  0.01)
 
 
 def test_giving_the_oxide_silicon_permittivity_moves_the_slope_ratio(  stack )   :
 
 
-    Mesh,   bb,   _  =  stack
-    con =  dataclasses.replace(bb, eps_r = np.ones_like(bb.eps_r))
+    u,   val2,   _  =  stack
+    b =  dataclasses.replace(val2, eps_r = np.ones_like(val2.eps_r))
 
-    Result, _, _ = solve_at(stack, 0.0, regions =  con)
+    r, _, _ = solve_at(stack, 0.0, regions =  b)
     psi =   column_psi(stack,
-                    Result )
-    cnt =interface_row()
-    raito   =   (  (psi[ cnt  ] -   psi [cnt   - 1  ]  )  /  DY  )  / (( psi[  cnt +  1 ] - psi[cnt  ])   /   DY  )
+                    r )
+    a2 =interface_row()
+    j   =   (  (psi[ a2  ] -   psi [a2   - 1  ]  )  /  DY  )  / (( psi[  a2 +  1 ] - psi[a2  ])   /   DY  )
 
-    assert raito== pytest.approx(0.8566,rel=0.01)
-    assert raito>2.0 * (C.EPS_R_OX / C.EPS_R_SI)
+    assert j== pytest.approx(0.8566,rel=0.01)
+    assert j>2.0 * (C.EPS_R_OX / C.EPS_R_SI)
 
 
 
 
 def test_the_surface_inverts_under_positive_gate_bias(  stack ) :
-    _, psii_sub, _ = solve_at(stack, 0.0)
-    acc=column_psi(stack, solve_at(stack, - 3.0) [0])[interface_row()]
-    list =column_psi(stack, solve_at(stack, 3.0)  [0]) [interface_row()]
+    _, f, _ = solve_at(stack, 0.0)
+    vals=column_psi(stack, solve_at(stack, - 3.0) [0])[interface_row()]
+    prev =column_psi(stack, solve_at(stack, 3.0)  [0]) [interface_row()]
 
 
-    assert acc < psii_sub, 'negative gate must accumulate holes'
+    assert vals < f, 'negative gate must accumulate holes'
 
 
-    assert  list  >  0.0 , "positive gate must invert the p-type surface"
+    assert  prev  >  0.0 , "positive gate must invert the p-type surface"

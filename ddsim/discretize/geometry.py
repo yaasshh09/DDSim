@@ -34,7 +34,7 @@ class  EdgeGeometry  :
         npt.NDArray[ np.int64] , npt.NDArray[np.int64]
     ]  :
         if self.edge_nodes is  None   :
-            leeft =  np.arange( n_edges, dtype  =   np.int64);  return leeft,leeft+1
+            v2 =  np.arange( n_edges, dtype  =   np.int64);  return v2,v2+1
         if self.edge_nodes.shape[0]!= n_edges :
             raise ValueError(
                 f"the edge list has {self.edge_nodes.shape[0]} edges but the "

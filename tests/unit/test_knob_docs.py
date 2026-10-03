@@ -8,14 +8,14 @@ from ddsim.api.sweeps import SWEEP_KINDS, model_parameters, sweep_parameters
 
 def  every_knob() :
 
-    for kin in DEVICE_KINDS :
-        for t2 in device_parameters(kin):
-            yield f"device {kin}" ,  t2
-    for kin in SWEEP_KINDS  :
-        for t2 in sweep_parameters(kin) :
-            yield f"sweep {kin}",t2
-    for t2 in model_parameters():
-        yield 'models', t2
+    for kk in DEVICE_KINDS :
+        for ret in device_parameters(kk):
+            yield f"device {kk}" ,  ret
+    for kk in SWEEP_KINDS  :
+        for ret in sweep_parameters(kk) :
+            yield f"sweep {kk}",ret
+    for ret in model_parameters():
+        yield 'models', ret
 
 
 KNOBS =  list(every_knob())
@@ -31,10 +31,10 @@ SLIDER_IDS  = [ f"{kind} {parameter.name}" for kind,   parameter in SLIDER_KNOBS
 
 
 def client():
-    with TestClient(create_app())as Client :
+    with TestClient(create_app())as u :
 
 
-        yield Client
+        yield u
 
 
 @pytest.mark.parametrize(("owner","parameter"),KNOBS,ids =IDS)
@@ -56,8 +56,8 @@ def  test_every_numeric_knob_has_a_unit( owner, parameter )   ->  None  :
 
 def  test_argument_docs_reads_the_knob_file_and_the_unit() ->   None  :
     from ddsim.device.pn_diode import pn_diode
-    thing=argument_docs(pn_diode)
-    assert "acceptor" in thing['Na'] and '[cm^-3]' in thing["Na"]
+    m=argument_docs(pn_diode)
+    assert "acceptor" in m['Na'] and '[cm^-3]' in m["Na"]
     def sample(  depth   :  float =  1.0,  flag  : bool  =  False )  ->  None  :
         ...
     assert argument_docs(sample) == {}
@@ -66,11 +66,11 @@ def  test_argument_docs_reads_the_knob_file_and_the_unit() ->   None  :
 
 
 def test_a_knob_crosses_the_schema_with_its_explanation(client)-> None :
-    knbos= client.get("/api/schema").json() ['devices']['pn_diode']
-    tmp2 =next(knob for knob in knbos if knob["name"]== 'Na')
+    d= client.get("/api/schema").json() ['devices']['pn_diode']
+    s2 =next(g for g in d if g["name"]== 'Na')
 
-    assert tmp2["unit"]=="cm^-3"
-    assert "acceptor" in tmp2['explanation']
+    assert s2["unit"]=="cm^-3"
+    assert "acceptor" in s2['explanation']
 
 
 
@@ -96,12 +96,12 @@ def test_the_parser_reads_a_declared_range ( )  ->   None  :
     def  sample(depth  :   float =  1.0,   doping : float  =   1e16 ) ->  None :
         ...
 
-    next = { p.name  : p  for  p  in parameters_of ( sample, docs={"depth": "how far down [cm]. Range 1e-5 to 1e-3.", 'doping':'how much [cm^-3]. Range 1e14 to 1e19, log.'} )}
+    v = { p.name  : p  for  p  in parameters_of ( sample, docs={"depth": "how far down [cm]. Range 1e-5 to 1e-3.", 'doping':'how much [cm^-3]. Range 1e14 to 1e19, log.'} )}
 
-    assert(next['depth'].low,next["depth"].high)==(1e-5,1e-3)
-    assert  next["depth" ].axis  ==   'linear'
-    assert(next["doping"].low, next["doping"].high)==  (1e14, 1e19)
-    assert next["doping"].axis  == 'log'
+    assert(v['depth'].low,v["depth"].high)==(1e-5,1e-3)
+    assert  v["depth" ].axis  ==   'linear'
+    assert(v["doping"].low, v["doping"].high)==  (1e14, 1e19)
+    assert v["doping"].axis  == 'log'
 
 
 
@@ -110,27 +110,27 @@ def test_a_knob_with_no_declared_range_offers_none() ->None:
 
     def sample(depth:float =1.0) ->None :
         ...
-    onl   =   parameters_of(  sample, docs = {'depth':"how far down [cm]."} )   [  0]
+    g   =   parameters_of(  sample, docs = {'depth':"how far down [cm]."} )   [  0]
 
-    assert onl.low is None
+    assert g.low is None
 
 
-    assert onl.high is None
-    assert onl.axis== 'linear'
+    assert g.high is None
+    assert g.axis== 'linear'
 
 
 def  test_a_range_crosses_the_schema( client)  ->  None :
-    sorted= client.get('/api/schema').json() ["devices"]["pn_diode"]
-    k2 =next(knob for knob in sorted if knob['name']== "Na")
+    tmp3= client.get('/api/schema').json() ["devices"]["pn_diode"]
+    kk =next(j for j in tmp3 if j['name']== "Na")
 
 
-    assert k2["low"]   ==  1e14
-    assert k2['high'] ==1e19
-    assert k2["axis"]=='log'
+    assert kk["low"]   ==  1e14
+    assert kk['high'] ==1e19
+    assert kk["axis"]=='log'
 
 
 
 def test_the_schema_says_which_devices_are_one_dimensional(client)-> None :
-    dmiensions  =  client.get(  "/api/schema").json( ) [ "dimensions" ]
+    u  =  client.get(  "/api/schema").json( ) [ "dimensions" ]
 
-    assert dmiensions  == {'pn_diode' :  1, 'mos_cap':  2, 'nmos': 2, 'stack' : 1, "drawing"  : 2,}
+    assert u  == {'pn_diode' :  1, 'mos_cap':  2, 'nmos': 2, 'stack' : 1, "drawing"  : 2,}

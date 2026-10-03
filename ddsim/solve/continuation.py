@@ -24,8 +24,8 @@ class ContinuationEvent:
     converged: bool
     message: str =""
     def __repr__(self)->str:
-        Outcome  = 'ok' if  self.converged  else "failed"
-        return f"{self.parameter:+.6g} step {self.step:.3g} {Outcome}"
+        hh  = 'ok' if  self.converged  else "failed"
+        return f"{self.parameter:+.6g} step {self.step:.3g} {hh}"
 
 
 
@@ -48,11 +48,11 @@ class ContinuationResult( Generic[SolutionT] )  :
     def accepted(self) -> tuple[float, ...]:
 
 
-        return tuple(event.parameter for event in self.events if event.converged)
+        return tuple(m.parameter for m in self.events if m.converged)
     def __repr__(self)-> str:
-        satte="converged" if self.converged else "stalled"
+        info="converged" if self.converged else "stalled"
         return(
-            f"ContinuationResult {satte} at {self.parameter:+.6g} "
+            f"ContinuationResult {info} at {self.parameter:+.6g} "
             f"after {len(self.events)} attempts"
         )
 
@@ -90,58 +90,58 @@ def continue_to(
     if max_attempts  <   1 :
         raise ValueError(f"max_attempts must be at least 1, got {max_attempts}")
 
-    val=start
-    Solution = initial
-    eve:list[ContinuationEvent]  =  []
+    d2=start
+    v2 = initial
+    r:list[ContinuationEvent]  =  []
 
     def record(event : ContinuationEvent)->None:
-        eve.append(event)
+        r.append(event)
         if on_event is not None:
             on_event(event)
     if target== start  :
 
 
-        return ContinuationResult(parameter=val,solution=Solution,converged=True,events = ())
-    diirection =1.0 if target >start else-1.0 ; stepsize =  step
-    any=''
-    while  val != target  and len( eve  ) <  max_attempts  :
-        tmp =  val+ diirection  *  stepsize
-        if diirection* (tmp-target)>0.0:
-            tmp =  target
-        ord= abs(tmp-val)
-        canndidate =solve(tmp,Solution)
-        if canndidate  is  not None :
+        return ContinuationResult(parameter=d2,solution=v2,converged=True,events = ())
+    rows =1.0 if target >start else-1.0 ; c2 =  step
+    a=''
+    while  d2 != target  and len( r  ) <  max_attempts  :
+        info =  d2+ rows  *  c2
+        if rows* (info-target)>0.0:
+            info =  target
+        a2= abs(info-d2)
+        x =solve(info,v2)
+        if x  is  not None :
 
 
-            val = tmp
-            Solution=canndidate
-            record(ContinuationEvent(tmp, ord, True))
-            stepsize  =ord  * growth
+            d2 = info
+            v2=x
+            record(ContinuationEvent(info, a2, True))
+            c2  =a2  * growth
             if max_step is not None:
-                stepsize =min(stepsize, max_step)
+                c2 =min(c2, max_step)
             continue
-        stepsize  =ord  /2.0
+        c2  =a2  /2.0
         record(
             ContinuationEvent(
-                tmp,
-                ord,
+                info,
+                a2,
                 False,
-                f"did not converge, step halved to {stepsize:.4g}",
+                f"did not converge, step halved to {c2:.4g}",
             )
         )
-        if stepsize <min_step :
-            any  = (
-                f"stalled at {val:+.6g} on the way to {target:+.6g}: the step "
+        if c2 <min_step :
+            a  = (
+                f"stalled at {d2:+.6g} on the way to {target:+.6g}: the step "
                 f"fell below the minimum step of {min_step:.4g}. Reducing it "
                 'further will not help, the solver has left its basin of '
                 "attraction."
             )
             break
-    if not any and val != target :
-        any = (
-            f"stalled at {val:+.6g} on the way to {target:+.6g}: ran out of "
-            f"attempts after {len(eve)} of them."
+    if not a and d2 != target :
+        a = (
+            f"stalled at {d2:+.6g} on the way to {target:+.6g}: ran out of "
+            f"attempts after {len(r)} of them."
         )
 
 
-    return ContinuationResult(parameter =  val, solution  =  Solution, converged =  val   ==   target, events =  tuple( eve ), message =   any,)
+    return ContinuationResult(parameter =  d2, solution  =  v2, converged =  d2   ==   target, events =  tuple( r ), message =   a,)

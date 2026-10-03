@@ -16,10 +16,10 @@ PUBLIC_TIME_LIMIT =300.0
 
 
 def _parser() ->  argparse.ArgumentParser :
-    vals =  argparse.ArgumentParser(prog  = 'ddsim', description = "Drift-diffusion device simulator.",)
+    val2 =  argparse.ArgumentParser(prog  = 'ddsim', description = "Drift-diffusion device simulator.",)
 
-    Commands   = vals.add_subparsers ( dest =  'command',  required   =   True)
-    ser = Commands.add_parser(
+    t2   = val2.add_subparsers ( dest =  'command',  required   =   True)
+    f = t2.add_parser(
         'serve',
         help  =  "serve the browser client and the solver API",
         description=  (
@@ -27,22 +27,22 @@ def _parser() ->  argparse.ArgumentParser :
             "solve, and watch it converge live."
         ),
     )
-    ser.add_argument("--host", default = LOOPBACK[0], help = "address to bind [default: %(default)s, this machine only]",)
+    f.add_argument("--host", default = LOOPBACK[0], help = "address to bind [default: %(default)s, this machine only]",)
 
-    ser.add_argument(
+    f.add_argument(
         "--port",
         type =   int ,
         default  =  DEFAULT_PORT ,
         help  = "port to bind [default: %(default)s]",
     )
-    return  vals
+    return  val2
 
 
 
 def main(
     argv:list[str] |None=None,run:Callable[...,Any]|None=None
 )->int:
-    arg= _parser().parse_args(argv)
+    d= _parser().parse_args(argv)
 
 
     from ddsim.api.app import  create_app; from ddsim.api.jobs import JobRegistry
@@ -51,15 +51,15 @@ def main(
         import uvicorn
 
         run= uvicorn.run
-    Registry  =   JobRegistry(  )
-    if arg.host not in LOOPBACK:
-        Registry= JobRegistry(
+    e  =   JobRegistry(  )
+    if d.host not in LOOPBACK:
+        e= JobRegistry(
             max_running=PUBLIC_MAX_RUNNING,
             keep_for =PUBLIC_KEEP_FOR,
             time_limit=PUBLIC_TIME_LIMIT,
         )
         print(
-            f"heads up: serving on {arg.host}, so other machines can "
+            f"heads up: serving on {d.host}, so other machines can "
             "reach this. There's no authentication in front of it, so it runs "
             f"at most {PUBLIC_MAX_RUNNING} solves at once and stops any that "
             f"pass {PUBLIC_TIME_LIMIT:.0f} s.",
@@ -67,8 +67,8 @@ def main(
         )
 
 
-    print( f"DDSim is running. Open http://{arg.host}:{arg.port}")
-    run(  create_app (  Registry  ) ,   host   =  arg.host , port   =   arg.port )
+    print( f"DDSim is running. Open http://{d.host}:{d.port}")
+    run(  create_app (  e  ) ,   host   =  d.host , port   =   d.port )
     return 0
 
 if  __name__  ==  '__main__' :

@@ -42,20 +42,20 @@ def psi_equilibrium_scaled(net_doping:Scalar) ->Scalar:
 def equilibrium_densities_scaled(
     net_doping: Scalar,
 ) ->tuple[npt.NDArray[np.float64],npt.NDArray[np.float64]]:
-    ori   =  np.asarray(  net_doping,   dtype =  np.float64 )
-    NN = np.atleast_1d(ori)
-    Root  = np.sqrt(NN *  NN + 4.0)
-    n =np.empty_like(NN)
-    p =np.empty_like(NN)
+    t2   =  np.asarray(  net_doping,   dtype =  np.float64 )
+    k = np.atleast_1d(t2)
+    b  = np.sqrt(k *  k + 4.0)
+    n =np.empty_like(k)
+    p =np.empty_like(k)
 
-    bar=NN>= 0.0
-    acc = ~  bar
-    n[bar]= 0.5 *(NN[bar] + Root[bar])
-    p[acc] = 0.5 * (Root[acc] -NN[acc])
+    i=k>= 0.0
+    val = ~  i
+    n[i]= 0.5 *(k[i] + b[i])
+    p[val] = 0.5 * (b[val] -k[val])
 
-    p[bar]= 1.0/n[bar]
-    n [  acc]  =  1.0 /  p[ acc ]
-    return n.reshape(ori.shape),p.reshape(ori.shape)
+    p[i]= 1.0/n[i]
+    n [  val]  =  1.0 /  p[ val ]
+    return n.reshape(t2.shape),p.reshape(t2.shape)
 EXP_LIMIT  = 700.0
 
 
@@ -79,24 +79,24 @@ JOYCE_DIXON_MAX_U=8.0
 
 
 def _fermi_dirac_integral( eta :  Scalar,  order  :  float) -> npt.NDArray[ np.float64 ] :
-    etaarray  =  np.atleast_1d(np.asarray(eta, dtype =np.float64)).ravel()
-    data2,Weights =np.polynomial.legendre.leggauss(QUADRATURE_ORDER)
-    fl=np.sqrt(np.maximum(etaarray,0.0))
-    edg = (
-        (np.zeros_like(etaarray), fl),
-        (fl, np.sqrt(np.maximum(etaarray, 0.0)  + QUADRATURE_TAIL)),
+    u  =  np.atleast_1d(np.asarray(eta, dtype =np.float64)).ravel()
+    w,h =np.polynomial.legendre.leggauss(QUADRATURE_ORDER)
+    xx=np.sqrt(np.maximum(u,0.0))
+    x = (
+        (np.zeros_like(u), xx),
+        (xx, np.sqrt(np.maximum(u, 0.0)  + QUADRATURE_TAIL)),
     )
 
-    Total =  np.zeros_like(  etaarray )
-    for tuple, hgh in edg :
-        temp  = 0.5  *  (hgh  -  tuple)
+    d2 =  np.zeros_like(  u )
+    for a, c in x :
+        cc  = 0.5  *  (c  -  a)
 
-        Centre=0.5*(hgh +tuple);item2 =Centre[:,None]+ temp[:,None] *data2[None,:]
-        Exponent   =   np.clip(  item2 *   item2   -  etaarray[ : ,   None],  -  EXP_LIMIT,   EXP_LIMIT  )
-        Integrand= 2.0 *  item2 ** (2.0* order + 1.0) /  (1.0 + np.exp(Exponent))
-        Total  +=   temp *  (Integrand  @ Weights  )
+        rows=0.5*(c +a);a2 =rows[:,None]+ cc[:,None] *w[None,:]
+        v2   =   np.clip(  a2 *   a2   -  u[ : ,   None],  -  EXP_LIMIT,   EXP_LIMIT  )
+        s= 2.0 *  a2 ** (2.0* order + 1.0) /  (1.0 + np.exp(v2))
+        d2  +=   cc *  (s  @ h  )
 
-    return np.asarray(Total.reshape(np.shape(eta)))
+    return np.asarray(d2.reshape(np.shape(eta)))
 
 def  fermi_dirac_half( eta :  Scalar) ->  npt.NDArray [np.float64  ]  :
     return _fermi_dirac_integral(eta,0.5)
@@ -105,46 +105,46 @@ def fermi_dirac_minus_half(eta:Scalar) ->npt.NDArray[np.float64] :
     return _fermi_dirac_integral(eta, - 0.5)
 
 def _checked_u(u : Scalar, strictly_positive  :bool)->  npt.NDArray[np.float64] :
-    Ratio =  np.asarray(u,
+    e =  np.asarray(u,
                    dtype = np.float64)
 
 
-    if strictly_positive and np.any(Ratio<= 0.0):
+    if strictly_positive and np.any(e<= 0.0):
 
         raise ValueError(
             "n/Nc must be positive to take its logarithm, and the smallest "
-            f"value given is {float(np.min(Ratio)):g}"
+            f"value given is {float(np.min(e)):g}"
         )
-    if np.any(Ratio< 0.0):
+    if np.any(e< 0.0):
 
         raise ValueError(
             f"n/Nc cannot be negative, and the smallest value given is "
-            f"{float(np.min(Ratio)):g}"
+            f"{float(np.min(e)):g}"
         )
 
-    if np.any(Ratio > JOYCE_DIXON_MAX_U):
+    if np.any(e > JOYCE_DIXON_MAX_U):
         raise ValueError(
             f"the Joyce-Dixon series is validated to n/Nc = {JOYCE_DIXON_MAX_U:g} "
-            f"and the largest value given is {float(np.max(Ratio)):g}. Past "
+            f"and the largest value given is {float(np.max(e)):g}. Past "
             'that it turns over and the Einstein ratio changes sign. Use a '
             "rational approximation instead if the material is really that "
             "degenerate."
         )
-    return Ratio
+    return e
 
 
 def _joyce_dixon_correction(u : npt.NDArray[np.float64])->npt.NDArray[np.float64] :
-    dict=np.zeros_like(u)
-    for poower,   all in enumerate( JOYCE_DIXON_COEFFICIENTS,  start =  1 ) :
-        dict =  dict   +   all  * u  **   poower
-    return dict
+    b=np.zeros_like(u)
+    for j,   tmp in enumerate( JOYCE_DIXON_COEFFICIENTS,  start =  1 ) :
+        b =  b   +   tmp  * u  **   j
+    return b
 
 
 def joyce_dixon_eta(u:Scalar) -> npt.NDArray[np.float64] :
 
-    rat= _checked_u(u,
+    h= _checked_u(u,
                 strictly_positive =True)
-    return np.asarray(np.log(rat)+_joyce_dixon_correction(rat))
+    return np.asarray(np.log(h)+_joyce_dixon_correction(h))
 
 
 def degeneracy_factor(u:Scalar) ->npt.NDArray[np.float64]:
@@ -155,11 +155,11 @@ def degeneracy_factor(u:Scalar) ->npt.NDArray[np.float64]:
 
 
 def einstein_ratio(u:Scalar) -> npt.NDArray[np.float64] :
-    raio =  _checked_u(  u,  strictly_positive =  False)
-    Total  =  np.ones_like(raio)
-    for Power,Coefficient in enumerate(JOYCE_DIXON_COEFFICIENTS,start=1):
-        Total= Total+ Power*Coefficient *raio**Power
-    return np.asarray(Total)
+    m2 =  _checked_u(  u,  strictly_positive =  False)
+    g  =  np.ones_like(m2)
+    for c2,bar in enumerate(JOYCE_DIXON_COEFFICIENTS,start=1):
+        g= g+ c2*bar *m2**c2
+    return np.asarray(g)
 
 INVERSION_STEPS =6
 
@@ -167,18 +167,18 @@ LOG_MAX_U =  float(np.log(JOYCE_DIXON_MAX_U))
 
 
 def _cap(values : Scalar, ceiling  : float) ->  npt.NDArray[np.float64] :
-    arr = np.asarray(values)
+    d = np.asarray(values)
 
-    return np.asarray(np.where(np.real(arr) >ceiling,ceiling,arr))
+    return np.asarray(np.where(np.real(d) >ceiling,ceiling,d))
 
 
 
 def _joyce_dixon_slope(u  :  npt.NDArray[np.float64])  ->  npt.NDArray[np.float64] :
-    toal =  np.zeros_like(u)
+    v2 =  np.zeros_like(u)
 
-    for Power , Coefficient  in enumerate(  JOYCE_DIXON_COEFFICIENTS,  start = 1)  :
-        toal= toal +Power *Coefficient*u**(Power-1)
-    return toal
+    for arr , i  in enumerate(  JOYCE_DIXON_COEFFICIENTS,  start = 1)  :
+        v2= v2 +arr *i*u**(arr-1)
+    return v2
 
 
 @dataclass(frozen  =  True)
@@ -191,9 +191,9 @@ class Degeneracy:
     Nv:float
 
     def __post_init__(self)  ->  None  :
-        for nme,  States in((  "Nc",   self.Nc),  ("Nv",   self.Nv))  :
-            if States <= 0.0:
-                raise ValueError(f"{nme} must be positive, got {States}")
+        for s2,  c in((  "Nc",   self.Nc),  ("Nv",   self.Nv))  :
+            if c <= 0.0:
+                raise ValueError(f"{s2} must be positive, got {c}")
     @classmethod
     def for_silicon(cls, C_0: float, T  : float  = C.T_ROOM) -> Degeneracy  :
         return  cls (Nc  = C.Nc( T )  /  C_0, Nv  =  C.Nv(  T  )   /  C_0  )
@@ -204,8 +204,8 @@ class Degeneracy:
     @staticmethod
     def _slope(  u  : npt.NDArray[ np.float64  ] )  ->  npt.NDArray [ np.float64  ]  :
 
-        cpaped =  np.real(u)>= JOYCE_DIXON_MAX_U
-        return np.asarray(np.where(cpaped,0.0,_joyce_dixon_slope(u)))
+        cnt =  np.real(u)>= JOYCE_DIXON_MAX_U
+        return np.asarray(np.where(cnt,0.0,_joyce_dixon_slope(u)))
 
     def electron_potential(self,psi:Scalar,n:Scalar)-> npt.NDArray[np.float64] :
         return np.asarray(psi)- _joyce_dixon_correction(self._u(n,self.Nc))
@@ -220,21 +220,21 @@ class Degeneracy:
         return np.asarray(self._slope(self._u(p,self.Nv))/self.Nv)
     def _density(  self,   exponent  :  Scalar ,  states  :  float  ) -> npt.NDArray[np.float64 ]  :
 
-        thing  =   np.asarray (  exponent) - float( np.log(  states  )  )
-        map  =  np.isfinite(thing )
-        thing = np.where(map,thing,-EXP_LIMIT)
+        x  =   np.asarray (  exponent) - float( np.log(  states  )  )
+        item  =  np.isfinite(x )
+        x = np.where(item,x,-EXP_LIMIT)
 
-        item2  =  thing
+        b  =  x
         for _ in range(INVERSION_STEPS) :
-            uu   =   np.where(
-                np.real ( item2 ) >   LOG_MAX_U,
+            vals   =   np.where(
+                np.real ( b ) >   LOG_MAX_U,
                 JOYCE_DIXON_MAX_U,
-                np.exp( _cap ( item2,  LOG_MAX_U) ) ,
+                np.exp( _cap ( b,  LOG_MAX_U) ) ,
             )
-            item2=item2- (item2+ _joyce_dixon_correction(uu) -thing)/ (
-                1.0+uu* self._slope(uu)
+            b=b- (b+ _joyce_dixon_correction(vals) -x)/ (
+                1.0+vals* self._slope(vals)
             )
-        return np.asarray(np.where(map, states* np.exp(item2), 0.0))
+        return np.asarray(np.where(item, states* np.exp(b), 0.0))
     def electron_density(self, exponent :  Scalar)-> npt.NDArray[np.float64]  :
         return self._density(exponent, self.Nc)
 
@@ -244,35 +244,35 @@ class Degeneracy:
 
         return  self._density( exponent,   self.Nv  )
     def dn_dpsi(self, n :Scalar)-> npt.NDArray[np.float64]  :
-        U= self._u(n,self.Nc)
-        return  np.asarray( np.asarray(  n)   / ( 1.0  +  U   * self._slope (  U))  )
+        j= self._u(n,self.Nc)
+        return  np.asarray( np.asarray(  n)   / ( 1.0  +  j   * self._slope (  j))  )
     def dp_dpsi(self, p : Scalar)-> npt.NDArray[np.float64]:
-        divmod  = self._u(p ,  self.Nv )
-        return np.asarray(np.asarray(p)/(1.0+divmod *self._slope(divmod)))
+        v2  = self._u(p ,  self.Nv )
+        return np.asarray(np.asarray(p)/(1.0+v2 *self._slope(v2)))
     def  equilibrium_densities(self,  net_doping :  Scalar) ->   tuple[  npt.NDArray[ np.float64],  npt.NDArray[np.float64 ]] :
-        k2 =  np.asarray(  net_doping,   dtype  = np.float64)
-        r2 =  np.atleast_1d(k2  )
-        n, p =equilibrium_densities_scaled(r2)
-        donoors = r2>= 0.0
+        flag =  np.asarray(  net_doping,   dtype  = np.float64)
+        b =  np.atleast_1d(flag  )
+        n, p =equilibrium_densities_scaled(b)
+        xs = b>= 0.0
         for _ in range(INVERSION_STEPS) :
-            prodct=degeneracy_factor(self._u(n,self.Nc)) *degeneracy_factor(self._u(p,self.Nv))
-            Root  =  np.sqrt (r2 *  r2  +   4.0  *   prodct )
-            maj   =  np.where( donoors,   0.5  *  (r2 +  Root), 0.5  * (Root  -  r2 ))
-            dat  =   prodct  /  maj; n = np.where(donoors, maj, dat)
-            p= np.where(donoors,dat,maj)
+            i=degeneracy_factor(self._u(n,self.Nc)) *degeneracy_factor(self._u(p,self.Nv))
+            t  =  np.sqrt (b *  b  +   4.0  *   i )
+            bb   =  np.where( xs,   0.5  *  (b +  t), 0.5  * (t  -  b ))
+            stuff  =   i  /  bb; n = np.where(xs, bb, stuff)
+            p= np.where(xs,stuff,bb)
 
-        return n.reshape(k2.shape),p.reshape(k2.shape)
+        return n.reshape(flag.shape),p.reshape(flag.shape)
 
 
     def equilibrium_psi(self, net_doping :Scalar)  -> npt.NDArray[np.float64]:
 
 
-        ori= np.asarray(net_doping,dtype=np.float64)
-        hex  = np.atleast_1d(ori)
-        n, p =self.equilibrium_densities(hex)
+        g= np.asarray(net_doping,dtype=np.float64)
+        m  = np.atleast_1d(g)
+        n, p =self.equilibrium_densities(m)
         psi  =  np.where(
-            hex >=  0.0,
+            m >=  0.0,
             np.log(n) +  _joyce_dixon_correction(self._u(n, self.Nc)),
             - np.log(p) - _joyce_dixon_correction(self._u(p, self.Nv)),
         )
-        return  np.asarray (psi.reshape(ori.shape  ) )
+        return  np.asarray (psi.reshape(g.shape  ) )

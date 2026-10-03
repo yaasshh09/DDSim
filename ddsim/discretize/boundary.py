@@ -79,13 +79,13 @@ class GateContact :
                 f"gate {self.name!r} names the same node more than once: "
                 f"{self.nodes}. One unknown cannot hold two Dirichlet values."
             )
-        loww, hig = GATE_WORK_FUNCTION_RANGE
-        if  not loww   <=  self.work_function  <=  hig  :
+        idx, x = GATE_WORK_FUNCTION_RANGE
+        if  not idx   <=  self.work_function  <=  x  :
             raise ValueError(
                 f"gate {self.name!r} has a work function of "
                 f"{self.work_function:g} eV. Gate metals and doped polysilicon "
-                f"lie between about 2 and 6 eV, so values outside {loww:g} to "
-                f"{hig:g} eV are refused as a slip rather than solved."
+                f"lie between about 2 and 6 eV, so values outside {idx:g} to "
+                f"{x:g} eV are refused as a slip rather than solved."
             )
 
 SemiconductorContact   =  OhmicContact  |   OhmicPlate
@@ -124,12 +124,12 @@ def  apply_dirichlet_nodes(
     nodes  :  Sequence[ int],
     targets  :   Sequence [  float],
 )  -> SparseAssembly  :
-    nnodes=assembly.shape[0]
+    vv=assembly.shape[0]
 
-    for  Node  in  nodes  :
-        if  not 0  <=  Node  <  nnodes  :
+    for  y  in  nodes  :
+        if  not 0  <=  y  <  vv  :
             raise IndexError(
-                f"node {Node} is outside the mesh, which has {nnodes} nodes"
+                f"node {y} is outside the mesh, which has {vv} nodes"
             )
     if len(set(nodes))!=len(nodes):
         raise ValueError(
@@ -137,39 +137,39 @@ def  apply_dirichlet_nodes(
             "unknown cannot hold two Dirichlet values."
         )
 
-    hash  =  np.asarray(nodes, dtype=  np.int64)
-    wanetd= np.asarray(targets,dtype=np.float64)
-    isPinned =  np.zeros(nnodes, dtype  =bool)
-    isPinned[hash]=True
+    cc  =  np.asarray(nodes, dtype=  np.int64)
+    cur= np.asarray(targets,dtype=np.float64)
+    r =  np.zeros(vv, dtype  =bool)
+    r[cc]=True
 
 
-    sum=isPinned[assembly.rows]
-    inColumn  = isPinned[assembly.cols]
+    c=r[assembly.rows]
+    h  = r[assembly.cols]
 
-    cor =np.zeros(nnodes, dtype = np.float64)
-    cor[hash]  =  wanetd  -value[hash]
+    rr =np.zeros(vv, dtype = np.float64)
+    rr[cc]  =  cur  -value[cc]
 
-    fol =np.flatnonzero(inColumn  & ~ sum)
-    foldrows =assembly.rows[fol]
+    s =np.flatnonzero(h  & ~ c)
+    ok =assembly.rows[s]
 
-    input=assembly.residual.copy()
+    dd=assembly.residual.copy()
     np.add.at(
-        input,
-        foldrows,
-        assembly.values[fol]  *  cor[assembly.cols[fol]],
+        dd,
+        ok,
+        assembly.values[s]  *  rr[assembly.cols[s]],
     )
-    input[hash ]   =   value [  hash  ] -   wanetd
+    dd[cc ]   =   value [  cc  ] -   cur
 
 
-    Keep  = ~ ( sum   |   inColumn);  vars =   np.concatenate(  [assembly.rows[Keep],   hash ])
-    junk   =   np.concatenate( [  assembly.cols[  Keep], hash] )
-    vallues =  np.concatenate (  [ assembly.values[Keep ], np.ones( hash.size)]  )
+    obj  = ~ ( c   |   h);  g =   np.concatenate(  [assembly.rows[obj],   cc ])
+    out2   =   np.concatenate( [  assembly.cols[  obj], cc] )
+    tt =  np.concatenate (  [ assembly.values[obj ], np.ones( cc.size)]  )
 
     return SparseAssembly(
-        residual= input,
-        rows= vars,
-        cols= junk,
-        values=vallues,
+        residual= dd,
+        rows= g,
+        cols= out2,
+        values=tt,
         shape=assembly.shape,
     )
 
@@ -188,51 +188,51 @@ class Carrier(Enum) :
 def ohmic_density_scaled(net_doping :float,carrier :Carrier,degeneracy:Degeneracy|None=None)->float :
 
     if degeneracy is None:
-        nc, xx= equilibrium_densities_scaled(net_doping)
+        y, k= equilibrium_densities_scaled(net_doping)
     else  :
-        nc, xx  =  degeneracy.equilibrium_densities(net_doping)
-    return float(nc if carrier is Carrier.ELECTRON else xx)
+        y, k  =  degeneracy.equilibrium_densities(net_doping)
+    return float(y if carrier is Carrier.ELECTRON else k)
 def impose_ohmic_densities(density :npt.NDArray[np.float64], net_doping:npt.NDArray[np.float64], contacts :Sequence[SemiconductorContact], carrier:Carrier, degeneracy:Degeneracy| None =None,)->npt.NDArray[np.float64]:
-    dir =   density.copy()
-    for con in contacts :
-        for myvar in con.nodes  :
-            dir[myvar] =  ohmic_density_scaled(
-                float(net_doping[myvar]), carrier, degeneracy
+    e =   density.copy()
+    for m in contacts :
+        for w in m.nodes  :
+            e[w] =  ohmic_density_scaled(
+                float(net_doping[w]), carrier, degeneracy
             )
-    return dir
+    return e
 
 
 def  apply_ohmic_densities(assembly :  SparseAssembly , density : npt.NDArray [np.float64  ], net_doping :  npt.NDArray[np.float64 ], contacts  : Sequence [ SemiconductorContact ] , carrier  :   Carrier, degeneracy :  Degeneracy   |  None   =  None,)  ->  SparseAssembly  :
-    Nodes= [bb for con in contacts for bb in con.nodes]
-    return  apply_dirichlet_nodes(assembly , density, Nodes, [ohmic_density_scaled( float(net_doping [ bb]) ,   carrier,  degeneracy  ) for bb in  Nodes],)
+    cur= [t for m2 in contacts for t in m2.nodes]
+    return  apply_dirichlet_nodes(assembly , density, cur, [ohmic_density_scaled( float(net_doping [ t]) ,   carrier,  degeneracy  ) for t in  cur],)
 def apply_ohmic_contacts(assembly :  SparseAssembly, psi  :  npt.NDArray[np.float64], net_doping : npt.NDArray[np.float64], contacts: Sequence[SemiconductorContact], scale: ScaleFactors, degeneracy: Degeneracy |  None=  None,) ->SparseAssembly :
 
-    nam=[buf.name for buf in contacts]
-    if len(  set(  nam))  !=  len(nam)  :
+    k=[t2.name for t2 in contacts]
+    if len(  set(  k))  !=  len(k)  :
 
-        raise ValueError(f"contact names must be unique, got {nam}")
+        raise ValueError(f"contact names must be unique, got {k}")
 
-    sorted , taargets = _ohmic_targets(  net_doping, contacts,   scale, degeneracy)
+    y2 , t = _ohmic_targets(  net_doping, contacts,   scale, degeneracy)
 
     return  apply_dirichlet_nodes(assembly ,
                     psi,
-                    sorted,
-            taargets  )
+                    y2,
+            t  )
 
 
 def _ohmic_targets(net_doping:npt.NDArray[np.float64], contacts:Sequence[SemiconductorContact], scale:ScaleFactors, degeneracy:Degeneracy |None =None,)-> tuple[list[int],list[float]]:
-    str   :  list [ int ]  = [  ]
-    Targets : list[float] =[]
-    for bb  in contacts   :
+    c   :  list [ int ]  = [  ]
+    xs : list[float] =[]
+    for m  in contacts   :
 
-        appiled = bb.voltage /  scale.psi_0
-        for nod in bb.nodes:
-            str.append( nod )
-            Targets.append (
-                ohmic_psi_scaled (  float(  net_doping [  nod ]  ) ,   appiled,   degeneracy  )
+        v = m.voltage /  scale.psi_0
+        for h in m.nodes:
+            c.append( h )
+            xs.append (
+                ohmic_psi_scaled (  float(  net_doping [  h ]  ) ,   v,   degeneracy  )
             )
 
-    return str, Targets
+    return c, xs
 
 
 def apply_contacts(
@@ -244,20 +244,20 @@ def apply_contacts(
     T:float=C.T_ROOM,
     degeneracy: Degeneracy|None= None,
 )-> SparseAssembly :
-    pow=  [con.name for con in contacts]
-    if len(set(pow))!=len(pow):
-        raise ValueError(f"contact names must be unique, got {pow}")
+    s=  [nxt.name for nxt in contacts]
+    if len(set(s))!=len(s):
+        raise ValueError(f"contact names must be unique, got {s}")
 
-    ohic=[cc for cc in contacts if not isinstance(cc,GateContact)]
-    nod, bb = _ohmic_targets(net_doping, ohic, scale, degeneracy)
+    out2=[d for d in contacts if not isinstance(d,GateContact)]
+    m, g = _ohmic_targets(net_doping, out2, scale, degeneracy)
 
 
-    for con in  contacts  :
-        if isinstance(con, GateContact)  :
-            Target   =  gate_psi_scaled (
-                con.voltage / scale.psi_0,  con.work_function,  T
+    for nxt in  contacts  :
+        if isinstance(nxt, GateContact)  :
+            b   =  gate_psi_scaled (
+                nxt.voltage / scale.psi_0,  nxt.work_function,  T
             )
-            nod.extend(con.nodes)
+            m.extend(nxt.nodes)
 
-            bb.extend ([  Target]  *  len( con.nodes  ))
-    return apply_dirichlet_nodes(  assembly,   psi,  nod,  bb)
+            g.extend ([  b]  *  len( nxt.nodes  ))
+    return apply_dirichlet_nodes(  assembly,   psi,  m,  g)

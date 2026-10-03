@@ -69,9 +69,9 @@ class EffectiveMassBandDensity  :
         self.M_c  =  M_c
 
     def  _density(  self,   m_star   :   float, T   :   float )  -> float   :
-        M=  m_star * m_0
+        a=  m_star * m_0
 
-        return float(  2.0   *  (  2.0   *  math.pi  *  M * k_B *  T   / (  h *   h) ) **  1.5  * 1e-6  )
+        return float(  2.0   *  (  2.0   *  math.pi  *  a * k_B *  T   / (  h *   h) ) **  1.5  * 1e-6  )
     def Nc ( self, T   :   float  )  ->  float :
         return self._density(self.m_e, T) * self.M_c
     def Nv(self, T :float) -> float:
@@ -92,7 +92,7 @@ def Nv(T :  float= T_ROOM)-> float :
 N_I_300 : float  =1.0e10
 
 def n_i(T :float=  T_ROOM) -> float  :
-    gt= Eg(T_ROOM)/ (2.0*V_T(T_ROOM))-Eg(T) / (2.0* V_T(T)) ; return float( N_I_300   *   (T  /  T_ROOM  ) **   1.5   *  math.exp(  gt  ) )
+    t2= Eg(T_ROOM)/ (2.0*V_T(T_ROOM))-Eg(T) / (2.0* V_T(T)) ; return float( N_I_300   *   (T  /  T_ROOM  ) **   1.5   *  math.exp(  t2  ) )
 
 EPS_R_SI :  float =11.7
 EPS_R_OX:float  =3.9
@@ -174,11 +174,11 @@ PHI_M_MIDGAP : float =CHI_SI + Eg() / 2.0
 def semiconductor_work_function(
     net_doping: float  |npt.NDArray[np.float64], T:  float  = T_ROOM
 )  ->  npt.NDArray[np.float64]  :
-    phiF=V_T(T)*np.arcsinh(
+    out2=V_T(T)*np.arcsinh(
         np.asarray(net_doping,dtype=np.float64)/(2.0* n_i(T))
     )
 
-    return np.asarray(CHI_SI+Eg(T)/ 2.0-phiF)
+    return np.asarray(CHI_SI+Eg(T)/ 2.0-out2)
 
 
 

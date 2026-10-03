@@ -17,15 +17,15 @@ DECIMAL_MIN_ABS_X=1e-40
 def B_reference(x: float) -> float:
 
 
-    dd=Decimal(x)
+    f=Decimal(x)
 
-    return float (  dd  /  ( dd.exp( )  - 1) )
+    return float (  f  /  ( f.exp( )  - 1) )
 
 def dB_reference(x :float) -> float :
 
-    dd  = Decimal(  x  )
-    ee= dd.exp()
-    return float((ee  * (1 - dd) -  1) /((ee  - 1)**  2))
+    y2  = Decimal(  x  )
+    h= y2.exp()
+    return float((h  * (1 - y2) -  1) /((h  - 1)**  2))
 
 
 
@@ -38,13 +38,13 @@ def relative_error ( approx  :  float ,   exact   :  float )   -> float :
 
 
 def  _complex_expm1(  z :   complex ) -> complex :
-    xx,Y =z.real,z.imag
-    Real  =  math.expm1(  xx )  *  math.cos(Y) +  ( math.cos( Y )   -  1.0 )
-    ima=math.exp(xx) * math.sin(Y)
-    return complex(Real,ima)
+    a,h =z.real,z.imag
+    kk  =  math.expm1(  a )  *  math.cos(h) +  ( math.cos( h )   -  1.0 )
+    i=math.exp(a) * math.sin(h)
+    return complex(kk,i)
 
 
 
 def dB_complex_step(x:float,h:float=1e-20)->float:
-    min  =  complex(  x,   h)
-    return(min/_complex_expm1(min)).imag  /  h
+    v  =  complex(  x,   h)
+    return(v/_complex_expm1(v)).imag  /  h

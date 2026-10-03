@@ -66,40 +66,40 @@ class  JobRegistry  :
     def submit(self,work:Work)->Job :
 
         print("job submitted...")
-        tmp=  Job(id = uuid.uuid4().hex, started_at =  self._clock(), frames = queue.Queue(maxsize =  self._queue_size  +1),)
+        v=  Job(id = uuid.uuid4().hex, started_at =  self._clock(), frames = queue.Queue(maxsize =  self._queue_size  +1),)
         with self._lock:
-            self._forget_old(tmp.started_at)
-            runnning = sum(j.status not  in _TERMINAL for  j  in self._jobs.values (  ))
-            if  self._max_running  is not  None  and runnning   >=   self._max_running   :
+            self._forget_old(v.started_at)
+            x = sum(yy.status not  in _TERMINAL for  yy  in self._jobs.values (  ))
+            if  self._max_running  is not  None  and x   >=   self._max_running   :
                 raise BusyError(
-                    f"the server is already running {runnning} solves, which is "
+                    f"the server is already running {x} solves, which is "
                     "as many as it takes at once. Try again in a minute."
                 )
-            self._jobs[tmp.id]=tmp
+            self._jobs[v.id]=v
 
 
-        thrad=  threading.Thread(
+        t=  threading.Thread(
             target =self._run,
-            args  = (tmp, work),
-            name =  f"ddsim-job-{tmp.id[:8]}",
+            args  = (v, work),
+            name =  f"ddsim-job-{v.id[:8]}",
             daemon =True,
         )
-        thrad.start( )
-        return tmp
+        t.start( )
+        return v
 
     def _run(self, job  :  Job, work  : Work)  -> None:
         job.status= JobStatus.RUNNING
         try   :
 
-            open= work(lambda frame:self._send(job,frame))
+            x2= work(lambda frame:self._send(job,frame))
         except  CancelledError  :
             job.status=JobStatus.CANCELLED
-        except Exception as errror :
+        except Exception as xs :
             job.status   =  JobStatus.FAILED
 
-            job.message=f"{type(errror).__name__}: {errror}"
+            job.message=f"{type(xs).__name__}: {xs}"
         else :
-            job.result  = open
+            job.result  = x2
             job.status  = JobStatus.DONE
 
 
@@ -116,9 +116,9 @@ class  JobRegistry  :
 
             return
 
-        for divmod,t2 in list(self._jobs.items()):
-            if t2.ended_at is not None and now- t2.ended_at>self._keep_for:
-                del self._jobs[divmod]
+        for d,u in list(self._jobs.items()):
+            if u.ended_at is not None and now- u.ended_at>self._keep_for:
+                del self._jobs[d]
 
     def _send(self,job :Job,frame :Any)->None:
 
@@ -168,47 +168,47 @@ class  JobRegistry  :
         return self._job(job_id).result
     def cancel(self, job_id  :  str) -> bool:
 
-        data2 = self._job(job_id)
-        if data2.status in _TERMINAL :
+        c2 = self._job(job_id)
+        if c2.status in _TERMINAL :
             return False
-        data2.cancelling.set()
+        c2.cancelling.set()
         return True
 
 
 
     def frames(self, job_id:  str, timeout :float|None = None)  ->  Iterator[Any]:
-        jobb= self._job(job_id)
+        t= self._job(job_id)
 
 
         while True :
             try:
-                fra  = jobb.frames.get(timeout  =timeout)
-            except queue.Empty as err:
+                k  = t.frames.get(timeout  =timeout)
+            except queue.Empty as i:
                 raise TimeoutError(
                     f"job {job_id} sent no frame within {timeout} s"
-                ) from err
-            if fra is _END :
+                ) from i
+            if k is _END :
                 return
-            yield fra
+            yield k
     def close(self,timeout:float|None=None) ->None :
         with self._lock :
-            jbs = list ( self._jobs.values( )  )
-        for jobb in jbs :
-            if jobb.status not in _TERMINAL:
+            a = list ( self._jobs.values( )  )
+        for h in a :
+            if h.status not in _TERMINAL:
 
-                jobb.cancelling.set()
+                h.cancelling.set()
 
-        Deadline  =   None if timeout is None  else  time.monotonic ( )  +   timeout
-        for jobb in jbs:
+        r  =   None if timeout is None  else  time.monotonic ( )  +   timeout
+        for h in a:
 
-            lef =None if Deadline is None else max(0.0, Deadline- time.monotonic())
-            if  not jobb.finished.wait (  timeout  =  lef )  :
-                raise  TimeoutError(  f"job {jobb.id} did not stop within {timeout} s"  )
+            item =None if r is None else max(0.0, r- time.monotonic())
+            if  not h.finished.wait (  timeout  =  item )  :
+                raise  TimeoutError(  f"job {h.id} did not stop within {timeout} s"  )
 
     def wait( self,  job_id :  str,   timeout  : float | None  =  None)  ->  JobStatus   :
 
-        lst = self._job(job_id)
-        if not lst.finished.wait(timeout  =timeout) :
+        x = self._job(job_id)
+        if not x.finished.wait(timeout  =timeout) :
             raise TimeoutError(f"job {job_id} did not finish within {timeout} s")
 
-        return  lst.status
+        return  x.status

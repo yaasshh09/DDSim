@@ -150,8 +150,8 @@ CURRENT_FLOOR = 1e-10
 
 
 def _forward(stop :float, step : float =  0.05)-> tuple[float, ...] :
-    conut  = round(stop  / step)
-    return tuple(round(i *step,10)for i in range(conut+ 1))
+    cur  = round(stop  / step)
+    return tuple(round(h *step,10)for h in range(cur+ 1))
 REVERSE = (-   1.0, -   0.75 ,   -   0.5 , - 0.25 , -  0.1)
 
 BENCHMARKS  :   tuple[  DiodeBenchmark,   ...]   =   (
@@ -251,33 +251,33 @@ class GoldenCurve :
     cathode_current : list[float]  = field(default_factory=  list)
 
     def imbalance(self,index :int)-> float:
-        ano =  self.current[index]
-        Cathode =self.cathode_current[index]
-        sclae= max(abs(ano), abs(Cathode))
-        if sclae == 0.0 :
+        ys =  self.current[index]
+        dat =self.cathode_current[index]
+        flag= max(abs(ys), abs(dat))
+        if flag == 0.0 :
             return 0.0
-        return abs(ano + Cathode)/ sclae
+        return abs(ys + dat)/ flag
 
 def read_golden(path :str)->GoldenCurve:
-    arr  =   GoldenCurve(  name   = '' )
-    with open(path, encoding =  "utf-8")  as q  :
+    el  =   GoldenCurve(  name   = '' )
+    with open(path, encoding =  "utf-8")  as a  :
 
-        for foo in q:
-            foo=foo.rstrip("\n")
-            if foo.startswith("#"):
-                r2  =  foo[1 :].strip()
-                if ":"  in  r2   :
-                    keyy, _, Value  =  r2.partition(':')
+        for w in a:
+            w=w.rstrip("\n")
+            if w.startswith("#"):
+                nxt  =  w[1 :].strip()
+                if ":"  in  nxt   :
+                    tmp3, _, g  =  nxt.partition(':')
 
-                    arr.header.setdefault(keyy.strip(), Value.strip())
+                    el.header.setdefault(tmp3.strip(), g.strip())
                 continue
-            if not foo or foo.startswith('voltage'):
+            if not w or w.startswith('voltage'):
                 continue
-            vv,   ii, cc   = foo.split(",")   [ :   3  ]
-            arr.voltage.append(  float(vv  ) )
-            arr.current.append(float(ii))
-            arr.cathode_current.append(float(cc))
-    arr.name   =  arr.header.get ( "device" , '' );return arr
+            k,   aa, r   = w.split(",")   [ :   3  ]
+            el.voltage.append(  float(k  ) )
+            el.current.append(float(aa))
+            el.cathode_current.append(float(r))
+    el.name   =  el.header.get ( "device" , '' );return el
 
 
 @dataclass(frozen= True)
@@ -316,10 +316,10 @@ class MosBenchmark:
     notes : str = ''
 
 def _gate_sweep(low : float, high : float, step  : float)  ->  tuple[float, ...]  :
-    cou =  round ((high  -  low)  /   step  )
+    res =  round ((high  -  low)  /   step  )
 
 
-    return tuple (round(low   + index *   step,   10)   for  index in  range(cou  + 1)  )
+    return tuple (round(low   + lst *   step,   10)   for  lst in  range(res  + 1)  )
 
 MOS_BENCHMARKS : tuple[MosBenchmark, ...]=(
     MosBenchmark(
@@ -388,49 +388,49 @@ class MosGoldenCurve  :
 
 def read_mos_golden(  path :   str)  ->  MosGoldenCurve  :
 
-    foo=MosGoldenCurve(name='')
-    with open(path, encoding= "utf-8") as Handle :
-        for  Line in  Handle   :
+    e=MosGoldenCurve(name='')
+    with open(path, encoding= "utf-8") as c :
+        for  d in  c   :
 
-            Line= Line.rstrip("\n")
-            if Line.startswith("#"):
+            d= d.rstrip("\n")
+            if d.startswith("#"):
 
-                obj2 =  Line[1 :].strip()
-                if ":" in obj2 :
-                    keyy, _, vallue  = obj2.partition(':')
-                    foo.header.setdefault(keyy.strip(), vallue.strip())
+                r =  d[1 :].strip()
+                if ":" in r :
+                    g, _, j  = r.partition(':')
+                    e.header.setdefault(g.strip(), j.strip())
                 continue
-            if not Line or Line.startswith('gate_voltage'):
+            if not d or d.startswith('gate_voltage'):
                 continue
 
-            vv, qq = Line.split(",") [: 2]
-            foo.gate_voltage.append(float(vv))
-            foo.charge.append(float(qq))
-    foo.name=foo.header.get('device',"")
-    return foo
+            thing, t = d.split(",") [: 2]
+            e.gate_voltage.append(float(thing))
+            e.charge.append(float(t))
+    e.name=e.header.get('device',"")
+    return e
 
 def central_difference(voltage:list[float] |tuple[float,...], charge: list[float]|tuple[float,...],)->tuple[list[float],list[float]] :
 
-    miidpoints : list[float]= []
-    slpes:list[float]= []
-    for ind in range(1,
+    e : list[float]= []
+    flag:list[float]= []
+    for xx in range(1,
                    len(voltage)- 1):
-        myvar = voltage[ind + 1] -voltage[ind  - 1]
-        miidpoints.append ( voltage[ ind ]  )
-        slpes.append((charge[ind +  1] -  charge[ind  - 1]) /myvar)
-    return miidpoints,slpes
+        jj = voltage[xx + 1] -voltage[xx  - 1]
+        e.append ( voltage[ xx ]  )
+        flag.append((charge[xx +  1] -  charge[xx  - 1]) /jj)
+    return e,flag
 
 def  erfcinv(  target  :  float )  -> float :
     if not 0.0 < target<2.0 :
         raise ValueError(f"erfc maps onto (0, 2), so target must too, got {target}")
-    sum, hiigh = - 30.0, 30.0
+    m2, t = - 30.0, 30.0
     for _ in  range( 200)   :
-        q= 0.5*(sum+hiigh)
-        if math.erfc(q)  >  target  :
-            sum=q
+        i= 0.5*(m2+t)
+        if math.erfc(i)  >  target  :
+            m2=i
         else :
-            hiigh= q
-    return 0.5 * (sum  +hiigh)
+            t= i
+    return 0.5 * (m2  +t)
 
 MOSFET_PROCESS:dict[str,float]= {
     'substrate_doping': - 1e18,
@@ -449,10 +449,10 @@ def implant_shape(process:dict[str,float]) -> tuple[float,float]:
 
 
     Na= - process["substrate_doping"]
-    obj2= process["sd_peak"]
+    f= process["sd_peak"]
 
-    type= process["x_j"]/ math.sqrt(2.0 *  math.log(obj2/  Na))
-    filter=process["lateral_diffusion"]/erfcinv(2.0* Na/obj2);return  type,  filter
+    bb= process["x_j"]/ math.sqrt(2.0 *  math.log(f/  Na))
+    hh=process["lateral_diffusion"]/erfcinv(2.0* Na/f);return  bb,  hh
 
 H_DEPTH_SIGMAS =0.25
 
@@ -508,7 +508,7 @@ CURRENT_FLOOR_MOSFET  = 1e-12
 
 def _gate_range (low   :  float,  high   :  float,   step  :   float  ) ->   tuple[  float ,   ...  ] :
 
-    coount = round((high - low) / step); return tuple(round(low +index*step,10)for index in range(coount+ 1))
+    f = round((high - low) / step); return tuple(round(low +h*step,10)for h in range(f+ 1))
 MOSFET_BENCHMARKS   :   tuple[  MosfetBenchmark,   ...] =   (MosfetBenchmark(name =  "nmos_1um", number =  6 , L_gate  =  1e-4, gate_voltages =  _gate_range( 0.0,  1.5 ,  0.1) , drain_low  =  0.05 , drain_high  = 1.0, tolerance   =   0.05, notes  = ('The long device. At 1 um this process has no short channel effect ' "left in it, so it is the reference the shorter ones are measured " 'against and the one place where a disagreement is about the 2D ' "transport rather than about a barrier."),) , MosfetBenchmark (name  =  'nmos_180nm', number  = 7, L_gate   =   1.8e-5, gate_voltages  =  _gate_range(  0.0 , 1.5,  0.1  ) , drain_low  = 0.05, drain_high   =  1.0, tolerance  =   0.05, devsim_h_junction   =   2.25e-7, devsim_h_channel  =   4.5e-7, notes  =   ("The same process drawn at 180 nm. The lateral encroachment leaves " '160 nm of metallurgical channel, so roll-off has started but the ' "device is still comfortably long channel. The lateral spacings " 'are half what they first were, because on this device the columns ' "and not the implant rows carry the mesh error: halving them alone " 'moved the drain current 6.9e-3 of a 7.3e-3 total and halving the ' 'rows alone moved it 5.7e-4. At 4.5e-7 the gate spans 40 columns, ' 'against the 20 it had and the 50 the 1 um device gets.'),), MosfetBenchmark(name  =   'nmos_65nm', number   =  8 , L_gate = 6.5e-6, gate_voltages =  _gate_range( -  0.2 , 1.5, 0.1) , drain_low  = 0.05, drain_high =  1.0, tolerance   = 0.08, devsim_h_junction  = 8.125e-8 , devsim_h_channel =   1.625e-7, notes  =  ("45 nm of metallurgical channel. This is the DIBL row: the point of " 'it is the gap between the two curves, so the gate sweep starts ' 'below zero to hold the off state of both. The lateral spacings are ' 'half what they first were, and the columns carry that alone ' "because the rows cannot take up any slack. Halving one axis at a " 'time from the original mesh: columns alone moved the drain current ' "1.6606e-2 of a 1.964e-2 total, rows alone 2.6789e-3. Halving the " "rows again is not available, since most of their residual is " "devsim_h_surface and that is already 6.25e-9, where the next " 'halving is a third of an angstrom and past where a continuum ' "model means anything. The columns converge at order 2.07, taken " "off the 180 nm device's own before and after pair rather than " "assumed, so one halving takes their 1.6606e-2 to about 3.9e-3 and " "leaves the pair near 6.6e-3. A quartering was tried first and its " 'halved mesh check could not be solved in the memory available, ' "11022 silicon nodes shipping and about four times that to check.") ,) ,)
 
 def _rolloff(name:str,L_gate:float) -> MosfetBenchmark :
@@ -572,11 +572,11 @@ FULL_STACK_BENCHMARKS  :  tuple [MosfetBenchmark,   ...  ]  =   (
 )
 
 FULL_STACK_TREND  :  tuple[str, ...]  = tuple(
-    b.name for b in FULL_STACK_BENCHMARKS
+    x2.name for x2 in FULL_STACK_BENCHMARKS
 )
 
 ROLLOFF_TREND: tuple[str,...]=('nmos_1um',) +tuple(
-    b.name for b in ROLLOFF_BENCHMARKS
+    m.name for m in ROLLOFF_BENCHMARKS
 )
 
 MOSFET_BY_NAME  :  dict[ str ,  MosfetBenchmark  ] = {b.name  :   b for  b in  MOSFET_BENCHMARKS  +  ROLLOFF_BENCHMARKS   + FULL_STACK_BENCHMARKS}
@@ -615,9 +615,9 @@ FULL_STACK_MODEL_SUMMARY: tuple[str,...]=(
     'source/drain:    ideal ohmic plates on the silicon surface, psi and both '
     'densities from neutrality against the degenerate mass action product',
 ) +tuple(
-    line
-    for line in MOSFET_MODEL_SUMMARY
-    if not line.startswith(_FULL_STACK_REPLACED)
+    lst
+    for lst in MOSFET_MODEL_SUMMARY
+    if not lst.startswith(_FULL_STACK_REPLACED)
 )
 
 def mosfet_model_summary(models:str)->tuple[str,
@@ -647,55 +647,55 @@ class MosfetGoldenCurve:
     def imbalance(self,index :int,high:bool)-> float:
 
 
-        dain =  (self.drain_high if  high  else self.drain_low)  [ index  ]
-        hex=(self.source_high if high else self.source_low)[index]
-        sclae = max(abs(dain), abs(hex))
-        return 0.0 if sclae  == 0.0 else abs(dain +hex) / sclae
+        t =  (self.drain_high if  high  else self.drain_low)  [ index  ]
+        x=(self.source_high if high else self.source_low)[index]
+        ok = max(abs(t), abs(x))
+        return 0.0 if ok  == 0.0 else abs(t +x) / ok
 
 
 def first_resolved_point( current :  Sequence[  float], target :   float  )  ->   int  :
-    j=[float(myvar) for myvar in current]
-    sta = 0
-    for acc in range(len(j)  - 1, 0, - 1) :
-        if  j[  acc ]  <= j[ acc  -   1 ]   or j[ acc  -  1 ]  <=  0.0  :
-            sta =acc
+    z=[float(w2) for w2 in current]
+    v = 0
+    for d in range(len(z)  - 1, 0, - 1) :
+        if  z[  d ]  <= z[ d  -   1 ]   or z[ d  -  1 ]  <=  0.0  :
+            v =d
             break
 
-    if sta  :
+    if v  :
 
-        object =  max(abs(myvar)for myvar in j[: sta])
-        if object >=1e-4 *target:
+        foo =  max(abs(c2)for c2 in z[: v])
+        if foo >=1e-4 *target:
             raise AssertionError(
-                f"a dropped point reaches {object:.3e} A/cm against a target "
+                f"a dropped point reaches {foo:.3e} A/cm against a target "
                 f"of {target:.3e}, which is too close to the current being "
                 'extracted at to be the terminal floor. Trimming it would be '
                 'hiding a solver problem rather than ignoring roundoff.'
             )
 
 
-    return sta
+    return v
 def read_mosfet_golden(path:  str)  ->  MosfetGoldenCurve :
-    foo  = MosfetGoldenCurve (  name  =   ''  )
-    with open(path, encoding  = 'utf-8')  as han:
-        for liine in han:
-            liine =liine.rstrip("\n")
-            if liine.startswith("#"):
-                Body=liine[1 :].strip()
+    x  = MosfetGoldenCurve (  name  =   ''  )
+    with open(path, encoding  = 'utf-8')  as f:
+        for d in f:
+            d =d.rstrip("\n")
+            if d.startswith("#"):
+                e=d[1 :].strip()
 
-                if  ":"  in Body   :
-                    Key,_,filter=Body.partition(":")
+                if  ":"  in e   :
+                    i,_,tt=e.partition(":")
 
-                    foo.header.setdefault(Key.strip(), filter.strip())
+                    x.header.setdefault(i.strip(), tt.strip())
 
                 continue
-            if not liine or liine.startswith('gate_voltage') :
+            if not d or d.startswith('gate_voltage') :
                 continue
-            max=liine.split(",")
-            foo.gate_voltage.append(float(max[0]))
-            foo.drain_low.append(float(max[1]))
-            foo.source_low.append(float(max[2]))
-            foo.drain_high.append(float(max[3]))
+            rows=d.split(",")
+            x.gate_voltage.append(float(rows[0]))
+            x.drain_low.append(float(rows[1]))
+            x.source_low.append(float(rows[2]))
+            x.drain_high.append(float(rows[3]))
 
-            foo.source_high.append(float(max[ 4 ]  ) )
-    foo.name  = foo.header.get('device',  '')
-    return foo
+            x.source_high.append(float(rows[ 4 ]  ) )
+    x.name  = x.header.get('device',  '')
+    return x

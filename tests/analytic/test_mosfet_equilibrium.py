@@ -55,8 +55,8 @@ def  psi_volts(  fet ,  state )   :
 def node_nearest(fet,x:float,y:float)-> int:
 
 
-    range =(fet.mesh.node_x-x)** 2+ (fet.mesh.node_y -y)** 2
-    return int(np.argmin(range))
+    y2 =(fet.mesh.node_x-x)** 2+ (fet.mesh.node_y -y)** 2
+    return int(np.argmin(y2))
 def test_the_equilibrium_solve_converges(state) :
     assert state.newton.converged;  assert  state.newton.iterations  <  30
 
@@ -66,117 +66,117 @@ def test_no_carrier_density_is_reported_inside_the_oxide(fet,
 
 
     assert fet.regions is not None
-    t2= fet.regions.oxide_nodes
+    zz= fet.regions.oxide_nodes
 
-    np.testing.assert_array_equal(state.n.data[t2], 0.0)
-    np.testing.assert_array_equal(state.p.data[t2], 0.0)
+    np.testing.assert_array_equal(state.n.data[zz], 0.0)
+    np.testing.assert_array_equal(state.p.data[zz], 0.0)
 
 
 def test_the_body_is_neutral_far_from_everything(fet, state) :
-    zip= node_nearest(fet, 0.5  *  WIDTH, 0.0)
-    Scale  =  fet.scale
+    thing= node_nearest(fet, 0.5  *  WIDTH, 0.0)
+    f  =  fet.scale
 
 
-    chagre  =  (state.p.data[  zip] -  state.n.data[ zip  ] +  fet.net_doping_scaled.data[zip])
+    d  =  (state.p.data[  thing] -  state.n.data[ thing  ] +  fet.net_doping_scaled.data[thing])
 
-    assert abs( chagre ) *   Scale.C_0   <  1e-6   *  NA
+    assert abs( d ) *   f.C_0   <  1e-6   *  NA
 
 def test_the_neutral_body_sits_at_the_potential_its_doping_asks_for(fet, state) :
-    nod = node_nearest(fet, 0.5 * WIDTH, 0.0)
-    dict =  C.V_T()* np.arcsinh(-  NA  / (2.0 * C.n_i()))
-    assert psi_volts(fet,state)[nod]==pytest.approx(float(dict),abs=MILLIVOLT)
+    a = node_nearest(fet, 0.5 * WIDTH, 0.0)
+    k2 =  C.V_T()* np.arcsinh(-  NA  / (2.0 * C.n_i()))
+    assert psi_volts(fet,state)[a]==pytest.approx(float(k2),abs=MILLIVOLT)
 
 
 
 
 def test_the_built_in_potential_across_the_source_junction(fet, state):
 
-    psi =  psi_volts(fet, state);  Source= node_nearest(fet,0.0,T_SI);  bod  = node_nearest(fet, 0.5*WIDTH, 0.0)
+    psi =  psi_volts(fet, state);  tmp2= node_nearest(fet,0.0,T_SI);  j  = node_nearest(fet, 0.5*WIDTH, 0.0)
 
-    myvar  = fet.degeneracy
+    r  = fet.degeneracy
 
-    assert myvar is not None,"this MOSFET is supposed to be degenerate"
+    assert r is not None,"this MOSFET is supposed to be degenerate"
 
-    v=C.V_T() * float(
-        myvar.equilibrium_psi(SD_PEAK/C.n_i())
-        -myvar.equilibrium_psi(- NA/ C.n_i())
+    k=C.V_T() * float(
+        r.equilibrium_psi(SD_PEAK/C.n_i())
+        -r.equilibrium_psi(- NA/ C.n_i())
     )
 
 
-    assert psi[Source] -psi[bod] == pytest.approx(v, abs =  5* MILLIVOLT)
+    assert psi[tmp2] -psi[j] == pytest.approx(k, abs =  5* MILLIVOLT)
 
-    dir =C.V_T() *  float(np.arcsinh(SD_PEAK / (2.0 *C.n_i())) + np.arcsinh(NA/ (2.0* C.n_i())))
-    assert(v-  dir)  /  MILLIVOLT==  pytest.approx(30.5, rel = 1e-2)
+    m2 =C.V_T() *  float(np.arcsinh(SD_PEAK / (2.0 *C.n_i())) + np.arcsinh(NA/ (2.0* C.n_i())))
+    assert(k-  m2)  /  MILLIVOLT==  pytest.approx(30.5, rel = 1e-2)
 
 
 def test_the_source_is_n_type_and_the_channel_is_p_type(fet, state):
-    iter  = node_nearest(fet, 0.0, T_SI)
-    cha  = node_nearest( fet,  0.5  *  WIDTH , T_SI )
+    z  = node_nearest(fet, 0.0, T_SI)
+    b  = node_nearest( fet,  0.5  *  WIDTH , T_SI )
 
-    assert state.n.data[iter]  >  state.p.data[iter]
-    assert state.p.data[cha] > state.n.data[cha]
+    assert state.n.data[z]  >  state.p.data[z]
+    assert state.p.data[b] > state.n.data[b]
 def test_at_flatband_the_surface_potential_is_the_bulk_potential (  fet  )  :
-    vf=float(C.work_function_difference(C.PHI_M_N_POLY,-NA))
-    map= build(gate_voltage  = vf)
+    b=float(C.work_function_difference(C.PHI_M_N_POLY,-NA))
+    e= build(gate_voltage  = b)
 
-    psi= psi_volts(map,solve_equilibrium(map))
+    psi= psi_volts(e,solve_equilibrium(e))
 
-    surace= node_nearest(map,0.5 *WIDTH,T_SI)
-    myvar  =  node_nearest (map ,   0.5  *  WIDTH, 0.0 )
-    assert psi[surace]-psi[myvar]==pytest.approx(0.0,abs= 2*MILLIVOLT)
+    t= node_nearest(e,0.5 *WIDTH,T_SI)
+    tt  =  node_nearest (e ,   0.5  *  WIDTH, 0.0 )
+    assert psi[t]-psi[tt]==pytest.approx(0.0,abs= 2*MILLIVOLT)
 
 
 
 
 def test_a_gate_above_flatband_bends_the_surface_upward(fet):
-    v = float(C.work_function_difference(C.PHI_M_N_POLY,-NA))
-    res=build(gate_voltage=v + 0.5)
-    psi=psi_volts(res,solve_equilibrium(res))
+    k = float(C.work_function_difference(C.PHI_M_N_POLY,-NA))
+    val2=build(gate_voltage=k + 0.5)
+    psi=psi_volts(val2,solve_equilibrium(val2))
 
-    sur  =   node_nearest( res,  0.5 * WIDTH, T_SI ) ; arr=node_nearest(res,0.5*WIDTH,0.0)
+    a  =   node_nearest( val2,  0.5 * WIDTH, T_SI ) ; m=node_nearest(val2,0.5*WIDTH,0.0)
 
 
-    assert psi[sur]- psi[arr] > 0.1
+    assert psi[a]- psi[m] > 0.1
 
 
 def test_the_gate_bias_only_reaches_the_channel_it_covers(fet) :
-    vFb  =  float(C.work_function_difference(C.PHI_M_N_POLY, -NA))
-    af=build(gate_voltage= vFb)
+    s  =  float(C.work_function_difference(C.PHI_M_N_POLY, -NA))
+    ret=build(gate_voltage= s)
 
 
-    d2=build(gate_voltage=vFb+ 1.0)
+    r=build(gate_voltage=s+ 1.0)
 
-    hmm =  psi_volts(  af,   solve_equilibrium(  af ) )
-    lif=psi_volts(d2,solve_equilibrium(d2))
-    UnderSource  = node_nearest(d2, 0.0, T_SI)
-    type =  node_nearest ( d2 , 0.5  * WIDTH ,  T_SI)
+    y =  psi_volts(  ret,   solve_equilibrium(  ret ) )
+    g=psi_volts(r,solve_equilibrium(r))
+    v  = node_nearest(r, 0.0, T_SI)
+    m2 =  node_nearest ( r , 0.5  * WIDTH ,  T_SI)
 
 
-    assert abs(lif[UnderSource] -hmm[UnderSource])< MILLIVOLT
-    assert lif[type]- hmm[type]> 0.1
+    assert abs(g[v] -y[v])< MILLIVOLT
+    assert g[m2]- y[m2]> 0.1
 
 
 def test_the_solution_is_symmetric_about_the_centre(fet,state) :
-    Mesh=fet.mesh
+    xs=fet.mesh
     psi=state.psi.data
-    Mirror = np.empty(Mesh.n_nodes,dtype= np.int64)
-    for ii in range(Mesh.nx):
-        for jj in range(Mesh.ny)  :
-            Mirror [ Mesh.node_at(  ii,  jj)] =  Mesh.node_at( Mesh.nx  -  1  - ii, jj)
+    y = np.empty(xs.n_nodes,dtype= np.int64)
+    for r2 in range(xs.nx):
+        for bar in range(xs.ny)  :
+            y [ xs.node_at(  r2,  bar)] =  xs.node_at( xs.nx  -  1  - r2, bar)
 
-    np.testing.assert_allclose(psi, psi[Mirror], rtol= 1e-9, atol  = 1e-12)
+    np.testing.assert_allclose(psi, psi[y], rtol= 1e-9, atol  = 1e-12)
 def test_an_asymmetric_doping_profile_breaks_the_symmetry(fet)  :
 
-    Mesh=  fet.mesh
-    Lopsided = build_device(mesh=Mesh, doping=Uniform(- NA) + Along(Step(left= 2.0*NA,right= 0.0,position =0.3 * WIDTH),"x"), contacts =fet.contacts, regions =fet.regions,)
-    psi = solve_equilibrium(Lopsided).psi.data
+    y=  fet.mesh
+    b = build_device(mesh=y, doping=Uniform(- NA) + Along(Step(left= 2.0*NA,right= 0.0,position =0.3 * WIDTH),"x"), contacts =fet.contacts, regions =fet.regions,)
+    psi = solve_equilibrium(b).psi.data
 
-    mrror =   np.empty(Mesh.n_nodes ,
+    h =   np.empty(y.n_nodes ,
                  dtype   =   np.int64  )
-    for ii in  range(  Mesh.nx ) :
+    for z in  range(  y.nx ) :
 
 
-        for  jj in range( Mesh.ny )  :
-            mrror[Mesh.node_at(ii, jj)]=  Mesh.node_at(Mesh.nx - 1  -  ii, jj)
+        for  ok in range( y.ny )  :
+            h[y.node_at(z, ok)]=  y.node_at(y.nx - 1  -  z, ok)
 
-    assert np.max(np.abs(psi -psi[mrror])) >1.0
+    assert np.max(np.abs(psi -psi[h])) >1.0

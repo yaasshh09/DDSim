@@ -42,20 +42,20 @@ def x_axis():
         length  =  LENGTH ,   n_nodes  =  NX,   refine_at  =  JUNCTION, h_min   =   5e-7
     )
 def diode_2d(voltage  :float = BIAS)  :
-    mes= tensor_mesh_2d(x_axis(), uniform_mesh_1d(length=  HEIGHT, n_nodes= NY))
+    z= tensor_mesh_2d(x_axis(), uniform_mesh_1d(length=  HEIGHT, n_nodes= NY))
 
     return build_device(
-        mesh   =  mes,
+        mesh   =  z,
         doping  =  abrupt_junction(  Na  = DOPING , Nd  = DOPING,  position   =  JUNCTION ),
         contacts =  (
             OhmicPlate(
                 name  =  'anode',
-                nodes  =  tuple(  mes.node_at( 0, j)   for  j  in  range( mes.ny)  ),
+                nodes  =  tuple(  z.node_at( 0, res2)   for  res2  in  range( z.ny)  ),
                 voltage =  voltage ,
             ) ,
             OhmicPlate (
                 name  = 'cathode',
-                nodes =   tuple (mes.node_at(  mes.nx -  1 , j )  for  j  in range ( mes.ny ) ),
+                nodes =   tuple (z.node_at(  z.nx -  1 , out2 )  for  out2  in range ( z.ny ) ),
                 voltage = 0.0 ,
             ) ,
         ),
@@ -65,34 +65,34 @@ def diode_2d(voltage  :float = BIAS)  :
 
 def capped_diode_2d(voltage:float  =BIAS):
 
-    silcion  =   uniform_mesh_1d(  length  =  HEIGHT , n_nodes  = NY)
+    z  =   uniform_mesh_1d(  length  =  HEIGHT , n_nodes  = NY)
 
-    zip = uniform_mesh_1d(length  = T_OX, n_nodes =N_OX)
-    mseh  =tensor_mesh_2d(x_axis(), stacked_mesh_1d(silcion, zip))
-    ret  =  stacked_regions(  mseh ,
+    u = uniform_mesh_1d(length  = T_OX, n_nodes =N_OX)
+    ok  =tensor_mesh_2d(x_axis(), stacked_mesh_1d(z, u))
+    y  =  stacked_regions(  ok ,
       interface_y   =   HEIGHT)
 
-    return build_device(mesh = mseh, doping  = abrupt_junction(Na = DOPING, Nd =DOPING, position = JUNCTION), contacts= (OhmicPlate(name =  'anode', nodes =tuple(mseh.node_at(0, j) for j in range(NY)), voltage  =voltage,), OhmicPlate(name = "cathode", nodes = tuple(mseh.node_at(mseh.nx - 1, j)for j in range(NY)), voltage = 0.0,),), regions=ret,)
+    return build_device(mesh = ok, doping  = abrupt_junction(Na = DOPING, Nd =DOPING, position = JUNCTION), contacts= (OhmicPlate(name =  'anode', nodes =tuple(ok.node_at(0, b) for b in range(NY)), voltage  =voltage,), OhmicPlate(name = "cathode", nodes = tuple(ok.node_at(ok.nx - 1, obj)for obj in range(NY)), voltage = 0.0,),), regions=y,)
 
 
 def solved(device,recombination = None):
-    k2=TransportModels.for_device(device,recombination=recombination)
-    State = solve_bias_newton(device, models = k2)
-    assert  State.newton is  not  None and  State.newton.converged,   (
-        f"the 2D solve did not converge: {State.newton}"
+    ok=TransportModels.for_device(device,recombination=recombination)
+    k = solve_bias_newton(device, models = ok)
+    assert  k.newton is  not  None and  k.newton.converged,   (
+        f"the 2D solve did not converge: {k.newton}"
     )
-    return State, k2
+    return k, ok
 
 def cut_currents(device,state,models) ->np.ndarray :
-    stuff =  device.mesh
-    Jnn,Jpp= current_densities(device,state,models)
-    ttal= Jnn.data+ Jpp.data
-    w =edge_current_face(device)
-    perCut=[]
-    for ii in range(  stuff.nx  - 1)   :
-        edg=[jj*(stuff.nx - 1) +ii for jj in range(stuff.ny)]
-        perCut.append(float(np.sum(ttal[edg]*w[edg])))
-    return np.asarray(perCut )
+    foo =  device.mesh
+    k,s= current_densities(device,state,models)
+    a= k.data+ s.data
+    v =edge_current_face(device)
+    num=[]
+    for f in range(  foo.nx  - 1)   :
+        z=[g*(foo.nx - 1) +f for g in range(foo.ny)]
+        num.append(float(np.sum(a[z]*v[z])))
+    return np.asarray(num )
 def spread ( values  : np.ndarray )  ->  float  :
     return float(np.max(np.abs(values -  values.mean()))/abs(values.mean()))
 
@@ -101,9 +101,9 @@ def spread ( values  : np.ndarray )  ->  float  :
 
 @pytest.fixture(scope =  'module')
 def plain():
-    dev  =diode_2d()
-    sta,   zz  =  solved(dev, NoRecombination(  ))
-    return dev, sta, zz
+    b  =diode_2d()
+    item,   prev  =  solved(b, NoRecombination(  ))
+    return b, item, prev
 
 
 
@@ -111,129 +111,129 @@ def plain():
 
 
 def capped(  ) :
-    d2 = capped_diode_2d()
-    staate, Models = solved(d2, NoRecombination())
-    return d2,staate,Models
+    w = capped_diode_2d()
+    m, tmp2 = solved(w, NoRecombination())
+    return w,m,tmp2
 
 
 def test_the_total_current_through_every_cut_is_the_same(plain)  -> None :
-    Device, sta, d2 =  plain
-    idx2= cut_currents(Device,sta,d2)
+    cnt, z2, el =  plain
+    val= cut_currents(cnt,z2,el)
 
-    bytes = spread(idx2)
-    assert bytes< 1e-6, f"the cut current varies by {bytes:.2e}"
+    w2 = spread(val)
+    assert w2< 1e-6, f"the cut current varies by {w2:.2e}"
 def test_the_terminal_currents_sum_to_zero(plain)->None:
 
-    dev,w,Models= plain
-    vals=terminal_currents(dev, w, Models)
+    d,h,s= plain
+    i=terminal_currents(d, h, s)
 
 
-    Largest = max(abs(value)for value in vals.values())
-    assert abs(sum(vals.values()))<1e-8*Largest
+    v2 = max(abs(info)for info in i.values())
+    assert abs(sum(i.values()))<1e-8*v2
 
 
 
 
 def test_no_density_is_negative_anywhere(plain)-> None:
-    _, sta, _=plain
+    _, ret, _=plain
 
-    assert np.all(sta.n.data>0.0)
-    assert np.all(sta.p.data>0.0)
+    assert np.all(ret.n.data>0.0)
+    assert np.all(ret.p.data>0.0)
 
 
 
 def test_the_current_runs_from_the_anode(plain)  ->None:
-    devce,staate,Models= plain
-    Currents =terminal_currents(devce,staate,Models)
-    assert Currents['anode']  > 0.0
-    assert Currents['cathode']<0.0
+    v,x,item= plain
+    m =terminal_currents(v,x,item)
+    assert m['anode']  > 0.0
+    assert m['cathode']<0.0
 
 
 def test_the_solution_is_the_same_on_every_row(plain) -> None :
-    deivce, sttate, _  =plain
-    Nx,nyy=deivce.mesh.nx,deivce.mesh.ny
-    for nam,temp2 in(('psi',sttate.psi),("n",sttate.n),("p",sttate.p)):
+    i, m, _  =plain
+    zz,r=i.mesh.nx,i.mesh.ny
+    for ss,z in(('psi',m.psi),("n",m.n),("p",m.p)):
 
-        roows =temp2.data.reshape(nyy, Nx)
-        for jj in range(1,nyy):
+        bar =z.data.reshape(r, zz)
+        for x in range(1,r):
             np.testing.assert_allclose(
-                roows[jj], roows[0], rtol = 1e-12, err_msg =  f"{nam} row {jj}"
+                bar[x], bar[0], rtol = 1e-12, err_msg =  f"{ss} row {x}"
             )
 def test_the_2d_answer_is_the_1d_answer(plain)->None:
-    divmod, sate,  _  = plain
+    m, f,  _  = plain
 
-    temp2= build_device(mesh =x_axis(), doping= abrupt_junction(Na =DOPING,Nd=DOPING,position= JUNCTION), contacts=(OhmicPlate(name='anode',nodes=(0,),voltage=BIAS), OhmicPlate(name ='cathode',nodes =(NX-1,),voltage=0.0),),)
-    refeerence , _  =  solved(  temp2 , NoRecombination( ))
-    Rows  = sate.psi.data.reshape(divmod.mesh.ny, divmod.mesh.nx)
-    np.testing.assert_allclose(Rows[0], refeerence.psi.data, rtol =1e-10)
-    Rows=sate.n.data.reshape(divmod.mesh.ny,divmod.mesh.nx)
-    np.testing.assert_allclose(Rows[0], refeerence.n.data, rtol =1e-10)
+    b= build_device(mesh =x_axis(), doping= abrupt_junction(Na =DOPING,Nd=DOPING,position= JUNCTION), contacts=(OhmicPlate(name='anode',nodes=(0,),voltage=BIAS), OhmicPlate(name ='cathode',nodes =(NX-1,),voltage=0.0),),)
+    j , _  =  solved(  b , NoRecombination( ))
+    d  = f.psi.data.reshape(m.mesh.ny, m.mesh.nx)
+    np.testing.assert_allclose(d[0], j.psi.data, rtol =1e-10)
+    d=f.n.data.reshape(m.mesh.ny,m.mesh.nx)
+    np.testing.assert_allclose(d[0], j.n.data, rtol =1e-10)
 
-    Rows= sate.p.data.reshape(divmod.mesh.ny,divmod.mesh.nx)
-    np.testing.assert_allclose(Rows[0],refeerence.p.data,rtol =1e-10)
+    d= f.p.data.reshape(m.mesh.ny,m.mesh.nx)
+    np.testing.assert_allclose(d[0],j.p.data,rtol =1e-10)
 
 
 def test_the_terminal_current_is_the_1d_one_times_the_height(plain) ->  None :
-    bb, staate, blah =plain
-    Cuts   = cut_currents(bb,   staate , blah)
+    m, s2, res =plain
+    arr   = cut_currents(m,   s2 , res)
 
-    chr =build_device(mesh =x_axis(), doping =  abrupt_junction(Na = DOPING, Nd =DOPING, position  = JUNCTION), contacts =  (OhmicPlate(name  =  "anode", nodes  =  (0, ), voltage = BIAS), OhmicPlate(name = "cathode", nodes =(NX - 1, ), voltage = 0.0),),)
+    t =build_device(mesh =x_axis(), doping =  abrupt_junction(Na = DOPING, Nd =DOPING, position  = JUNCTION), contacts =  (OhmicPlate(name  =  "anode", nodes  =  (0, ), voltage = BIAS), OhmicPlate(name = "cathode", nodes =(NX - 1, ), voltage = 0.0),),)
 
 
-    refernece, stuff2 =solved(chr, NoRecombination())
-    tmp2=  terminal_currents(chr, refernece, stuff2)  ["anode"]
-    assert Cuts.mean() ==pytest.approx(tmp2 *HEIGHT,rel= 1e-8)
+    b, g =solved(t, NoRecombination())
+    i=  terminal_currents(t, b, g)  ["anode"]
+    assert arr.mean() ==pytest.approx(i *HEIGHT,rel= 1e-8)
 
 def test_no_carrier_crosses_into_the_dielectric(capped) ->None:
-    Device, staate, mod =  capped
-    str,Jpp =current_densities(Device,staate,mod)
-    blo=  np.flatnonzero(Device.regions.semiconductor_face== 0.0)
-    assert blo.size>  0
-    np.testing.assert_array_equal(str.data[blo],0.0)
-    np.testing.assert_array_equal(Jpp.data[  blo ] , 0.0 )
+    xx, ys, dat =  capped
+    u,x =current_densities(xx,ys,dat)
+    s=  np.flatnonzero(xx.regions.semiconductor_face== 0.0)
+    assert s.size>  0
+    np.testing.assert_array_equal(u.data[s],0.0)
+    np.testing.assert_array_equal(x.data[  s ] , 0.0 )
 def test_the_capped_device_still_conserves_current(capped) -> None :
-    all,stte,moodels= capped;zz =  cut_currents (all,  stte,  moodels)
+    d,obj,ss= capped;m =  cut_currents (d,  obj,  ss)
 
-    dev =spread(zz);assert dev <1e-6, f"the cut current varies by {dev:.2e}"
+    yy =spread(m);assert yy <1e-6, f"the cut current varies by {yy:.2e}"
 
 
 
 
 def  test_the_capped_terminal_currents_sum_to_zero(capped)  -> None  :
-    dev,sate,res =capped
-    temp2=terminal_currents(dev,sate,res)
+    m2,w,u =capped
+    it=terminal_currents(m2,w,u)
 
-    thing  =  max(abs(value)for value in temp2.values())
+    f  =  max(abs(a)for a in it.values())
 
-    assert abs(sum(temp2.values())) < 1e-8 * thing
+    assert abs(sum(it.values())) < 1e-8 * f
 
 
 def  test_the_coupled_solve_reproduces_equilibrium_on_a_capped_device(  )  -> None :
     from ddsim.device.equilibrium import  frozen_quasi_fermi, solve_equilibrium
-    hash =capped_diode_2d(voltage= 0.0)
-    range= solve_equilibrium(hash, frozen_quasi_fermi(hash))
+    y =capped_diode_2d(voltage= 0.0)
+    h= solve_equilibrium(y, frozen_quasi_fermi(y))
 
 
-    t2, _ =  solved(hash, NoRecombination())
+    tmp3, _ =  solved(y, NoRecombination())
 
     np.testing.assert_allclose(
-        t2.psi.data,range.psi.data,rtol=1e-10,atol=1e-12
+        tmp3.psi.data,h.psi.data,rtol=1e-10,atol=1e-12
     )
-    np.testing.assert_allclose(t2.n.data,range.n.data,rtol=1e-10)
-    np.testing.assert_allclose(t2.p.data, range.p.data, rtol= 1e-10)
+    np.testing.assert_allclose(tmp3.n.data,h.n.data,rtol=1e-10)
+    np.testing.assert_allclose(tmp3.p.data, h.p.data, rtol= 1e-10)
 
 
 
 
 def test_a_doping_dependent_mobility_works_on_a_2d_mesh() -> None:
-    deevice= diode_2d()
-    tmp = TransportModels.for_device(deevice, recombination = NoRecombination(), mobility  = 'arora')
+    bar= diode_2d()
+    ok = TransportModels.for_device(bar, recombination = NoRecombination(), mobility  = 'arora')
 
-    foo=solve_bias_newton(deevice,models =tmp)
+    g=solve_bias_newton(bar,models =ok)
 
-    assert foo.newton is  not  None and  foo.newton.converged
+    assert g.newton is  not  None and  g.newton.converged
 
-    cnt=build_device(
+    x=build_device(
         mesh = x_axis(),
         doping= abrupt_junction(Na  =DOPING, Nd =  DOPING, position=JUNCTION),
         contacts = (
@@ -241,23 +241,23 @@ def test_a_doping_dependent_mobility_works_on_a_2d_mesh() -> None:
             OhmicPlate(name = "cathode", nodes  = (NX- 1, ), voltage =  0.0),
         ),
     )
-    refereence_models =TransportModels.for_device(
-        cnt,recombination= NoRecombination(),mobility= 'arora'
+    r =TransportModels.for_device(
+        x,recombination= NoRecombination(),mobility= 'arora'
     )
-    ref = solve_bias_newton(cnt, models  = refereence_models)
-    assert ref.newton is not None and ref.newton.converged
+    val = solve_bias_newton(x, models  = r)
+    assert val.newton is not None and val.newton.converged
 
-    Rows = foo.psi.data.reshape(deevice.mesh.ny, deevice.mesh.nx)
+    m = g.psi.data.reshape(bar.mesh.ny, bar.mesh.nx)
 
-    np.testing.assert_allclose(Rows[0], ref.psi.data, rtol  = 1e-10)
-    cts = cut_currents(deevice, foo, tmp)
-    expectted =terminal_currents(cnt,ref,refereence_models)['anode']
-    assert cts.mean()== pytest.approx(expectted*HEIGHT,
+    np.testing.assert_allclose(m[0], val.psi.data, rtol  = 1e-10)
+    f = cut_currents(bar, g, ok)
+    d =terminal_currents(x,val,r)['anode']
+    assert f.mean()== pytest.approx(d*HEIGHT,
          rel =1e-8)
 
 
 def test_the_oxide_holds_no_carriers(capped) ->  None:
-    dev,sttate,_=capped
-    Oxide  = list(dev.carrier_free_nodes)
-    assert  Oxide
-    np.testing.assert_array_equal(sttate.n.data[Oxide], 0.0);  np.testing.assert_array_equal(sttate.p.data[Oxide],0.0)
+    yy,k,_=capped
+    flag  = list(yy.carrier_free_nodes)
+    assert  flag
+    np.testing.assert_array_equal(k.n.data[flag], 0.0);  np.testing.assert_array_equal(k.p.data[flag],0.0)

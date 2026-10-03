@@ -40,83 +40,83 @@ FONTS_HEADER  =  """/* Poppins, subset to the characters this page draws.
 
 
 def fetch(  url  : str)  -> bytes  :
-    with urllib.request.urlopen(url, timeout =60)  as res :
-        return bytes(res.read())
+    with urllib.request.urlopen(url, timeout =60)  as a :
+        return bytes(a.read())
 
 
 def fonts()-> dict[str, str]:
 
     from fontTools import subset
-    Into=VENDOR/ "fonts"
-    Into.mkdir(parents=True, exist_ok =True)
-    for  stuff2 in  Into.iterdir(  ) :
-        stuff2.unlink()
+    a=VENDOR/ "fonts"
+    a.mkdir(parents=True, exist_ok =True)
+    for  y in  a.iterdir(  ) :
+        y.unlink()
 
-    Written:dict[str,str]= {}
-    all : list[str] = []
-    for nmae, Weight in FONT_WEIGHTS.items():
-        temp2  = FONT_SOURCE /  f"{nmae}.ttf"
-        assert temp2.exists(), f"{temp2} is missing, drop the release in fonts/"
-        Slug = f"{nmae.lower()}-latin.ttf"
+    buf:dict[str,str]= {}
+    c : list[str] = []
+    for flag, y2 in FONT_WEIGHTS.items():
+        cur  = FONT_SOURCE /  f"{flag}.ttf"
+        assert cur.exists(), f"{cur} is missing, drop the release in fonts/"
+        yy = f"{flag.lower()}-latin.ttf"
         subset.main(
             [
-                str(temp2),
+                str(cur),
                 "--unicodes=" +FONT_SUBSET,
                 '--layout-features=*',
-                '--output-file=' +str(Into  / Slug),
+                '--output-file=' +str(a  / yy),
             ]
         )
-        Data  = (Into / Slug).read_bytes()
-        Written[f"fonts/{Slug}"] = hashlib.sha256(Data).hexdigest()
+        s  = (a / yy).read_bytes()
+        buf[f"fonts/{yy}"] = hashlib.sha256(s).hexdigest()
 
-        all.append(FACE.format(weight = Weight, slug  = Slug))
-    bar=(FONTS_HEADER+"\n\n".join(all) +"\n").encode("utf-8")
-    (  Into  /  "fonts.css").write_bytes( bar  )
-    Written[ 'fonts/fonts.css'  ]  =   hashlib.sha256(  bar).hexdigest(  )
+        c.append(FACE.format(weight = y2, slug  = yy))
+    stuff=(FONTS_HEADER+"\n\n".join(c) +"\n").encode("utf-8")
+    (  a  /  "fonts.css").write_bytes( stuff  )
+    buf[ 'fonts/fonts.css'  ]  =   hashlib.sha256(  stuff).hexdigest(  )
 
-    lcience =  ( FONT_SOURCE /   "OFL.txt").read_bytes( )
-    (Into/ 'POPPINS-OFL.txt').write_bytes(lcience)
+    e =  ( FONT_SOURCE /   "OFL.txt").read_bytes( )
+    (a/ 'POPPINS-OFL.txt').write_bytes(e)
 
-    Written["fonts/POPPINS-OFL.txt"] =hashlib.sha256(lcience).hexdigest()
+    buf["fonts/POPPINS-OFL.txt"] =hashlib.sha256(e).hexdigest()
 
-    return dict(sorted(Written.items()))
+    return dict(sorted(buf.items()))
 
 
 
 
 def main()->None:
-    print("--- vendoring ---"); tmp2=[]
-    for Name , temp in WANTED.items()  :
-        abs = json.loads(fetch(f"https://registry.npmjs.org/{Name}/latest"))
-        buff  =  fetch(abs["dist" ]  [ "tarball"  ])
-        lst,  vars  = abs['dist']   [ 'integrity'  ].split(  "-" , 1 )
-        assert lst  == 'sha512', lst
-        atual=base64.b64encode(hashlib.sha512(buff).digest()).decode()
-        assert atual  ==vars, f"{Name} tarball does not match its integrity"
-        wri  :dict[str, str] ={}
-        with tarfile.open(fileobj =io.BytesIO(buff), mode = "r:gz") as Archive:
-            s2  =  dict ( temp)
-            if Name== "katex":
-                for Member in Archive.getnames():
+    print("--- vendoring ---"); row=[]
+    for ys , h in WANTED.items()  :
+        m = json.loads(fetch(f"https://registry.npmjs.org/{ys}/latest"))
+        k  =  fetch(m["dist" ]  [ "tarball"  ])
+        item,  it  = m['dist']   [ 'integrity'  ].split(  "-" , 1 )
+        assert item  == 'sha512', item
+        j=base64.b64encode(hashlib.sha512(k).digest()).decode()
+        assert j  ==it, f"{ys} tarball does not match its integrity"
+        w  :dict[str, str] ={}
+        with tarfile.open(fileobj =io.BytesIO(k), mode = "r:gz") as i:
+            t  =  dict ( h)
+            if ys== "katex":
+                for y2 in i.getnames():
 
-                    idx2 =Member.startswith("package/dist/fonts/")
-                    if  idx2 and Member.endswith(".woff2")  :
-                        s2[Member  ]  = "katex/fonts/"   +  Member.rsplit("/", 1 )  [  1]
+                    e =y2.startswith("package/dist/fonts/")
+                    if  e and y2.endswith(".woff2")  :
+                        t[y2  ]  = "katex/fonts/"   +  y2.rsplit("/", 1 )  [  1]
 
-            for sorce,max in s2.items():
-                extrcated =Archive.extractfile(sorce)
-                assert  extrcated is not None ,  f"{Name} has no {sorce}"
-                dtaa =extrcated.read()
-                pth  =   VENDOR  /  max
-                pth.parent.mkdir(parents =True, exist_ok=True)
-                pth.write_bytes(dtaa)
-                wri[max]  = hashlib.sha256(dtaa).hexdigest()
+            for cur,val2 in t.items():
+                a =i.extractfile(cur)
+                assert  a is not None ,  f"{ys} has no {cur}"
+                g =a.read()
+                r2  =   VENDOR  /  val2
+                r2.parent.mkdir(parents =True, exist_ok=True)
+                r2.write_bytes(g)
+                w[val2]  = hashlib.sha256(g).hexdigest()
 
 
-        lience  = next(max for max in temp.values()  if 'LICENSE' in max)
-        tmp2.append({"name" :Name, 'version': abs["version"], "licence": lience, "files":dict(sorted(wri.items())),})
+        b  = next(kk for kk in h.values()  if 'LICENSE' in kk)
+        row.append({"name" :ys, 'version': m["version"], "licence": b, "files":dict(sorted(w.items())),})
 
-    tmp2.append(
+    row.append(
         {
             "name" :'fonts',
             'version': "Poppins "+", ".join(sorted(FONT_WEIGHTS)),
@@ -125,6 +125,6 @@ def main()->None:
         }
     )
 
-    ( VENDOR   /   "VENDOR.json").write_bytes((  json.dumps ({ "packages"  :  tmp2}, indent   =   2  )  +  "\n" ).encode('utf-8'))
+    ( VENDOR   /   "VENDOR.json").write_bytes((  json.dumps ({ "packages"  :  row}, indent   =   2  )  +  "\n" ).encode('utf-8'))
 if __name__== '__main__' :
     main()

@@ -28,183 +28,183 @@ def peak_field(device, state) ->float:
 
 
 def  test_peak_field_converges_under_mesh_refinement()   ->  None  :
-    couunts = [101, 201, 401, 801, 1601]
-    Fields=[]
-    for NNodes in couunts :
-        idx2=diode_on(NNodes)
-        Fields.append(peak_field(idx2, solve_equilibrium(idx2)))
-    ref  = Fields[- 1]
-    Errors  =   [abs(buff  -   ref)  /  ref for buff in Fields[:-  1]]
+    val = [101, 201, 401, 801, 1601]
+    c2=[]
+    for ii in val :
+        s=diode_on(ii)
+        c2.append(peak_field(s, solve_equilibrium(s)))
+    m  = c2[- 1]
+    j  =   [abs(cur  -   m)  /  m for cur in c2[:-  1]]
 
 
     assert all(
-        later<  earlier for earlier, later in zip(Errors[:-1], Errors[1 :], strict  =  True)
-    ), f"errors must shrink monotonically, got {Errors}"
+        res2<  i for i, res2 in zip(j[:-1], j[1 :], strict  =  True)
+    ), f"errors must shrink monotonically, got {j}"
 
 def test_peak_field_converges_at_second_order ()  ->   None  :
 
-    filter= [201,401,801,1601]
-    Fields  =   []
-    for yy in filter:
-        Device =  diode_on(yy)
-        Fields.append(peak_field(Device, solve_equilibrium(Device)))
+    j= [201,401,801,1601]
+    mm  =   []
+    for s2 in j:
+        xx =  diode_on(s2)
+        mm.append(peak_field(xx, solve_equilibrium(xx)))
 
-    refrence = Fields[-1]
-    buf  =   [abs(  stuff -  refrence ) /   refrence for  stuff  in Fields[:-  1]  ]
+    t = mm[-1]
+    a  =   [abs(  it -  t ) /   t for  it  in mm[:-  1]  ]
 
-    oders=[
-        math.log2(ear /lat)
-        for ear,lat in zip(buf[:-1],buf[1:],strict = True)
+    c=[
+        math.log2(r /u)
+        for r,u in zip(a[:-1],a[1:],strict = True)
     ]
-    assert all(order  >  1.5 for order  in  oders) ,  f"observed orders {oders}"
+    assert all(lst  >  1.5 for lst  in  c) ,  f"observed orders {c}"
 
 
 def test_built_in_potential_is_mesh_independent()->  None :
-    buff=[]
-    for nnodes in(51,201,801) :
-        dev  =diode_on(nnodes)
-        psi  = solve_equilibrium(dev).psi.to_physical(dev.scale).data
-        buff.append(psi[-  1] - psi[0])
-    Expected =C.V_T()* math.log(1e16 * 1e16/C.n_i()**2)
-    for val in buff :
-        assert val==pytest.approx(Expected,rel= 1e-9)
+    kk=[]
+    for idx in(51,201,801) :
+        d2  =diode_on(idx)
+        psi  = solve_equilibrium(d2).psi.to_physical(d2.scale).data
+        kk.append(psi[-  1] - psi[0])
+    b =C.V_T()* math.log(1e16 * 1e16/C.n_i()**2)
+    for s2 in kk :
+        assert s2==pytest.approx(b,rel= 1e-9)
 
 
 def test_refinement_does_not_change_the_invariants() ->None :
-    for  hmm  in(  51, 201,   801 ) :
-        Device =  diode_on(  hmm)
+    for  z  in(  51, 201,   801 ) :
+        v =  diode_on(  z)
 
-        min  = solve_equilibrium( Device  )
-        np.testing.assert_allclose(min.n.data *min.p.data, 1.0, rtol  = 1e-8)
-        assert np.all(min.n.data> 0.0)
+        x2  = solve_equilibrium( v  )
+        np.testing.assert_allclose(x2.n.data *x2.p.data, 1.0, rtol  = 1e-8)
+        assert np.all(x2.n.data> 0.0)
 
 def test_newton_converges_in_under_ten_iterations_across_doping() ->  None :
-    for Doping in(1e14,
+    for zz in(1e14,
            1e15,
       1e16,
                       1e17,
                  1e18,
       1e19,
            1e20):
-        vals=pn_diode(
-            Na= Doping, Nd =Doping, length = 4.0 * MICRON, junction  = 2.0 *  MICRON
+        dd=pn_diode(
+            Na= zz, Nd =zz, length = 4.0 * MICRON, junction  = 2.0 *  MICRON
         )
-        k2=solve_equilibrium(vals)
-        assert k2.newton.iterations<10,(
-            f"{Doping:.0e} took {k2.newton.iterations}: "
-            f"{k2.newton.residual_history}"
+        h=solve_equilibrium(dd)
+        assert h.newton.iterations<10,(
+            f"{zz:.0e} took {h.newton.iterations}: "
+            f"{h.newton.residual_history}"
         )
 
 def test_newton_residual_tail_is_quadratic() ->None:
 
 
-    dev =pn_diode(Na  =  1e16, Nd  =  1e16, length= 4.0  * MICRON, junction =2.0 *MICRON)
+    b2 =pn_diode(Na  =  1e16, Nd  =  1e16, length= 4.0  * MICRON, junction =2.0 *MICRON)
 
-    temp2=solve_equilibrium(dev)
+    e=solve_equilibrium(b2)
 
-    his = np.array(temp2.newton.residual_history)
-    reelative  =  his/ his[0]
-    usa =  reelative[reelative  > 100.0 * reelative[- 1]]
+    m = np.array(e.newton.residual_history)
+    row  =  m/ m[0]
+    res =  row[row  > 100.0 * row[- 1]]
 
 
-    x2   =  usa[- 3  :]
-    assert len(x2)== 3,f"no usable tail in {his}"
+    xs   =  res[- 3  :]
+    assert len(xs)== 3,f"no usable tail in {m}"
 
-    for Previous, dat in zip(x2[:- 1], x2[1 :], strict  =  True):
-        assert dat < Previous/  100.0, 'a quadratic tail step gains many digits'
+    for r, m2 in zip(xs[:- 1], xs[1 :], strict  =  True):
+        assert m2 < r/  100.0, 'a quadratic tail step gains many digits'
 
-    rat= [
-        dat / Previous**2
-        for Previous, dat in zip(x2[:- 1], x2[1:], strict = True)
+    ret= [
+        m2 / r**2
+        for r, m2 in zip(xs[:- 1], xs[1:], strict = True)
     ]
 
-    assert max(rat)/min(rat)<10.0,f"C is not constant: {rat}"
+    assert max(ret)/min(ret)<10.0,f"C is not constant: {ret}"
 
 
 
 def test_newton_ends_with_unlimited_steps()->  None:
-    dev = pn_diode(Na=1e16, Nd = 1e16, length =4.0  * MICRON, junction= 2.0 *  MICRON)
-    sta = solve_equilibrium(dev )
-    assert sta.newton.limited_steps  < sta.newton.iterations
+    r = pn_diode(Na=1e16, Nd = 1e16, length =4.0  * MICRON, junction= 2.0 *  MICRON)
+    a = solve_equilibrium(r )
+    assert a.newton.limited_steps  < a.newton.iterations
 
 def test_residual_falls_by_many_orders_of_magnitude (  )   ->  None  :
-    devcie   = pn_diode (Na = 1e16,   Nd =  1e16 ,   length  =   4.0  *  MICRON , junction   =  2.0   * MICRON  )
+    j   = pn_diode (Na = 1e16,   Nd =  1e16 ,   length  =   4.0  *  MICRON , junction   =  2.0   * MICRON  )
 
-    State =solve_equilibrium(devcie)
-    fir =State.newton.residual_history[0]
+    s =solve_equilibrium(j)
+    xs =s.newton.residual_history[0]
 
 
-    las  =State.newton.residual_history[-  1] ; assert las/ fir  < 1e-14
+    b  =s.newton.residual_history[-  1] ; assert b/ xs  < 1e-14
 
 
 def test_the_charge_neutral_guess_is_a_good_starting_point() -> None :
-    deviice=pn_diode(Na = 1e16,Nd=1e16,length=4.0 * MICRON,junction = 2.0*MICRON)
-    sttae   =   solve_equilibrium(  deviice )
+    cnt=pn_diode(Na = 1e16,Nd=1e16,length=4.0 * MICRON,junction = 2.0*MICRON)
+    v   =   solve_equilibrium(  cnt )
 
-    psi  = sttae.psi.data
+    psi  = v.psi.data
 
     from  ddsim.physics.statistics  import  psi_equilibrium_scaled
 
 
-    xx = np.asarray(psi_equilibrium_scaled(deviice.net_doping_scaled.data))
-    Difference = np.abs(psi-  xx)
-    obj2 =  2.0*  MICRON
-    temp2= deviice.scale.x_0
-    Far =  np.abs ( deviice.mesh.x -  obj2) >   40.0   * math.sqrt (
+    b = np.asarray(psi_equilibrium_scaled(cnt.net_doping_scaled.data))
+    mm = np.abs(psi-  b)
+    w =  2.0*  MICRON
+    g= cnt.scale.x_0
+    flag =  np.abs ( cnt.mesh.x -  w) >   40.0   * math.sqrt (
         C.eps_Si()  *  C.V_T(  )   /  (C.q *   1e16  )
     )
-    assert  Difference [  Far  ].max(  )   <  1e-6, f"worst {Difference[Far].max():.3e}"
-    assert Difference.max() >1.0,'the junction must actually need solving'
+    assert  mm [  flag  ].max(  )   <  1e-6, f"worst {mm[flag].max():.3e}"
+    assert mm.max() >1.0,'the junction must actually need solving'
 
 
-    assert temp2> 0.0
+    assert g> 0.0
 
 def test_newton_converges_on_lightly_doped_material() ->None:
-    for Doping in(1e13, 1e12, 1e11, 1e10) :
-        open   = pn_diode (
-            Na  =   Doping ,   Nd  =  Doping, length  =  4.0   *  MICRON, junction =  2.0   *  MICRON
+    for el in(1e13, 1e12, 1e11, 1e10) :
+        s   = pn_diode (
+            Na  =   el ,   Nd  =  el, length  =  4.0   *  MICRON, junction =  2.0   *  MICRON
         )
-        sta =solve_equilibrium(open)
+        x =solve_equilibrium(s)
 
 
-        assert sta.newton is not None
+        assert x.newton is not None
 
-        assert sta.newton.converged,(
-            f"{Doping:.0e} did not converge: {sta.newton.message}"
+        assert x.newton.converged,(
+            f"{el:.0e} did not converge: {x.newton.message}"
         )
-        assert sta.newton.iterations <10, (
-            f"{Doping:.0e} took {sta.newton.iterations} iterations, which "
+        assert x.newton.iterations <10, (
+            f"{el:.0e} took {x.newton.iterations} iterations, which "
             'means the threshold is sitting on the floor rather than above it'
         )
 
 def test_the_threshold_floor_does_not_loosen_a_normally_doped_solve()->None :
 
-    for d2 in(1e15, 1e16, 1e18) :
-        Device  = pn_diode(Na=  d2, Nd  =d2)
-        sttae  =  solve_equilibrium(Device)
+    for j in(1e15, 1e16, 1e18) :
+        obj  = pn_diode(Na=  j, Nd  =j)
+        t  =  solve_equilibrium(obj)
 
-        assert  sttae.newton  is  not  None
-        Charge= float(
+        assert  t.newton  is  not  None
+        s= float(
             np.max(
-                np.abs(Device.net_doping_scaled.data)
-                * Device.mesh.volume
-                /  Device.scale.x_0
+                np.abs(obj.net_doping_scaled.data)
+                * obj.mesh.volume
+                /  obj.scale.x_0
             )
         )
 
-        assert sttae.newton.residual_history[-1]< 1e-12  +  1e-10*  Charge
+        assert t.newton.residual_history[-1]< 1e-12  +  1e-10*  s
 
 
 def test_a_stalled_solve_says_what_it_was_aiming_for() ->None :
-    dev =  pn_diode(Na =1e16, Nd = 1e16)
+    h =  pn_diode(Na =1e16, Nd = 1e16)
 
 
 
-    open  = solve_poisson(
-        dev, np.zeros(dev.mesh.n_nodes), max_iterations =1
+    num  = solve_poisson(
+        h, np.zeros(h.mesh.n_nodes), max_iterations =1
     )
-    assert not open.converged
-    assert "threshold" in open.message
+    assert not num.converged
+    assert "threshold" in num.message
 
 
-    assert f"{open.residual_history[-1]:.3e}" in open.message
+    assert f"{num.residual_history[-1]:.3e}" in num.message
