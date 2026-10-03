@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from collections.abc import Callable,Sequence
 from dataclasses import dataclass,field
 from math import isfinite
@@ -47,8 +48,8 @@ class GummelResult(  Generic [StateT] )   :
 def gummel_solve(
     state:StateT,
     steps  :Sequence[BlockStep[StateT]],
-    update_tol :  float=  1e-8,
-    max_iterations : int=200,
+    update_tol :  float=  CONFIG.gummel.update_tol,
+    max_iterations : int=CONFIG.gummel.max_iterations,
     on_iteration :Callable[[GummelIteration], None]  | None =None,
 )-> GummelResult[StateT]:
     if not steps:

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 import math
 from scipy.special import erfcinv as _erfcinv
 from ddsim.core import constants as C;from ddsim.device.builder import Device,Material,build_device
@@ -38,7 +39,7 @@ def  implant_lengths(x_j   :  float,   lateral_diffusion :   float,   sd_peak   
     return d, c
 
 
-def nmos(L_gate : float = 1e-4, sd_length : float=4e-5, contact_length : float = 2e-5, substrate_doping:float = - 1e17, sd_peak : float = 1e20, x_j :  float  = 1.5e-5, lateral_diffusion :float  = 1e-5, t_ox  :float = 2e-6, t_si : float = 1e-4, n_contact : int=6, n_sd: int = 12, n_channel  :  int  = 16, n_silicon: int =  101, n_oxide : int  =33, h_min_x :  float = 2e-7, h_min_y:float =6.25e-9, gate_voltage  :  float=0.0, drain_voltage : float =0.0, source_voltage: float  = 0.0, body_voltage: float  = 0.0, work_function: float= C.PHI_M_N_POLY, material  : Material| None  = None, degenerate :bool  = True,)  ->Device :
+def nmos(L_gate : float = CONFIG.nmos.L_gate, sd_length : float=CONFIG.nmos.sd_length, contact_length : float = CONFIG.nmos.contact_length, substrate_doping:float = CONFIG.nmos.substrate_doping, sd_peak : float = CONFIG.nmos.sd_peak, x_j :  float  = CONFIG.nmos.x_j, lateral_diffusion :float  = CONFIG.nmos.lateral_diffusion, t_ox  :float = CONFIG.nmos.t_ox, t_si : float = CONFIG.nmos.t_si, n_contact : int=CONFIG.nmos.n_contact, n_sd: int = CONFIG.nmos.n_sd, n_channel  :  int  = CONFIG.nmos.n_channel, n_silicon: int =  CONFIG.nmos.n_silicon, n_oxide : int  =CONFIG.nmos.n_oxide, h_min_x :  float = CONFIG.nmos.h_min_x, h_min_y:float =CONFIG.nmos.h_min_y, gate_voltage  :  float=0.0, drain_voltage : float =0.0, source_voltage: float  = 0.0, body_voltage: float  = 0.0, work_function: float= C.PHI_M_N_POLY, material  : Material| None  = None, degenerate :bool  = True,)  ->Device :
 
     for k,d2 in(
         ("L_gate",L_gate),

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from collections.abc import Callable
 import numpy as np, numpy.typing as npt
 from ddsim.core.field import Field,Location,ScalingState
@@ -12,12 +13,12 @@ from ddsim.solve.linear import SparseLU
 from ddsim.solve.newton import NewtonResult,newton_solve
 
 
-MAX_PSI_STEP= 5.0
+MAX_PSI_STEP= CONFIG.numerics.equilibrium_max_psi_step
 
 EPS=  float(np.finfo(np.float64).eps)
 
 
-FLUX_FLOOR_MARGIN =  16.0
+FLUX_FLOOR_MARGIN =  CONFIG.numerics.flux_floor_margin
 def frozen_quasi_fermi(device : Device)  -> tuple[Field, Field] :
     k =   device.net_doping.data
 
@@ -83,7 +84,7 @@ def insulator_guess(
     return psi   +   bb.solve(-  tmp.residual )
 
 
-def solve_poisson(device  :  Device, psi_initial  :   npt.NDArray [ np.float64 ], phi_n  : Field | None  =   None, phi_p   :  Field  |  None =   None, max_iterations  :  int   =  50, residual_rtol   :  float =  1e-10, update_tol  : float  =  1e-10, solver  :   SparseLU  | None  =  None , on_frame  :   Callable[ [ object  ] ,  None]  | None   =  None,)   ->  NewtonResult   :
+def solve_poisson(device  :  Device, psi_initial  :   npt.NDArray [ np.float64 ], phi_n  : Field | None  =   None, phi_p   :  Field  |  None =   None, max_iterations  :  int   =  CONFIG.newton.max_iterations, residual_rtol   :  float =  CONFIG.newton.residual_rtol, update_tol  : float  =  CONFIG.newton.update_tol, solver  :   SparseLU  | None  =  None , on_frame  :   Callable[ [ object  ] ,  None]  | None   =  None,)   ->  NewtonResult   :
     ss=device.scale
     hh  = device.scaled_mesh
     f =device.charge_volume_scaled
@@ -113,7 +114,7 @@ def solve_poisson(device  :  Device, psi_initial  :   npt.NDArray [ np.float64 ]
         arr  =aa/ residual_rtol
     return  newton_solve (assemble, psi_initial , max_step  =  MAX_PSI_STEP, residual_rtol  =  residual_rtol, residual_scale =  arr , update_tol =  update_tol, max_iterations   =  max_iterations, solver  =  solver, on_iteration   = on_frame ,)
 
-def solve_equilibrium(device : Device, quasi_fermi  :  tuple[Field, Field] | None = None, max_iterations : int =50, residual_rtol  :  float= 1e-10, update_tol  : float = 1e-10, on_frame :Callable[[object], None] | None  = None,)  -> DeviceState :
+def solve_equilibrium(device : Device, quasi_fermi  :  tuple[Field, Field] | None = None, max_iterations : int =CONFIG.newton.max_iterations, residual_rtol  :  float= CONFIG.newton.residual_rtol, update_tol  : float = CONFIG.newton.update_tol, on_frame :Callable[[object], None] | None  = None,)  -> DeviceState :
     phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
     cc =  device.net_doping_scaled.data
 

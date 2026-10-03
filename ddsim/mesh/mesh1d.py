@@ -1,15 +1,16 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from dataclasses import dataclass
 import numpy as np, numpy.typing as npt
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.geometry import UNIFORM_1D,ScaledMesh
 
-_RATIO_TOLERANCE=  1e-14
+_RATIO_TOLERANCE=  CONFIG.mesh.ratio_tolerance
 
 
-_DEGENERATE_TOLERANCE= 1e-12
+_DEGENERATE_TOLERANCE= CONFIG.mesh.degenerate_tolerance
 
-_SCORE_SLACK= 1e-9
+_SCORE_SLACK= CONFIG.mesh.score_slack
 
 
 @dataclass( frozen   =  True  )
@@ -159,7 +160,7 @@ def graded_mesh_1d(
     n_nodes  :int,
     refine_at  :  float,
     h_min: float,
-    max_ratio :float = 1.5,
+    max_ratio :float = CONFIG.mesh.max_ratio,
 )  -> Mesh1D :
     if length <=  0.0 :
         raise ValueError(f"length must be positive, got {length}")
@@ -274,7 +275,7 @@ def graded_mesh_1d(
 
 
 
-def graded_mesh_1d_at(length :   float , n_nodes  : int , points  :  tuple[ float,  ...], h_min  :   float, max_ratio :  float   = 1.5,)  ->   Mesh1D   :
+def graded_mesh_1d_at(length :   float , n_nodes  : int , points  :  tuple[ float,  ...], h_min  :   float, max_ratio :  float   = CONFIG.mesh.max_ratio,)  ->   Mesh1D   :
     if len(points)==1:
 
         if  not 0.0   < points[  0 ]  <   length  :
@@ -361,7 +362,7 @@ def graded_mesh_1d_at(length :   float , n_nodes  : int , points  :  tuple[ floa
     nxt[  x]  =  points
     nxt[- 1  ] =  length
     return _assemble( nxt)
-def graded_mesh_1d_through(length :  float , n_nodes  :   int, lines :  tuple [ float,   ...], points :  tuple[float, ... ], h_min   :   float, max_ratio   : float  =  1.5,) -> Mesh1D   :
+def graded_mesh_1d_through(length :  float , n_nodes  :   int, lines :  tuple [ float,   ...], points :  tuple[float, ... ], h_min   :   float, max_ratio   : float  =  CONFIG.mesh.max_ratio,) -> Mesh1D   :
     if h_min  <=0.0 :
         raise ValueError(f"h_min must be positive, got {h_min}")
     for nxt, m in(("line", lines), ('point', points))  :

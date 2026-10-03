@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from collections.abc import Callable; from dataclasses import dataclass, replace
 import numpy as np; import numpy.typing as npt
 from ddsim.core import constants as C
@@ -44,7 +45,7 @@ from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve; from ddsim
 from ddsim.solve.newton import NewtonIteration,NewtonResult,newton_solve
 MOBILITY_MODELS  =("constant", 'arora')
 
-DENSITY_REFERENCE  =   1.0
+DENSITY_REFERENCE  =   CONFIG.numerics.density_reference
 
 
 class  TransportError( RuntimeError )  :
@@ -559,12 +560,12 @@ def solve_bias_newton(
     device:Device,
     models :TransportModels |None=None,
     guess :DeviceState|None= None,
-    max_psi_step: float=5.0,
-    max_iterations :int=30,
-    residual_rtol:float= 1e-10,
-    update_tol:float=1e-10,
-    max_surface_sweeps : int =20,
-    surface_rtol :float=1e-8,
+    max_psi_step: float=CONFIG.bias.max_psi_step,
+    max_iterations :int=CONFIG.bias.max_iterations,
+    residual_rtol:float= CONFIG.newton.residual_rtol,
+    update_tol:float=CONFIG.newton.update_tol,
+    max_surface_sweeps : int =CONFIG.bias.max_surface_sweeps,
+    surface_rtol :float=CONFIG.bias.surface_rtol,
     on_frame:Callable[[object],None]|None=None,
 ) ->DeviceState:
     if models is None:
@@ -665,8 +666,8 @@ def solve_bias_newton(
 def solve_bias_ramped(
     device  :   Device ,
     models  : TransportModels |   None  =   None ,
-    step  :  float  = 0.25,
-    max_iterations   :   int  =   30 ,
+    step  :  float  = CONFIG.bias.ramp_step,
+    max_iterations   :   int  =   CONFIG.bias.max_iterations ,
     on_frame  :  Callable[[  object],  None  ]  |  None  =  None,
 )  ->   DeviceState  :
     if models is None:
@@ -735,7 +736,7 @@ def _gummel_prelude(device  :Device, models :  TransportModels, state : DeviceSt
     return replace(y.state,gummel =y)
 
 
-def solve_bias_hybrid(device  :   Device, models : TransportModels   |  None =  None, guess   :   DeviceState |  None  = None, gummel_cycles :  int  =   3, retry_cycles  :   int   =  5, max_psi_step  : float = 5.0, max_iterations :   int   =  30, on_frame   : Callable[[ object],  None  ]  |   None = None ,)  ->  DeviceState :
+def solve_bias_hybrid(device  :   Device, models : TransportModels   |  None =  None, guess   :   DeviceState |  None  = None, gummel_cycles :  int  =   CONFIG.bias.gummel_cycles, retry_cycles  :   int   =  CONFIG.bias.retry_cycles, max_psi_step  : float = CONFIG.bias.max_psi_step, max_iterations :   int   =  CONFIG.bias.max_iterations, on_frame   : Callable[[ object],  None  ]  |   None = None ,)  ->  DeviceState :
 
     if  models is  None  :
         models= TransportModels.for_device(device)
@@ -755,8 +756,8 @@ def solve_bias(
     device :Device,
     models:TransportModels|None= None,
     guess:DeviceState|None=None,
-    update_tol:float =1e-8,
-    max_iterations: int = 200,
+    update_tol:float =CONFIG.gummel.update_tol,
+    max_iterations: int = CONFIG.gummel.max_iterations,
     on_frame:Callable[[object],None]|None =None,
 )->DeviceState:
     if models is None:

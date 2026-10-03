@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from  dataclasses import  dataclass
 import numpy  as np
 from ddsim.device.builder import Device,Material,build_device
@@ -10,7 +11,7 @@ DOPING_RANGE  = (1e14,
                 1e19 )
 
 
-NODES_INSIDE=2
+NODES_INSIDE=CONFIG.mesh.nodes_inside
 
 
 @dataclass(frozen  = True)
@@ -82,8 +83,8 @@ def _too_short(number  : int, region  :Region, inside: int) ->  ValueError :
     )
 def stack(
     regions:tuple[Region, ...] = PHASE_2_DIODE,
-    n_nodes : int = 201,
-    h_min  : float = 1e-7,
+    n_nodes : int = CONFIG.stack.n_nodes,
+    h_min  : float = CONFIG.stack.h_min,
     left_voltage  :  float  =0.0,
     right_voltage  :  float  = 0.0,
     material  :  Material |None = None,

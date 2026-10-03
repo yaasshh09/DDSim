@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Generic,TypeVar
@@ -67,8 +68,8 @@ def continue_to(
     step  :  float,
     min_step   :  float |   None = None,
     max_step   :  float  | None  =   None ,
-    growth  :  float   =  1.5 ,
-    max_attempts   :  int   =  200,
+    growth  :  float   =  CONFIG.continuation.growth ,
+    max_attempts   :  int   =  CONFIG.continuation.max_attempts,
     on_event   :   Callable[  [ ContinuationEvent  ] ,  None ]  |   None = None ,
 )  ->   ContinuationResult [  SolutionT ]   :
 

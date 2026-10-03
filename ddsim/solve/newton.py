@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -88,18 +89,18 @@ def newton_solve(
     x0:npt.NDArray[np.float64],
     max_step: float| None= None,
     limit :Callable[[npt.NDArray[np.float64]],npt.NDArray[np.float64]] |None= None,
-    residual_atol : float =1e-12,
-    residual_rtol: float= 1e-10,
+    residual_atol : float =CONFIG.newton.residual_atol,
+    residual_rtol: float= CONFIG.newton.residual_rtol,
     residual_scale: float |None= None,
     residual_norm: (
         Callable[[npt.NDArray[np.float64],npt.NDArray[np.float64]],float]|None
     )=None,
-    update_tol : float= 1e-10,
+    update_tol : float= CONFIG.newton.update_tol,
     update_norm : (
         Callable[[npt.NDArray[np.float64],npt.NDArray[np.float64]],float]|None
     ) =None,
-    max_iterations: int= 50,
-    stagnation_window: int|None=4,
+    max_iterations: int= CONFIG.newton.max_iterations,
+    stagnation_window: int|None=CONFIG.newton.stagnation_window,
     solver:SparseLU|None= None,
     on_iteration:Callable[[NewtonIteration],None] |None=None,
 ) ->NewtonResult :

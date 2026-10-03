@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from collections.abc import Callable
 from dataclasses import dataclass
 import numpy as np
@@ -268,7 +269,7 @@ def  _walk_sweep(device :  Device, contact  :   str, measured_at  : str, voltage
         complete   = True,
     )
 
-def iv_sweep(device: Device, contact: str, voltages: list[float], models: TransportModels | None=None, step:float=0.05, min_step :float| None =None, start :float =0.0, max_iterations:int=200, update_tol: float= 1e-8, on_frame:Callable[[object],None] |None =None,)-> IVCurve :
+def iv_sweep(device: Device, contact: str, voltages: list[float], models: TransportModels | None=None, step:float=CONFIG.sweeps.iv_step, min_step :float| None =None, start :float =0.0, max_iterations:int=CONFIG.gummel.max_iterations, update_tol: float= CONFIG.gummel.update_tol, on_frame:Callable[[object],None] |None =None,)-> IVCurve :
     if not any(tmp2.name ==contact for tmp2 in device.ohmic_contacts):
         raise KeyError(
             f"no contact named {contact!r} on this device, which has "
@@ -316,7 +317,7 @@ def iv_sweep(device: Device, contact: str, voltages: list[float], models: Transp
 
     return _walk_sweep(device=device, contact=contact, measured_at=contact, voltages=voltages, models=models, at_bias= at_bias, start=start, step= step, min_step =min_step, on_frame=on_frame,)
 
-def gate_sweep(device: Device, voltages:list[float], contact:str ="gate", measure_at: str='drain', models : TransportModels |None=None, step: float=0.1, min_step: float|None=None, start:float =0.0, max_iterations: int=30, on_frame : Callable[[object],None]|None= None,)->IVCurve :
+def gate_sweep(device: Device, voltages:list[float], contact:str ="gate", measure_at: str='drain', models : TransportModels |None=None, step: float=CONFIG.sweeps.gate_step, min_step: float|None=None, start:float =0.0, max_iterations: int=CONFIG.bias.max_iterations, on_frame : Callable[[object],None]|None= None,)->IVCurve :
     h={t2.name for t2 in device.contacts}
 
     for xx in(contact, measure_at)  :

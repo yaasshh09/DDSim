@@ -1,16 +1,17 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from ddsim.device.builder import Device, Material, build_device
 from ddsim.device.doping import abrupt_junction
 from ddsim.discretize.boundary import OhmicContact
 from ddsim.mesh.mesh1d import graded_mesh_1d
 
 def pn_diode(
-    Na: float = 1e16,
-    Nd  :float  =1e16,
-    length : float =  1e-4,
-    junction :float  =  0.5e-4,
-    n_nodes  :  int  = 201,
-    h_min  : float = 1e-7,
+    Na: float = CONFIG.pn_diode.Na,
+    Nd  :float  =CONFIG.pn_diode.Nd,
+    length : float =  CONFIG.pn_diode.length,
+    junction :float  =  CONFIG.pn_diode.junction,
+    n_nodes  :  int  = CONFIG.pn_diode.n_nodes,
+    h_min  : float = CONFIG.pn_diode.h_min,
     anode_voltage :  float =0.0,
     cathode_voltage  : float = 0.0,
     material  : Material |  None  = None,

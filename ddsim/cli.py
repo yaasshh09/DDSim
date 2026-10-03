@@ -1,17 +1,18 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 import argparse, sys
 from collections.abc import Callable; from typing import Any
 LOOPBACK =  ("127.0.0.1", '::1', 'localhost')
 
-DEFAULT_PORT =8000
+DEFAULT_PORT =CONFIG.server.port
 
-PUBLIC_MAX_RUNNING=2
-
-
-PUBLIC_KEEP_FOR =1800.0
+PUBLIC_MAX_RUNNING=CONFIG.server.public_max_running
 
 
-PUBLIC_TIME_LIMIT =300.0
+PUBLIC_KEEP_FOR =CONFIG.server.public_keep_for
+
+
+PUBLIC_TIME_LIMIT =CONFIG.server.public_time_limit
 
 
 

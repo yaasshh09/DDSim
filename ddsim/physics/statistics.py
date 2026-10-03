@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from dataclasses import dataclass
 import numpy as np, numpy.typing as npt
 from ddsim.core import constants as C
@@ -56,14 +57,14 @@ def equilibrium_densities_scaled(
     p[i]= 1.0/n[i]
     n [  val]  =  1.0 /  p[ val ]
     return n.reshape(t2.shape),p.reshape(t2.shape)
-EXP_LIMIT  = 700.0
+EXP_LIMIT  = CONFIG.numerics.exp_limit
 
 
 
-QUADRATURE_ORDER = 96
+QUADRATURE_ORDER = CONFIG.numerics.quadrature_order
 
 
-QUADRATURE_TAIL=60.0
+QUADRATURE_TAIL=CONFIG.numerics.quadrature_tail
 
 
 JOYCE_DIXON_COEFFICIENTS =(
@@ -74,7 +75,7 @@ JOYCE_DIXON_COEFFICIENTS =(
 )
 
 
-JOYCE_DIXON_MAX_U=8.0
+JOYCE_DIXON_MAX_U=CONFIG.numerics.joyce_dixon_max_u
 
 
 
@@ -161,7 +162,7 @@ def einstein_ratio(u:Scalar) -> npt.NDArray[np.float64] :
         g= g+ c2*bar *m2**c2
     return np.asarray(g)
 
-INVERSION_STEPS =6
+INVERSION_STEPS =CONFIG.numerics.inversion_steps
 
 LOG_MAX_U =  float(np.log(JOYCE_DIXON_MAX_U))
 

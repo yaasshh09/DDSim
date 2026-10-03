@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from collections.abc import Mapping
 from dataclasses import dataclass
 from  typing  import Any
@@ -19,7 +20,7 @@ from ddsim.extract.params import(
 SHORT_CHANNEL_PROCESS :   Mapping[  str,   Any] =   {"substrate_doping"   : -  1e18, "sd_peak" : 1e20 , "x_j"  :  2.5e-6, 'lateral_diffusion'  :   1.0e-6, 't_ox'   :  2e-7 , 'sd_length'  :   4e-5, "contact_length"  :  2e-5 , "t_si" :   1e-4,}
 
 
-REFERENCE_CURRENT = 1e-7
+REFERENCE_CURRENT = CONFIG.sweeps.reference_current
 
 @dataclass(frozen=True)
 
@@ -68,15 +69,15 @@ def gate_length_sweep(
     gate_lengths:list[float],
     gate_voltages :list[float],
     process :Mapping[str,Any]| None=None,
-    drain_low:float =0.05,
-    drain_high:float =1.0,
+    drain_low:float =CONFIG.sweeps.drain_low,
+    drain_high:float =CONFIG.sweeps.drain_high,
     reference_current: float=REFERENCE_CURRENT,
     overdrive_window : tuple[float,float] =(0.4,1.0),
-    slope_decades : float =2.0,
+    slope_decades : float =CONFIG.sweeps.slope_decades,
     mobility:str='arora',
     field_dependent:bool= True,
     surface: bool= True,
-    step:float=0.05,
+    step:float=CONFIG.sweeps.rolloff_step,
 ) ->tuple[RollOffPoint,...]:
 
 

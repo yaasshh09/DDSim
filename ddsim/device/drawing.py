@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 import math
 from dataclasses import dataclass
 import numpy as np; import numpy.typing as npt
@@ -13,8 +14,8 @@ from ddsim.mesh.mesh1d import graded_mesh_1d_through
 from ddsim.mesh.mesh2d import Mesh2D,tensor_mesh_2d
 
 MATERIALS  ={"silicon"  :SILICON, "oxide":  OXIDE}
-DEGENERATE_DOPING_TOP=  1e20
-NODE_BUDGET =20000
+DEGENERATE_DOPING_TOP=  CONFIG.drawing.degenerate_doping_top
+NODE_BUDGET =CONFIG.mesh.node_budget
 
 
 
@@ -273,7 +274,7 @@ def _electrode_nodes(mesh  :  Mesh2D, electrode  : Electrode)->  tuple[int, ...]
 
 
 
-def drawing(blocks  : tuple[  Block,   ... ]  =  NMOS_DRAWING[  0] , implants  :  tuple[ Implant,   ... ]  = NMOS_DRAWING [ 1 ], electrodes  : tuple [ Electrode , ... ] =  NMOS_DRAWING[ 2  ], nx  :  int =  63, ny  :   int  =  133, h_min_x   :  float  = 2e-7, h_min_y  :  float   =  6.25e-9 , degenerate  :  bool   = True, material  :  Material   | None =   None ,)  ->  Device   :
+def drawing(blocks  : tuple[  Block,   ... ]  =  NMOS_DRAWING[  0] , implants  :  tuple[ Implant,   ... ]  = NMOS_DRAWING [ 1 ], electrodes  : tuple [ Electrode , ... ] =  NMOS_DRAWING[ 2  ], nx  :  int =  CONFIG.drawing.nx, ny  :   int  =  CONFIG.drawing.ny, h_min_x   :  float  = CONFIG.drawing.h_min_x, h_min_y  :  float   =  CONFIG.drawing.h_min_y , degenerate  :  bool   = True, material  :  Material   | None =   None ,)  ->  Device   :
     _check_records ( blocks, implants, electrodes ,   degenerate  )
     if not blocks:
         raise ValueError("nothing is drawn: a device needs at least one block")

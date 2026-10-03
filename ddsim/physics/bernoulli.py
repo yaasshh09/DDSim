@@ -1,9 +1,10 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 import numpy as np, numpy.typing as npt
 Argument  = float |complex|npt.NDArray[np.float64] | npt.NDArray[np.complex128]
-SERIES_CUTOFF_B = 1e-4
-SERIES_CUTOFF_DB =  0.1
-ASYMPTOTE_CUTOFF_DB =  80.0
+SERIES_CUTOFF_B = CONFIG.numerics.bernoulli_series_cutoff
+SERIES_CUTOFF_DB =  CONFIG.numerics.bernoulli_series_cutoff_db
+ASYMPTOTE_CUTOFF_DB =  CONFIG.numerics.bernoulli_asymptote_cutoff_db
 
 
 def _B_series(x : npt.NDArray[np.float64]) ->npt.NDArray[np.float64]:

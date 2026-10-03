@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from  collections.abc import Callable
 from dataclasses import dataclass
 from enum  import  Enum
@@ -200,7 +201,7 @@ def cv_sweep(
     voltages :  list[float],
     response :  Response= Response.LOW_FREQUENCY,
     width: float  |  None  = None,
-    max_iterations : int =50,
+    max_iterations : int =CONFIG.newton.max_iterations,
     on_frame:Callable[[object], None] |  None = None,
 )  ->CVCurve :
     _contact_nodes(device, contact)

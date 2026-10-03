@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from  collections.abc  import AsyncIterator
 from contextlib import asynccontextmanager
 from  dataclasses import  dataclass
@@ -31,7 +32,7 @@ from ddsim.device.transport  import  TransportModels; from ddsim.extract.cv impo
 from ddsim.extract.iv  import IVCurve
 
 
-SHUTDOWN_TIMEOUT=30.0
+SHUTDOWN_TIMEOUT=CONFIG.server.shutdown_timeout
 
 
 PAGE =Path(__file__).parent  /'static'/ "index.html"
@@ -43,7 +44,7 @@ class _Revalidated(StaticFiles):
         d = await super().get_response(path, scope)
         d.headers["Cache-Control"] ='no-cache'
         return d
-_QUIET_POLL = 0.25
+_QUIET_POLL = CONFIG.server.quiet_poll
 
 
 _TERMINAL  = (JobStatus.DONE,

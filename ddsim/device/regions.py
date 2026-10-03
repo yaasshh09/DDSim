@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core.config import CONFIG
 from dataclasses import dataclass
 import numpy as np, numpy.typing as npt
 from ddsim.core import constants as C
@@ -11,7 +12,7 @@ OXIDE  =   1
 
 _RELATIVE_EPS   = {SILICON   :   1.0, OXIDE   : C.EPS_R_OX  /  C.EPS_R_SI,}
 
-_FULL_CELL_TOL= 1e-9
+_FULL_CELL_TOL= CONFIG.mesh.full_cell_tol
 
 
 @dataclass( frozen = True)
