@@ -9,15 +9,15 @@ ROOT= Path(__file__).resolve().parents[2]
 
 
 def _load_tool()-> ModuleType:
-    sec  = importlib.util.spec_from_file_location (
+    d  = importlib.util.spec_from_file_location (
         'ddsim_tools_scoreboard', ROOT  /   "tools"  /   "scoreboard.py"
     )
-    assert sec is not None and sec.loader is not None
-    divmod =importlib.util.module_from_spec(sec)
+    assert d is not None and d.loader is not None
+    stuff =importlib.util.module_from_spec(d)
 
-    sys.modules[sec.name  ]   =  divmod
-    sec.loader.exec_module(divmod)
-    return divmod
+    sys.modules[d.name  ]   =  stuff
+    d.loader.exec_module(stuff)
+    return stuff
 
 tool =  _load_tool()
 SCOREBOARD = ROOT/ "data"/ "scoreboard"
@@ -43,86 +43,86 @@ SEPARATOR = ' + '
 
 
 def _capabilities()-> list[dict[str,str]]:
-    with(SCOREBOARD  / "capabilities.csv").open(newline ="", encoding  =  "utf-8")as bar :
+    with(SCOREBOARD  / "capabilities.csv").open(newline ="", encoding  =  "utf-8")as e :
 
-        dat =csv.DictReader(bar)
-        assert tuple(dat.fieldnames or())  ==CAPABILITY_COLUMNS
-        return list(dat)
+        aa =csv.DictReader(e)
+        assert tuple(aa.fieldnames or())  ==CAPABILITY_COLUMNS
+        return list(aa)
 
 
 
 def _devsim_api (  )   -> set [str ] :
-    myvar =  (  SCOREBOARD  /   'devsim_api.txt'  ).read_text( encoding   =  "utf-8"  ).splitlines ( )
-    return{liine.strip()  for liine in myvar if liine.strip()and not liine.startswith("#")}
+    i =  (  SCOREBOARD  /   'devsim_api.txt'  ).read_text( encoding   =  "utf-8"  ).splitlines ( )
+    return{s2.strip()  for s2 in i if s2.strip()and not s2.startswith("#")}
 
 
 def _function_exists(token:str)->bool :
 
-    ptah, _, naame=  token.partition("::")
-    sorce  =  ROOT  /   ptah
-    if not naame or not sorce.is_file():
+    res2, _, g=  token.partition("::")
+    v  =  ROOT  /   res2
+    if not g or not v.is_file():
         return False
-    return any(isinstance(nd,(ast.FunctionDef, ast.AsyncFunctionDef)) and nd.name==naame for nd in ast.walk(ast.parse(sorce.read_text(encoding ='utf-8'))))
+    return any(isinstance(r,(ast.FunctionDef, ast.AsyncFunctionDef)) and r.name==g for r in ast.walk(ast.parse(v.read_text(encoding ='utf-8'))))  # grepping for "def x(" broke once the spacing got messy
 
 
 
 
 def _evidence(cell: str) ->list[str]:
-    return[  toekn.strip ()  for toekn  in  cell.split (  SEPARATOR  )  if  toekn.strip ( )  ]
+    return[  f.strip ()  for f  in  cell.split (  SEPARATOR  )  if  f.strip ( )  ]
 
 
 def test_the_capability_matrix_has_its_columns_and_values()->  None:
-    foo  =  _capabilities( )
-    assert foo,"capabilities.csv has no rows"
-    Names=[Row['capability']for Row in foo]
-    assert len(Names) == len(set(Names)), "a capability is listed twice"
-    for Row in foo:
-        assert Row["ddsim"]in DDSIM_VALUES,Row
-        assert Row["devsim"]in DEVSIM_VALUES,Row
+    y  =  _capabilities( )
+    assert y,"capabilities.csv has no rows"
+    bar=[s['capability']for s in y]
+    assert len(bar) == len(set(bar)), "a capability is listed twice"
+    for s in y:
+        assert s["ddsim"]in DDSIM_VALUES,s
+        assert s["devsim"]in DEVSIM_VALUES,s
 
 
 def test_every_ddsim_yes_cites_a_test_that_exists()  -> None :
-    foo   = [  ]
-    for id in _capabilities() :
+    x   = [  ]
+    for res2 in _capabilities() :
 
-        tok = _evidence(id[  'ddsim_evidence'] )
-        if  id["ddsim"  ]   ==  "yes"  :
+        kk = _evidence(res2[  'ddsim_evidence'] )
+        if  res2["ddsim"  ]   ==  "yes"  :
 
-            if not tok :
-                foo.append(f"{id['capability']}: no evidence")
-            for tokken in tok :
+            if not kk :
+                x.append(f"{res2['capability']}: no evidence")
+            for w2 in kk :
 
-                if not tokken.startswith('tests/') or not _function_exists(tokken):
-                    foo.append(f"{id['capability']}: {tokken}")
-        elif  tok :
-            foo.append(  f"{id['capability']}: evidence on a no"  )
-    assert not foo,foo
+                if not w2.startswith('tests/') or not _function_exists(w2):
+                    x.append(f"{res2['capability']}: {w2}")
+        elif  kk :
+            x.append(  f"{res2['capability']}: evidence on a no"  )
+    assert not x,x
 
 def test_every_devsim_claim_cites_its_api_or_our_script() ->  None:
 
-    zz   = _devsim_api()
-    mis = []
-    for Row in _capabilities() :
-        toekns= _evidence(Row["devsim_evidence"])
-        if Row['devsim']in("yes","scripted"):
-            if not toekns :
-                mis.append(f"{Row['capability']}: no evidence")
-            for tok in toekns :
-                res=_function_exists(tok)if "::" in tok else tok in zz
-                if not res:
-                    mis.append(f"{Row['capability']}: {tok}")
+    u   = _devsim_api()
+    ys = []
+    for h in _capabilities() :
+        kk= _evidence(h["devsim_evidence"])
+        if h['devsim']in("yes","scripted"):
+            if not kk :
+                ys.append(f"{h['capability']}: no evidence")
+            for k in kk :
+                s=_function_exists(k)if "::" in k else k in u
+                if not s:
+                    ys.append(f"{h['capability']}: {k}")
 
-        elif toekns :
-            mis.append(f"{Row['capability']}: evidence on a no")
-    assert not mis, mis
+        elif kk :
+            ys.append(f"{h['capability']}: evidence on a no")
+    assert not ys, ys
 
 
 
 def test_the_devsim_api_snapshot_says_where_it_came_from()->None :
-    Text =(SCOREBOARD/'devsim_api.txt').read_text(encoding='utf-8')
-    Header= [lne for lne in Text.splitlines()if lne.startswith("#")]
-    assert any(lne.startswith('# devsim ')  for lne in Header), Header
-    assert any(lne.startswith('# written ') for lne in Header),Header
+    k =(SCOREBOARD/'devsim_api.txt').read_text(encoding='utf-8')
+    z2= [r for r in k.splitlines()if r.startswith("#")]
+    assert any(e.startswith('# devsim ')  for e in z2), z2
+    assert any(d.startswith('# written ') for d in z2),z2
 
 
 @pytest.mark.parametrize(
@@ -136,120 +136,120 @@ def  test_a_function_that_does_not_exist_is_not_evidence(token  : str)  ->   Non
 
 
 def _cases()-> list[dict[str,str]]:
-    t2=  SCOREBOARD / "cases.csv"
-    Lines = t2.read_text(encoding="utf-8").splitlines()
-    bod =[lin for lin in Lines if not lin.startswith("#")]
-    return list(csv.DictReader(bod))
+    g=  SCOREBOARD / "cases.csv"
+    u = g.read_text(encoding="utf-8").splitlines()
+    j =[f for f in u if not f.startswith("#")]
+    return list(csv.DictReader(j))
 def  test_the_case_set_is_the_seeded_draw_from_todays_ranges ( )   ->  None  :
-    thing   = [
-        (ord["case"  ] , ord[ 'device' ],  json.loads(ord[ "knobs"  ] ),   int ( ord['redraws'  ])  )
-        for ord in _cases (  )
+    hh   = [
+        (z["case"  ] , z[ 'device' ],  json.loads(z[ "knobs"  ] ),   int ( z['redraws'  ])  )
+        for z in _cases (  )
     ]
-    darwn = [(Case.name, Case.device, Case.knobs, Case.redraws)  for Case in tool.draw_cases()]
-    assert thing== darwn
+    cc = [(i.name, i.device, i.knobs, i.redraws)  for i in tool.draw_cases()]
+    assert hh== cc
 
 
 
 def  test_the_case_set_has_the_split_phase_8_names ( )   ->  None  :
 
 
-    Counts : dict[str, int] = {}
-    for cnt in _cases() :
-        Counts[cnt["device"]]  =  Counts.get(cnt["device"], 0)+1
-    assert Counts == {"pn_diode" :  60,
+    kk : dict[str, int] = {}
+    for el in _cases() :
+        kk[el["device"]]  =  kk.get(el["device"], 0)+1
+    assert kk == {"pn_diode" :  60,
               'mos_cap' : 40,
           'nmos' : 100}
 
 
 def test_every_drawn_knob_sits_inside_its_declared_range (  )   ->  None  :
-    for roww in _cases():
+    for y in _cases():
 
-        ran ={p.name:p for p in device_parameters(roww['device'])}
-        for naame, vaule in json.loads(roww["knobs"]).items()  :
+        k ={p.name:p for p in device_parameters(y['device'])}
+        for s, e in json.loads(y["knobs"]).items()  :
 
-            p  = ran[naame]
-            assert p.low is not None and p.high is not None, naame
-            assert p.low <=vaule<=p.high,(roww["case"],naame,vaule)
+            p  = k[s]
+            assert p.low is not None and p.high is not None, s
+            assert p.low <=e<=p.high,(y["case"],s,e)
 
 
 def test_only_physical_knobs_are_drawn()-> None  :
 
-    for roww in _cases() :
-        dra = set(json.loads(roww["knobs"]))
-        assert dra==set(tool.PHYSICAL[roww['device']]),roww["case"]
+    for y in _cases() :
+        t2 = set(json.loads(y["knobs"]))
+        assert t2==set(tool.PHYSICAL[y['device']]),y["case"]
 
 
 def _case(device: str ='pn_diode',** knobs:float) -> Any :
 
-    Defaults ={"pn_diode":{},"mos_cap":{},"nmos":{'L_gate' :1e-4}}[device]
-    return  tool.Case (  "x001", device, {  **  Defaults ,   **  knobs }, 0 )
+    item ={"pn_diode":{},"mos_cap":{},"nmos":{'L_gate' :1e-4}}[device]
+    return  tool.Case (  "x001", device, {  **  item ,   **  knobs }, 0 )
 
 
 def _result(driver:str, value :  float, imbalance: float =0.0, converged : bool =  True,) ->  Any :
     return tool.Result ("x001",  driver , converged,  value,   imbalance,   abs(value ),  0.0 , '')
 def test_two_currents_under_the_floor_agree()  ->  None:
 
-    cas  = _case( )
-    assert tool.agree(cas, _result("a", 1e-12), _result('b', -3e-11))
+    nxt  = _case( )
+    assert tool.agree(nxt, _result("a", 1e-12), _result('b', -3e-11))
 
 def  test_a_diode_current_off_by_more_than_two_percent_disagrees() ->   None  :
-    cas= _case()
-    refeernce  =   _result( 'ref' ,  1e-3  )
-    assert tool.agree(cas,
+    d2= _case()
+    c  =   _result( 'ref' ,  1e-3  )
+    assert tool.agree(d2,
       _result('a',
                       1.01e-3),
-      refeernce)
+      c)
 
-    assert not tool.agree(cas,_result("a",1.03e-3),refeernce)
+    assert not tool.agree(d2,_result("a",1.03e-3),c)
 def  test_an_unbalanced_diode_current_above_the_floor_is_not_valid(  )  ->   None  :
 
 
-    Case=_case()
-    assert tool.valid(Case, _result("a", 1e-6, imbalance=  1e-10))
-    assert  not tool.valid(  Case, _result ( "a",  1e-6, imbalance =  1e-8  )  )
+    t=_case()
+    assert tool.valid(t, _result("a", 1e-6, imbalance=  1e-10))
+    assert  not tool.valid(  t, _result ( "a",  1e-6, imbalance =  1e-8  )  )
 
 
 
 
 def test_a_mosfet_tail_current_need_not_balance()->None:
-    cas =_case("nmos",L_gate = 1e-4)
+    ys =_case("nmos",L_gate = 1e-4)
 
 
-    xx =tool.floor(cas)
-    tai=_result('a',5.0* xx,imbalance = 2.0* xx)
-    assert tool.valid(cas,tai)
-    LoadBearing  = _result("a", 1e3   *  tool.floor( cas) ,  imbalance  =  1e2   * xx  )
-    assert not tool.valid(cas,LoadBearing)
+    jj =tool.floor(ys)
+    i=_result('a',5.0* jj,imbalance = 2.0* jj)
+    assert tool.valid(ys,i)
+    hh  = _result("a", 1e3   *  tool.floor( ys) ,  imbalance  =  1e2   * jj  )
+    assert not tool.valid(ys,hh)
 
 def test_a_case_whose_references_disagree_is_dropped() ->  None :
 
-    bar  =  _case()
+    a  =  _case()
 
-    resuults =  [_result('ddsim', 1e-3), _result('ddsim_fine', 1e-3), _result('devsim_fine', 2e-3),]
+    aa =  [_result('ddsim', 1e-3), _result('ddsim_fine', 1e-3), _result('devsim_fine', 2e-3),]
 
 
-    sco=tool.score([bar],resuults)
-    assert sco.dropped =={"x001" : "the references disagree"}
-    assert sco.passes.get(  "ddsim" , 0)  ==  0
+    v=tool.score([a],aa)
+    assert v.dropped =={"x001" : "the references disagree"}
+    assert v.passes.get(  "ddsim" , 0)  ==  0
 
 
 
 def test_one_valid_reference_is_enough() -> None:
-    Case  =  _case ()
-    Results   = [
+    obj  =  _case ()
+    d   = [
         _result(  'ddsim' , 1e-3),
         _result ('ddsim_fine',  1e-3,  imbalance   =   1e-4),
         _result( 'devsim_fine',  1.005e-3 ),
     ]
-    bb= tool.score([Case],Results)
-    assert bb.dropped == {}
-    assert bb.passes['ddsim']==  1
+    tmp= tool.score([obj],d)
+    assert tmp.dropped == {}
+    assert tmp.passes['ddsim']==  1
 
 def test_a_solve_that_did_not_converge_never_passes() ->None :
-    data2 =_case()
+    c =_case()
 
-    lst  =  [_result( "ddsim",  1e-3, converged   =   False  ) , _result( "ddsim_fine", 1e-3  ) , _result('devsim_fine' ,   1e-3),]
-    assert  tool.score([ data2  ] , lst).passes.get('ddsim', 0)   ==   0
+    j  =  [_result( "ddsim",  1e-3, converged   =   False  ) , _result( "ddsim_fine", 1e-3  ) , _result('devsim_fine' ,   1e-3),]
+    assert  tool.score([ c  ] , j).passes.get('ddsim', 0)   ==   0
 
 
 def test_the_floors_are_the_ones_tier_4_measured(  )  ->   None :
@@ -263,56 +263,164 @@ def test_the_floors_are_the_ones_tier_4_measured(  )  ->   None :
     assert tool.NOISE_FACTOR==M.NOISE_FACTOR
 
 def test_a_current_under_the_floor_does_not_agree_with_a_real_one(  )  ->  None :
-    stuff2   =   _case(  )
+    nxt   =   _case(  )
 
-    assert not tool.agree(stuff2, _result('a', 1e-12), _result("b", 1e-6))
+    assert not tool.agree(nxt, _result('a', 1e-12), _result("b", 1e-6))
 
 
 
 
 def  test_richardson_recovers_a_known_limit_and_order(  )   ->  None :
-    Limit, odrer, dimesion, H =  2.0, 1.7, 2, 1e-3;dict = [  ]
-    for R in tool.REFINEMENTS:
+    z, out, m, cnt =  2.0, 1.7, 2, 1e-3;y = [  ]
+    for d2 in tool.REFINEMENTS:
 
-        k2   =   round(  1000   *   R **   dimesion )
-        dict.append((R,
-             k2,
-                 Limit + 0.3 * (H / R)**  odrer))
-    Fit  =  tool.richardson(  dict ,  dimesion )
-    assert Fit.limit ==pytest.approx(Limit, rel = 1e-12)
-    assert Fit.order ==   pytest.approx(  odrer ,  rel =  1e-9 )
-    chr  =   0.3 * H  **  odrer  /  Limit
+        x   =   round(  1000   *   d2 **   m )
+        y.append((d2,
+             x,
+                 z + 0.3 * (cnt / d2)**  out))
+    c  =  tool.richardson(  y ,  m )
+    assert c.limit ==pytest.approx(z, rel = 1e-12)
+    assert c.order ==   pytest.approx(  out ,  rel =  1e-9 )
+    tmp  =   0.3 * cnt  **  out  /  z
 
-    assert  Fit.error  ==  pytest.approx( chr,
+    assert  c.error  ==  pytest.approx( tmp,
                       rel =  1e-9)
-    abs =  1000  *  (chr / 0.01) **  (dimesion /odrer)
-    assert Fit.nodes_for_one_percent  == pytest.approx( abs , rel  =  1e-6  )
+    flag =  1000  *  (tmp / 0.01) **  (m /out)
+    assert c.nodes_for_one_percent  == pytest.approx( flag , rel  =  1e-6  )
 
 
 
 def  test_richardson_refuses_moves_that_do_not_shrink(  )  ->   None   :
-    lev=[(1.0,100,1.0),(1.5,225,1.1),(2.25,506,1.0)]
+    f=[(1.0,100,1.0),(1.5,225,1.1),(2.25,506,1.0)]
 
-    assert tool.richardson(lev,2).order is None
+    assert tool.richardson(f,2).order is None
 
 def  test_richardson_refuses_an_order_scharfetter_gummel_cannot_have( )  ->  None :
 
-    lev= [(1.0,100,6.0),(1.5,225,6.1),(2.25,506,6.198)]
-    assert  tool.richardson(lev, 2  ).order is None
+    k= [(1.0,100,6.0),(1.5,225,6.1),(2.25,506,6.198)]
+    assert  tool.richardson(k, 2  ).order is None
+
+
+RESULT_COLUMNS = {
+    'robustness' : "case,driver,converged,value,imbalance,largest,seconds,message",
+    "accuracy":'benchmark,name,refine,nodes,value,seconds',
+    "speed" :"benchmark,name,run,points,seconds",
+}
+
+GENERATOR = {'ddsim'  :  "tools/scoreboard.py", "devsim" :'devsim_gen/scoreboard.py'}
+
+
+def _provenance(path  : Path) -> tuple[list[str], str] :
+
+    h=path.read_text(encoding="utf-8").splitlines()
+    foo =  [aa for aa in h if aa.startswith("#")]
+
+
+    z =  [aa for aa in h if not aa.startswith('#')]
+    return foo,z[0]
+@pytest.mark.parametrize("tool_name",sorted(GENERATOR))
+
+
+
+@pytest.mark.parametrize("axis",
+               sorted(RESULT_COLUMNS))
+
+
+
+def test_every_result_csv_says_where_it_came_from(tool_name:  str, axis : str)  ->  None  :
+    y,r=_provenance(SCOREBOARD/f"{tool_name}_{axis}.csv")
+
+    assert r==RESULT_COLUMNS[axis]
+    s=y[0].split()
+    assert s[:2]==['#','written']
+    assert len(s[2])==10 and s[2][4]==s[2] [7]=='-'
+    assert s[3: 5] == ["by",
+              GENERATOR[tool_name]]
+
+    assert y[1].startswith(f"# {tool_name} ")
+    if axis=="speed" :
+        assert any('one BLAS thread' in v for v in y)
+    if axis=='robustness':
+        assert any("default BLAS threads" in v for v in y)
+
+
+
+def test_the_scoreboard_readme_is_what_the_csvs_say() ->None :
+    m   =  (SCOREBOARD  / 'README.md').read_text( encoding  =   "utf-8")
+    assert  m   ==  tool.summary( tool.load_board ( )  ),  ('run `tools/scoreboard.py summary` and commit the README it writes')
+
+BEST_ROBUSTNESS  = 152
+BEST_NODES_FOR_ONE_PERCENT = {
+    'diode_1e16_1e16':  13.64,
+    'diode_1e18_1e16' :  22.19,
+    "diode_1e20_1e15" :39.74,
+    'mos_cap_5nm' : 37.47,
+    "mos_cap_20nm"  :12.68,
+    'nmos_1um'  :  305.0,
+    "nmos_180nm" : 101.8,
+    'rolloff_100nm': 232.7,
+    'fullstack_100nm' : 93590.0,
+}
+
+BEST_CAPABILITIES = frozenset(
+    {
+        '1D drift-diffusion DC',
+        "2D drift-diffusion DC",
+        "Arora doping mobility",
+        "Auger recombination",
+        "Bias ramp that ships with the tool",
+        'Browser client with live residual',
+        'Cancellable solves',
+        'Device check before solving',
+        'Draw a 2D device in the browser',
+        "Fermi-Dirac statistics",
+        'Guided lessons',
+        "Gummel iteration",
+        "High frequency C-V",
+        "Lombardi surface mobility",
+        'Quasi-static C-V',
+        "SRH recombination",
+        'Velocity saturation',
+    }
+)
+
+def test_ddsim_passes_no_fewer_cold_solves_than_its_best()-> None :
+    ss  =  tool.load_board ().robustness.passes.get ("ddsim" ,  0 )
+    assert ss >= BEST_ROBUSTNESS
+
+
+
+def test_ddsim_needs_no_more_nodes_than_its_best() -> None :
+    g =  tool.read_accuracy(SCOREBOARD / 'ddsim_accuracy.csv')
+    dat= {n:  tool.richardson(v, tool.dimension(n)) for n, v in g.items()}
+
+
+    for  s,   e in BEST_NODES_FOR_ONE_PERCENT.items( )   :
+        xx =dat[s].nodes_for_one_percent
+
+        assert  xx is  not None , f"{s} left the asymptotic range";assert  xx  <=  e  * 1.001 ,   s
+
+
+
+def test_no_ddsim_capability_goes_from_yes_to_no() ->None :
+    c2 =  { rr[  'capability']  for  rr  in _capabilities (  )  if rr [ "ddsim" ] ==   "yes"}
+    assert BEST_CAPABILITIES<=c2
+
+
 
 
 def test_a_sweep_that_never_converged_has_no_speed(tmp_path :Path) -> None:
-    pth = tmp_path/"speed.csv"
-    pth.write_text("# x\nbenchmark,name,run,points,seconds\n7,nmos_180nm,1,0,6.6\n7,nmos_180nm,2,0,6.5\n6,nmos_1um,1,32,64.0\n6,nmos_1um,2,0,9.0\n6,nmos_1um,3,32,32.0\n", encoding="utf-8")
-    Speeds = tool.read_speed(pth)
-    assert 'nmos_180nm' not in Speeds
-    assert Speeds["nmos_1um"]==pytest.approx(1.5)
+    k = tmp_path/"speed.csv"
+    k.write_text("# x\nbenchmark,name,run,points,seconds\n7,nmos_180nm,1,0,6.6\n7,nmos_180nm,2,0,6.5\n6,nmos_1um,1,32,64.0\n6,nmos_1um,2,0,9.0\n6,nmos_1um,3,32,32.0\n", encoding="utf-8")
+    rows = tool.read_speed(k)
+    assert 'nmos_180nm' not in rows
+    assert rows["nmos_1um"]==pytest.approx(1.5)
 
 
 def test_the_speed_ratio_only_counts_what_both_tools_converged()->None :
     from types import SimpleNamespace
-    ours = {n: 2.0 for _, n in tool.SPEED}
-    theirs={n : 1.0 for _,n in tool.SPEED if n!="nmos_180nm"}
-    assert tool._speed_ratio(SimpleNamespace(ddsim_speed=ours, devsim_speed  =theirs))==pytest.approx(2.0)
-    assert tool._speed_row(7,"nmos_180nm",ours,theirs)=="| 7 | nmos_180nm | 2 | failed | n/a |"
-    assert tool._speed_row(6, 'nmos_1um', ours, theirs) == "| 6 | nmos_1um | 2 | 1 | 2 |"
+    m = {n: 2.0 for _, n in tool.SPEED}
+    k={n : 1.0 for _,n in tool.SPEED if n!="nmos_180nm"}
+    assert tool._speed_ratio(SimpleNamespace(ddsim_speed=m, devsim_speed  =k))==pytest.approx(2.0)
+    assert tool._speed_row(7,"nmos_180nm",m,k)=="| 7 | nmos_180nm | 2 | failed | n/a |"
+    assert tool._speed_row(6, 'nmos_1um', m, k) == "| 6 | nmos_1um | 2 | 1 | 2 |"

@@ -1,0 +1,29 @@
+# written 2026-10-02 by devsim_gen/scoreboard.py speed
+# devsim 2.11.0, python 3.14.6
+# Windows-11-10.0.26200-SP0, AMD64 Family 23 Model 96 Stepping 1, AuthenticAMD, one BLAS thread
+benchmark,name,run,points,seconds
+1,diode_1e16_1e16,1,20,1.221
+1,diode_1e16_1e16,2,20,1.067
+1,diode_1e16_1e16,3,20,0.967
+1,diode_1e16_1e16,4,20,0.921
+1,diode_1e16_1e16,5,20,0.881
+2,diode_1e18_1e16,1,15,0.345
+2,diode_1e18_1e16,2,15,0.430
+2,diode_1e18_1e16,3,15,0.422
+2,diode_1e18_1e16,4,15,0.405
+2,diode_1e18_1e16,5,15,0.446
+3,diode_1e20_1e15,1,15,0.488
+3,diode_1e20_1e15,2,15,0.470
+3,diode_1e20_1e15,3,15,0.459
+3,diode_1e20_1e15,4,15,0.428
+3,diode_1e20_1e15,5,15,0.374
+4,mos_cap_5nm,1,41,0.527
+4,mos_cap_5nm,2,41,0.498
+4,mos_cap_5nm,3,41,0.511
+4,mos_cap_5nm,4,41,0.534
+4,mos_cap_5nm,5,41,0.483
+5,mos_cap_20nm,1,41,0.497
+5,mos_cap_20nm,2,41,0.502
+5,mos_cap_20nm,3,41,0.490
+5,mos_cap_20nm,4,41,0.496
+5,mos_cap_20nm,5,41,0.471

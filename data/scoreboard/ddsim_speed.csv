@@ -1,0 +1,44 @@
+# written 2026-10-02 by tools/scoreboard.py
+# ddsim 2ac8f6c, python 3.14.6
+# Windows-11-10.0.26200-SP0, AMD64 Family 23 Model 96 Stepping 1, AuthenticAMD, one BLAS thread
+benchmark,name,run,points,seconds
+1,diode_1e16_1e16,1,20,1.073
+1,diode_1e16_1e16,2,20,0.863
+1,diode_1e16_1e16,3,20,0.897
+1,diode_1e16_1e16,4,20,0.563
+1,diode_1e16_1e16,5,20,0.905
+2,diode_1e18_1e16,1,15,0.216
+2,diode_1e18_1e16,2,15,0.191
+2,diode_1e18_1e16,3,15,0.215
+2,diode_1e18_1e16,4,15,0.198
+2,diode_1e18_1e16,5,15,0.149
+3,diode_1e20_1e15,1,15,0.161
+3,diode_1e20_1e15,2,15,0.157
+3,diode_1e20_1e15,3,15,0.153
+3,diode_1e20_1e15,4,15,0.168
+3,diode_1e20_1e15,5,15,0.199
+4,mos_cap_5nm,1,41,0.449
+4,mos_cap_5nm,2,41,0.423
+4,mos_cap_5nm,3,41,0.417
+4,mos_cap_5nm,4,41,0.437
+4,mos_cap_5nm,5,41,0.405
+5,mos_cap_20nm,1,41,0.372
+5,mos_cap_20nm,2,41,0.387
+5,mos_cap_20nm,3,41,0.353
+5,mos_cap_20nm,4,41,0.387
+5,mos_cap_20nm,5,41,0.275
+6,nmos_1um,1,32,37.075
+6,nmos_1um,2,32,43.354
+6,nmos_1um,3,32,39.673
+6,nmos_1um,4,32,35.266
+6,nmos_1um,5,32,30.808
+7,nmos_180nm,1,32,29.708
+7,nmos_180nm,2,32,30.370
+7,nmos_180nm,3,32,29.796
+7,nmos_180nm,4,32,29.691
+7,nmos_180nm,5,32,29.725
+8,nmos_65nm,1,36,35.184
+8,nmos_65nm,2,36,35.189
+8,nmos_65nm,3,36,35.297
+8,nmos_65nm,4,36,35.342
+8,nmos_65nm,5,36,35.275
