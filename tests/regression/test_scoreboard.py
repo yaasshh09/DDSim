@@ -62,7 +62,7 @@ def _function_exists(token:str)->bool :
     v  =  ROOT  /   res2
     if not g or not v.is_file():
         return False
-    return any(isinstance(r,(ast.FunctionDef, ast.AsyncFunctionDef)) and r.name==g for r in ast.walk(ast.parse(v.read_text(encoding ='utf-8'))))  # grepping for "def x(" broke once the spacing got messy
+    return any(isinstance(r,(ast.FunctionDef, ast.AsyncFunctionDef)) and r.name==g for r in ast.walk(ast.parse(v.read_text(encoding ='utf-8'))))
 
 
 

@@ -376,7 +376,7 @@ def accuracy_point(name  :  str, r  :  float)-> tuple[int, float] :
         i =  (w[1]-w[0]) /(2.0 *  CV_STEP);return _silicon_nodes(item, GC.SILICON), i
     import dataclasses
     prev = P.MOSFET_BY_NAME[name].gate_voltages
-    g=[k for k in prev if k <= 1.0 + 1e-9]  # golden grid, 1 V or wherever golden stops
+    g=[k for k in prev if k <= 1.0 + 1e-9]
     b2=dataclasses.replace(P.MOSFET_BY_NAME[name], gate_voltages=  tuple(g))
     y ,   a  =  GM.transfer_curve(  b2 , 0.05,  refine  =   r )
     return a,y[-1] ["drain"]
