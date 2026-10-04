@@ -1,1 +1,16 @@
+* text=auto
+*.sh text eol=lf
+*.py text
+*.js text
+*.css text
+*.html text
+*.md text
+*.toml text
+*.yml text
+*.json text
+*.csv text
+*.txt text
+*.png binary
+*.woff2 binary
+*.ttf binary
 ddsim/api/static/vendor/** -text
