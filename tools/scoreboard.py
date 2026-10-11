@@ -10,7 +10,7 @@ from ddsim.device.builder import Device
 from ddsim.mesh.mesh2d import Mesh2D
 from ddsim.device.state import DeviceState; from ddsim.device.transport import TransportModels, solve_bias_ramped
 from ddsim.extract.cv import cv_sweep
-from ddsim.extract.iv import gate_sweep, iv_sweep, terminal_currents
+from ddsim.extract.iv import gate_sweep, iv_sweep, resolved_currents, terminal_currents
 from ddsim.extract.rolloff import REFERENCE_CURRENT
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -185,7 +185,7 @@ def solve_case(case:Case, fine:bool) -> Result:
             dd,
             'sweep stopped early',
         )
-    s = terminal_currents(j, a2, y)
+    s = (resolved_currents if case.device == 'pn_diode' else terminal_currents)(j, a2, y)
     return Result(case.name, yy, True, s[MEASURED[case.device]], abs(sum(s.values())), max(abs(u) for u in s.values()), dd, "",)
 def _git_sha() -> str:
     try:

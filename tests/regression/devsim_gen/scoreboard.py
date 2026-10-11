@@ -128,9 +128,19 @@ def _diode(case:dict[str, Any], driver:str) -> tuple[float, float, float]:
         else:
             v = 0.05 if driver == 'devsim_expert' else 0.05 / FINE
             GD.ramp_to(y, ys, 0.0, step=v)
-    el = GD.anode_current(y)
-    t = GD.cathode_current(y)
+    el, t = _resolved(y)
     return el, abs(el + t), max(abs(el), abs(t))
+
+
+def _resolved(device: str) -> tuple[float, float]:
+    def cur(contact: str, eq: str) -> float:
+        return devsim.get_contact_current(device=device, contact=contact, equation=eq)
+    vol = devsim.get_node_model_values(device=device, region=GD.REGION, name="NodeVolume")
+    gen = devsim.get_node_model_values(device=device, region=GD.REGION, name="HoleGeneration")
+    s = sum(a * b for a, b in zip(gen, vol, strict=True))
+    na = cur(GD.ANODE, GD.ece_name)
+    pc = cur(GD.CATHODE, GD.hce_name)
+    return na + (s - pc), (-s - na) + pc
 
 def _mos_cap(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
     xs = case['knobs']
