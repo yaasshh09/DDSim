@@ -886,3 +886,24 @@ def test_an_explain_button_lights_up_cyan_under_the_pointer(server) -> None:
             assert j == []
         finally:
             v2.close()
+
+
+def test_the_contact_button_opens_and_escape_closes_it(server) -> None:
+    with sync_playwright() as r:
+        cc = r.chromium.launch()
+        try:
+            pg = cc.new_page()
+            errs: list[str] = []
+            pg.on("pageerror", lambda error: errs.append(str(error)))
+            pg.goto(server)
+            wait_until(pg, "el('state').textContent === 'ready'", errs)
+            assert not pg.is_visible("#contact-card")
+            pg.click("#contact-open")
+            assert pg.is_visible("#contact-card")
+            assert pg.is_visible("#contact-card a[href^='mailto:']")
+            pg.keyboard.press("Escape")
+            assert not pg.is_visible("#contact-card")
+            assert errs == []
+        finally:
+            cc.close()
+

@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/static/css/learn.css">
 <link rel="stylesheet" href="/static/css/welcome.css">
 <link rel="stylesheet" href="/static/css/build.css">
+<link rel="stylesheet" href="/static/css/footer.css">
 </head>
 <body>
 <header>
@@ -90,7 +91,6 @@
       <p id="welcome-lede"></p>
       <div id="welcome-cards"></div>
       <p id="welcome-more" class="aside"></p>
-      <p id="legal" class="aside"><a href="/terms">Terms of use</a> · <a href="/privacy">Privacy</a></p>
     </section>
 
     <div class="panel" id="lesson-panel" hidden>
@@ -212,6 +212,28 @@
   </section>
 </main>
 
+<footer id="footer">
+  <span>© 2026 Yash Gupta</span>
+  <a href="https://github.com/yaasshh09/DDSim/blob/main/LICENSE" target="_blank" rel="noopener">CC BY-NC 4.0</a>
+  <a href="https://github.com/yaasshh09/DDSim" target="_blank" rel="noopener">Source on GitHub</a>
+  <a href="https://github.com/yaasshh09/DDSim/tree/main/data/scoreboard" target="_blank" rel="noopener">Checked against DEVSIM 2.11</a>
+  <span class="gap"></span>
+  <a href="/terms">Terms of use</a>
+  <a href="/privacy">Privacy</a>
+  <button id="contact-open" type="button">Contact</button>
+</footer>
+
+<dialog id="contact-card" aria-labelledby="contact-title">
+  <h2 id="contact-title">Contact</h2>
+  <p>Questions, bugs or ideas about DDSim are all welcome.</p>
+  <ul>
+    <li><span>Email</span><a href="mailto:yashgupta2009yg@gmail.com">yashgupta2009yg@gmail.com</a></li>
+    <li><span>Instagram</span><a href="https://instagram.com/yaa.assshh" target="_blank" rel="noopener">@yaa.assshh</a></li>
+    <li><span>GitHub</span><a href="https://github.com/yaasshh09" target="_blank" rel="noopener">yaasshh09</a></li>
+  </ul>
+  <form method="dialog"><button type="submit">Close</button></form>
+</dialog>
+
 <aside id="drawer" aria-live="polite">
   <button id="drawer-close" class="flat" type="button">close</button>
   <h2 id="drawer-title"></h2>
@@ -235,5 +257,6 @@
 <script src="/static/js/builder.js"></script>
 <script src="/static/js/preview.js"></script>
 <script src="/static/js/drawing.js"></script>
+<script src="/static/js/footer.js"></script>
 </body>
 </html>

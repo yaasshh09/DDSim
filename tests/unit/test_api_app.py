@@ -375,3 +375,23 @@ def test_every_file_the_page_serves_ships_in_the_installed_package() -> None:
     miss = [str(f.relative_to(pkg)) for f in (pkg / "api" / "static").rglob("*") if f.is_file() and "__pycache__" not in f.parts and not any(fnmatch.fnmatch(f.relative_to(pkg).as_posix(), x) for x in pats)]
     assert miss == [], f"not in pyproject package-data, so the deployed app 404s on: {miss}"
 
+
+CONTACTS = ('href="mailto:yashgupta2009yg@gmail.com"', 'href="https://instagram.com/yaa.assshh"', 'href="https://github.com/yaasshh09"')
+
+
+def test_the_page_has_a_footer_with_the_legal_pages_and_a_contact_dialog(client) -> None:
+    u = client.get("/").text
+    f = u[u.index("<footer"):u.index("</footer>")]
+    for x in ('href="/terms"', 'href="/privacy"', 'id="contact-open"', "© 2026 Yash Gupta"):
+        assert x in f, x
+    d = u[u.index('<dialog id="contact-card"'):u.index("</dialog>")]
+    for x in CONTACTS:
+        assert x in d, x
+
+
+@pytest.mark.parametrize("path", ["/terms", "/privacy"])
+def test_the_legal_pages_say_how_to_reach_me(client, path) -> None:
+    u = client.get(path).text
+    for x in CONTACTS:
+        assert x in u, (path, x)
+
