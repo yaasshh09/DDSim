@@ -120,11 +120,11 @@ def mu_p(T: float = T_ROOM) -> float:
 
 
 def v_sat_n(T: float = T_ROOM) -> float:
-    return V_SAT_N_300 * (T / T_ROOM) ** -0.87
+    return float(V_SAT_N_300 * (T / T_ROOM) ** -0.87)
 
 
 def v_sat_p(T: float = T_ROOM) -> float:
-    return V_SAT_P_300 * (T / T_ROOM) ** -0.52
+    return float(V_SAT_P_300 * (T / T_ROOM) ** -0.52)
 
 def D_n(T: float = T_ROOM) -> float:
     return V_T(T) * mu_n(T)
