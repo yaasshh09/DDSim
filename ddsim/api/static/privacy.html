@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · DDSim</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="/static/css/tokens.css">
+<link rel="stylesheet" href="/static/css/legal.css">
+</head>
+<body>
+<main>
+<p><a href="/">Back to DDSim</a></p>
+<h1>Privacy</h1>
+<p class="when">Last updated 11 October 2026</p>
+
+<p>Short version: there are no accounts, no cookies, no analytics and no ads. Here's everything the site touches.</p>
+
+<h2>What your browser keeps</h2>
+<p>One value in your browser's local storage, <code>ddsim.welcome.seen</code>, so the welcome panel doesn't open every time you visit. It never leaves your browser, and clearing your site data removes it.</p>
+
+<h2>What the server sees</h2>
+<p>When you press solve, the device settings you chose (sizes, doping, voltages, or the shape you drew) are sent to the server so it can run the simulation. They're held in memory while the job runs and for up to half an hour after it finishes, then dropped. They aren't written to disk or tied to who you are.</p>
+<p>The site is hosted on Fly.io. Like any web host, Fly keeps standard request logs, which include your IP address, the time and the page requested. I use those only to keep the site running and to deal with abuse, and I don't sell or share them.</p>
+
+<h2>Saving devices</h2>
+<p>Saving a device downloads a JSON file straight to your computer. Loading one reads that file in your browser. I never receive a copy.</p>
+
+<h2>Everything else</h2>
+<p>The page loads all of its fonts and scripts from this site, not from third parties, so no other company sees your visit.</p>
+<p>If you have a question, open an issue on the project's GitHub page.</p>
+</main>
+</body>
+</html>

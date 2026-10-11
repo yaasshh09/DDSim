@@ -46,3 +46,6 @@ button.start:hover .shows { color: var(--signal); }
 
 #welcome-more { max-width: 72ch; margin-bottom: 0; }
 #welcome-more b {font-weight: 500; color: var(--signal)}
+#legal { margin: 10px 0 0; }
+#legal a { color: var(--dim); }
+#legal a:hover { color: var(--signal); }

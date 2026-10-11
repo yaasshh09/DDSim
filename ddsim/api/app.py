@@ -208,6 +208,14 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
         return FileResponse(
             PAGE, media_type='text/html', headers={'Cache-Control': 'no-cache'}
         )
+
+    @j.get('/terms')
+    def terms() -> FileResponse:
+        return FileResponse(PAGE.parent / "terms.html", media_type='text/html')
+
+    @j.get('/privacy')
+    def privacy() -> FileResponse:
+        return FileResponse(PAGE.parent / "privacy.html", media_type='text/html')
     return j
 
 

@@ -348,3 +348,21 @@ def test_a_busy_server_answers_503_and_says_to_try_again() -> None:
         item = c2.post("/api/jobs", json=diode_request())
 
     assert item.status_code == 503; assert 'try again' in item.json()['detail'].lower()
+
+
+def test_the_page_has_a_favicon_that_is_served(client) -> None:
+    u = client.get("/").text
+    assert '<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">' in u
+    r = client.get("/static/favicon.svg")
+    assert r.status_code == 200 and r.headers["content-type"].startswith("image/svg+xml")
+
+
+@pytest.mark.parametrize("path, heading", [("/terms", "Terms of use"), ("/privacy", "Privacy")])
+def test_the_terms_and_privacy_pages_are_served_and_linked(client, path, heading) -> None:
+    r = client.get(path)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/html")
+    assert f"<h1>{heading}</h1>" in r.text
+    assert '<link rel="icon" href="/static/favicon.svg"' in r.text
+    assert "—" not in r.text
+    assert f'href="{path}"' in client.get("/").text
+
