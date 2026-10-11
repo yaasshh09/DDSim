@@ -522,6 +522,7 @@ def solve_bias_newton(
     a = device.charge_volume_scaled
     i = res2.geometry
     g = device.net_doping_scaled.data
+    gp = device.poisson_doping_scaled.data
     t = device.carrier_free_nodes
 
     item = pack(b.psi.data, b.n.data, b.p.data)
@@ -534,7 +535,7 @@ def solve_bias_newton(
                 obj,
                 a,
                 x,
-                g,
+                gp,
                 active.Dn,
                 active.Dp,
                 active.recombination,
@@ -554,7 +555,7 @@ def solve_bias_newton(
                 obj,
                 a,
                 x,
-                g,
+                gp,
                 active.Dn,
                 active.Dp,
                 np.asarray(active.recombination.rate(n, p), dtype=np.float64),

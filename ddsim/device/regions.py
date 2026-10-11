@@ -30,6 +30,15 @@ class RegionMap:
         w = (b > 0.0) & (b < 1.0 - _FULL_CELL_TOL)
         return np.flatnonzero(w).astype(np.int64)
 
+    def interface_length(self, mesh: Mesh2D) -> npt.NDArray[np.float64]:
+        s = self.cell_material == SILICON; o = self.cell_material == OXIDE
+        L = np.zeros((mesh.ny, mesh.nx))
+        a = ((s[:-1] & o[1:]) | (o[:-1] & s[1:])) * (0.5 * mesh.x_axis.h)[None, :]
+        L[1:-1, :-1] += a; L[1:-1, 1:] += a
+        b = ((s[:, :-1] & o[:, 1:]) | (o[:, :-1] & s[:, 1:])) * (0.5 * mesh.y_axis.h)[:, None]
+        L[:-1, 1:-1] += b; L[1:, 1:-1] += b
+        return L.ravel()
+
     def edge_geometry(self, mesh:Mesh2D) -> EdgeGeometry:
         return EdgeGeometry(edge_nodes=mesh.edge_nodes, dual_face=mesh.dual_face, eps_r=self.eps_r, semiconductor_face=self.semiconductor_face,)
 

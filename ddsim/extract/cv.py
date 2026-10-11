@@ -48,7 +48,7 @@ def _bare_poisson(device:Device, state:DeviceState, quasi_fermi:QuasiFermi = Non
         state.psi.data, "V", ScalingState.SCALED, Location.NODE, name='psi'
     )
     phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
-    return assemble_poisson(device.scaled_mesh, psi, device.net_doping_scaled, phi_n, phi_p, charge_volume=device.charge_volume_scaled,)
+    return assemble_poisson(device.scaled_mesh, psi, device.poisson_doping_scaled, phi_n, phi_p, charge_volume=device.charge_volume_scaled,)
 
 
 def terminal_charge(

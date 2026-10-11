@@ -53,7 +53,7 @@ def insulator_guess(
     tmp = assemble_poisson(
         device.scaled_mesh,
         w2,
-        f,
+        device.poisson_doping_scaled,
         charge_volume=device.charge_volume_scaled,
         degeneracy=device.degeneracy,
     )
@@ -83,9 +83,9 @@ def solve_poisson(device: Device, psi_initial: npt.NDArray[np.float64], phi_n: F
     ss = device.scale
     hh = device.scaled_mesh
     f = device.charge_volume_scaled
-    cur = device.net_doping_scaled
+    cur = device.poisson_doping_scaled
 
-    tmp2 = cur.data
+    tmp2 = device.net_doping_scaled.data
     s = device.degeneracy
     def assemble(psi_values: npt.NDArray[np.float64]) -> SparseAssembly:
         psi = Field(psi_values, 'V', ScalingState.SCALED, Location.NODE, name="psi")
@@ -99,7 +99,7 @@ def solve_poisson(device: Device, psi_initial: npt.NDArray[np.float64], phi_n: F
             device.material.T,
             s,
         )
-    item = float(np.max(np.abs(tmp2) * f))
+    item = float(np.max(np.abs(cur.data) * f))
     y, v = hh.geometry.ends(hh.n_edges)
     el = np.maximum(np.abs(psi_initial[y]), np.abs(psi_initial[v]))
     aa = FLUX_FLOOR_MARGIN * EPS*float(np.max(hh.geometry.weight*el / hh.h))

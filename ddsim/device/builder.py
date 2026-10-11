@@ -43,6 +43,8 @@ class Device:
 
     degenerate: bool = False
 
+    Q_f: float = 0.0
+
     @cached_property
     def net_doping(self) -> Field:
         d = self.doping(self.node_coordinates)
@@ -126,6 +128,16 @@ class Device:
     def net_doping_scaled(self) -> Field:
         return self.net_doping.to_scaled(self.scale)
     @cached_property
+    def poisson_doping_scaled(self) -> Field:
+        if self.Q_f == 0.0:
+            return self.net_doping_scaled
+        assert isinstance(self.mesh, Mesh2D) and self.regions is not None
+        sc = self.scale
+        w = self.Q_f / (sc.C_0 * sc.x_0) * self.regions.interface_length(self.mesh) / sc.x_0
+        v = self.charge_volume_scaled
+        extra = np.divide(w, v, out=np.zeros_like(w), where=v > 0.0)
+        return Field(self.net_doping_scaled.data + extra, "cm^-3", ScalingState.SCALED, Location.NODE, name='poisson_doping')
+    @cached_property
     def degeneracy(self) -> Degeneracy|None:
         if not self.degenerate:
             return None
@@ -161,7 +173,7 @@ class Device:
             f"{el} contacts=({a})"
         )
 
-def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False,) -> Device:
+def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False, Q_f: float = 0.0,) -> Device:
     if material is None:
         material = Material.silicon()
 
@@ -190,6 +202,12 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
                 "region map belongs to the mesh it was built on."
             )
 
+    if Q_f != 0.0 and (regions is None or not isinstance(mesh, Mesh2D) or not regions.interface_length(mesh).any()):
+        raise ValueError(
+            f"Q_f={Q_f:g} cm^-2 is a sheet of fixed charge on a Si/SiO2 "
+            "interface, and this device has no interface to put it on."
+        )
+
     i = [item.name for item in contacts]
     if len(set(i)) != len(i):
         raise ValueError(f"contact names must be unique, got {i}")
@@ -204,4 +222,5 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
         scale=kk,
         regions=regions,
         degenerate=degenerate,
+        Q_f=Q_f,
     )
