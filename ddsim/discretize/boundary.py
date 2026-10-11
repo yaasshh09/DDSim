@@ -83,7 +83,7 @@ Contact = OhmicContact | OhmicPlate | GateContact
 def gate_psi_scaled(
     applied:float, work_function: float, T: float = C.T_ROOM
 ) -> float:
-    return applied+(C.PHI_M_MIDGAP-work_function)/C.V_T(T)
+    return applied+(C.CHI_SI + C.Eg(T) / 2.0-work_function)/C.V_T(T)
 
 def ohmic_psi_scaled(
     net_doping:float, applied: float, degeneracy: Degeneracy | None = None

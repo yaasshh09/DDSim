@@ -357,6 +357,13 @@ class TestGateContact:
         b = ohmic_psi_scaled(x, 0.0)
         assert k == pytest.approx(b, abs=1e-9)
 
+    @pytest.mark.parametrize('T', [250.0, 400.0, 500.0])
+    @pytest.mark.parametrize("metal", [C.PHI_M_N_POLY, C.PHI_M_MIDGAP])
+    def test_flatband_holds_away_from_300_K(self, T: float, metal: float) -> None:
+        sc = ScaleFactors.for_silicon(T)
+        d = float(C.work_function_difference(metal, -1e16, T))
+        assert gate_psi_scaled(d / sc.psi_0, metal, T) == pytest.approx(ohmic_psi_scaled(-1e16 / sc.C_0, 0.0), abs=1e-9)
+
     def test_a_gate_contact_holds_a_set_of_nodes(self) -> None:
         thing = GateContact(name="gate", nodes=(4, 5, 6), voltage=1.0, work_function=C.PHI_M_N_POLY)
 
