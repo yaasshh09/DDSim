@@ -2,8 +2,8 @@ from __future__ import annotations
 import numpy as np; import pytest
 from ddsim.core.field import Location, ScalingState
 from ddsim.device.pn_diode import pn_diode
-from ddsim.device.transport import TransportModels, solve_bias
-from ddsim.extract.iv import (IVCurve, continuity_residuals, current_densities, iv_sweep, terminal_currents, total_current,)
+from ddsim.device.transport import TransportModels, solve_bias, solve_bias_ramped
+from ddsim.extract.iv import (IVCurve, continuity_residuals, current_densities, iv_sweep, resolved_currents, terminal_currents, total_current,)
 from ddsim.physics.recombination import NoRecombination
 MICRON = 1e-4
 
@@ -214,3 +214,30 @@ def test_a_floor_on_the_continuation_step_bounds_the_cost_of_a_stall() -> None:
     assert rr.message and s.message
 
     assert rr.voltage[-1] <= s.voltage[-1]
+
+
+def test_resolved_currents_are_the_contact_currents_wherever_those_can_be_read() -> None:
+    d = diode()
+    m = TransportModels.for_device(d)
+    for v in (0.3, -1.0):
+        b = d.with_bias(anode=v)
+        st = iv_sweep(d, "anode", [v], models=m).points[-1].state
+        raw = terminal_currents(b, st, m); res = resolved_currents(b, st, m)
+        for c in raw:
+            assert res[c] == pytest.approx(raw[c], rel=1e-6), (v, c)
+
+
+def test_a_heavily_doped_reverse_diode_reads_one_current_whichever_solver_got_there() -> None:
+    d = pn_diode(Na=1.329e18, Nd=3.299e18, length=3.644e-05, junction=2.291e-05).with_bias(anode=-4.236)
+    m = TransportModels.for_device(d)
+    newt = solve_bias_ramped(d, models=m)
+    gum = solve_bias(d, models=m, guess=newt)
+    a, b = terminal_currents(d, newt, m)["anode"], terminal_currents(d, gum, m)["anode"]
+    assert abs(b / a) > 100.0
+    x = resolved_currents(d, newt, m); y = resolved_currents(d, gum, m)
+    assert x["anode"] == pytest.approx(y["anode"], rel=1e-6)
+    assert abs(x["anode"] + x["cathode"]) <= 1e-12 * abs(x["anode"])
+    rc = m.recombination; sc = d.scale
+    g = 1.602176634e-19 * np.trapezoid(np.asarray(rc.rate(gum.n.data, gum.p.data)) * sc.C_0 / sc.t_0, np.asarray(d.mesh.x))
+    assert x["anode"] == pytest.approx(g, rel=0.02)
+

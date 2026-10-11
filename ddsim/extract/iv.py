@@ -7,6 +7,7 @@ import numpy.typing as npt
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Device; from ddsim.device.state import DeviceState
 from ddsim.device.transport import (TransportModels, solve_bias, solve_bias_newton, solve_bias_ramped,)
+from ddsim.discretize.boundary import SemiconductorContact
 from ddsim.discretize.continuity import electron_current, hole_current
 from ddsim.discretize.coupled import (coupled_residual, edge_drop, effective_potentials, pack, unpack,)
 from ddsim.discretize.geometry import EdgeGeometry
@@ -124,6 +125,28 @@ def terminal_currents(device:Device, state:DeviceState, models: TransportModels 
     for z in device.contacts:
         if z.name not in w:
             w[z.name] = 0.0
+    return w
+
+
+def _resolved_carrier(contacts: tuple[SemiconductorContact, ...], res: npt.NDArray[np.float64], dens: npt.NDArray[np.float64], other: npt.NDArray[np.float64], tot: float) -> dict[str, float]:
+    k = {z.name: float(sum(res[obj] for obj in z.nodes)) for z in contacts}
+    maj = [z.name for z in contacts if np.mean(dens[z.nodes]) > np.mean(other[z.nodes])]
+    if len(maj) == 1:
+        k[maj[0]] = tot - sum(x for nm, x in k.items() if nm != maj[0])
+    return k
+
+
+def resolved_currents(device:Device, state:DeviceState, models: TransportModels | None = None,) -> dict[str, float]:
+    v, s = continuity_residuals(device, state, models)
+    rr = _models_at(device, state, models).recombination
+    tot = float(np.sum(np.asarray(rr.rate(state.n.data, state.p.data)) * device.charge_volume_scaled))
+    cs = device.semiconductor_contacts
+    a = _resolved_carrier(cs, v, state.n.data, state.p.data, tot)
+    b = _resolved_carrier(cs, s, state.p.data, state.n.data, tot)
+    f = device.scale.J_0 * device.scale.x_0 ** (device.dimension - 1)
+    w = {z.name: (b[z.name] - a[z.name]) * f for z in cs}
+    for z in device.contacts:
+        w.setdefault(z.name, 0.0)
     return w
 
 
