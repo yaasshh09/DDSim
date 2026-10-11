@@ -39,6 +39,7 @@ include = ["ddsim*"]
 [tool.setuptools.package-data]
 ddsim = [
   "api/static/*.html",
+  "api/static/*.svg",
   "api/static/css/*.css",
   "api/static/js/*.js",
   "api/static/learn/*.md",

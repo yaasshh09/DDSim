@@ -366,3 +366,12 @@ def test_the_terms_and_privacy_pages_are_served_and_linked(client, path, heading
     assert "—" not in r.text
     assert f'href="{path}"' in client.get("/").text
 
+
+def test_every_file_the_page_serves_ships_in_the_installed_package() -> None:
+    import fnmatch, pathlib, tomllib
+    root = pathlib.Path(__file__).parents[2]
+    pats = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["tool"]["setuptools"]["package-data"]["ddsim"]
+    pkg = root / "ddsim"
+    miss = [str(f.relative_to(pkg)) for f in (pkg / "api" / "static").rglob("*") if f.is_file() and "__pycache__" not in f.parts and not any(fnmatch.fnmatch(f.relative_to(pkg).as_posix(), x) for x in pats)]
+    assert miss == [], f"not in pyproject package-data, so the deployed app 404s on: {miss}"
+
