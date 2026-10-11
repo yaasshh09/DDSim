@@ -110,7 +110,7 @@ state = solve_bias_ramped(dev, step=0.05)
 
 A smaller `step` costs time but gets through steep turn-on regions. When you
 refine the mesh, refine both sides of an interface together, then check that
-current is conserved with `./run.sh test tests/invariant`.
+current is conserved with `pytest tests/invariant`.
 
 ## License
 

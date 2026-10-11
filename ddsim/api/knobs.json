@@ -78,7 +78,7 @@
   "start": "the voltage the sweep starts from [V]. It's solved directly, not ramped up to.",
   "max_iterations": "how many Gummel cycles each point gets before it counts as failed [1].",
   "update_tol": "how small a whole Gummel cycle's change has to be before a point counts as solved [1].",
-  "on_frame": "telemetry, or None to report nothing. Carries a GummelIteration per cycle, a ContinuationEvent per attempt and an IVFrame per point that lands. See phases/PHASE-7.md."
+  "on_frame": "telemetry, or None to report nothing. Carries a GummelIteration per cycle, a ContinuationEvent per attempt and an IVFrame per point that lands."
  },
  "ddsim.extract.iv.gate_sweep": {
   "device": "the MOSFET, carrying the drain and body biases the curve is taken at. Its gate bias is overridden by the sweep.",
@@ -99,7 +99,7 @@
   "response": "which carriers keep up with the small signal. With low_frequency both do. With high_frequency the minority carrier is held still, the way it is in a fast real measurement.",
   "width": "extent of the terminal transverse to the field [cm].",
   "max_iterations": "how many Newton steps each point gets before it counts as failed [1].",
-  "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per Poisson iteration and a CVFrame per point. There is no ContinuationEvent on this path: the points are independent solves rather than a ramp. See phases/PHASE-7.md."
+  "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per Poisson iteration and a CVFrame per point. There is no ContinuationEvent on this path: the points are independent solves rather than a ramp."
  },
  "ddsim.device.transport.TransportModels.for_device": {
   "device": "the device, for its doping, temperature and scaling.",

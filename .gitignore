@@ -20,17 +20,11 @@ Thumbs.db
 Desktop.ini
 
 /fonts/
-
-CLAUDE.md
-CLAUDE.local.md
-.claude/
-.claude-mem/
-.gstack/
-.impeccable/
-PROGRESS.md
+/run.sh
+/tools/vendor_client_libs.py
 
 Dockerfile
 .dockerignore
 fly.toml
-docs/
-phases/
+
+.claude/
