@@ -49,24 +49,17 @@ DENSITY_REFERENCE = CONFIG.numerics.density_reference
 
 
 class TransportError(RuntimeError):
-
-
-
     def __init__(self, message: str, state: DeviceState) -> None:
         super().__init__(message)
         self.state = state
 
 
-
 @dataclass(frozen=True)
-
 class SurfaceScattering:
-
     electrons: LombardiSurface
 
     holes: LombardiSurface
     mu_bulk_n:npt.NDArray[np.float64]
-
 
     mu_bulk_p: npt.NDArray[np.float64]
     total_doping: npt.NDArray[np.float64]
@@ -105,13 +98,8 @@ class SurfaceScattering:
         )
 
 @dataclass(frozen=True)
-
-
-
 class TransportModels:
     recombination: RecombinationModel
-
-
 
     Dn: EdgeDiffusivity
 
@@ -121,7 +109,6 @@ class TransportModels:
 
     field_dependent: bool = False
 
-
     def at_state(
         self,
         device: Device,
@@ -129,24 +116,19 @@ class TransportModels:
         n: npt.NDArray[np.float64],
         p: npt.NDArray[np.float64],
     ) -> TransportModels:
-
         if self.surface is None:
             return self
         c2, g = self.surface.corrected(device, psi, n, p)
         return replace(self, Dn=_from_nodal_mobility(device, Carrier.ELECTRON, c2, self.field_dependent), Dp=_from_nodal_mobility(device, Carrier.HOLE, g, self.field_dependent),)
     @classmethod
     def for_device(cls, device: Device, recombination: RecombinationModel | None = None, mobility: str = "constant", auger: bool = False, field_dependent: bool = False, surface: bool = False,) -> TransportModels:
-
         bb = device.scale
         c = np.abs(device.net_doping.data)
-
-
 
         if recombination is None:
             recombination = SRHRecombination(tau_n=scharfetter_lifetime(c, tau_max=C.TAU_N_MAX, tau_min=C.TAU_N_MIN) / bb.t_0, tau_p=scharfetter_lifetime(c, tau_max=C.TAU_P_MAX, tau_min=C.TAU_P_MIN) / bb.t_0, ni2=(device.material.n_i/bb.C_0)**2, n1=device.material.n_i/bb.C_0, p1=device.material.n_i / bb.C_0,)
             if auger:
                 recombination = SumOfRecombination((recombination, AugerRecombination(C_n=C.AUGER_C_N * bb.C_0 ** 2 * bb.t_0, C_p=C.AUGER_C_P * bb.C_0**2 * bb.t_0, ni2=(device.material.n_i/bb.C_0) ** 2,),))
-
 
         return cls(
             recombination=recombination,
@@ -175,7 +157,6 @@ def _scaled_diffusivity(
         s = C.D_n(a) if a2 else C.D_p(a)
         m: Diffusivity = s / out2.D_0
     elif mobility == 'arora':
-
         t = (
             AroraMobility.electrons(a)
             if a2
@@ -194,13 +175,10 @@ def _scaled_diffusivity(
     return _wrapped_in_saturation(device, carrier, m, field_dependent)
 
 
-
 def _surface_scattering(
     device:Device, mobility:str, total_doping:npt.NDArray[np.float64]
 ) -> SurfaceScattering:
-
     zz = device.material.T
-
 
     if not isinstance(device.mesh, Mesh2D):
         raise TypeError(
@@ -218,17 +196,14 @@ def _surface_scattering(
                 "without surface scattering."
             )
 
-
     if mobility == 'constant':
         y = ConstantMobility(C.mu_n(zz))(total_doping)
         m2 = ConstantMobility(C.mu_p(zz))(total_doping)
     elif mobility == 'arora':
-
         y = AroraMobility.electrons(zz)(total_doping)
         m2 = AroraMobility.holes(zz)(total_doping)
 
     else:
-
         raise ValueError(
             f"unknown mobility model {mobility!r}. Use "
             + " or ".join(repr(c) for c in MOBILITY_MODELS)
@@ -244,19 +219,15 @@ def _from_nodal_mobility(device: Device, carrier: Carrier, nodal: npt.NDArray[np
     a = edge_diffusivity(nodal, r, val) / device.scale.D_0; return _wrapped_in_saturation(device, carrier, a, field_dependent)
 
 
-
-
 def _wrapped_in_saturation(device:Device, carrier:Carrier, low_field: Diffusivity, field_dependent: bool,) -> EdgeDiffusivity:
     if not field_dependent:
         return low_field
 
     m2 = device.scale
 
-
     bb = device.material.T
     r = carrier is Carrier.ELECTRON
     yy = C.v_sat_n(bb) if r else C.v_sat_p(bb)
-
 
     return CaugheyThomas(
         low_field=np.broadcast_to(
@@ -267,35 +238,23 @@ def _wrapped_in_saturation(device:Device, carrier:Carrier, low_field: Diffusivit
     )
 
 
-
-
 def _lagged_diffusivity(
     D:EdgeDiffusivity, device:Device, psi: npt.NDArray[np.float64]
 ) -> Diffusivity:
-
     return diffusivity_at(D, edge_drop(psi), device.scaled_mesh.h)
 
 
-
 def _node_field(values: npt.NDArray[np.float64], unit: str, name: str) -> Field:
-
     return Field(values, unit, ScalingState.SCALED, Location.NODE, name=name)
-
-
 
 
 def _density_update(
     old: npt.NDArray[np.float64], new: npt.NDArray[np.float64]
 ) -> float:
-
-
     return float(np.max(np.abs(new-old) / (np.abs(old) + DENSITY_REFERENCE)))
 
 
-
-
 def poisson_block(device:Device) -> BlockStep[DeviceState]:
-
     e = SparseLU()
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
@@ -305,12 +264,9 @@ def poisson_block(device:Device) -> BlockStep[DeviceState]:
                 f"the Poisson block did not converge: {c.message}", state
             )
 
-
         v = c.x - state.psi.data
 
         with np.errstate(over="ignore", under='ignore'):
-
-
             n = state.n.data * np.exp(v); p = state.p.data*np.exp(-v)
 
         if not (np.all(np.isfinite(n)) and np.all(np.isfinite(p))):
@@ -326,7 +282,6 @@ def poisson_block(device:Device) -> BlockStep[DeviceState]:
     return step
 
 
-
 def _lagged_effective_potential(
     device: Device, state: DeviceState, carrier: Carrier
 ) -> Field:
@@ -336,7 +291,6 @@ def _lagged_effective_potential(
     if carrier is Carrier.ELECTRON:
         e = bb.electron_potential(state.psi.data, state.n.data)
     else:
-
         e = bb.hole_potential(state.psi.data, state.p.data)
     return _node_field(np.asarray(e),
       'V',
@@ -350,7 +304,6 @@ def electron_block(
     c = device.degeneracy
     it = SparseLU()
     def step(state:DeviceState) -> tuple[DeviceState, float]:
-
         val = assemble_electron_continuity(device.mesh_1d, _lagged_effective_potential(device, state, Carrier.ELECTRON), state.n, state.p, models.recombination, device.scale, _lagged_diffusivity(models.Dn, device, state.psi.data),)
         val = apply_ohmic_densities(
             val,
@@ -368,8 +321,6 @@ def electron_block(
         return (replace(state, n=_node_field(v, "cm^-3", 'n')), _density_update(state.n.data, v),)
 
     return step
-
-
 
 
 def hole_block(device:Device, models:TransportModels) -> BlockStep[DeviceState]:
@@ -438,7 +389,6 @@ def _low_field_models(models: TransportModels) -> TransportModels:
 def _needs_a_low_field_prelude(
     models:TransportModels, guess: DeviceState | None
 ) -> bool:
-
     return guess is None and models.field_dependent
 
 
@@ -456,12 +406,10 @@ def _surface_moved(before: TransportModels, after: TransportModels) -> float:
 
         e, a = np.abs(s - h), np.abs(h)
 
-
         dat = np.divide(e, a, out=np.where(e > 0.0, np.inf, 0.0), where=a > 0.0)
         g = max(g, float(np.max(dat)))
 
     return g
-
 
 
 def _surface_fixed_point(
@@ -480,7 +428,6 @@ def _surface_fixed_point(
     t = 0
     c = 0
 
-
     while c < max_sweeps:
         c += 1
         w2 = run(obj, idx)
@@ -488,17 +435,14 @@ def _surface_fixed_point(
         cc += w2.iterations
         b.extend(w2.residual_history)
 
-
         r.extend(w2.update_history)
         t += w2.limited_steps
         idx = w2.x
 
         m2 = replace(w2, iterations=cc, residual_history=b, update_history=r, limited_steps=t,)
 
-
         if not w2.converged:
             return m2
-
 
         s = obj.at_state(device, *unpack(idx))
         if _surface_moved(obj, s) < rtol:
@@ -550,7 +494,6 @@ def _reported_by_family(
             return None
         return rows
     def report(frame: NewtonIteration) -> None:
-
         j(replace(frame, residual_by_family=matching('residual', frame.residual), update_by_family=matching('update', frame.update),))
 
     return residual_norm, update_norm, report
@@ -575,7 +518,6 @@ def solve_bias_newton(
 
     res2 = device.scaled_mesh
 
-
     obj = res2.h
     a = device.charge_volume_scaled
     i = res2.geometry
@@ -583,7 +525,6 @@ def solve_bias_newton(
     t = device.carrier_free_nodes
 
     item = pack(b.psi.data, b.n.data, b.p.data)
-
 
     def assembler(
         active: TransportModels,
@@ -604,9 +545,7 @@ def solve_bias_newton(
             return scale_rows(v, row_weights(dat, res2.n_nodes))
         return assemble
 
-
     def measured(active: TransportModels) -> Callable[[npt.NDArray[np.float64], npt.NDArray[np.float64]], dict[str, float]]:
-
         def norm(
             residual: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
         ) -> dict[str, float]:
@@ -623,8 +562,6 @@ def solve_bias_newton(
                 device.degeneracy,
             )
             return residual_measure_by_family(residual, s, res2.n_nodes)
-
-
 
         return norm
 
@@ -652,7 +589,6 @@ def solve_bias_newton(
             device, active, run, x, max_surface_sweeps, surface_rtol
         )
 
-
     m: NewtonResult | None = None
     if _needs_a_low_field_prelude(models, guess):
         m = solve_with(_low_field_models(models), item); item = m.x
@@ -672,7 +608,6 @@ def solve_bias_ramped(
 ) -> DeviceState:
     if models is None:
         models = TransportModels.for_device(device)
-
 
     d = {dat.name: dat.voltage for dat in device.contacts}
 
@@ -705,7 +640,6 @@ def solve_bias_ramped(
         on_event=on_frame,
     )
 
-
     return solve_bias_newton(
         device,
         models=models,
@@ -737,7 +671,6 @@ def _gummel_prelude(device:Device, models: TransportModels, state: DeviceState, 
 
 
 def solve_bias_hybrid(device: Device, models: TransportModels | None = None, guess: DeviceState | None = None, gummel_cycles: int = CONFIG.bias.gummel_cycles, retry_cycles: int = CONFIG.bias.retry_cycles, max_psi_step: float = CONFIG.bias.max_psi_step, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None,) -> DeviceState:
-
     if models is None:
         models = TransportModels.for_device(device)
 
@@ -761,7 +694,6 @@ def solve_bias(
     on_frame:Callable[[object], None]|None = None,
 ) -> DeviceState:
     if models is None:
-
         models = TransportModels.for_device(device)
     k = initial_state(device) if guess is None else guess
     w = [

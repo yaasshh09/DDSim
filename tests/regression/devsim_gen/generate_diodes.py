@@ -7,7 +7,6 @@ from typing import Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-
 import parameters as P
 from devsim import (
     add_1d_contact,
@@ -39,18 +38,14 @@ def devsim_version() -> str:
         from importlib.metadata import version
         return version('devsim')
 
-
     except Exception:
         return 'unknown'
 
 
-
 def build_mesh(benchmark: P.DiodeBenchmark, device: str, refine: float = 1.0) -> None:
-
     e = device
     j = benchmark.devsim_h_junction / refine
     f = benchmark.devsim_h_bulk/refine
-
 
     create_1d_mesh(mesh=e)
     add_1d_mesh_line(mesh=e, pos=0.0, ps=f, tag='top')
@@ -64,7 +59,6 @@ def build_mesh(benchmark: P.DiodeBenchmark, device: str, refine: float = 1.0) ->
 
 
 def set_silicon_parameters(device:str) -> None:
-
     cur:dict[str, float] = {'Permittivity': P.EPS_R_SI * P.EPS_0, 'ElectronCharge':P.Q, "n_i": P.N_I, "T": P.T, "kT": P.K_B * P.T, 'V_t': P.V_T, 'mu_n':P.MU_N, "mu_p": P.MU_P, 'n1': P.N_I, "p1": P.N_I,}
     for info, tt in cur.items():
         set_parameter(device=device, region=REGION, name=info, value=tt)
@@ -121,8 +115,6 @@ def anode_current(device:str) -> float:
     return res + zz
 
 
-
-
 def cathode_current(device: str) -> float:
     zz = get_contact_current(device=device, contact=CATHODE, equation=ece_name)
     cnt = get_contact_current(device=device, contact=CATHODE, equation=hce_name)
@@ -132,8 +124,6 @@ def ramp_to(device: str, target: float, present: float, step: float) -> float:
     if abs(target - present) < 1e-15:
         return present
 
-
-
     x2 = 1.0 if target > present else -1.0
     num = max(1, int(round(abs(target - present) / step)))
     for item in range(1, num + 1):
@@ -142,19 +132,15 @@ def ramp_to(device: str, target: float, present: float, step: float) -> float:
             d = target
         set_parameter(device=device, name=f"{ANODE}_bias", value=d)
 
-
         solve(type='dc', absolute_error=1e10, relative_error=1e-12, maximum_iterations=60,)
     return target
 def sweep(benchmark: P.DiodeBenchmark, refine: float = 1.0) -> list[dict[str, Any]]:
-
-
     d = f"{benchmark.name}_r{refine:g}".replace(".",
                   '_')
     build_mesh(benchmark, d, refine=refine)
     set_doping(benchmark, d)
     set_silicon_parameters(d)
     build_physics(d)
-
 
     j = sorted((item for item in benchmark.voltages if item < 0.0), reverse=True)
     v = sorted(x for x in benchmark.voltages if x >= 0.0)
@@ -163,7 +149,6 @@ def sweep(benchmark: P.DiodeBenchmark, refine: float = 1.0) -> list[dict[str, An
     a = 0.0
 
     for z in (j, v):
-
         a = ramp_to(d, 0.0, a, step=0.05)
 
         for b in z:
@@ -182,7 +167,6 @@ def sweep(benchmark: P.DiodeBenchmark, refine: float = 1.0) -> list[dict[str, An
     return [z2[vals] for vals in sorted(z2)]
 
 
-
 def relative_difference(
     coarse: list[dict[str, Any]], fine:list[dict[str, Any]]
 ) -> tuple[float, float]:
@@ -199,14 +183,12 @@ def relative_difference(
     return num, f
 
 
-
 def write_csv(
     benchmark:P.DiodeBenchmark,
     rows:list[dict[str, Any]],
     mesh_check:tuple[float, float]|None,
     path:str,
 ) -> None:
-
     out = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
     h: list[str] = [
         f"# device: {benchmark.name}",
@@ -224,8 +206,6 @@ def write_csv(
         f"# devsim h_bulk: {benchmark.devsim_h_bulk:.6e}",
     ]
     if mesh_check is not None:
-
-
         item, k = mesh_check
         h.append(
             f"# mesh convergence: {item:.3e} worst relative change in current "
@@ -283,8 +263,6 @@ def main() -> int:
                 f"at {rows[1]:+g} V"
             )
 
-
-
         k = os.path.join(bb.out, f"{rr.name}.csv")
         write_csv(rr, hh, rows, k)
         print(f"[{rr.name}] wrote {k} with {len(hh)} points")
@@ -292,5 +270,4 @@ def main() -> int:
     return 0
 
 if __name__ == "__main__":
-
     raise SystemExit(main())

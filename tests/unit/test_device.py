@@ -23,7 +23,6 @@ def test_material_at_another_temperature_moves_n_i() -> None:
     assert Material.silicon(T=400.0).n_i > Material.silicon(T=300.0).n_i
 
 
-
 def test_build_device_evaluates_doping_on_the_mesh() -> None:
     e = uniform_mesh_1d(MICRON, 11)
     x = build_device(
@@ -50,7 +49,6 @@ def test_net_doping_scaled_divides_by_c_0() -> None:
     )
 
 
-
 def test_device_rejects_a_contact_outside_the_mesh() -> None:
     k = uniform_mesh_1d(MICRON, 11)
     with pytest.raises(IndexError, match="node"):
@@ -58,12 +56,9 @@ def test_device_rejects_a_contact_outside_the_mesh() -> None:
 
 
 def test_device_requires_at_least_one_contact() -> None:
-
-
     h = uniform_mesh_1d(MICRON, 11)
 
     with pytest.raises(ValueError, match="contact"):
-
         build_device(mesh=h,
              doping=Uniform(1e16),
               contacts=())
@@ -82,7 +77,6 @@ def test_doping_stays_re_evaluable_after_construction() -> None:
     assert tt[-1] == pytest.approx(1e17)
 
 def test_pn_diode_is_p_type_on_the_left_and_n_type_on_the_right() -> None:
-
     stuff = pn_diode(Na=1e16, Nd=1e16); assert stuff.net_doping.data[0] < 0.0
     assert stuff.net_doping.data[-1] > 0.0
 
@@ -98,13 +92,11 @@ def test_pn_diode_refines_the_mesh_at_the_junction() -> None:
     assert abs(u - 0.5 * MICRON) < 2e-7
 
 def test_pn_diode_contacts_default_to_zero_bias() -> None:
-
     k = pn_diode()
     assert all(b.voltage == 0.0 for b in k.contacts)
 
 
 def test_equilibrium_solve_converges() -> None:
-
     m = solve_equilibrium(pn_diode())
     assert m.newton.converged
 
@@ -113,22 +105,16 @@ def test_equilibrium_solve_converges_in_under_ten_iterations() -> None:
     assert t2.newton.iterations < 10, t2.newton.residual_history
 
 
-
-
 def test_equilibrium_state_fields_are_scaled_node_fields() -> None:
     c = solve_equilibrium(pn_diode())
     for tmp3 in (c.psi,
                  c.n,
                    c.p):
-
         assert tmp3.scaling is ScalingState.SCALED
         assert tmp3.location is Location.NODE
 
 
-
 def test_equilibrium_psi_can_be_converted_to_volts() -> None:
-
-
     xs = pn_diode()
 
     e = solve_equilibrium(xs)
@@ -140,19 +126,15 @@ def test_equilibrium_psi_can_be_converted_to_volts() -> None:
 def test_equilibrium_pins_psi_at_the_contacts() -> None:
     from ddsim.discretize.boundary import ohmic_psi_scaled
 
-
     z = pn_diode(Na=1e16, Nd=1e16)
     b = solve_equilibrium(z)
     g = z.net_doping_scaled.data
     for zz in z.contacts:
-
         flag = ohmic_psi_scaled(float(g[zz.node]), 0.0)
         assert b.psi.data[zz.node] == pytest.approx(flag, rel=1e-10)
 
 
-
 def test_equilibrium_is_flat_in_uniform_material() -> None:
-
     cur = uniform_mesh_1d(MICRON, 51)
     x = build_device(mesh=cur, doping=Uniform(1e16), contacts=(OhmicContact('left', 0, 0.0), OhmicContact("right", 50, 0.0)),)
     tt = solve_equilibrium(x)
@@ -160,20 +142,15 @@ def test_equilibrium_is_flat_in_uniform_material() -> None:
 
 
 def test_equilibrium_reports_the_residual_history() -> None:
-
-
     a2 = solve_equilibrium(pn_diode())
     assert len(a2.newton.residual_history) == a2.newton.iterations + 1
     assert a2.newton.residual_history[-1] < a2.newton.residual_history[0]
-
 
 
 def test_equilibrium_raises_if_it_fails_to_converge() -> None:
     with pytest.raises(RuntimeError,
                 match="converge"):
         solve_equilibrium(pn_diode(), max_iterations=1)
-
-
 
 
 def test_equilibrium_accepts_a_device_with_a_bias_applied() -> None:
@@ -184,10 +161,7 @@ def test_equilibrium_accepts_a_device_with_a_bias_applied() -> None:
     assert vv[0] < vv[-1]
 
 
-
 def test_device_state_is_immutable() -> None:
-
-
     thing = solve_equilibrium(pn_diode())
     with pytest.raises(AttributeError):
         thing.psi = None
@@ -199,7 +173,6 @@ def test_solve_does_not_mutate_the_device() -> None:
     np.testing.assert_array_equal(h.net_doping.data, t2)
 
 def test_device_repr_is_informative() -> None:
-
     w = repr(pn_diode())
     assert "Device" in w
     assert "nodes" in w
@@ -212,7 +185,6 @@ def test_build_device_defaults_to_silicon() -> None:
     assert isinstance(kk, Device)
 
     assert kk.material.n_i == 1.0e10
-
 
 
 def test_device_rejects_duplicate_contact_names() -> None:

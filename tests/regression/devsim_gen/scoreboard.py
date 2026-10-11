@@ -32,7 +32,6 @@ def solve_types() -> list[str]:
         f"solver:{w2}" for w2 in _choices(m, 'solver_type')
     ]
 def gmsh_elements() -> list[str]:
-
     obj = re.findall(r"- \d+ (\w+)", devsim.create_gmsh_mesh.__doc__ or "")
     if 'triangle' not in obj:
         raise RuntimeError("create_gmsh_mesh's docstring no longer lists element types")
@@ -40,14 +39,12 @@ def gmsh_elements() -> list[str]:
 def package_functions() -> list[str]:
     import devsim.python_packages as packages
 
-
     val = os.path.dirname(packages.__file__)
     m = []
     for t2 in sorted(os.listdir(val)):
         if not t2.endswith(".py") or t2.startswith('__'):
             continue
         with open(os.path.join(val, t2), encoding='utf-8') as aa:
-
             z = ast.parse(aa.read())
         prev = t2[:-3]
         for item in z.body:
@@ -66,9 +63,7 @@ def write_api() -> str:
     ]
     d += idx
 
-
     d += solve_types()
-
 
     d += gmsh_elements()
     d += package_functions()
@@ -94,11 +89,8 @@ def read_cases() -> list[dict[str, Any]]:
     return [{"case":g['case'], "device": g['device'], "knobs":json.loads(g['knobs']),} for g in csv.DictReader(c)]
 
 
-
-
 def _noop(device: str) -> None:
     return None
-
 
 
 def _stock_ramp(device: str, contact: str, target: float, step: float) -> None:
@@ -134,8 +126,6 @@ def _diode(case:dict[str, Any], driver:str) -> tuple[float, float, float]:
         if driver == "devsim_stock":
             _stock_ramp(y, GD.ANODE, ys, 0.05)
         else:
-
-
             v = 0.05 if driver == 'devsim_expert' else 0.05 / FINE
             GD.ramp_to(y, ys, 0.0, step=v)
     el = GD.anode_current(y)
@@ -162,7 +152,6 @@ def _mos_cap(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
             device=g, name=f"{GC.GATE}_bias", value=GC.gate_potential(m, v)
         )
         devsim.solve(type='dc', absolute_error=1e-10, relative_error=1e-12, maximum_iterations=100,)
-
 
     with GM.quiet():
         GC.build_mesh(m, g)
@@ -191,8 +180,6 @@ def _mos_cap(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
 
 
 def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
-
-
     idx = case['knobs']
     t = dict(P.MOSFET_PROCESS)
     for m in ("substrate_doping", "sd_peak", 'x_j', "lateral_diffusion", "t_ox"):
@@ -225,7 +212,6 @@ def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
         with GM.quiet():
             GM.build_mesh(w, arr, process=t)
 
-
             GM.set_material_parameters(arr)
             GM.set_doping(w, arr, process=t)
             if driver == 'devsim_expert':
@@ -234,8 +220,6 @@ def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
             else:
                 GM.build_physics(arr, 0.0, 0.0, P.FULL_MODELS, v)
                 if driver == "devsim_stock":
-
-
                     _stock_ramp(arr, GM.DRAIN, s, 0.1)
                     _stock_ramp(arr, GM.GATE, y, 0.1)
                 else:
@@ -247,7 +231,6 @@ def _nmos(case: dict[str, Any], driver: str) -> tuple[float, float, float]:
             GM.terminal_current(arr, h) for h in (GM.DRAIN, GM.SOURCE, GM.BODY)
         ]
     finally:
-
         GM._surface_is_live = False
     return k[0], abs(sum(k)), max(abs(b) for b in k)
 
@@ -255,14 +238,12 @@ SOLVERS = {"pn_diode":_diode, "mos_cap": _mos_cap, "nmos": _nmos}
 
 
 def _done(path: str) -> set[tuple[str, str]]:
-
     if not os.path.exists(path):
         return set()
 
     with open(path, encoding="utf-8") as t:
         j = [m for m in t.read().splitlines() if not m.startswith("#")]
     return {(y["case"], y['driver']) for y in csv.DictReader(j)}
-
 
 
 def run(names:list[str] | None, path:str, resume: bool = False) -> str:
@@ -278,7 +259,6 @@ def run(names:list[str] | None, path:str, resume: bool = False) -> str:
         f"# fine step {1.0 / FINE:g} of the expert step",
         'case,driver,converged,value,imbalance,largest,seconds,message',
     ]
-
 
     with open(path, 'a' if k else "w", encoding='utf-8', newline="\n") as a2:
         if not k:
@@ -296,7 +276,6 @@ def run(names:list[str] | None, path:str, resume: bool = False) -> str:
                     xs = m = j = math.nan
                     v = False
                     x = str(d).replace("\n", ' ').replace('"', "'")[:200]
-
 
                 finally:
                     _cleanup()
@@ -337,7 +316,6 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
                  item)
             GD.set_silicon_parameters(item)
 
-
             GD.build_physics(item)
             GD.ramp_to(item, 0.6, 0.0, step=0.05)
         return _silicon_nodes(item, GD.REGION), GD.anode_current(item)
@@ -365,13 +343,11 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
                     maximum_iterations=100,
                 )
 
-
                 w.append(
                     devsim.get_contact_charge(
                         device=item, contact=GC.GATE, equation="PotentialEquation"
                     )
                 )
-
 
         i = (w[1]-w[0]) / (2.0 * CV_STEP); return _silicon_nodes(item, GC.SILICON), i
     import dataclasses
@@ -396,10 +372,7 @@ def run_accuracy(path: str) -> str:
         tt.write("\n".join(res2)+"\n")
 
         for flag, v in ACCURACY:
-
-
             for u in REFINEMENTS:
-
                 cc = time.perf_counter()
                 try:
                     y, b = accuracy_point(v, u)
@@ -433,8 +406,6 @@ def speed_sweep(name: str) -> int:
         with GM.quiet():
             return len(GD.sweep(P.BY_NAME[name]))
     if name.startswith("mos_cap"):
-
-
         r = {buf.name:buf for buf in P.MOS_BENCHMARKS}[name]
         with GM.quiet():
             return len(GC.sweep(r))
@@ -464,8 +435,6 @@ def run_speed(path: str) -> str:
                 except Exception as k2:
                     y2 = 0; print(f"{it} run {k} failed: {k2}")
                 finally:
-
-
                     _cleanup()
                 ok = time.perf_counter() - w2; tt.write(f"{ret},{it},{k},{y2},{ok:.3f}\n")
                 tt.flush()
@@ -473,7 +442,6 @@ def run_speed(path: str) -> str:
 
     return path
 def main() -> int:
-
     tmp2 = argparse.ArgumentParser(description="The DEVSIM side of the Phase 8 scoreboard.")
     tmp2.add_argument("command", choices=['api', "run", "accuracy", "speed"])
     tmp2.add_argument('names', nargs="*", help='run only these cases')
@@ -488,7 +456,6 @@ def main() -> int:
     elif xs.command == "speed":
         print(run_speed(xs.out or os.path.join(OUT, 'devsim_speed.csv')))
     else:
-
         v2 = xs.out or os.path.join(OUT, 'devsim_robustness.csv'); print(run(xs.names or None, v2, resume=xs.resume))
     return 0
 if __name__ == '__main__':

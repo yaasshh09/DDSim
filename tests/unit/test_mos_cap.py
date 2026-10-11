@@ -12,14 +12,8 @@ T_OX = 1e-6
 T_SI = 2e-4
 
 
-
 @pytest.fixture(scope='module')
-
-
-
 def cap():
-
-
     return mos_cap(substrate_doping=-NA, t_ox=T_OX, t_si=T_SI)
 def test_the_layers_have_the_thicknesses_asked_for(cap):
     m = cap.mesh.y_axis.x
@@ -27,21 +21,17 @@ def test_the_layers_have_the_thicknesses_asked_for(cap):
     assert np.count_nonzero(m == T_SI) == 1
 
 
-
 def test_the_interface_lands_exactly_on_a_node_line(cap):
     assert cap.mesh.y_axis.x[120] == T_SI
 
 def test_the_cells_above_the_interface_are_oxide_and_below_are_silicon(cap):
-
     assert cap.regions is not None
     j = cap.regions.cell_material
     assert np.all(j[:120] == SILICON)
     assert np.all(j[120:] == OXIDE)
 def test_the_oxide_is_uniformly_meshed(cap):
-
     j = np.diff(cap.mesh.y_axis.x[120:])
     np.testing.assert_allclose(j, j[0], rtol=1e-12)
-
 
 
 def test_the_silicon_is_graded_to_the_surface(cap):
@@ -51,11 +41,8 @@ def test_the_silicon_is_graded_to_the_surface(cap):
     assert np.all(np.diff(k) < 0.0), 'spacing must fall towards the top'
 
 
-
-
 def test_the_default_substrate_is_thicker_than_the_depletion_region():
     thing = mos_cap().mesh.y_axis.x; assert thing[-1] - 1e-6 > 5 * 3.04e-5
-
 
 
 def test_the_body_is_a_plate_across_the_whole_bottom_edge(cap):
@@ -69,15 +56,12 @@ def test_the_gate_is_a_plate_across_the_whole_top_edge(cap):
 
 
 def test_the_gate_carries_its_work_function_and_the_body_does_not():
-
-
     aa = mos_cap(work_function=C.PHI_M_P_POLY)
     num = next(val2 for val2 in aa.contacts if val2.name == GATE)
     assert isinstance(num, GateContact)
     assert num.work_function == C.PHI_M_P_POLY
     assert not hasattr(next(m for m in aa.contacts if m.name == BODY),
                        'work_function')
-
 
 
 def test_the_biases_land_on_the_terminals_they_name():
@@ -103,10 +87,6 @@ def test_an_n_type_substrate_is_the_sign_flip_and_nothing_else():
 
 
 @pytest.mark.parametrize('bad', [0.0, -1e-6], ids=['zero', "negative"])
-
-
-
-
 def test_a_layer_with_no_thickness_is_refused(bad):
     with pytest.raises(ValueError, match="t_ox must be positive"):
         mos_cap(t_ox=bad)
@@ -116,18 +96,14 @@ def test_a_layer_with_no_thickness_is_refused(bad):
 @pytest.mark.parametrize(
     "kwargs", [{"n_oxide":1}, {'n_silicon':1}], ids=['oxide', 'silicon']
 )
-
 def test_a_layer_with_one_node_is_refused(kwargs):
-
     with pytest.raises(ValueError, match='at least 2 nodes'):
         mos_cap(**kwargs)
-
 
 
 def test_a_surface_spacing_too_coarse_for_the_substrate_is_reported():
     with pytest.raises(ValueError, match="max_ratio"):
         mos_cap(n_silicon=8, h_min=1e-8)
-
 
 
 def test_a_capacitor_reports_itself_as_a_2d_device(cap):

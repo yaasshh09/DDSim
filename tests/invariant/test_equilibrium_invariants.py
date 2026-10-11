@@ -20,11 +20,9 @@ DEVICES = {
 
 
 @pytest.fixture(params=sorted(DEVICES), ids=sorted(DEVICES))
-
 def solved(request):
     c = DEVICES[request.param]()
     return c, solve_equilibrium(c)
-
 
 
 def test_np_equals_n_i_squared_everywhere(solved) -> None:
@@ -32,7 +30,6 @@ def test_np_equals_n_i_squared_everywhere(solved) -> None:
     xx = f.n.data * f.p.data
 
     np.testing.assert_allclose(xx, 1.0, rtol=1e-8)
-
 
 
 def test_np_equals_n_i_squared_in_physical_units(solved) -> None:
@@ -48,13 +45,11 @@ def test_carrier_densities_are_strictly_positive(solved) -> None:
     assert np.all(ys.p.data > 0.0)
 
 
-
 def test_carrier_densities_are_finite(solved) -> None:
     _, e = solved
     assert np.all(np.isfinite(e.n.data)); assert np.all(np.isfinite(e.p.data))
 
 def test_bulk_is_charge_neutral(solved) -> None:
-
     c, buf = solved
     y = c.net_doping_scaled.data
 
@@ -75,11 +70,8 @@ def test_total_charge_in_the_device_is_conserved(solved) -> None:
     rr, f = solved
     bar = rr.net_doping_scaled.data
 
-
     j = f.p.data - f.n.data+bar
     z = rr.mesh.volume / rr.scale.x_0
-
-
 
     v = float(np.sum(j * z))
     v2 = float(np.sum(np.abs(j)*z))
@@ -93,12 +85,10 @@ def test_densities_agree_with_boltzmann_applied_to_psi(solved) -> None:
 def test_majority_carrier_matches_the_doping_in_the_bulk(solved) -> None:
     v2, zz = solved; s = v2.net_doping_scaled.data
 
-
     m = s > 0.0
     s2 = s < 0.0
     res = int(np.flatnonzero(m)[-1])
     h = int(np.flatnonzero(s2)[0])
-
 
     assert zz.n.data[res] == pytest.approx(s[res], rel=1e-6)
     assert zz.p.data[h] == pytest.approx(-s[h], rel=1e-6)
@@ -108,11 +98,7 @@ def test_potential_is_monotonic_across_the_junction(solved) -> None:
     assert np.all(np.diff(w.psi.data) > -1e-12)
 
 
-
-
 def test_invariants_hold_for_a_gaussian_profile() -> None:
-
-
     j = uniform_mesh_1d(8.0 * MICRON, 601)
     z = build_device(
         mesh=j,
@@ -137,18 +123,15 @@ def test_invariants_hold_for_a_compensated_profile() -> None:
     assert np.all(np.isfinite(g.psi.data))
 
 def test_invariants_hold_under_reverse_bias() -> None:
-
     cc = pn_diode(Na=1e16, Nd=1e16, length=12e-4, junction=6e-4, anode_voltage=-1.0)
     h = solve_equilibrium(cc, frozen_quasi_fermi(cc))
     phi_n, phi_p = frozen_quasi_fermi(cc)
-
 
     y = np.exp(phi_p.data - phi_n.data)
     bb = h.n.data * h.p.data
     np.testing.assert_allclose(bb, y, rtol=1e-8)
     assert np.all(h.n.data > 0.0)
     assert np.all(h.p.data > 0.0)
-
 
 
 def test_intrinsic_material_stays_intrinsic() -> None:

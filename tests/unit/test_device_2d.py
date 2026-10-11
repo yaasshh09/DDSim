@@ -28,10 +28,7 @@ def stack_mesh():
     )
 
 
-
-
 def mos_contacts(mesh):
-
     x = OhmicPlate(
         name='body',
         nodes=tuple(mesh.node_at(rows, 0) for rows in range(mesh.nx)),
@@ -42,18 +39,13 @@ def mos_contacts(mesh):
     return (x, a2)
 
 
-
 def mos_device(mesh=None, regions=None):
     mesh = stack_mesh() if mesh is None else mesh
     regions = stacked_regions(mesh, interface_y=T_SI) if regions is None else regions
     return build_device(mesh=mesh, doping=Uniform(-NA), contacts=mos_contacts(mesh), regions=regions,)
 
 
-
-
 class TestScaling:
-
-
     def test_a_2d_dual_volume_is_scaled_by_x_0_squared(self) -> None:
         bb = uniform_mesh_2d(width=1e-4, height=1e-4, nx=5, ny=5)
         d = build_device(mesh=bb, doping=Uniform(1e16), contacts=(OhmicContact(name='body', node=0, voltage=0.0),),)
@@ -86,11 +78,7 @@ class TestScaling:
         assert m.max() == pytest.approx(1.0, rel=1e-12)
 
 
-
-
 class TestChargeVolume:
-
-
     def test_the_charge_volume_is_zero_in_the_oxide(self) -> None:
         b2 = mos_device()
         out = b2.regions.oxide_nodes
@@ -99,16 +87,11 @@ class TestChargeVolume:
         np.testing.assert_array_equal(b2.charge_volume_scaled[out], 0.0)
 
     def test_the_charge_volume_is_not_the_geometric_volume(self) -> None:
-
-
         u = mos_device()
-
-
 
         assert not np.allclose(
             u.charge_volume_scaled, u.scaled_mesh.volume
         )
-
 
     def test_the_interface_node_keeps_half_its_cell(self) -> None:
         ss = mos_device()
@@ -121,14 +104,11 @@ class TestChargeVolume:
             0.5 * ss.charge_volume_scaled[u], rel=1e-12
         )
 
-
-
     def test_the_charge_volume_sums_to_the_silicon_area(self) -> None:
         v = mos_device()
         i = WIDTH*T_SI / v.scale.x_0 ** 2
         assert float(np.sum(v.charge_volume_scaled)) == pytest.approx(i, rel=1e-12)
 class TestDoping:
-
     def test_the_doping_is_zeroed_where_there_is_no_semiconductor(self) -> None:
         k = mos_device()
 
@@ -144,12 +124,10 @@ class TestDoping:
         rr = uniform_mesh_2d(width=1e-4, height=1e-4, nx=4, ny=4)
         y = build_device(mesh=rr, doping=Uniform(1e16), contacts=(OhmicContact(name="body", node=0, voltage=0.0),),)
 
-
         np.testing.assert_allclose(y.net_doping.data, 1e16)
 
 
 class TestValidation:
-
     def test_a_contact_outside_the_mesh_is_refused(self) -> None:
         u = stack_mesh()
         with pytest.raises(IndexError, match='node'):
@@ -158,12 +136,10 @@ class TestValidation:
     def test_a_region_map_from_another_mesh_is_refused(self) -> None:
         s = stack_mesh()
 
-
         w = tensor_mesh_2d(
             uniform_mesh_1d(length=WIDTH, n_nodes=4),
             uniform_mesh_1d(length=T_SI + T_OX, n_nodes=s.ny),
         )
-
 
         with pytest.raises(ValueError, match="region"):
             build_device(mesh=s, doping=Uniform(-NA), contacts=mos_contacts(s), regions=stacked_regions(w, interface_y=T_SI),)
@@ -185,7 +161,6 @@ class TestValidation:
         with pytest.raises(ValueError, match="unique"):
             build_device(mesh=a2, doping=Uniform(-NA), contacts=(OhmicPlate(name="body", nodes=(0,), voltage=0.0), OhmicPlate(name='body', nodes=(1,), voltage=0.0),),)
     def test_the_uncoupled_blocks_refuse_a_gate(self) -> None:
-
         mm = mos_device()
 
         with pytest.raises(TypeError, match='touch semiconductor'):
@@ -194,7 +169,6 @@ class TestValidation:
         cnt = build_device(mesh=uniform_mesh_2d(width=1e-4, height=1e-4, nx=3, ny=3), doping=Uniform(1e16), contacts=(OhmicPlate(name="body", nodes=(0,), voltage=0.0),),)
         with pytest.raises(TypeError, match="this is the Gummel"):
             _ = cnt.mesh_1d
-
 
     def test_the_transport_path_accepts_a_plate(self) -> None:
         i = build_device(
@@ -208,20 +182,15 @@ class TestValidation:
 
         assert [v2.name for v2 in i.ohmic_contacts] == ["left", "right"]
     def test_a_single_material_device_has_no_carrier_free_nodes(self) -> None:
-
         k = build_device(
             mesh=uniform_mesh_1d(1e-4, 11),
             doping=Uniform(1e16),
             contacts=(OhmicContact(name="anode", node=0, voltage=0.0),),
         )
 
-
         assert k.carrier_free_nodes == ()
 
-
     def test_the_oxide_nodes_of_a_stack_are_the_ones_pinned(self) -> None:
-
-
         dd = mos_device()
         assert dd.carrier_free_nodes == tuple(int(b) for b in dd.regions.oxide_nodes)
         assert len(dd.carrier_free_nodes) > 0
@@ -231,7 +200,6 @@ class TestValidation:
 
 
 class TestBias:
-
     def test_the_gate_bias_can_be_changed_by_name(self) -> None:
         b = mos_device()
         f = b.with_bias(gate=1.5)
@@ -260,14 +228,10 @@ def test_a_2d_device_reports_itself_sensibly() -> None:
 def test_scale_factors_are_shared_between_1d_and_2d() -> None:
     x2 = mos_device()
 
-
     assert x2.scale == ScaleFactors.for_silicon(C_0=C.n_i())
 
 
-
-
 def test_a_profile_that_reads_x_alone_gets_exactly_what_it_used_to() -> None:
-
     z = stack_mesh()
     b2 = Gaussian(peak=1e18, centre=0.5 * WIDTH, sigma=0.2 * WIDTH)
 
@@ -287,10 +251,8 @@ def test_the_mos_capacitor_substrate_is_still_flat() -> None:
     tt = np.zeros(r.mesh.n_nodes, dtype=bool)
     tt[list(r.regions.oxide_nodes)] = True
 
-
     np.testing.assert_array_equal(v[tt], 0.0)
     np.testing.assert_array_equal(v[~tt], -NA)
-
 
 
 def test_a_depth_profile_reaches_the_second_axis() -> None:
@@ -326,7 +288,6 @@ def test_a_depth_profile_on_one_column_reproduces_the_line() -> None:
     np.testing.assert_array_equal(d.net_doping.data[v], item.net_doping.data)
 
 
-
 def test_a_depth_profile_on_a_line_is_refused() -> None:
     it = build_device(
         mesh=uniform_mesh_1d(length=T_SI, n_nodes=11),
@@ -354,8 +315,6 @@ def test_a_device_with_no_gate_keeps_every_contact() -> None:
 def test_asking_which_contacts_carry_current_never_refuses() -> None:
     z = mos_device()
 
-
     with pytest.raises(TypeError):
-
         _ = z.ohmic_contacts
     assert z.semiconductor_contacts

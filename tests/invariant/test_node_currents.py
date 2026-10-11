@@ -17,10 +17,6 @@ from tests.invariant.test_current_continuity_2d import (
 )
 
 @pytest.fixture(scope="module")
-
-
-
-
 def plain():
     d2 = diode_2d(); el, u = solved(d2)
 
@@ -28,16 +24,13 @@ def plain():
 
 
 def test_on_a_diode_uniform_in_y_the_current_points_along_x(plain) -> None:
-
     out2, d, r = plain
     a, bb = node_current_density(out2, d, r)
-
 
     assert np.max(np.abs(bb)) < 1e-9 * np.max(np.abs(a))
 
 
 def test_every_row_carries_the_same_x_current(plain) -> None:
-
     z, obj, c = plain
 
     r, _ = node_current_density(z, obj, c)
@@ -56,14 +49,11 @@ def test_a_column_of_node_current_integrates_to_the_cut_current(plain) -> None:
     assert float(np.sum(v2 * flag)) == pytest.approx(r, rel=1e-6)
 
 def test_a_vertical_edge_lands_on_the_nodes_above_and_below_it(monkeypatch) -> None:
-
     g = diode_2d()
     rr = g.mesh
     flag, t2 = 3, 2
 
     lst = rr.n_horizontal + t2 * rr.nx + flag
-
-
 
     w = np.zeros(rr.n_edges)
     w[lst] = 1.0
@@ -75,7 +65,6 @@ def test_a_vertical_edge_lands_on_the_nodes_above_and_below_it(monkeypatch) -> N
     assert set(np.flatnonzero(c)) == {rr.node_at(flag, t2), rr.node_at(flag, t2 + 1)}
 
 def test_on_a_1d_diode_every_node_carries_the_edge_current() -> None:
-
     ss, tt, y2 = solved_1d(0.5, NoRecombination())
     m, vals = current_densities(ss, tt, y2)
     g, t = node_current_density(ss, tt, y2)

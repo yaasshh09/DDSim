@@ -31,7 +31,6 @@ EPS = float(np.finfo(np.float64).eps)
 
 
 class Unknown(IntEnum):
-
     PSI = 0
 
     N = 1
@@ -42,10 +41,7 @@ UNKNOWNS_PER_NODE = len(Unknown)
 Number = TypeVar("Number", np.float64, np.complex128)
 
 
-
 TermScales = tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]
-
-
 
 
 def unknown_index(node:int, component:Unknown) -> int:
@@ -62,7 +58,6 @@ def pack(psi: npt.NDArray[Number], n: npt.NDArray[Number], p: npt.NDArray[Number
     r[Unknown.P::UNKNOWNS_PER_NODE] = p
 
     return r
-
 
 
 def unpack(
@@ -84,7 +79,6 @@ def effective_potentials(psi:npt.NDArray[Number], n:npt.NDArray[Number], p:npt.N
     if degeneracy is None:
         return psi, psi
 
-
     cur = cast('npt.NDArray[np.float64]', psi); i = cast("npt.NDArray[np.float64]", n)
 
     f = cast('npt.NDArray[np.float64]', p)
@@ -100,7 +94,6 @@ def effective_potentials(psi:npt.NDArray[Number], n:npt.NDArray[Number], p:npt.N
 def _bernoulli_pair(psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
     r = edge_drop(psi, geometry)
     return np.asarray(B(r)), np.asarray(B(-r))
-
 
 
 def _diffusivity_at(
@@ -122,7 +115,6 @@ def _diffusivity_tangent(
 
 
 def _bernoulli_derivative_pair(psi:npt.NDArray[np.float64], geometry:EdgeGeometry = UNIFORM_1D) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-
     vals = edge_drop(psi, geometry)
     return (
         np.asarray(dB_dx(vals), dtype=np.float64),
@@ -140,8 +132,6 @@ def coupled_residual(
     geometry: EdgeGeometry = UNIFORM_1D,
     degeneracy: Degeneracy | None = None,
 ) -> npt.NDArray[Number]:
-
-
     psi, n, p = unpack(x)
     z2 = cast(
         "npt.NDArray[Number]",
@@ -181,7 +171,6 @@ def _residual_from(h: npt.NDArray[np.float64], volume: npt.NDArray[np.float64], 
     u += R * volume
     np.add.at(u, res, -z)
 
-
     np.add.at(u, v, z)
 
     r = (Dp * geometry.carrier_face / h) * (
@@ -194,16 +183,13 @@ def _residual_from(h: npt.NDArray[np.float64], volume: npt.NDArray[np.float64], 
     return dd
 
 
-
 class NodeRange(Enum):
-
     ALL = "all"
 
     LEFT = "left"
     RIGHT = "right"
 
 class _Triplets:
-
     def __init__(
         self, n_nodes: int, geometry: EdgeGeometry = UNIFORM_1D
     ) -> None:
@@ -217,7 +203,6 @@ class _Triplets:
 
         self._values:list[npt.NDArray[np.float64]] = []
     def add(self, equation: Unknown, at_nodes: NodeRange, unknown: Unknown, of_nodes: NodeRange, values: npt.NDArray[np.float64],) -> None:
-
         self._rows.append(
             UNKNOWNS_PER_NODE * self._nodes[at_nodes] + int(equation)
         )
@@ -252,9 +237,7 @@ def coupled_jacobian(
     return _jacobian_from(h, volume, x, _diffusivity_at(Dn, psi, h, geometry), _diffusivity_at(Dp, psi, h, geometry), _bernoulli_pair(u, geometry), _bernoulli_pair(arr, geometry), _bernoulli_derivative_pair(u, geometry), _bernoulli_derivative_pair(arr, geometry), np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64), np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64), geometry, _diffusivity_tangent(Dn, psi, h, geometry), _diffusivity_tangent(Dp, psi, h, geometry), *_potential_tangents(n, p, degeneracy),)
 
 
-
 def _potential_tangents(n:npt.NDArray[np.float64], p: npt.NDArray[np.float64], degeneracy: Degeneracy | None,) -> tuple[npt.NDArray[np.float64]|None, npt.NDArray[np.float64] | None]:
-
     if degeneracy is None:
         return None, None
     return degeneracy.d_electron_potential_dn(n), degeneracy.d_hole_potential_dp(p)
@@ -270,21 +253,17 @@ def _jacobian_from(h:npt.NDArray[np.float64], volume: npt.NDArray[np.float64], x
 
     r, cur = dbernoulli_p
 
-
     i = NodeRange.ALL
     b2 = NodeRange.LEFT; k2 = NodeRange.RIGHT
 
     b = _Triplets(ii, geometry)
     jj, d = geometry.ends(h.size)
 
-
-
     rows = geometry.weight / h
     f = np.zeros(ii)
     np.add.at(f, jj, rows)
     np.add.at(f, d, rows)
     b.add(Unknown.PSI, i, Unknown.PSI, i, f); b.add(Unknown.PSI, b2, Unknown.PSI, k2, -rows)
-
 
     b.add(Unknown.PSI, k2, Unknown.PSI, b2, -rows)
 
@@ -314,7 +293,6 @@ def _jacobian_from(h:npt.NDArray[np.float64], volume: npt.NDArray[np.float64], x
 
     a2 = (Dn * geometry.carrier_face/h) * dd
     if dpsi_n_dn is not None:
-
         res = res + z * dpsi_n_dn[d]
         a2 = a2 + z * dpsi_n_dn[jj]
     f = dR_dn * volume
@@ -341,12 +319,10 @@ def _jacobian_from(h:npt.NDArray[np.float64], volume: npt.NDArray[np.float64], x
     b.add(Unknown.P, b2, Unknown.PSI, k2, v)
     b.add(Unknown.P, k2, Unknown.PSI, b2, v)
 
-
     b.add(Unknown.P, i, Unknown.N, i, dR_dn * volume)
     a2 = (Dp * geometry.carrier_face / h) * vv
     res = (Dp * geometry.carrier_face / h) * row
     if dpsi_p_dp is not None:
-
         a2 = a2 - ret * dpsi_p_dp[jj]; res = res - ret * dpsi_p_dp[d]
     f = dR_dp*volume
     np.add.at(f, jj, a2)
@@ -374,8 +350,6 @@ def assemble_coupled(mesh: Mesh1D, psi:Field, n:Field, p: Field, net_doping:Fiel
         if ii.location is not Location.NODE:
             raise ValueError(f"{d} must live on NODE, got {ii.location.name}.")
         if ii.size != mesh.n_nodes:
-
-
             raise ValueError(
                 f"{d} has length {ii.size} but the mesh has "
                 f"{mesh.n_nodes} nodes."
@@ -401,9 +375,6 @@ def assemble_coupled_arrays(h: npt.NDArray[np.float64], volume: npt.NDArray[np.f
     ).assembly
 
 class CoupledAssembly(NamedTuple):
-
-
-
     assembly: SparseAssembly
 
     scales:TermScales
@@ -433,7 +404,6 @@ def assemble_coupled_terms(
     g = np.asarray(recombination.rate(n, p), dtype=np.float64)
     d = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
     m = np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64)
-
 
     u = _diffusivity_at(Dn, psi, h, geometry)
     v = _diffusivity_at(Dp, psi, h, geometry)
@@ -466,17 +436,14 @@ def assemble_coupled_terms(
     )
 
 
-
 def limit_psi_step(delta: npt.NDArray[np.float64], max_psi_step:float) -> npt.NDArray[np.float64]:
     vv = delta[Unknown.PSI::UNKNOWNS_PER_NODE]
-
 
     v = float(np.max(np.abs(vv)))
     if v <= max_psi_step:
         return delta
     d = delta.copy()
     d[Unknown.PSI::UNKNOWNS_PER_NODE] = vv * (max_psi_step / v); return d
-
 
 
 def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier_free_nodes: Sequence[int] = (), T:float = C.T_ROOM, degeneracy:Degeneracy | None = None,) -> SparseAssembly:
@@ -494,7 +461,6 @@ def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], 
                 h.append(unknown_index(w, Unknown.PSI))
                 u.append(it)
             continue
-
 
         for w in e.nodes:
             xs = float(net_doping[w])
@@ -516,7 +482,6 @@ def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], 
     return apply_dirichlet_nodes(assembly, x, h, u)
 
 
-
 def residual_term_scales(
     h:npt.NDArray[np.float64],
     volume: npt.NDArray[np.float64],
@@ -528,16 +493,12 @@ def residual_term_scales(
     geometry: EdgeGeometry = UNIFORM_1D,
     degeneracy: Degeneracy | None = None,
 ) -> TermScales:
-
-
     psi, n, p = unpack(x)
     c, k = effective_potentials(psi, n, p, degeneracy)
     return _term_scales_from(h, volume, x, net_doping, _diffusivity_at(Dn, psi, h, geometry), _diffusivity_at(Dp, psi, h, geometry), _bernoulli_pair(c, geometry), _bernoulli_pair(k, geometry), R, geometry,)
 
 def _term_scales_from(h:npt.NDArray[np.float64], volume: npt.NDArray[np.float64], x: npt.NDArray[np.float64], net_doping:npt.NDArray[np.float64], Dn:Diffusivity, Dp:Diffusivity, bernoulli_n:tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], bernoulli_p:tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], R:npt.NDArray[np.float64] | None, geometry: EdgeGeometry = UNIFORM_1D,) -> TermScales:
-
     psi, n, p = unpack(x)
-
 
     t2, flag = bernoulli_n
     bar, v = bernoulli_p
@@ -572,7 +533,6 @@ def _term_scales_from(h:npt.NDArray[np.float64], volume: npt.NDArray[np.float64]
         c,
     )
 
-
     g = (m, s, obj)
 
     if not all(bool(np.all(np.isfinite(tmp3))) for tmp3 in g):
@@ -594,7 +554,6 @@ def _term_scales_from(h:npt.NDArray[np.float64], volume: npt.NDArray[np.float64]
     return g
 
 
-
 def _largest_at_each_node(edge_term: npt.NDArray[np.float64], node_left: npt.NDArray[np.int64], node_right: npt.NDArray[np.int64], n_nodes:int,) -> npt.NDArray[np.float64]:
     k = np.zeros(n_nodes)
     np.maximum.at(k, node_left, edge_term); np.maximum.at(k, node_right, edge_term)
@@ -602,8 +561,6 @@ def _largest_at_each_node(edge_term: npt.NDArray[np.float64], node_left: npt.NDA
 
 
 def row_weights(scales:TermScales, n_nodes: int) -> npt.NDArray[np.float64]:
-
-
     k2 = np.empty(UNKNOWNS_PER_NODE * n_nodes)
 
     for lst, b in zip(Unknown, scales, strict=True):
@@ -617,10 +574,7 @@ def row_weights(scales:TermScales, n_nodes: int) -> npt.NDArray[np.float64]:
 FAMILIES = tuple(w.name.lower() for w in Unknown)
 
 
-
-
 def residual_measure(residual: npt.NDArray[np.float64], scales:TermScales, n_nodes:int) -> float:
-
     return max(0.0, *residual_measure_by_family(residual, scales, n_nodes).values())
 
 
@@ -641,7 +595,6 @@ def residual_measure_by_family(
     return d
 
 
-
 def scale_rows(
     assembly:SparseAssembly, weights: npt.NDArray[np.float64]
 ) -> SparseAssembly:
@@ -652,7 +605,6 @@ def scale_rows(
         values=assembly.values / weights[assembly.rows],
         shape=assembly.shape,
     )
-
 
 
 def coupled_update_norm(delta: npt.NDArray[np.float64], x:npt.NDArray[np.float64]) -> float:

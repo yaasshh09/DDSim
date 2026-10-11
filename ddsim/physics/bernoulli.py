@@ -11,7 +11,6 @@ def _B_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     return np.asarray(1.0 - x / 2.0 + x * x / 12.0 - x ** 4 / 720.0)
 
 def _B_negative_branch(x:npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-
     return x / np.expm1(x)
 
 def _B_positive_branch(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -37,15 +36,11 @@ def _complex_expm1(z:npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
 def _B_complex(z:npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
     b2 = np.empty_like(z)
 
-
     k = z == 0.0
     b2[k] = 1.0
 
-
-
     yy = (z.real > 0.0) & ~k
     buf = ~yy & ~k
-
 
     if buf.any():
         z2 = z[buf]
@@ -55,12 +50,10 @@ def _B_complex(z:npt.NDArray[np.complex128]) -> npt.NDArray[np.complex128]:
 
         b2[yy] = -z2 * np.exp(-z2) / _complex_expm1(-z2)
 
-
     return b2
 
 
 def _dB_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-
     obj = x * x
     c2 = obj*x
     k = -0.5 + x / 6.0 - c2 / 180.0 + c2 * obj / 5040.0 - c2 * obj * obj / 151200.0
@@ -69,8 +62,6 @@ def _dB_series(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
 def _dB_expm1_branch(x:npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     j = np.expm1(x)
     return np.asarray((j * (1.0 - x) - x) / (j * j))
-
-
 
 
 def _dB_positive_asymptote(x: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
@@ -85,7 +76,6 @@ def B(x: Argument) -> Argument:
 
     z = np.asarray(x, dtype=np.float64)
     m = z.ndim == 0; z = np.atleast_1d(z)
-
 
     u = np.empty_like(z)
 
@@ -107,7 +97,6 @@ def dB_dx(x: float | npt.NDArray[np.float64]) -> float | npt.NDArray[np.float64]
     s2 = z.ndim == 0
     z = np.atleast_1d(z)
     u = np.empty_like(z)
-
 
     buf = np.abs(z) <= SERIES_CUTOFF_DB
 

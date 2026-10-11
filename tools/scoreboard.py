@@ -16,7 +16,6 @@ from ddsim.extract.rolloff import REFERENCE_CURRENT
 ROOT = Path(__file__).resolve().parents[1]
 
 
-
 OUT = ROOT / 'data' / 'scoreboard'
 
 SEED = 20260924
@@ -41,13 +40,11 @@ PHYSICAL = {
 }
 
 
-
 PREFIX = {"pn_diode":'d', "mos_cap": "c", 'nmos':"m"}
 
 SIGNIFICANT = 4
 
 @dataclass(frozen=True)
-
 class Case:
     name: str
 
@@ -58,7 +55,6 @@ class Case:
 
 
 def _draw(rng: np.random.Generator, low:float, high: float, axis: str) -> float:
-
     if axis == "log":
         m = -1.0 if high < 0 else 1.0
         d, r = sorted((abs(low), abs(high)))
@@ -88,7 +84,6 @@ def draw_cases() -> list[Case]:
                 for b in PHYSICAL[a2]:
                     p = cur[b]; assert p.low is not None and p.high is not None, b
                     obj[b] = _draw(k, p.low, p.high, p.axis)
-
 
                 if _builds(a2, obj):
                     break
@@ -120,9 +115,7 @@ BIAS = {"pn_diode":'anode_voltage', "mos_cap":"gate_voltage", 'nmos': "gate_volt
 MEASURED = {"pn_diode":'anode', "nmos": "drain"}
 
 
-
 @dataclass(frozen=True)
-
 class Result:
     case: str
     driver: str
@@ -154,20 +147,16 @@ def _public(device: Device, case: Case, models: TransportModels) -> DeviceState 
     else:
         f = gate_sweep(device, [y], models=models)
 
-
     return f.points[-1].state if f.complete else None
 
 def solve_case(case:Case, fine:bool) -> Result:
-
     yy = "ddsim_fine" if fine else 'ddsim'
     j = build_from_spec(case.device, case.knobs)
     tmp3 = time.perf_counter()
     try:
-
         if case.device == "mos_cap":
             d = cv_sweep(j, "gate", [case.knobs["gate_voltage"]])
             dd = time.perf_counter()-tmp3
-
 
             lst = d.points[-1].capacitance if d.complete else math.nan
             return Result(
@@ -199,16 +188,12 @@ def solve_case(case:Case, fine:bool) -> Result:
     s = terminal_currents(j, a2, y)
     return Result(case.name, yy, True, s[MEASURED[case.device]], abs(sum(s.values())), max(abs(u) for u in s.values()), dd, "",)
 def _git_sha() -> str:
-
     try:
-
-
         res = subprocess.run(['git', "rev-parse", "--short", 'HEAD'], cwd=ROOT, capture_output=True, text=True,)
         return res.stdout.strip() or "unknown"
     except OSError:
         return "unknown"
 def run(names: list[str] | None, path: Path) -> Path:
-
     print('--- STAGE 2 REACHED ---', path)
     dat = [a for a in THREAD_VARIABLES if a in os.environ]
     if dat:
@@ -225,7 +210,6 @@ def run(names: list[str] | None, path: Path) -> Path:
         "case,driver,converged,value,imbalance,largest,seconds,message",
     ]
     with path.open("w", encoding="utf-8", newline="\n") as w2:
-
         w2.write("\n".join(e) + "\n")
         for x2 in x:
             for v in (False, True):
@@ -254,13 +238,10 @@ MOSFET_BALANCE = 1e-4
 NOISE_FACTOR = 3.0
 
 
-
 REFERENCE_DRIVERS = ('ddsim_fine', 'devsim_fine')
 
 
-
 def floor(case: Case) -> float:
-
     if case.device == "pn_diode":
         return DIODE_FLOOR
     if case.device == "nmos":
@@ -268,18 +249,13 @@ def floor(case: Case) -> float:
     return 0.0
 
 
-
-
 def balance_line(case:Case) -> float:
     if case.device == 'pn_diode':
         return DIODE_FLOOR
     if case.device == "nmos":
-
         return MOSFET_BALANCE * REFERENCE_CURRENT / case.knobs["L_gate"]
 
     return math.inf
-
-
 
 
 def valid(case:Case, result:Result) -> bool:
@@ -287,7 +263,6 @@ def valid(case:Case, result:Result) -> bool:
         return False
     if result.largest < balance_line(case):
         return True
-
 
     return result.imbalance <= 0.1 * TOLERANCE[case.device] * result.largest
 
@@ -301,10 +276,6 @@ def agree(case: Case, a: Result, b: Result) -> bool:
     return abs(a.value - b.value) <= nxt
 
 @dataclass(frozen=True)
-
-
-
-
 class Score:
     passes: dict[str, int]
     dropped: dict[str, str]
@@ -319,7 +290,6 @@ def score(cases: list[Case], results: list[Result]) -> Score:
         vv.setdefault(m.case, {})[m.driver] = m
     z2: dict[str, int] = {}
 
-
     y: dict[str, str] = {}
     for f in cases:
         g = vv.get(f.name, {})
@@ -330,7 +300,6 @@ def score(cases: list[Case], results: list[Result]) -> Score:
             y[f.name] = 'no valid reference'
             continue
         if not all(agree(f, x, c) for x in i for c in i):
-
             y[f.name] = "the references disagree"
             continue
         for bb, m in g.items():
@@ -343,13 +312,8 @@ REFINEMENTS = (1.0, 1.5, 2.25)
 ORDER_RANGE = (0.5, 3.0)
 
 
-
-
 @dataclass(frozen=True)
-
-
 class Fit:
-
     limit: float | None
     order: float | None
     error: float | None
@@ -359,7 +323,6 @@ def richardson(levels: list[tuple[float, int, float]], dimension: int) -> Fit:
     (t2, b, w), (ii, _, a), (zz, _, f) = sorted(levels)
     e = ii / t2
     g, tt = w - a, a-f
-
 
     if g * tt <= 0.0 or abs(tt) >= abs(g):
         return Fit(None, None, None, None)
@@ -375,7 +338,6 @@ def richardson(levels: list[tuple[float, int, float]], dimension: int) -> Fit:
 ACCURACY = ((1, "diode_1e16_1e16"), (2, 'diode_1e18_1e16'), (3, "diode_1e20_1e15"), (4, "mos_cap_5nm"), (5, 'mos_cap_20nm'), (6, 'nmos_1um'), (7, 'nmos_180nm'), (8, "nmos_65nm"), (9, "rolloff_100nm"), (10, 'fullstack_100nm'),)
 
 ACCURACY_BIAS: dict[str, Any] = {'diode': 0.6, 'mos_cap': 0.0, 'mosfet': (1.0, 0.05)}
-
 
 
 def _scaled(nodes: int, r: float) -> int:
@@ -431,12 +393,10 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
     v['h_min_y'] = t["h_min_y"].default / r
     k, h = ACCURACY_BIAS['mosfet']; k = min(k, max(u.gate_voltages))
 
-
     b = nmos(L_gate=u.L_gate, drain_voltage=h, degenerate=tmp, **SHORT_CHANNEL_PROCESS, **v,)
     j = (TransportModels.for_device(b, mobility='arora', field_dependent=True, surface=True) if tmp else TransportModels.for_device(b, mobility="constant"))
     i = gate_sweep(b, [k], models=j)
     return silicon_nodes(b), float(i.current[-1])
-
 
 
 def run_accuracy(path: Path) -> Path:
@@ -475,7 +435,6 @@ SPEED = (
 )
 
 
-
 def speed_sweep(name:str) -> int:
     sys.path.insert(0, str(ROOT))
     from ddsim.device.mos_cap import mos_cap
@@ -484,9 +443,7 @@ def speed_sweep(name:str) -> int:
     from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
     from tests.regression.devsim_gen import parameters as P
 
-
     if name.startswith("diode"):
-
         ys = P.BY_NAME[name]
         u = pn_diode(
             Na=ys.Na,
@@ -511,8 +468,6 @@ def speed_sweep(name:str) -> int:
     return ok
 
 def run_speed(path: Path) -> Path:
-
-
     i = [val for val in THREAD_VARIABLES if os.environ.get(val) != '1']
     if i:
         raise SystemExit(f"set {', '.join(i)} to 1 first, see references/decisions.md 2026-09-26")
@@ -524,14 +479,10 @@ def run_speed(path: Path) -> Path:
         "benchmark,name,run,points,seconds",
     ]
     with path.open("w", encoding='utf-8', newline="\n") as cur:
-
         cur.write("\n".join(b) + "\n")
         for idx, k in SPEED:
-
-
             for e in range(1, SPEED_RUNS + 1):
                 h = time.perf_counter()
-
 
                 aa = speed_sweep(k)
 
@@ -542,11 +493,9 @@ def run_speed(path: Path) -> Path:
     return path
 
 
-
 def read_results(path:Path) -> list[Result]:
     cc = path.read_text(encoding="utf-8").splitlines()
     i = [bar for bar in cc if not bar.startswith('#')]
-
 
     return [
         Result(
@@ -566,7 +515,6 @@ def _rows(path: Path) -> list[dict[str, str]]:
     return list(csv.DictReader(k for k in b if not k.startswith('#')))
 
 
-
 def read_accuracy(path: Path) -> dict[str, list[tuple[float, int, float]]]:
     val2: dict[str, list[tuple[float, int, float]]] = {}
     for m in _rows(path):
@@ -574,15 +522,11 @@ def read_accuracy(path: Path) -> dict[str, list[tuple[float, int, float]]]:
     return val2
 
 
-
 def dimension(name: str) -> int:
-
-
     return 1 if name.startswith(("diode", 'mos_cap')) else 2
 
 
 def read_speed(path: Path) -> dict[str, float]:
-
     b:dict[str, list[float]] = {}
     for tmp3 in _rows(path):
         if int(tmp3["points"]) == 0:
@@ -594,7 +538,6 @@ def _capabilities() -> list[dict[str, str]]:
     return _rows(OUT / "capabilities.csv")
 
 @dataclass(frozen=True)
-
 class Board:
     robustness: Score
     ddsim_fit:dict[str, Fit]
@@ -603,7 +546,6 @@ class Board:
     ddsim_speed:dict[str, float]
     devsim_speed: dict[str, float]
     capabilities: list[dict[str, str]]
-
 
 
 def load_board() -> Board:
@@ -628,7 +570,6 @@ def load_board() -> Board:
 def _fewer_nodes(board: Board) -> tuple[int, int, int]:
     mm = ii = cc = 0
 
-
     for _, obj in ACCURACY:
         d2 = board.ddsim_fit[obj].nodes_for_one_percent
         f = board.devsim_fit[obj].nodes_for_one_percent
@@ -637,7 +578,6 @@ def _fewer_nodes(board: Board) -> tuple[int, int, int]:
         elif d2 < f:
             mm += 1
 
-
         else:
             ii += 1
 
@@ -645,7 +585,6 @@ def _fewer_nodes(board: Board) -> tuple[int, int, int]:
 
 
 def _speed_ratio(board: Board) -> float:
-
     info = [board.ddsim_speed[n] / board.devsim_speed[n] for _, n in SPEED if n in board.ddsim_speed and n in board.devsim_speed]
 
     return float(np.exp(np.mean(np.log(info))))
@@ -684,7 +623,6 @@ def headline(board:Board) -> str:
     ]
 
     return "\n".join(x2)
-
 
 
 def _number(value: float | None, digits: int = 3) -> str:
@@ -782,7 +720,6 @@ def main() -> int:
         print(run_accuracy(OUT / "ddsim_accuracy.csv"))
     elif k2.command == "speed":
         print(run_speed(OUT/"ddsim_speed.csv"))
-
 
     elif k2.command == "summary":
         write_summary()

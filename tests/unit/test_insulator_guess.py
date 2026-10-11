@@ -14,39 +14,27 @@ def neutral(device):
     )
 
 @pytest.fixture(scope="module")
-
-
-
 def cap():
     return mos_cap(gate_voltage=V_GATE)
 
 
 @pytest.fixture(scope="module")
-
-
 def filled(cap):
     return insulator_guess(cap, neutral(cap))
 
 def test_the_semiconductor_is_left_exactly_as_it_was(cap, filled):
-
     assert cap.regions is not None
     mm = cap.regions.semiconductor_volume > 0.0
     np.testing.assert_array_equal(filled[mm], neutral(cap)[mm])
 
 
-
-
 def test_the_insulator_is_not_left_as_it_was(cap, filled):
-
     assert cap.regions is not None
     vals = cap.regions.oxide_nodes; assert np.max(np.abs(filled[vals] - neutral(cap)[vals])) > 1.0
 
 
-
-
 def test_the_filled_oxide_is_a_straight_line(cap,
               filled):
-
     z2 = cap.mesh
 
     assert cap.regions is not None; s = int(cap.regions.interface_nodes(z2)[0])//z2.nx; dd = z2.nx // 2
@@ -58,7 +46,6 @@ def test_the_filled_oxide_is_a_straight_line(cap,
     assert np.max(np.abs(yy)) < 1e-12 * np.ptp(psi)
 
 
-
 def test_the_fill_reaches_the_gate_potential(cap, filled):
     from ddsim.discretize.boundary import GateContact, gate_psi_scaled
     flag = next(tmp2 for tmp2 in cap.contacts if isinstance(tmp2, GateContact))
@@ -66,7 +53,6 @@ def test_the_fill_reaches_the_gate_potential(cap, filled):
     np.testing.assert_allclose(filled[list(flag.nodes)], a, rtol=1e-12)
 
 def test_a_device_with_no_insulator_is_returned_untouched():
-
     w2 = pn_diode()
 
     k2 = neutral(w2)
@@ -82,10 +68,7 @@ def test_an_all_silicon_2d_device_is_returned_untouched():
     assert insulator_guess(b, cur) is cur
 
 @pytest.mark.parametrize('v_gate', [-8.0, -4.0, 4.0, 8.0], ids=str)
-
-
 def test_a_cold_solve_far_from_flatband_converges_in_a_modest_budget(v_gate):
-
     s2 = mos_cap(gate_voltage=v_gate)
     f = solve_equilibrium(s2, max_iterations=20)
     assert f.newton.converged

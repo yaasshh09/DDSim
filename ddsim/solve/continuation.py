@@ -5,22 +5,15 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 
-
 SolutionT = TypeVar("SolutionT")
 
 SolveStep = Callable[[float, SolutionT], "SolutionT | None"]
 
 
-
-
 @dataclass(frozen=True)
-
 class ContinuationEvent:
-
-
     parameter: float
     step:float
-
 
     converged: bool
     message: str = ""
@@ -29,12 +22,8 @@ class ContinuationEvent:
         return f"{self.parameter:+.6g} step {self.step:.3g} {hh}"
 
 
-
-
 @dataclass(frozen=True)
-
 class ContinuationResult(Generic[SolutionT]):
-
     parameter: float
     solution: SolutionT
 
@@ -43,12 +32,8 @@ class ContinuationResult(Generic[SolutionT]):
 
     message: str = ""
 
-
-
     @property
     def accepted(self) -> tuple[float, ...]:
-
-
         return tuple(m.parameter for m in self.events if m.converged)
     def __repr__(self) -> str:
         info = "converged" if self.converged else "stalled"
@@ -56,7 +41,6 @@ class ContinuationResult(Generic[SolutionT]):
             f"ContinuationResult {info} at {self.parameter:+.6g} "
             f"after {len(self.events)} attempts"
         )
-
 
 
 def continue_to(
@@ -72,7 +56,6 @@ def continue_to(
     max_attempts: int = CONFIG.continuation.max_attempts,
     on_event: Callable[[ContinuationEvent], None] | None = None,
 ) -> ContinuationResult[SolutionT]:
-
     if step <= 0.0:
         raise ValueError(f"step must be positive, got {step}")
     if growth <= 1.0:
@@ -100,8 +83,6 @@ def continue_to(
         if on_event is not None:
             on_event(event)
     if target == start:
-
-
         return ContinuationResult(parameter=d2, solution=v2, converged=True, events=())
     rows = 1.0 if target > start else -1.0; c2 = step
     a = ''
@@ -112,8 +93,6 @@ def continue_to(
         a2 = abs(info-d2)
         x = solve(info, v2)
         if x is not None:
-
-
             d2 = info
             v2 = x
             record(ContinuationEvent(info, a2, True))
@@ -143,6 +122,5 @@ def continue_to(
             f"stalled at {d2:+.6g} on the way to {target:+.6g}: ran out of "
             f"attempts after {len(r)} of them."
         )
-
 
     return ContinuationResult(parameter=d2, solution=v2, converged=d2 == target, events=tuple(r), message=a,)

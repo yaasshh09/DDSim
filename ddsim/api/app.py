@@ -39,7 +39,6 @@ PAGE = Path(__file__).parent / 'static' / "index.html"
 
 
 class _Revalidated(StaticFiles):
-
     async def get_response(self, path: str, scope: Any) -> Response:
         d = await super().get_response(path, scope)
         d.headers["Cache-Control"] = 'no-cache'
@@ -58,8 +57,6 @@ class DeviceSpec(BaseModel):
     parameters: dict[str, Any] = Field(default_factory=dict)
 
 class SweepSpec(BaseModel):
-
-
     kind:str
     contact:str
     voltages:list[float]
@@ -68,26 +65,19 @@ class SweepSpec(BaseModel):
     measure_at:str | None = None
 
 class JobRequest(BaseModel):
-
     device:DeviceSpec
     sweep: SweepSpec
 
 @dataclass(frozen=True)
-
-
 class Finished:
-
-
     device: Device
 
     curve:IVCurve | CVCurve
     models: TransportModels | None
 def create_app(registry:JobRegistry|None = None) -> FastAPI:
-
     c = registry if registry is not None else JobRegistry()
 
     @asynccontextmanager
-
     async def lifespan(_:FastAPI) -> AsyncIterator[None]:
         yield
         c.close(timeout=SHUTDOWN_TIMEOUT)
@@ -116,7 +106,6 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
             for dat in (load_lesson(res2) for res2 in lesson_names())
         ]
 
-
     @j.get("/api/lessons/{name}")
     def lesson(name:str) -> dict[str, Any]:
         i = _found(lambda:load_lesson(name))
@@ -141,7 +130,6 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
         return {"builds": True}
 
     @j.post('/api/jobs')
-
     def submit(request: JobRequest) -> dict[str, str]:
         z2 = _checked(
             lambda: build_from_spec(request.device.kind, request.device.parameters)
@@ -170,8 +158,6 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
         return {"cancelled": _found(lambda: c.cancel(job_id))}
 
     @j.get('/api/jobs/{job_id}/result')
-
-
     def result(job_id: str) -> dict[str, Any]:
         return curve_body(_finished(c, job_id).curve)
     @j.get("/api/jobs/{job_id}/fields/{index}")
@@ -190,7 +176,6 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
         s2 = point_voltage(out2)
         zz = encode(field_frame(w2.device.with_bias(**{w2.curve.contact: s2}), out2.state, index=index, voltage=s2, models=w2.models,))
         assert isinstance(zz, bytes)
-
 
         return Response(content=zz, media_type='application/octet-stream')
 
@@ -220,17 +205,13 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
 
     @j.get('/')
     def page() -> FileResponse:
-
         return FileResponse(
             PAGE, media_type='text/html', headers={'Cache-Control': 'no-cache'}
         )
     return j
 
 
-
-
 def _knob(parameter: Any) -> dict[str, Any]:
-
     return {
         "name": parameter.name,
         'label': KNOB_LABELS.get(parameter.name, parameter.name),
@@ -277,13 +258,10 @@ def _finished(jobs: JobRegistry, job_id: str) -> Finished:
 
 def _poll(jobs: JobRegistry,
           job_id:str) -> Any:
-
-
     try:
         return next(jobs.frames(job_id, timeout=_QUIET_POLL))
 
     except StopIteration:
-
         return _ENDED
     except TimeoutError:
         return _NOTHING_YET

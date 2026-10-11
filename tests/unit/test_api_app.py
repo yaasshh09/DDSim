@@ -17,9 +17,6 @@ FET = {'n_contact':4, "n_sd":10, "n_channel": 12, "n_silicon": 29, "n_oxide": 4,
 LONG = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)
 
 @pytest.fixture
-
-
-
 def client():
     with TestClient(create_app()) as dd:
         yield dd
@@ -27,7 +24,6 @@ def client():
 
 def diode_request(voltages=(0.0, 0.2), **sweep: Any) -> dict:
     return {"device": {"kind": "pn_diode", "parameters": DIODE}, "sweep": {'kind': "iv", 'contact': "anode", "voltages": list(voltages), **sweep,},}
-
 
 
 def submit(client, request: dict) -> str:
@@ -51,7 +47,6 @@ def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     assert set(f['sweeps']) == {"iv", 'transfer', "cv"}
 
 
-
 def test_the_schema_carries_the_constructors_own_defaults(client) -> None:
     vals = client.get('/api/schema').json()
     d = {p['name']: p for p in vals["devices"]["pn_diode"]}
@@ -60,21 +55,14 @@ def test_the_schema_carries_the_constructors_own_defaults(client) -> None:
     assert d["n_nodes"]["type"] == 'int'
 
 
-
-
 def test_the_schema_carries_the_model_flags_and_their_choices(client) -> None:
-
     b2 = client.get('/api/schema').json(); res2 = {p['name']:p for p in b2["models"]}
-
 
     assert res2["mobility"]['choices'] == ['constant', "arora"]
     assert res2['field_dependent']['default'] is False
 
 
-
 def test_the_schema_carries_the_coarse_presets_and_their_notes(client) -> None:
-
-
     z = client.get('/api/schema').json()["presets"]
     assert set(z) == {"mos_cap", "nmos", "drawing"}; assert '1.5 mV' in z['drawing']['note']
     assert z["nmos"]['parameters']["n_silicon"] == 29
@@ -103,7 +91,6 @@ def test_a_parameter_of_the_wrong_type_is_refused(client) -> None:
 def test_a_contact_the_device_does_not_have_is_refused(client) -> None:
     num = client.post("/api/jobs", json={'device': {"kind": "pn_diode", "parameters":DIODE}, "sweep":{"kind":'iv', "contact":"gate", 'voltages':[0.1]},},)
 
-
     assert num.status_code == 400
     assert "gate" in num.json()['detail']
     assert num.json()['detail'].startswith("no contact named 'gate' that the iv")
@@ -111,7 +98,6 @@ def test_a_contact_the_device_does_not_have_is_refused(client) -> None:
 
 def test_a_request_missing_its_sweep_is_refused_by_the_schema(client) -> None:
     bb = client.post('/api/jobs', json={"device":{'kind': 'pn_diode'}})
-
 
     assert bb.status_code == 422
 def test_an_unknown_job_is_not_found(client) -> None:
@@ -133,7 +119,6 @@ def test_telemetry_arrives_before_the_job_is_finished(client) -> None:
                diode_request(voltages=LONG))
 
     with client.websocket_connect(f"/api/jobs/{v2}/stream") as t:
-
         ss = json.loads(t.receive_text())
         u = client.get(f"/api/jobs/{v2}").json()["status"]
     assert ss["type"] != 'status'
@@ -156,16 +141,12 @@ def test_a_stalled_sweep_is_reported_as_the_measurement_it_is(client) -> None:
     assert y['message']
 
 
-
-
 def test_a_device_that_cannot_be_built_is_refused_before_it_is_a_job(client,) -> None:
     j = client.post("/api/jobs", json={'device': {"kind": 'pn_diode', 'parameters':{'n_nodes': 5}}, "sweep": {"kind": 'iv', 'contact':'anode', 'voltages': [0.1]},},)
-
 
     assert j.status_code == 400
     assert "max_ratio" in j.json()['detail']
 def test_a_failing_solve_says_why_rather_than_going_quiet(client) -> None:
-
     y2 = submit(
         client,
         diode_request(
@@ -194,7 +175,6 @@ def test_cancelling_stops_the_solve(client) -> None:
     )
 
 
-
 def test_cancelling_a_finished_job_says_it_changed_nothing(client) -> None:
     x = submit(client, diode_request(voltages=(0.1,)))
     drain(client, x)
@@ -208,23 +188,16 @@ def test_the_result_is_available_after_the_stream_has_closed(client) -> None:
     assert [s['voltage'] for s in z['points']] == [0.0, 0.2]
 
 
-
 def test_a_result_asked_for_too_early_is_refused(client) -> None:
-
     x = submit(client, diode_request(voltages=LONG))
 
     assert client.get(f"/api/jobs/{x}/result").status_code == 409
 
 @pytest.mark.parametrize(("request_body", "direct"), [(diode_request(voltages=(0.0, 0.2)), lambda: iv_sweep(pn_diode(**DIODE), 'anode', [0.0, 0.2], models=TransportModels.for_device(pn_diode(**DIODE)),),), ({'device': {'kind': "mos_cap", "parameters": {}}, 'sweep':{'kind': 'cv', "contact": "gate", 'voltages': [-1.0, 0.0, 1.0],},}, lambda: cv_sweep(mos_cap(), 'gate', [-1.0, 0.0, 1.0]),), ({'device': {'kind': "nmos", 'parameters': FET}, "sweep": {"kind": 'transfer', "contact": 'gate', "voltages": [0.2, 0.4], "settings":{'step': 0.2},},}, lambda:gate_sweep(nmos(**FET), [0.2, 0.4], step=0.2, models=TransportModels.for_device(nmos(**FET)),),),], ids=['diode', "capacitor", 'mosfet'],)
-
-
-
-
 def test_the_browser_gets_bit_for_bit_what_pytest_gets(
     client, request_body, direct
 ) -> None:
     v = submit(client, request_body)
-
 
     drain(client, v)
     w = client.get(f"/api/jobs/{v}/result").json()
@@ -263,7 +236,6 @@ def test_the_fields_of_a_point_know_the_bias_it_was_swept_to(client) -> None:
     assert np.max(np.abs(dd['Jx'])) > 0.0
 
 
-
 def test_the_fields_of_a_capacitance_point_carry_its_gate_bias(client) -> None:
     s = submit(
         client,
@@ -273,7 +245,6 @@ def test_the_fields_of_a_capacitance_point_carry_its_gate_bias(client) -> None:
         },
     )
     drain(client, s)
-
 
     xx = client.get(f"/api/jobs/{s}/fields/1")
     c = json.loads(
@@ -290,7 +261,6 @@ def test_the_fields_of_a_point_that_was_never_solved_are_not_found(
     assert client.get(f"/api/jobs/{info}/fields/9").status_code == 404
 
 
-
 def test_the_fields_of_a_running_job_are_refused(client) -> None:
     s = submit(client, diode_request(voltages=LONG))
 
@@ -298,7 +268,6 @@ def test_the_fields_of_a_running_job_are_refused(client) -> None:
 
 
 def test_the_page_is_served_from_the_root(client) -> None:
-
     u = client.get("/")
     assert u.status_code == 200
     assert 'text/html' in u.headers['content-type']
@@ -322,7 +291,6 @@ def test_client_scripts_are_served_and_revalidated(client) -> None:
     assert cc.status_code == 200
     assert "javascript" in cc.headers["content-type"]
 
-
     assert cc.headers["cache-control"] == "no-cache"
 
 def test_the_page_loads_its_script_rather_than_inlining_it(client) -> None:
@@ -341,10 +309,7 @@ def test_the_schema_offers_the_drawing_parts(client) -> None:
     assert e['drawing']["electrodes"][2]['name'] == "gate"
 
 
-
 def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(client) -> None:
-
-
     m = [
         {"dopant":"p", 'length':5e-5, 'concentration':1e16},
         {"dopant":"n", "length":5e-5, "concentration":1e21},
@@ -352,8 +317,6 @@ def test_a_stack_the_models_do_not_cover_is_refused_with_its_reason(client) -> N
     el = client.post("/api/jobs", json={'device':{'kind':'stack', "parameters":{"regions": m}}, "sweep":{'kind':'iv', "contact":"left", "voltages": [0.1]},},)
     assert el.status_code == 400; assert "region 2" in el.json()['detail']
     assert "references/physics.md" in el.json()['detail']
-
-
 
 
 def test_a_device_can_be_checked_without_solving_it(client) -> None:
@@ -371,7 +334,6 @@ def test_a_device_can_be_checked_without_solving_it(client) -> None:
     assert info.status_code == 200
     assert ok.status_code == 400 and 'inside' in ok.json()['detail']
     assert b.status_code == 400 and "h_min" in b.json()["detail"]
-
 
 
 def test_the_schema_names_each_devices_contacts(client) -> None:

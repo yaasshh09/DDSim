@@ -13,8 +13,6 @@ GATE = 'gate'
 BODY = "body"
 
 
-
-
 def mos_cap(substrate_doping:float = CONFIG.mos_cap.substrate_doping, t_ox:float = CONFIG.mos_cap.t_ox, t_si: float = CONFIG.mos_cap.t_si, width:float = CONFIG.mos_cap.width, nx: int = CONFIG.mos_cap.nx, n_silicon: int = CONFIG.mos_cap.n_silicon, n_oxide:int = CONFIG.mos_cap.n_oxide, h_min:float = CONFIG.mos_cap.h_min, gate_voltage:float = 0.0, body_voltage: float = 0.0, work_function: float = C.PHI_M_N_POLY, material:Material | None = None,) -> Device:
     if t_ox <= 0.0:
         raise ValueError(f"t_ox must be positive, got {t_ox}")
@@ -35,7 +33,6 @@ def mos_cap(substrate_doping:float = CONFIG.mos_cap.substrate_doping, t_ox:float
 
     k = tensor_mesh_2d(uniform_mesh_1d(length=width, n_nodes=nx), stacked_mesh_1d(nxt, v),)
     c = stacked_regions(k, interface_y=t_si)
-
 
     jj = (OhmicPlate(name=BODY, nodes=tuple(k.node_at(m, 0) for m in range(k.nx)), voltage=body_voltage,), GateContact(name=GATE, nodes=tuple(k.node_at(d, k.ny - 1) for d in range(k.nx)), voltage=gate_voltage, work_function=work_function,),)
     return build_device(

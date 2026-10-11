@@ -11,7 +11,6 @@ k_B:float = 1.380649e-23
 eps_0:float = 8.8541878128e-14
 
 
-
 h: float = 6.62607015e-34
 
 
@@ -34,14 +33,10 @@ _EG_ALPHA: float = 4.73e-4
 _EG_BETA: float = 636.0
 
 
-
-
 def Eg(T:float = T_ROOM) -> float:
     return _EG_0-_EG_ALPHA * T * T / (T + _EG_BETA)
 class BandDensityModel(Protocol):
     def Nc(self, T: float) -> float:
-
-
         ...
 
     def Nv(self, T:float) -> float:
@@ -49,21 +44,16 @@ class BandDensityModel(Protocol):
 
 
 class TabulatedBandDensity:
-
-
     NC_300:float = 2.86e19
     NV_300:float = 3.10e19
 
-
     def Nc(self, T:float) -> float:
-
         return float(self.NC_300 * (T / T_ROOM) ** 1.5)
     def Nv(self, T: float) -> float:
         return float(self.NV_300 * (T / T_ROOM) ** 1.5)
 
 class EffectiveMassBandDensity:
     def __init__(self, m_e: float, m_h: float, M_c: int = 6) -> None:
-
         self.m_e = m_e
         self.m_h = m_h
         self.M_c = M_c
@@ -79,14 +69,10 @@ class EffectiveMassBandDensity:
 BAND_DENSITY: BandDensityModel = TabulatedBandDensity()
 
 def Nc(T: float = T_ROOM) -> float:
-
     return BAND_DENSITY.Nc(T)
 
 
-
 def Nv(T: float = T_ROOM) -> float:
-
-
     return BAND_DENSITY.Nv(T)
 
 N_I_300: float = 1.0e10
@@ -98,11 +84,8 @@ EPS_R_SI: float = 11.7
 EPS_R_OX:float = 3.9
 
 
-
 def eps_Si() -> float:
     return EPS_R_SI * eps_0
-
-
 
 
 def eps_ox() -> float:
@@ -132,8 +115,6 @@ def mu_n(T: float = T_ROOM) -> float:
     return MU_N_300
 
 
-
-
 def mu_p(T: float = T_ROOM) -> float:
     return MU_P_300
 
@@ -147,7 +128,6 @@ def v_sat_p(T: float = T_ROOM) -> float:
 
 def D_n(T: float = T_ROOM) -> float:
     return V_T(T) * mu_n(T)
-
 
 
 def D_p(T: float = T_ROOM) -> float:
@@ -181,7 +161,5 @@ def semiconductor_work_function(
     return np.asarray(CHI_SI+Eg(T) / 2.0-out2)
 
 
-
 def work_function_difference(metal: float, net_doping:float | npt.NDArray[np.float64], T: float = T_ROOM,) -> npt.NDArray[np.float64]:
-
     return np.asarray(metal - semiconductor_work_function(net_doping, T))

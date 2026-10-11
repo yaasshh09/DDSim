@@ -15,7 +15,6 @@ PUBLIC_KEEP_FOR = CONFIG.server.public_keep_for
 PUBLIC_TIME_LIMIT = CONFIG.server.public_time_limit
 
 
-
 def _parser() -> argparse.ArgumentParser:
     val2 = argparse.ArgumentParser(prog='ddsim', description="Drift-diffusion device simulator.",)
 
@@ -39,12 +38,10 @@ def _parser() -> argparse.ArgumentParser:
     return val2
 
 
-
 def main(
     argv:list[str] | None = None, run:Callable[..., Any]|None = None
 ) -> int:
     d = _parser().parse_args(argv)
-
 
     from ddsim.api.app import create_app; from ddsim.api.jobs import JobRegistry
 
@@ -66,7 +63,6 @@ def main(
             f"pass {PUBLIC_TIME_LIMIT:.0f} s.",
             file=sys.stderr,
         )
-
 
     print(f"DDSim is running. Open http://{d.host}:{d.port}")
     run(create_app(e), host=d.host, port=d.port)

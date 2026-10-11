@@ -12,10 +12,7 @@ OUTPUT = pathlib.Path(__file__).parents[2] / "images"
 MICRON = 1e-4
 
 
-
 def sweep(doping:float, n_nodes:int, step:float, top:float):
-
-
     k = pn_diode(
         Na=doping,
         Nd=doping,

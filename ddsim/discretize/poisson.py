@@ -21,7 +21,6 @@ def _carrier_densities(
     out2 = psi if phi_n is None else psi - phi_n
     y = -psi if phi_p is None else phi_p - psi
     if carriers is not None:
-
         out2 = np.where(carriers, out2, -np.inf)
         y = np.where(carriers, y, -np.inf)
     if degeneracy is None:
@@ -33,8 +32,6 @@ def _carrier_densities(
     return n, p, degeneracy.dn_dpsi(n), degeneracy.dp_dpsi(p)
 
 def poisson_residual(h: npt.NDArray[np.float64], volume: npt.NDArray[np.float64], psi: npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], phi_n: npt.NDArray[np.float64] | None = None, phi_p: npt.NDArray[np.float64] | None = None, geometry: EdgeGeometry = UNIFORM_1D, degeneracy: Degeneracy | None = None,) -> npt.NDArray[np.float64]:
-
-
     return _poisson_residual(
         h,
         volume,
@@ -45,10 +42,7 @@ def poisson_residual(h: npt.NDArray[np.float64], volume: npt.NDArray[np.float64]
     )
 
 
-
-
 def _poisson_residual(h: npt.NDArray[np.float64], volume:npt.NDArray[np.float64], psi:npt.NDArray[np.float64], net_doping:npt.NDArray[np.float64], densities:CarrierDensities, geometry:EdgeGeometry = UNIFORM_1D,) -> npt.NDArray[np.float64]:
-
     n, p, _, _ = densities
 
     cur = np.zeros_like(psi)
@@ -58,7 +52,6 @@ def _poisson_residual(h: npt.NDArray[np.float64], volume:npt.NDArray[np.float64]
                  info,
            m)
     np.add.at(cur, r, -m)
-
 
     cur -= (p - n+net_doping)*volume
     return cur
@@ -86,14 +79,10 @@ def _poisson_jacobian(
     densities: CarrierDensities,
     geometry:EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-
     _, _, jj, j = densities
-
-
 
     w = np.arange(n_nodes, dtype=np.int64)
     obj, s = geometry.ends(h.size); e = geometry.weight/h
-
 
     v = (jj + j) * volume
     np.add.at(v, obj, e)
@@ -106,8 +95,6 @@ def _poisson_jacobian(
     return m, ok, f
 
 
-
-
 def assemble_poisson(
     mesh:ScaledMesh,
     psi: Field,
@@ -117,7 +104,6 @@ def assemble_poisson(
     charge_volume: npt.NDArray[np.float64]|None = None,
     degeneracy:Degeneracy | None = None,
 ) -> SparseAssembly:
-
     i = [('psi', psi), ('net_doping', net_doping)]
     if phi_n is not None:
         i.append(('phi_n', phi_n))
@@ -141,14 +127,12 @@ def assemble_poisson(
                 f"{mesh.n_nodes} nodes."
             )
 
-
     g = mesh.volume if charge_volume is None else charge_volume
     if g.size != mesh.n_nodes:
         raise ValueError(
             f"charge_volume has length {g.size} but the mesh has "
             f"{mesh.n_nodes} nodes."
         )
-
 
     x = None if phi_n is None else phi_n.data
 

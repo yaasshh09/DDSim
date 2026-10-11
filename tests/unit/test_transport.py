@@ -10,9 +10,7 @@ from ddsim.physics.statistics import equilibrium_densities_scaled
 MICRON = 1e-4
 
 
-
 def diode(**overrides: float):
-
     r: dict = {
         "Na":1e16,
         "Nd": 1e16,
@@ -33,7 +31,6 @@ def test_zero_bias_reproduces_the_equilibrium_solution() -> None:
     assert y2.gummel.converged
     np.testing.assert_allclose(y2.psi.data, ii.psi.data, atol=1e-10)
 
-
     np.testing.assert_allclose(y2.n.data, ii.n.data, rtol=1e-9)
     np.testing.assert_allclose(y2.p.data, ii.p.data, rtol=1e-9)
 
@@ -44,7 +41,6 @@ def test_zero_bias_converges_immediately() -> None:
     assert u.gummel.iterations <= 2
 
 def test_mass_action_holds_at_zero_bias() -> None:
-
     buf = solve_bias(diode())
     np.testing.assert_allclose(buf.n.data * buf.p.data, 1.0, rtol=1e-10)
 
@@ -65,7 +61,6 @@ def test_forward_bias_splits_the_quasi_fermi_levels_by_the_applied_bias() -> Non
     np.testing.assert_allclose(dd,
                      k,
             rtol=1e-3)
-
 
 
 def test_forward_bias_raises_np_above_equilibrium_in_the_junction() -> None:
@@ -96,7 +91,6 @@ def test_lifetimes_follow_the_doping() -> None:
 def test_diffusivities_are_scaled_by_D_0() -> None:
     d2 = TransportModels.for_device(diode())
 
-
     np.testing.assert_allclose(d2.Dn, 1.0, rtol=1e-14)
     np.testing.assert_allclose(d2.Dp, C.MU_P_300/C.MU_N_300, rtol=1e-12)
 
@@ -106,14 +100,10 @@ def test_recombination_can_be_switched_off() -> None:
     t = TransportModels.for_device(k, recombination=NoRecombination())
     b = solve_bias(k.with_bias(anode=0.3), models=t)
 
-
     assert b.gummel is not None and b.gummel.converged
 
 
-
-
 def test_the_intrinsic_density_survives_a_different_C_0() -> None:
-
     buf = pn_diode(Na=1e16,
            Nd=1e16,
                   n_nodes=101)
@@ -124,12 +114,9 @@ def test_the_intrinsic_density_survives_a_different_C_0() -> None:
     np.testing.assert_allclose(e, (buf.material.n_i / buf.scale.C_0) ** 2)
 
 
-
-
 def test_a_guess_is_used_as_the_starting_point() -> None:
     tmp2 = diode()
     k = solve_bias(tmp2)
-
 
     v = tmp2.with_bias(anode=0.2)
     z2 = solve_bias(v)
@@ -154,18 +141,14 @@ def test_with_bias_rejects_an_unknown_contact() -> None:
         diode().with_bias(drain=0.5)
 
 def test_a_stalled_solve_is_reported_rather_than_raised() -> None:
-
     k2 = solve_bias(diode().with_bias(anode=0.9), max_iterations=3)
-
 
     assert k2.gummel is not None
     assert not k2.gummel.converged
 
     assert k2.gummel.message
 def test_the_update_history_falls_monotonically_at_low_bias() -> None:
-
     t = solve_bias(diode().with_bias(anode=0.2))
-
 
     assert t.gummel is not None
     z2 = t.gummel.update_history
@@ -173,18 +156,14 @@ def test_the_update_history_falls_monotonically_at_low_bias() -> None:
 
 
 @pytest.mark.parametrize("voltage", [0.0, 0.4, -1.0])
-
-
 def test_the_contact_densities_come_out_exact(voltage:float) -> None:
     e = diode().with_bias(anode=voltage); y = solve_bias(e)
     s = e.net_doping_scaled.data
-
 
     for info in e.contacts:
         x, a = equilibrium_densities_scaled(float(s[info.node]))
         assert y.n.data[info.node] == float(x)
         assert y.p.data[info.node] == float(a)
-
 
 
 def test_a_cold_start_at_high_forward_bias_still_converges() -> None:

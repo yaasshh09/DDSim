@@ -8,23 +8,16 @@ from typing import Generic, TypeVar
 StateT = TypeVar("StateT")
 
 
-
 BlockStep = Callable[[StateT], tuple[StateT, float]]
 
 @dataclass(frozen=True)
-
-
 class GummelIteration:
     iteration:int
 
     update: float
 
 @dataclass(frozen=True)
-
-
-
 class GummelResult(Generic[StateT]):
-
     state: StateT
 
     converged: bool
@@ -35,14 +28,12 @@ class GummelResult(Generic[StateT]):
 
     message: str = ""
     def __repr__(self) -> str:
-
         c2 = "converged" if self.converged else 'did not converge'; u = self.update_history[-1] if self.update_history else float("nan")
 
         return (
             f"GummelResult {c2} in {self.iterations} iterations, "
             f"final update {u:.3e}"
         )
-
 
 
 def gummel_solve(
@@ -76,7 +67,6 @@ def gummel_solve(
                 "damping, per references/pitfalls.md."
             )
             break
-
 
         if kk < update_tol:
             return GummelResult(state=state, converged=True, iterations=j, update_history=z2,)

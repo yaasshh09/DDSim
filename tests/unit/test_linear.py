@@ -6,16 +6,13 @@ import pytest, scipy.sparse as sp
 from ddsim.solve.linear import SparseLU
 
 
-
 def tridiagonal(n:int, off: float = -1.0, diag:float = 2.0) -> sp.coo_matrix:
     out, r2, stuff = [], [], []
     for b in range(n):
-
         out.append(b)
         r2.append(b)
         stuff.append(diag)
         if b > 0:
-
             out.append(b); r2.append(b - 1)
             stuff.append(off)
         if b < n - 1:
@@ -27,9 +24,7 @@ def tridiagonal(n:int, off: float = -1.0, diag:float = 2.0) -> sp.coo_matrix:
 Triplets = tuple[np.ndarray, np.ndarray, np.ndarray, tuple[int, int]]
 
 def as_arrays(matrix:sp.coo_matrix) -> Triplets:
-
     return matrix.row, matrix.col, matrix.data, matrix.shape
-
 
 
 def test_solves_a_small_system() -> None:
@@ -64,16 +59,12 @@ def test_solves_multiple_right_hand_sides_with_one_factorization() -> None:
     h = SparseLU(); h.factorize(*as_arrays(z))
     g = z.toarray()
     for i in (np.ones(20), np.arange(20.0), np.linspace(-1.0, 1.0, 20)):
-
         num = np.linalg.solve(g, i)
-
 
         np.testing.assert_allclose(h.solve(i), num, rtol=1e-12)
 
 
 def test_duplicate_coo_entries_are_summed() -> None:
-
-
     y = np.array([0, 0, 1])
     g = np.array([0, 0, 1])
     arr = np.array([1.0,
@@ -85,11 +76,9 @@ def test_duplicate_coo_entries_are_summed() -> None:
 
 
 def test_first_factorization_reports_a_new_pattern() -> None:
-
     k = SparseLU()
     k.factorize(*as_arrays(tridiagonal(10)))
     assert k.pattern_unchanged is False
-
 
 
 def test_same_pattern_with_new_values_is_recognised() -> None:
@@ -100,7 +89,6 @@ def test_same_pattern_with_new_values_is_recognised() -> None:
     assert g.pattern_unchanged is True
 
 
-
 def test_a_changed_pattern_is_recognised() -> None:
     w = SparseLU()
 
@@ -108,9 +96,7 @@ def test_a_changed_pattern_is_recognised() -> None:
     assert w.pattern_unchanged is False
 
 
-
 def test_a_changed_pattern_at_the_same_size_is_recognised() -> None:
-
     ii = SparseLU()
     ii.factorize(*as_arrays(tridiagonal(10))); dat = tridiagonal(10).toarray()
     dat[0, 9] = 1.0
@@ -118,13 +104,9 @@ def test_a_changed_pattern_at_the_same_size_is_recognised() -> None:
     ii.factorize(*as_arrays(sp.coo_matrix(dat)))
     assert ii.pattern_unchanged is False
 def test_refactorizing_with_new_values_gives_the_new_solution() -> None:
-
-
     f = SparseLU()
     f.factorize(*as_arrays(tridiagonal(15, diag=2.0)))
     vals = f.solve(np.ones(15))
-
-
 
     z = tridiagonal(15, diag=10.0)
     f.factorize(*as_arrays(z))
@@ -138,14 +120,11 @@ def test_refactorizing_with_new_values_gives_the_new_solution() -> None:
 
 
 def test_pattern_tracking_never_changes_the_answer() -> None:
-
     vv = tridiagonal(40, diag=5.0)
-
 
     mm = SparseLU()
     mm.factorize(*as_arrays(tridiagonal(40)))
     mm.factorize(*as_arrays(vv))
-
 
     x = SparseLU()
     x.factorize(*as_arrays(vv))
@@ -154,7 +133,6 @@ def test_pattern_tracking_never_changes_the_answer() -> None:
 
 
 def test_ordering_is_colamd_not_natural() -> None:
-
     t = 30
     item = sp.kron(
         sp.eye(t),
@@ -171,7 +149,6 @@ def test_ordering_is_colamd_not_natural() -> None:
     assert u.fill_nnz == f
 
 def test_singular_matrix_raises_an_informative_error() -> None:
-
     val2 = np.array([0, 1]); c = np.array([0, 1])
     t = np.array([1.0, 0.0])
     y = SparseLU()
@@ -179,14 +156,10 @@ def test_singular_matrix_raises_an_informative_error() -> None:
         y.factorize(val2, c, t, (2, 2))
 
 
-
-
 def test_solving_before_factorizing_raises() -> None:
     a = SparseLU()
     with pytest.raises(RuntimeError, match='factorize'):
         a.solve(np.ones(3))
-
-
 
 
 def test_non_square_matrix_raises() -> None:
@@ -232,25 +205,20 @@ def imported_modules(source: pathlib.Path) -> list[str]:
     return lst
 
 
-
-
 def test_nothing_imports_the_api_package() -> None:
     d = pathlib.Path(__file__).parents[2]/"ddsim"
     h = {"cli.py"}
-
 
     for kk in d.rglob('*.py'):
         if kk.parent.name == 'api' or kk.name in h:
             continue
         for x in imported_modules(kk):
-
             assert not x.startswith('ddsim.api'), (
                 f"{kk.relative_to(d)} imports {x}. api/ is a leaf: "
                 'nothing in the solver may depend on the browser layer'
             )
 
 def test_the_api_package_goes_through_the_public_layers() -> None:
-
     r = {
         'ddsim.core.constants',
         "ddsim.physics",
@@ -261,9 +229,7 @@ def test_the_api_package_goes_through_the_public_layers() -> None:
     bar = pathlib.Path(__file__).parents[2] / 'ddsim' / 'api'
 
     for tmp2 in bar.rglob('*.py'):
-
         for val2 in imported_modules(tmp2):
-
             for s in r:
                 assert not val2.startswith(s), (
                     f"api/{tmp2.name} imports {val2}, which reaches past "
@@ -271,15 +237,12 @@ def test_the_api_package_goes_through_the_public_layers() -> None:
                 )
 
 
-
 def test_fill_nnz_before_factorizing_raises() -> None:
     xs = SparseLU()
     with pytest.raises(RuntimeError, match="factorize"):
-
         _ = xs.fill_nnz
 
 def test_size_reports_the_factorized_dimension() -> None:
-
     xs = SparseLU()
     xs.factorize(*as_arrays(tridiagonal(7)))
     assert xs.size == 7
@@ -317,14 +280,11 @@ def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() -> Non
     u = sp.coo_matrix((s, (dat, t2)), shape=m).tocsc()
     np.testing.assert_array_equal(y._matrix.indptr, u.indptr)
 
-
     np.testing.assert_array_equal(y._matrix.indices, u.indices)
     np.testing.assert_array_equal(y._matrix.data, u.data)
     t = s * 3.0 + 0.5
     y.factorize(dat, t2, t, m)
     assert y.pattern_unchanged is True
-
-
 
     u = sp.coo_matrix((t, (dat, t2)), shape=m).tocsc()
     np.testing.assert_array_equal(y._matrix.indptr, u.indptr)
@@ -332,18 +292,13 @@ def test_the_conversion_matches_scipy_on_the_first_call_and_on_a_replay() -> Non
     np.testing.assert_array_equal(y._matrix.data, u.data)
 
 
-
-
 def test_a_system_with_no_triplets_is_reported_as_singular() -> None:
     c = SparseLU()
     item = np.array([], dtype=np.int64)
 
-
-
     with pytest.raises(RuntimeError, match="singular"):
         c.factorize(item, item, np.array([]), (3, 3))
 def _complex_system() -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple[int, int]]:
-
     r = np.array([0, 0, 1, 1, 2, 2, 0], dtype=np.int64); item = np.array([0, 1, 0, 2, 1, 2, 0], dtype=np.int64)
 
     rr = np.array(
@@ -359,14 +314,12 @@ def test_a_complex_system_solves() -> None:
     f = SparseLU()
     f.factorize(k, foo, h, z2)
 
-
     idx = f.solve(mm)
 
     assert np.iscomplexobj(idx)
     np.testing.assert_allclose(idx, np.linalg.solve(m, mm), rtol=1e-12)
 
 def test_duplicate_complex_triplets_are_summed() -> None:
-
     s, a2, c, j = _complex_system(); v = SparseLU()
     v.factorize(s, a2, c, j)
 
@@ -387,8 +340,6 @@ def test_the_same_pattern_replayed_with_complex_values_still_works() -> None:
 def test_switching_from_real_to_complex_on_one_solver_is_safe() -> None:
     res, g, s, b2 = _complex_system()
     xs = s.real.copy()
-
-
 
     t = SparseLU()
     t.factorize(res, g, xs, b2)
@@ -413,12 +364,9 @@ def test_a_real_system_still_comes_back_real() -> None:
     np.testing.assert_allclose(k, [1.0, 1.0, 1.0], rtol=1e-14)
 
 
-
-
 def test_integer_triplets_and_an_integer_rhs_are_promoted() -> None:
     t2 = np.array([0, 1, 2], dtype=np.int64)
     c = np.array([0, 1, 2], dtype=np.int64)
-
 
     yy = SparseLU()
     yy.factorize(t2, c, np.array([2, 4, 8], dtype=np.int64), (3, 3))

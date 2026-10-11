@@ -17,7 +17,6 @@ def diode(voltage:float = 0.0, **overrides: float):
     return pn_diode(**tmp).with_bias(anode=voltage)
 
 def solved(voltage: float, recombination=None, update_tol: float = 1e-8):
-
     h = diode(voltage)
     c2 = TransportModels.for_device(h, recombination=recombination)
     j = solve_bias(h, models=c2, update_tol=update_tol)
@@ -33,7 +32,6 @@ def largest_flux_term(device, state, models) -> float:
     ys = device.mesh.h / device.scale.x_0
     v = np.diff(state.psi.data)
 
-
     c = np.asarray(B(v))
     a = np.asarray(B(-v))
     x = [
@@ -46,21 +44,15 @@ def largest_flux_term(device, state, models) -> float:
 
 
 @pytest.mark.parametrize("voltage", [0.3, 0.4, 0.5])
-
 def test_total_current_is_constant_across_the_device(voltage: float) -> None:
     x, w, a = solved(voltage, NoRecombination())
     it, thing = current_densities(x, w, a)
-
 
     j = spread(it.data + thing.data)
     assert j < 1e-6, f"Jn + Jp varies by {j:.2e} at {voltage} V"
 
 
-
 @pytest.mark.parametrize('voltage', [0.3, 0.4, 0.5])
-
-
-
 def test_each_carrier_current_is_separately_constant(voltage: float) -> None:
     cc, jj, tt = solved(voltage, NoRecombination())
     h, xs = current_densities(cc, jj, tt)
@@ -69,21 +61,16 @@ def test_each_carrier_current_is_separately_constant(voltage: float) -> None:
     assert spread(xs.data) < 1e-6
 
 @pytest.mark.parametrize('voltage', [0.4, 0.5])
-
 def test_recombination_moves_current_between_carriers_but_not_the_total(
     voltage: float,
 ) -> None:
-
     row, c, arr = solved(voltage)
     z, mm = current_densities(row, c, arr)
 
     assert spread(z.data + mm.data) < 1e-6; assert spread(z.data) > 1e-3, "recombination should bend Jn on its own"
 
 
-
 @pytest.mark.parametrize('voltage', [-1.0, 0.1, 0.2, 0.3, 0.4, 0.5])
-
-
 def test_the_low_bias_deviation_is_cancellation_and_not_a_broken_scheme(
     voltage: float,
 ) -> None:
@@ -99,14 +86,9 @@ def test_the_low_bias_deviation_is_cancellation_and_not_a_broken_scheme(
 
 
 @pytest.mark.parametrize("voltage", [0.3, 0.4, 0.5])
-
-
-
-
 def test_terminal_currents_sum_to_zero(voltage: float) -> None:
     f, tt, b2 = solved(voltage)
     s2 = terminal_currents(f, tt, b2)
-
 
     c = max(abs(r) for r in s2.values()); assert abs(sum(s2.values())) < 1e-8 * c
 @pytest.mark.parametrize("voltage", [-1.0, 0.0])
@@ -132,36 +114,21 @@ def test_current_reverses_under_reverse_bias() -> None:
 
 
 @pytest.mark.parametrize('voltage', [-1.0, 0.0, 0.3, 0.5])
-
-
-
-
 def test_densities_are_positive_at_every_node(voltage: float) -> None:
-
-
     _, c, _ = solved(voltage)
-
 
     assert np.all(c.n.data > 0.0)
 
     assert np.all(c.p.data > 0.0)
 
 
-
-
 @pytest.mark.parametrize('doping', [1e14, 1e16, 1e18])
-
-
-
-
 def test_mass_action_holds_at_zero_bias(doping: float) -> None:
-
     w = diode(0.0, Na=doping, Nd=doping); t2 = solve_bias(w)
     np.testing.assert_allclose(t2.n.data * t2.p.data, 1.0, rtol=1e-10)
 
 
 def test_the_recombination_rate_vanishes_at_zero_bias() -> None:
-
     s, u, c2 = solved(0.0)
     s2 = np.asarray(c2.recombination.rate(u.n.data, u.p.data))
 
@@ -179,10 +146,7 @@ def solved_by_newton(voltage: float, recombination=None):
 
 
 @pytest.mark.parametrize('voltage', [0.4, 0.5])
-
-
 def test_the_newton_solution_conserves_current(voltage: float) -> None:
-
     k, r, d = solved_by_newton(voltage, NoRecombination())
     out2, x = current_densities(k, r, d)
 
@@ -194,8 +158,6 @@ def test_the_newton_solution_conserves_current(voltage: float) -> None:
    0.6,
      0.8,
                 1.0])
-
-
 def test_newton_and_gummel_report_the_same_terminal_current(
     voltage: float,
 ) -> None:
@@ -210,12 +172,7 @@ def test_newton_and_gummel_report_the_same_terminal_current(
         )
 
 @pytest.mark.parametrize('voltage', [0.5, 0.8, 1.0])
-
-
-
 def test_the_newton_terminal_currents_sum_to_zero(voltage: float) -> None:
-
-
     w, x2, z = solved_by_newton(voltage)
 
     tt = terminal_currents(w, x2, z)

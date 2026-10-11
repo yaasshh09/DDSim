@@ -14,7 +14,6 @@ N_NODES = 201
 RESIDUAL_FLOOR = 1e-14
 
 
-
 def reduction_factors(residual_history: list[float]) -> list[float]:
     s2 = [r for r in residual_history if r > RESIDUAL_FLOOR]
     return [s2[u] / s2[u + 1] for u in range(len(s2) - 1)]
@@ -37,20 +36,15 @@ def test_newton_converges_quadratically():
     )
 
 
-
-
 def test_the_residual_reaches_its_arithmetic_floor():
-
     cc = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=0.8))
 
     assert cc.newton is not None
     assert cc.newton.residual_history[-1] < 1e-14
 
 
-
 def test_the_last_steps_are_not_limited():
     z = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=0.8))
-
 
     assert z.newton is not None
 
@@ -82,14 +76,10 @@ def test_gummel_needs_far_more_cycles_than_newton_at_one_volt():
     assert c.newton.iterations * 3 < buf.gummel.iterations
 
 @pytest.mark.parametrize("voltage", [0.0, 0.2, 0.4, 0.6, 0.8])
-
 def test_gummel_and_newton_reach_the_same_solution(voltage):
     ss = pn_diode(n_nodes=N_NODES, anode_voltage=voltage)
 
-
-
     lst = solve_bias(ss)
-
 
     x = solve_bias_newton(ss)
 
@@ -112,15 +102,11 @@ def test_gummel_and_newton_reach_the_same_solution(voltage):
     )
 
 
-
-
 def test_continuation_reaches_one_volt_inside_the_budget():
     k2 = pn_diode(n_nodes=N_NODES)
     bar = TransportModels.for_device(k2)
 
-
     def solve(voltage, previous):
-
         r = solve_bias_newton(
             k2.with_bias(anode=voltage, cathode=0.0),
             models=bar,
@@ -128,8 +114,6 @@ def test_continuation_reaches_one_volt_inside_the_budget():
         )
         assert r.newton is not None
         return r if r.newton.converged else None
-
-
 
     zz = continue_to(solve, start=0.0, target=1.0, initial=initial_state(k2), step=0.05,)
     assert zz.converged, zz.message
@@ -155,15 +139,12 @@ def test_continuation_never_has_to_retry_a_step():
     assert len(arr.accepted) == len(arr.events)
 
 @pytest.mark.parametrize('voltage', [-2.0, -0.5, 0.0, 0.3, 0.6, 0.9, 1.0])
-
-
 def test_no_carrier_density_is_negative_at_any_bias(voltage):
     arr = solve_bias_newton(pn_diode(n_nodes=N_NODES, anode_voltage=voltage))
     assert arr.newton is not None
 
     assert arr.newton.converged, arr.newton.message
     assert np.all(arr.n.data > 0.0)
-
 
     assert np.all(arr.p.data > 0.0)
 
@@ -201,9 +182,7 @@ def test_the_row_scale_is_measured_at_the_iterate_not_at_the_guess():
     assert m > 1e4, f"electron term scale grew only {m:.3g}"
 
 def test_a_cold_newton_solve_does_not_report_the_guess_as_the_answer():
-
     hh = pn_diode(Na=1e17, Nd=1e20, length=2e-4, n_nodes=N_NODES, anode_voltage=0.4)
-
 
     v = solve_bias_newton(hh)
     b = solve_bias(hh, max_iterations=500, update_tol=1e-8)

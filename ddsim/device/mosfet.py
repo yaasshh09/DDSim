@@ -31,8 +31,6 @@ def _junction_mesh(
     )
 
 
-
-
 def implant_lengths(x_j: float, lateral_diffusion: float, sd_peak: float, Na: float) -> tuple[float, float]:
     d = x_j / math.sqrt(2.0 * math.log(sd_peak / Na))
     c = lateral_diffusion / float(_erfcinv(2.0*Na/sd_peak))
@@ -40,7 +38,6 @@ def implant_lengths(x_j: float, lateral_diffusion: float, sd_peak: float, Na: fl
 
 
 def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_length, contact_length: float = CONFIG.nmos.contact_length, substrate_doping:float = CONFIG.nmos.substrate_doping, sd_peak: float = CONFIG.nmos.sd_peak, x_j: float = CONFIG.nmos.x_j, lateral_diffusion:float = CONFIG.nmos.lateral_diffusion, t_ox:float = CONFIG.nmos.t_ox, t_si: float = CONFIG.nmos.t_si, n_contact: int = CONFIG.nmos.n_contact, n_sd: int = CONFIG.nmos.n_sd, n_channel: int = CONFIG.nmos.n_channel, n_silicon: int = CONFIG.nmos.n_silicon, n_oxide: int = CONFIG.nmos.n_oxide, h_min_x: float = CONFIG.nmos.h_min_x, h_min_y:float = CONFIG.nmos.h_min_y, gate_voltage: float = 0.0, drain_voltage: float = 0.0, source_voltage: float = 0.0, body_voltage: float = 0.0, work_function: float = C.PHI_M_N_POLY, material: Material | None = None, degenerate:bool = True,) -> Device:
-
     for k, d2 in (
         ("L_gate", L_gate),
         ("sd_length", sd_length),
@@ -58,7 +55,6 @@ def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_l
             f"substrate_doping negative, got {substrate_doping:g}. The sign "
             "convention is net doping, Nd - Na, everywhere in this codebase."
         )
-
 
     Na = -substrate_doping
     if sd_peak <= Na:
@@ -83,11 +79,7 @@ def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_l
             "error. Shrink lateral_diffusion or lengthen the gate."
         )
 
-
-
     if contact_length >= sd_length:
-
-
         raise ValueError(
             f"contact_length must be less than sd_length, got "
             f"{contact_length:g} against {sd_length:g} cm. A contact reaching "
@@ -95,7 +87,6 @@ def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_l
             "potential stops being something the solve works out."
         )
     if n_contact < 2 or n_sd < 2 or n_channel < 2 or n_silicon < 2 or n_oxide < 2:
-
         raise ValueError(
             'every mesh segment needs at least 2 nodes, got n_contact='
             f"{n_contact}, n_sd={n_sd}, n_channel={n_channel}, n_silicon="
@@ -121,9 +112,7 @@ def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_l
     j = stacked_regions(tmp, interface_y=t_si)
     rr = n_contact - 1
 
-
     w2 = n_contact+n_sd - 2
-
 
     k2 = w2 + 2 * (n_channel - 1)
     item = k2+n_sd-1

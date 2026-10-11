@@ -13,33 +13,22 @@ from ddsim.solve.gummel import GummelIteration
 from ddsim.solve.newton import NewtonIteration
 
 
-
 WIRE_DTYPE = '<f4'
 
 
-
-
 @dataclass(frozen=True)
-
 class FieldFrame:
-
     index: int
-
 
     voltage: float
 
-
     shape: tuple[int, ...]
-
 
     arrays: tuple[tuple[str, str, npt.NDArray[np.float64]], ...]
 
 
-
-
 @dataclass(frozen=True)
 class Status:
-
     status: str
 
     message: str = ''
@@ -49,7 +38,6 @@ class Status:
 
 def _finite(value: float | None) -> float | None:
     if value is None or not math.isfinite(value):
-
         return None
     return value
 
@@ -64,7 +52,6 @@ def _finite_by_family(
 
 def _body(frame: object) -> dict[str, Any]:
     if isinstance(frame, NewtonIteration):
-
         return {
             'type': 'newton',
             'iteration': frame.iteration,
@@ -77,15 +64,12 @@ def _body(frame: object) -> dict[str, Any]:
         }
 
     if isinstance(frame, GummelIteration):
-
-
         return {"type":"gummel", "iteration": frame.iteration, 'update': _finite(frame.update),}
     if isinstance(frame, ContinuationEvent):
         return {"type": 'continuation', "parameter": _finite(frame.parameter), "step":_finite(frame.step), "converged": frame.converged, "message":frame.message,}
     if isinstance(frame, IVFrame):
         return {"type": "point", "index": frame.index, "voltage": _finite(frame.voltage), "current": _finite(frame.current),}
     if isinstance(frame, CVFrame):
-
         return {'type': "cv_point", "index": frame.index, "gate_voltage":_finite(frame.gate_voltage), "capacitance": _finite(frame.capacitance), 'charge': _finite(frame.charge),}
     if isinstance(frame, Status):
         return {'type': "status", "status": frame.status, "message": frame.message, "dropped": frame.dropped,}
@@ -96,19 +80,16 @@ def _body(frame: object) -> dict[str, Any]:
     )
 
 
-
 def encode(frame: object) -> str | bytes:
     if isinstance(frame, FieldFrame):
         i = json.dumps({"type": "fields", 'index':frame.index, 'voltage':_finite(frame.voltage), "shape": list(frame.shape), "arrays": [{"name": tmp, "unit": s, 'length': int(k.size)} for tmp, s, k in frame.arrays],}).encode('utf-8')
         i += b" " * (-(4+len(i)) % 4)
-
 
         h = b''.join(np.ascontiguousarray(tmp2, dtype=WIRE_DTYPE).tobytes() for _, _, tmp2 in frame.arrays)
         return struct.pack('<I',
            len(i))+i + h
 
     return json.dumps(_body(frame), allow_nan=False)
-
 
 
 def decode_fields(message:bytes) -> dict[str, npt.NDArray[np.float64]]:
@@ -125,7 +106,6 @@ def decode_fields(message:bytes) -> dict[str, npt.NDArray[np.float64]]:
 
 
 def curve_body(curve:IVCurve | CVCurve) -> dict[str, Any]:
-
     if isinstance(curve, CVCurve):
         return {
             "kind": "cv",
@@ -146,12 +126,10 @@ def curve_body(curve:IVCurve | CVCurve) -> dict[str, Any]:
     return {'kind':"iv", 'contact':curve.contact, 'measured_at':curve.measured_at, "complete":curve.complete, "message":curve.message, "points":[{'index': x, 'voltage': f.voltage, "current": f.current} for x, f in enumerate(curve.points)],}
 
 
-
 def point_voltage(point: IVPoint | CVPoint) -> float:
     if isinstance(point, CVPoint):
         return point.gate_voltage
     return point.voltage
-
 
 
 def _physical(field:Field, device: Device) -> npt.NDArray[np.float64]:

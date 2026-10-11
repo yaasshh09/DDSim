@@ -12,19 +12,13 @@ DOCS = pathlib.Path(__file__).parents[2]/"references"
 
 
 @pytest.fixture
-
-
 def client():
     with TestClient(create_app()) as v2:
         yield v2
 
 
 @pytest.mark.parametrize("name", topic_names())
-
-
-
 def test_every_topic_has_both_layers(name) -> None:
-
     m = load_topic(name)
 
     assert m.title and m.summary
@@ -33,13 +27,9 @@ def test_every_topic_has_both_layers(name) -> None:
 
 
 @pytest.mark.parametrize("name", topic_names())
-
-
-
 def test_every_docs_reference_names_a_heading_that_exists(name) -> None:
     for yy in load_topic(name).docs:
         m, _, w = yy.partition("#")
-
 
         c = (DOCS / m).read_text(encoding="utf-8")
         num = {
@@ -50,8 +40,6 @@ def test_every_docs_reference_names_a_heading_that_exists(name) -> None:
         assert w in num, f"{name}: references/{m} has no heading {w!r}"
 
 @pytest.mark.parametrize('path', sorted(LEARN.glob("*.md")), ids= lambda p: p.name)
-
-
 def test_no_topic_uses_an_em_dash(path) -> None:
     assert "—" not in path.read_text(encoding='utf-8')
 
@@ -61,8 +49,6 @@ def all_knob_names() -> set[str]:
     res |= {p.name for w in SWEEP_KINDS for p in sweep_parameters(w)}
     res |= {p.name for p in model_parameters()}
     return res
-
-
 
 
 def test_every_knob_points_at_a_topic() -> None:
@@ -77,18 +63,14 @@ def test_every_mapping_points_at_a_topic_that_exists() -> None:
 
 
 def test_every_marked_element_in_the_page_has_a_topic() -> None:
-
     idx = (LEARN.parent / "index.html").read_text(encoding="utf-8")
     res = set(re.findall(r'data-topic-id="([^"]+)"', idx))
     assert res, "the page marks no explainable element"
     assert res == set(PLOT_TOPICS), sorted(res ^ set(PLOT_TOPICS))
 
 
-
 def test_a_malformed_topic_is_refused(tmp_path, monkeypatch) -> None:
-
     import ddsim.api.learn as learn
-
 
     (tmp_path / "broken.md").write_text("---\ntitle: x\nsummary: y\ndocs: z\n---\nno layers\n", encoding="utf-8")
     monkeypatch.setattr(learn,
@@ -97,7 +79,6 @@ def test_a_malformed_topic_is_refused(tmp_path, monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="In plain words"):
         learn.load_topic('broken')
-
 
 
 def test_the_topic_list_is_served(client) -> None:
@@ -111,9 +92,5 @@ def test_one_topic_is_served_with_the_knobs_it_explains(client) -> None:
 
 
 @pytest.mark.parametrize("name", ["nothing", '..%2Fapp', '..%2Findex'])
-
-
 def test_an_unknown_topic_is_a_404(client, name) -> None:
-
-
     assert client.get(f"/api/learn/{name}").status_code == 404

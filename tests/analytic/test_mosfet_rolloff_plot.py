@@ -25,7 +25,6 @@ SQUARE_LAW = 2.0
 
 
 @pytest.fixture(scope='module')
-
 def sweep():
     return gate_length_sweep(
         gate_lengths=GATE_LENGTHS,
@@ -63,7 +62,6 @@ def label_lengths(axis, lengths) -> None:
 def test_every_device_in_the_sweep_solved(sweep):
     assert len(sweep) == len(GATE_LENGTHS)
     for v2 in sweep:
-
         assert v2.linear.complete
         assert v2.saturated.complete
 
@@ -75,7 +73,6 @@ def test_the_subthreshold_slope_beats_no_thermal_limit(sweep):
 
 def test_the_subthreshold_slope_degrades_as_the_gate_shortens(sweep):
     lst = [dat.subthreshold_slope for dat in sweep]
-
 
     assert lst[-1] > lst[0] + 10.0
     assert np.all(np.diff(lst) > -0.5)
@@ -102,25 +99,19 @@ def test_the_devsim_overlay_is_the_same_five_devices(sweep):
 
     assert list(m2) == pytest.approx([k.L_gate*1e7 for k in sweep])
 
-
     assert np.all(info < s), ('DEVSIM puts a saturated threshold above its linear one, which is not ' 'drain induced barrier lowering and would draw the shaded band upside ' "down")
 
 def test_the_process_did_not_change_across_the_sweep(sweep):
-
     assert 'L_gate' not in SHORT_CHANNEL_PROCESS
     assert "drain_voltage" not in SHORT_CHANNEL_PROCESS; assert "gate_voltage" not in SHORT_CHANNEL_PROCESS
 
 
-
 def test_mosfet_rolloff_plot_is_generated(sweep):
-
-
     foo = np.array([h.L_gate * 1e7 for h in sweep])
     z = np.array([h.threshold_linear for h in sweep])
     tmp2 = np.array([h.threshold_saturated for h in sweep])
     c = np.array([h.subthreshold_slope for h in sweep])
     val2 = np.array([h.saturation_exponent for h in sweep])
-
 
     bb, (cc, nxt) = plt.subplots(1, 2, figsize=(11.4, 5.0))
     cc.fill_between(
@@ -217,7 +208,6 @@ def test_mosfet_rolloff_plot_is_generated(sweep):
 
     b = nxt.twinx()
 
-
     b.plot(
         foo,
         val2,
@@ -242,7 +232,6 @@ def test_mosfet_rolloff_plot_is_generated(sweep):
     )
     b.tick_params(axis="y", labelcolor='tab:purple')
     b.set_ylim(1.0, 2.15)
-
 
     bb.suptitle(
         "NMOS gate length sweep, one process: "

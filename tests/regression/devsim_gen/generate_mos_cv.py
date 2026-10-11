@@ -22,7 +22,6 @@ from tests.regression.devsim_gen import parameters as P
 SILICON = 'bulk'
 
 
-
 OXIDE = "oxide"
 GATE = 'gate'
 BODY = 'body'
@@ -36,10 +35,6 @@ def devsim_version() -> str:
     return str(getattr(devsim, '__version__', "unknown"))
 
 @contextlib.contextmanager
-
-
-
-
 def quiet():
     with contextlib.redirect_stdout(io.StringIO()):
         yield
@@ -54,8 +49,6 @@ def build_mesh(
 
     r2 = benchmark.t_ox / (benchmark.devsim_oxide_cells * refine)
 
-
-
     t = benchmark.t_si; j = benchmark.t_si + benchmark.t_ox
 
     create_1d_mesh(mesh=mm)
@@ -67,7 +60,6 @@ def build_mesh(
     add_1d_contact(mesh=mm, name=BODY, tag='body', material="metal")
     add_1d_contact(mesh=mm, name=GATE, tag="gate", material='metal')
 
-
     add_1d_region(mesh=mm, material='Silicon', region=SILICON, tag1='body', tag2='iface')
     add_1d_region(
         mesh=mm, material="Oxide", region=OXIDE, tag1='iface', tag2="gate"
@@ -75,7 +67,6 @@ def build_mesh(
     add_1d_interface(mesh=mm, name="si_ox", tag="iface")
     finalize_mesh(mesh=mm)
     create_device(mesh=mm, device=device)
-
 
 
 def set_material_parameters(device: str) -> None:
@@ -92,10 +83,7 @@ def set_material_parameters(device: str) -> None:
         set_parameter(device=device, region=SILICON, name=d, value=vals)
     y = {'Permittivity': P.EPS_R_OX * P.EPS_0, 'ElectronCharge': P.Q,}
     for d, vals in y.items():
-
-
         set_parameter(device=device, region=OXIDE, name=d, value=vals)
-
 
 
 def build_physics(benchmark: P.MosBenchmark, device:str) -> None:
@@ -124,7 +112,6 @@ def build_physics(benchmark: P.MosBenchmark, device:str) -> None:
 
 def gate_potential(benchmark: P.MosBenchmark, v_gate: float) -> float:
     return v_gate + (P.PHI_M_MIDGAP - benchmark.work_function)
-
 
 
 def sweep(benchmark:P.MosBenchmark, refine: float = 1.0) -> list[dict[str, Any]]:
@@ -162,8 +149,6 @@ def relative_difference(
         if m > yy:
             yy, z = m, ok["voltage"]
     return yy, z
-
-
 
 
 def write_csv(
@@ -224,20 +209,17 @@ def main() -> int:
 
         b = sorted(set(tmp.names) - set(z2))
         if b:
-
             print(f"no such benchmark: {b}", file=sys.stderr)
 
             print(f"known: {sorted(z2)}", file=sys.stderr)
             return 1
         w = tuple(z2[v] for v in tmp.names)
 
-
     os.makedirs(GOLDEN, exist_ok=True)
 
     for mm in w:
         print(f"{mm.name}: solving {len(mm.voltages)} biases")
         r = sweep(mm)
-
 
         c = None
         if not tmp.no_mesh_check:

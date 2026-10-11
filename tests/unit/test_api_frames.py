@@ -31,7 +31,6 @@ def header_of(message: bytes) -> dict:
     return json.loads(message[4:4 + xs])
 
 
-
 def test_a_newton_iteration_crosses_as_the_numbers_it_carries() -> None:
     k = as_json(NewtonIteration(iteration=3, residual=1.5e-7, update=2.0e-4, damping=0.5, limited=True))
 
@@ -47,10 +46,7 @@ def test_a_newton_iteration_crosses_as_the_numbers_it_carries() -> None:
     }
 
 
-
-
 def test_a_newton_iteration_carries_its_split_by_equation_family() -> None:
-
     y = as_json(NewtonIteration(iteration=2, residual=math.inf, update=1e-3, damping=1.0, limited=False, residual_by_family={'psi':1e-9, "n":math.inf, "p":3e-7}, update_by_family={"psi":1e-3, "n":2e-4, 'p':5e-5},))
     assert y["residual_by_family"] == {"psi": 1e-9, 'n': None, 'p': 3e-7}
     assert y["update_by_family"] == {"psi": 1e-3, "n": 2e-4, "p": 5e-5}
@@ -63,16 +59,11 @@ def test_the_first_newton_iteration_says_there_was_no_step() -> None:
     assert tmp["damping"] is None
 
 @pytest.mark.parametrize("value", [math.inf, -math.inf, math.nan])
-
-
 def test_a_number_that_is_not_finite_crosses_as_null(value) -> None:
-
     b2 = encode(GummelIteration(iteration=4, update=value))
     assert "Infinity" not in b2
     assert 'NaN' not in b2
     assert json.loads(b2)['update'] is None
-
-
 
 
 def test_a_gummel_cycle_crosses_as_a_cycle() -> None:
@@ -81,7 +72,6 @@ def test_a_gummel_cycle_crosses_as_a_cycle() -> None:
         'iteration': 2,
         "update": 3.0e-3,
     }
-
 
 
 def test_a_continuation_attempt_carries_whether_it_was_accepted() -> None:
@@ -108,10 +98,8 @@ def test_a_finished_capacitance_point_crosses_as_its_own_kind() -> None:
 
 
 def test_something_that_is_not_a_frame_is_refused() -> None:
-
     with pytest.raises(TypeError, match="cannot be sent"):
         encode({"iteration": 1})
-
 
 
 def test_a_field_frame_is_a_json_header_followed_by_float32() -> None:
@@ -128,11 +116,7 @@ def test_a_field_frame_is_a_json_header_followed_by_float32() -> None:
     assert len(h) == 4 * row
 
 
-
-
 @pytest.mark.parametrize('index', [0, 10, 100, 1000])
-
-
 def test_the_float32_payload_starts_on_a_four_byte_boundary(index) -> None:
     b = FieldFrame(
         index=index,
@@ -147,22 +131,16 @@ def test_the_float32_payload_starts_on_a_four_byte_boundary(index) -> None:
 
 
 def test_the_arrays_arrive_in_the_order_the_header_lists_them() -> None:
-
     y2 = diode()
     d = solve_equilibrium(y2)
 
-
     g = decode_fields(encode(field_frame(y2, d, index=0, voltage=0.0)))
-
-
 
     assert list(g) == ['x', "psi", "n", "p", "Ec", 'Ev', "Efn", "Efp"]; np.testing.assert_allclose(g['x'], y2.mesh.x, rtol=1e-6)
 
 
-
 def test_the_fields_cross_in_physical_units() -> None:
     s2 = diode()
-
 
     m = solve_equilibrium(s2)
 
@@ -192,7 +170,6 @@ def test_a_two_dimensional_device_carries_both_axes_and_its_shape() -> None:
 
     assert cnt["shape"] == [i.mesh.ny, i.mesh.nx]
 
-
     assert list(c) == ["x", "y", "psi", 'n', "p", 'Ec', "Ev", "Efn", 'Efp']
     assert c["psi"].size == i.mesh.ny * i.mesh.nx
     np.testing.assert_allclose(c["x"], i.mesh.x_axis.x, rtol=1e-6)
@@ -204,13 +181,11 @@ def test_a_field_frame_says_which_bias_it_is_of() -> None:
     w2 = solve_equilibrium(e)
     v = header_of(encode(field_frame(e, w2, index=3, voltage=-1.0)))
 
-
     assert v["index"] == 3
     assert v['voltage'] == -1.0
 
 def test_the_units_of_every_array_travel_with_it() -> None:
     i = diode(); tt = solve_equilibrium(i)
-
 
     f = header_of(encode(field_frame(i, tt, index=0, voltage=0.0)))
 
@@ -228,10 +203,8 @@ def test_the_units_of_every_array_travel_with_it() -> None:
     }
 
 
-
 def test_a_transport_frame_carries_the_node_currents() -> None:
     j = nmos(**COARSE_FET)
-
 
     buf = solve_bias_ramped(j)
     x = TransportModels.for_device(j)
@@ -266,14 +239,12 @@ def test_a_drain_bias_leaves_the_current_in() -> None:
         encode(field_frame(r, lst, index=0, voltage=0.5, models=m))
     )
 
-
     assert np.nanmax(np.abs(f["Jx"])) > 0.0
 
 
 def test_the_band_edges_cross_in_ev() -> None:
     h = diode()
     z = solve_equilibrium(h)
-
 
     tmp3 = decode_fields(encode(field_frame(h, z, index=0, voltage=0.0)))
 

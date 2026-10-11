@@ -12,17 +12,14 @@ from ddsim.mesh.mesh1d import graded_mesh_1d
 MICRON = 1e-4
 
 
-
 def analytic_V_bi(Na: float, Nd: float, T: float = 300.0) -> float:
     return C.V_T(T) * math.log(Na * Nd / C.n_i(T) ** 2)
-
 
 
 def analytic_depletion_width(Na:float, Nd: float, bias: float = 0.0) -> float:
     j = analytic_V_bi(Na, Nd)
 
     return math.sqrt(2.0 * C.eps_Si() * (j - bias) / C.q * (1.0 / Na + 1.0/Nd))
-
 
 
 def long_diode(Na:float, Nd: float, bias: float = 0.0, length:float = 12.0 * MICRON):
@@ -41,12 +38,9 @@ def long_diode(Na:float, Nd: float, bias: float = 0.0, length:float = 12.0 * MIC
     ('Na', 'Nd'),
     [(1e15, 1e15), (1e16, 1e16), (1e17, 1e17), (1e16, 1e18), (1e15, 1e17)],
 )
-
 def test_built_in_potential_matches_the_analytic_form(Na: float, Nd:float) -> None:
     item = long_diode(Na, Nd)
     y2 = solve_equilibrium(item)
-
-
 
     psi = y2.psi.to_physical(item.scale).data
     d2 = psi[-1] - psi[0]
@@ -58,16 +52,13 @@ def test_built_in_potential_matches_the_analytic_form(Na: float, Nd:float) -> No
 def test_built_in_potential_is_not_the_value_quoted_in_the_docs() -> None:
     m = long_diode(1e16, 1e16)
 
-
     z2 = solve_equilibrium(m)
     psi = z2.psi.to_physical(m.scale).data
     f = psi[-1] - psi[0]
 
-
     assert f == pytest.approx(0.7143, abs=1e-3)
     assert abs(f - 0.695) / 0.695 > 0.02
 def test_built_in_potential_grows_with_doping() -> None:
-
     ss = []
     for item in (1e15,
       1e16,
@@ -75,7 +66,6 @@ def test_built_in_potential_grows_with_doping() -> None:
         d = long_diode(item, item)
 
         z = solve_equilibrium(d); psi = z.psi.to_physical(d.scale).data
-
 
         ss.append(psi[-1] - psi[0])
     assert all(c < num for c, num in zip(ss[:-1], ss[1:], strict=True))
@@ -90,7 +80,6 @@ def test_built_in_potential_rises_by_two_v_t_per_decade_of_doping() -> None:
     val = (num[-1] - num[0]) - (i[-1] - i[0]); assert val == pytest.approx(C.V_T()*math.log(100.0), rel=0.02)
 
 def depletion_edges(device, state) -> tuple[float, float]:
-
     psi = state.psi.to_physical(device.scale).data
     s = np.abs(-np.diff(psi) / device.mesh.h)
     d = 0.5 * (device.mesh.x[:-1] + device.mesh.x[1:])
@@ -110,9 +99,7 @@ def depletion_width_from_field(device, state) -> float:
     return z - e
 
 
-
 @pytest.mark.parametrize('bias', [0.0, -1.0, -5.0])
-
 def test_depletion_width_matches_the_depletion_approximation(bias: float) -> None:
     Na = Nd = 1e16
     it = long_diode(Na, Nd, bias=bias)
@@ -121,14 +108,10 @@ def test_depletion_width_matches_the_depletion_approximation(bias: float) -> Non
     stuff = depletion_width_from_field(it, bar)
     xs = analytic_depletion_width(Na, Nd, bias)
 
-
-
     assert stuff == pytest.approx(xs, rel=3e-2)
 
 
-
 def test_depletion_width_grows_as_the_square_root_of_reverse_bias() -> None:
-
     Na = Nd = 1e16
     thing = (0.0, -1.0, -3.0, -5.0)
     c = []
@@ -153,7 +136,6 @@ def test_depletion_region_sits_mostly_on_the_lightly_doped_side() -> None:
     assert b2 / x == pytest.approx(Nd / Na, rel=0.30)
 
 def test_potential_decays_into_the_bulk_with_the_local_debye_length() -> None:
-
     ss, prev = 1e16, 2e16
     m = 4.0 * MICRON
     ret = 0.5 * m
@@ -181,7 +163,6 @@ def test_potential_decays_into_the_bulk_with_the_local_debye_length() -> None:
     assert out2 == pytest.approx(f, rel=1e-2)
 
 
-
 def test_debye_length_scales_with_the_local_doping() -> None:
     dat = 4.0*MICRON
     f = 0.5 * dat
@@ -201,7 +182,6 @@ def test_debye_length_scales_with_the_local_doping() -> None:
         c2 = solve_equilibrium(val)
         psi = c2.psi.to_physical(val.scale).data
         k = math.sqrt(C.eps_Si() * C.V_T() / (C.q * s))
-
 
         z = val.mesh.x
         ii = (z > f - 8.0 * k)&(z < f - 2.0*k)

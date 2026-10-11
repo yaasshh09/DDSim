@@ -63,7 +63,6 @@ GATE = "gate"
 BODY = 'body'
 
 
-
 AIR = 1e-6
 GOLDEN = os.path.join("data", 'golden')
 set_parameter(name='threads_available', value=1)
@@ -77,14 +76,8 @@ def devsim_version() -> str:
     return str(getattr(devsim, '__version__', 'unknown'))
 
 
-
 @contextlib.contextmanager
-
-
-
 def quiet():
-
-
     with contextlib.redirect_stdout(io.StringIO()):
         yield
 
@@ -99,7 +92,6 @@ def build_mesh(
     refine_y:float | None = None,
     process:dict[str, float]|None = None,
 ) -> None:
-
     xs = device
     process = P.MOSFET_PROCESS if process is None else process
     m = process['sd_length']
@@ -136,9 +128,7 @@ def build_mesh(
                ns=e,
            ps=num)
 
-
     add_2d_region(mesh=xs, region=BULK, material="Silicon", yl=0.0, yh=b2)
-
 
     add_2d_region(
         mesh=xs, region=OXIDE, material="Oxide", yl=b2, yh=b2+s
@@ -181,7 +171,6 @@ def build_mesh(
 
 
 def check_mesh_landed(device: str, t_si: float) -> None:
-
     h = get_node_model_values(device=device, region=BULK, name="y")
     w = max(h)
     if abs(w - t_si) > 1e-14 * t_si:
@@ -208,11 +197,8 @@ def check_mesh_landed(device: str, t_si: float) -> None:
         )
 
 
-
 def node_count(device: str) -> int:
-
     return len(get_node_model_values(device=device, region=BULK, name="x"))
-
 
 
 def set_material_parameters(device:str) -> None:
@@ -232,7 +218,6 @@ def set_material_parameters(device:str) -> None:
         set_parameter(device=device, region=BULK, name=zz, value=y)
     for zz, y in (("Permittivity", P.EPS_R_OX*P.EPS_0), ('ElectronCharge', P.Q),):
         set_parameter(device=device, region=OXIDE, name=zz, value=y)
-
 
 
 def set_doping(benchmark: P.MosfetBenchmark, device:str, process: dict[str, float] | None = None,) -> None:
@@ -270,7 +255,6 @@ def set_lifetimes(device: str) -> None:
         )
 
 
-
 def joyce_dixon(u: str) -> str:
     y2, r, j, vv = P.JOYCE_DIXON
     tt = f"(min({u}, {P.JOYCE_DIXON_MAX_U:.16e}))"
@@ -294,7 +278,6 @@ def set_full_stack_parameters(device: str) -> None:
     for g, a in P.LOMBARDI_N.items():
         d2[f"lom_{g}_n"] = a
     for g, a in P.LOMBARDI_P.items():
-
         d2[f"lom_{g}_p"] = a
     for tmp, a in d2.items():
         set_parameter(device=device, region=BULK, name=tmp, value=a)
@@ -312,7 +295,6 @@ def create_bulk_mobility(device: str) -> None:
 
 
 def create_surface_mobility(device: str) -> None:
-
     node_solution(device=device, region=BULK, name="E_perp")
     CreateNodeModel(device, BULK, "E_perp_used", "max(E_perp, E_perp_floor)")
     CreateNodeModel(
@@ -320,7 +302,6 @@ def create_surface_mobility(device: str) -> None:
     )
 
     for dd in ('n', "p"):
-
         vv = (
             f"lom_B_{dd}/E_perp_used + "
             f"lom_C_{dd}*pow(N_surface, lom_tau_{dd})*"
@@ -375,7 +356,6 @@ def refresh_surface_mobility(device: str) -> float:
                 c = max(c, abs(k - val2) / abs(k))
     return c
 def create_edge_mobility(device: str) -> None:
-
     for b in ("n", "p"):
         edge_average_model(
             device=device,
@@ -396,14 +376,11 @@ def create_edge_mobility(device: str) -> None:
 
         tt = f"mu_ct_{b}"
 
-
         CreateEdgeModel(device, BULK, tt, d)
         CreateEdgeModelDerivatives(device, BULK, tt, d, "Potential")
 
 
-
 def create_degenerate_currents(device:str) -> None:
-
     for item, z2, dd, v2 in (
         ('n', 'Electrons', "Nc", '-'),
         ('p', 'Holes', "Nv", "+"),
@@ -411,7 +388,6 @@ def create_degenerate_currents(device:str) -> None:
         r = joyce_dixon(f"{z2}/{dd}"); w = f"Potential {v2} V_t*{r}"
         CreateNodeModel(device, BULK, f"Potential_{item}", w)
         for t2 in ("Potential", z2):
-
             CreateNodeModelDerivative(
                 device, BULK, f"Potential_{item}", w, t2
             )
@@ -458,7 +434,6 @@ def create_degenerate_currents(device:str) -> None:
             CreateEdgeModelDerivatives(device, BULK, b, cc, t2)
 
 def degenerate_contact_expressions() -> tuple[str, str, str]:
-
     i = f"exp(-{joyce_dixon(f'{celec_model}/Nc')})"
     j = f"exp(-{joyce_dixon(f'{chole_model}/Nv')})"
     m = f"(n_i^2*{i}*{j})"
@@ -472,9 +447,7 @@ def degenerate_contact_expressions() -> tuple[str, str, str]:
     return xs, k, e
 
 
-
 def create_degenerate_contact(device:str, contact:str) -> None:
-
     cc, v, el = degenerate_contact_expressions()
     r2 = f"Potential -{GetContactBiasName(contact)} + {el}"
     CreateContactNodeModel(
@@ -483,8 +456,6 @@ def create_degenerate_contact(device:str, contact:str) -> None:
     CreateContactNodeModel(
         device, contact, f"{GetContactNodeModelName(contact)}:Potential", '1'
     )
-
-
 
     for out, r, j in (
         (f"{contact}nodeelectrons", f"Electrons - ({cc})", 'Electrons'),
@@ -524,8 +495,6 @@ def seed_potential(device: str) -> None:
     set_node_values(device=device, region=BULK, name="Potential", init_from='PotentialNeutral')
 
 
-
-
 def build_physics(
     device: str,
     v_gate: float,
@@ -557,12 +526,9 @@ def build_physics(
         ('Electrons', 'IntrinsicElectrons'),
         ("Holes", 'IntrinsicHoles'),
     ):
-
-
         CreateSolution(device, BULK, row)
         set_node_values(device=device, region=BULK, name=row, init_from=e)
     set_lifetimes(device)
-
 
     if models == P.REDUCED_MODELS:
         CreateSiliconDriftDiffusion(device, BULK, mu_n="mu_n", mu_p='mu_p')
@@ -587,18 +553,14 @@ def build_physics(
 
     ramp_to(device, DRAIN, v_drain)
 def snapshot(device:str, poisson_only: bool = False) -> dict[tuple[str, str], list]:
-
     s = ({BULK: ("Potential",), OXIDE: ('Potential',)} if poisson_only else SOLUTIONS)
     return {(d, m): list(get_node_model_values(device=device, region=d, name=m)) for d, y in s.items() for m in y}
 
 def restore(device: str, saved:dict[tuple[str, str], list]) -> None:
-
     for (num, y), lst in saved.items():
         set_node_values(device=device, region=num, name=y, values=lst)
 def potential_move(before: dict[tuple[str, str], list], after: dict[tuple[str, str], list]) -> float:
-
     stuff = 0.0
-
 
     for d, bb in before.items():
         if d[1] != "Potential":
@@ -608,13 +570,9 @@ def potential_move(before: dict[tuple[str, str], list], after: dict[tuple[str, s
     return stuff
 
 
-
 def sane(device:str) -> bool:
-
     psi = get_node_model_values(device=device, region=BULK, name='Potential')
     if max(abs(idx) for idx in psi) > 5.0:
-
-
         return False
     for tmp3 in ("Electrons", 'Holes'):
         s = get_node_model_values(device=device, region=BULK, name=tmp3)
@@ -629,13 +587,8 @@ SOLVE_TOLERANCES: tuple[float, ...] = (1e-8, 1e-6, 1e-4)
 EQUILIBRIUM_ITERATIONS = 1000
 
 
-
-
 def solve_once(rescue: int | None = None) -> None:
-
-
     for j, ss in enumerate(SOLVE_TOLERANCES):
-
         try:
             solve(
                 type='dc',
@@ -647,14 +600,12 @@ def solve_once(rescue: int | None = None) -> None:
             return
         except Exception:
             if j + 1 == len(SOLVE_TOLERANCES):
-
                 if rescue is None:
                     raise
                 solve(type='dc', absolute_error=1e30, relative_error=ss, maximum_iterations=rescue, maximum_error=1e40)
 
 
 def settle(device: str, poisson_only: bool = False, passes: int = 400, tol:float = 1e-9, balance_tol: float | None = None, stall: int = 25,) -> int:
-
     w = snapshot(device, poisson_only)
     s = _surface_is_live and not poisson_only
     r = 0
@@ -673,10 +624,8 @@ def settle(device: str, poisson_only: bool = False, passes: int = 400, tol:float
             r += 1
             thing = refresh_surface_mobility(device)
             if (thing < SURFACE_RTOL or r >= SURFACE_SWEEPS):
-
                 s = False
                 g = float('inf')
-
 
                 b = 0; ret = 0.0
                 if thing >= SURFACE_RTOL:
@@ -691,22 +640,17 @@ def settle(device: str, poisson_only: bool = False, passes: int = 400, tol:float
                k)
         w = k
 
-
         if not d and h >= tol:
-
             if h < g:
                 g, b, ret = h, 0, 0.0
                 continue
             b += 1
             ret = max(ret, h)
 
-
             if b < stall:
                 continue
 
             if ret >= SETTLE_FLOOR:
-
-
                 raise RuntimeError(
                     f"stalled at {g:.3e} V for {stall} passes, worst "
                     f"{ret:.3e} V, last move {h:.3e} V"
@@ -716,13 +660,11 @@ def settle(device: str, poisson_only: bool = False, passes: int = 400, tol:float
                 f"{stall} passes"
             )
 
-
         d = True
         if not poisson_only and not sane(device):
             raise RuntimeError('settled on a state no bias can produce')
         if poisson_only or balance_tol is None:
             return cur + 1
-
 
         m = terminal_imbalance(device)
         if m < balance_tol:
@@ -769,13 +711,11 @@ def ramp_to(device:str, contact: str, target:float, step:float = 0.1, min_step: 
             continue
         c = m
 
-
         ys += 1
         if ys >= GROWTH_STREAK:
             step = min(2.0 * step,
                      max_step)
             ys = 0
-
 
 
 def terminal_current(device:str, contact: str) -> float:
@@ -790,14 +730,11 @@ BALANCE_PROGRESS = 0.9
 BALANCE_TOL = 1e-3
 
 
-
 def terminal_imbalance(device: str) -> float:
     flag = terminal_current(device, DRAIN)
     dd = terminal_current(device, SOURCE)
     v = max(abs(flag), abs(dd))
     return 0.0 if v == 0.0 else abs(flag + dd) / v
-
-
 
 
 def device_name(
@@ -806,9 +743,7 @@ def device_name(
     return f"{benchmark.name}_d{drain:g}_r{refine:g}".replace(".", "_")
 
 
-
 def transfer_curve(benchmark: P.MosfetBenchmark, drain: float, refine: float = 1.0, refine_y: float | None = None,) -> tuple[list[dict[str, Any]], int]:
-
     global _surface_is_live
     _surface_is_live = False
     y = device_name(benchmark, drain, refine)
@@ -820,14 +755,12 @@ def transfer_curve(benchmark: P.MosfetBenchmark, drain: float, refine: float = 1
         build_physics(y, benchmark.gate_voltages[0], drain, benchmark.models)
     m: list[dict[str, Any]] = []
 
-
     for s in benchmark.gate_voltages:
         ramp_to(y, GATE, gate_potential(s))
         with quiet():
             settle(y, balance_tol=BALANCE_TOL)
 
         m.append({"gate": s, "drain": terminal_current(y, DRAIN), "source": terminal_current(y, SOURCE), 'body': terminal_current(y, BODY),})
-
 
         print(
             f"    Vg={s:+.3f} V  Id={m[-1]['drain']:+.6e} A/cm",
@@ -841,7 +774,6 @@ def transfer_curve(benchmark: P.MosfetBenchmark, drain: float, refine: float = 1
     return m, idx
 
 
-
 def sweep(
     benchmark:P.MosfetBenchmark,
     refine:float = 1.0,
@@ -851,15 +783,12 @@ def sweep(
     tt, aa = transfer_curve(benchmark, benchmark.drain_low, refine=refine, refine_y=refine_y)
     print(f"  {benchmark.name}: Vd = {benchmark.drain_high} V", flush=True)
 
-
     tmp2, _ = transfer_curve(benchmark, benchmark.drain_high, refine=refine, refine_y=refine_y)
     return tt, tmp2, aa
 
 
 MESH_NOISE_FACTOR = 3.0
 def relative_difference(coarse: list[dict[str, Any]], fine: list[dict[str, Any]]) -> tuple[float, float, int]:
-
-
     kk = 0.0
     m = 0.0
     jj = 0
@@ -874,7 +803,6 @@ def relative_difference(coarse: list[dict[str, Any]], fine: list[dict[str, Any]]
             jj += 1
             continue
         if u > kk:
-
             kk, m = u, val2["gate"]
     return kk, m, jj
 
@@ -885,7 +813,6 @@ def row_imbalance(row:dict[str, Any]) -> float:
 
 
 def write_csv(benchmark:P.MosfetBenchmark, low: list[dict[str, Any]], high: list[dict[str, Any]], nodes:int, mesh_check:tuple[float, float, int] | None, path: str,) -> None:
-
     info = P.MOSFET_PROCESS
     h, r = P.implant_shape(info)
     res = datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d')
@@ -942,7 +869,6 @@ def write_csv(benchmark:P.MosfetBenchmark, low: list[dict[str, Any]], high: list
         j.write("\n".join(d2) + "\n")
 
 def main() -> int:
-
     m = argparse.ArgumentParser(description="Generate MOSFET golden data")
     m.add_argument("names", nargs="*", default=None, help='benchmark names to generate. Default is all of them.',)
     m.add_argument(
@@ -951,14 +877,11 @@ def main() -> int:
         help='skip the halved mesh run, which doubles the runtime.',
     )
 
-
     m.add_argument("--out", default=GOLDEN, help='directory to write into. Default is data/golden.',)
     i = m.parse_args()
 
-
     c = P.MOSFET_BENCHMARKS
     if i.names:
-
         prev = sorted(set(i.names) - set(P.MOSFET_BY_NAME))
         if prev:
             print(f"no such benchmark: {prev}", file=sys.stderr)
@@ -967,7 +890,6 @@ def main() -> int:
         c = tuple(P.MOSFET_BY_NAME[m2] for m2 in i.names)
     os.makedirs(i.out, exist_ok=True)
     for a2 in c:
-
         print(
             f"{a2.name}: L_gate = {a2.L_gate * 1e7:g} nm, "
             f"{len(a2.gate_voltages)} gate biases on two curves",
@@ -978,10 +900,8 @@ def main() -> int:
         xs = os.path.join(i.out, f"{a2.name}.csv")
         write_csv(a2, x, k, u, None, xs)
 
-
         s = None
         if not i.no_mesh_check:
-
             print(f"{a2.name}: repeating on a halved mesh", flush=True)
             zz, val, _ = sweep(a2, refine=2.0)
             s = max(
@@ -994,7 +914,6 @@ def main() -> int:
                 f"at {s[1]:+g} V, {s[2]} points skipped",
                 flush=True,
             )
-
 
             write_csv(a2, x, k, u, s, xs)
         print(f"{a2.name}: wrote {xs}", flush=True)

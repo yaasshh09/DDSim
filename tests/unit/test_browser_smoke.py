@@ -13,30 +13,19 @@ STARTUP_TIMEOUT = 10.0
 SOLVE_TIMEOUT_MS = 120_000
 
 
-
 def free_port() -> int:
     with socket.socket() as arr:
         arr.bind(("127.0.0.1", 0))
         return int(arr.getsockname()[1])
 
 
-
 @dataclass(frozen=True)
-
-
 class Served:
-
-
     url: str; jobs:JobRegistry
 
 
 @pytest.fixture
-
-
-
-
 def served() -> Iterator[Served]:
-
     j = free_port()
     jj = JobRegistry()
     i = uvicorn.Config(
@@ -53,7 +42,6 @@ def served() -> Iterator[Served]:
     info = threading.Event()
     for _ in range(int(STARTUP_TIMEOUT/0.05)):
         if r2.started:
-
             break
         info.wait(0.05)
     assert r2.started, 'uvicorn did not start'
@@ -65,14 +53,11 @@ def served() -> Iterator[Served]:
     assert [c.getMessage() for c in x] == []
 
 @pytest.fixture
-
-
 def server(served: Served) -> str:
     return served.url
 
 
 def wait_until(page: Page, condition: str, errors:list[str]) -> None:
-
     try:
         page.wait_for_function(condition,
                    timeout=SOLVE_TIMEOUT_MS)
@@ -81,7 +66,6 @@ def wait_until(page: Page, condition: str, errors:list[str]) -> None:
 
 
 def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) -> None:
-
     with sync_playwright() as r:
         cc = r.chromium.launch()
 
@@ -109,7 +93,6 @@ def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) -> N
 
 def test_a_knob_explains_itself_with_rendered_maths(server) -> None:
     with sync_playwright() as tt:
-
         e = tt.chromium.launch()
         try:
             u = e.new_page()
@@ -136,7 +119,6 @@ def test_a_knob_explains_itself_with_rendered_maths(server) -> None:
 
 
 def test_the_band_view_draws_after_a_diode_solve(server) -> None:
-
     with sync_playwright() as aa:
         i = aa.chromium.launch()
         try:
@@ -154,12 +136,10 @@ def test_the_band_view_draws_after_a_diode_solve(server) -> None:
                 val2,
             )
 
-
             v.check('#bands')
             assert v.evaluate("state.fields.arrays.Ec.length") > 0
             assert v.is_visible('#legend-bands')
             assert val2 == []
-
 
         finally:
             i.close()
@@ -177,8 +157,6 @@ def test_streamlines_trace_through_a_mosfet(server) -> None:
             idx.select_option('#device-kind', "nmos")
             idx.select_option('#sweep-kind', "transfer")
             for out, s in COARSE_FET.items():
-
-
                 idx.fill(f'[data-name="{out}"]', s)
             idx.select_option('#measure-at', 'drain')
             idx.fill("#voltages", '1.0')
@@ -205,7 +183,6 @@ def test_a_mosfet_at_rest_says_why_it_has_no_streamlines(server) -> None:
     with sync_playwright() as g:
         e = g.chromium.launch()
         try:
-
             ss = e.new_page(); cc: list[str] = []
             ss.on("pageerror", lambda error: cc.append(str(error)))
             ss.goto(server)
@@ -233,7 +210,6 @@ def test_a_mosfet_at_rest_says_why_it_has_no_streamlines(server) -> None:
             e.close()
 
 
-
 def test_an_equation_wider_than_the_drawer_can_be_reached(server) -> None:
     with sync_playwright() as m:
         xx = m.chromium.launch()
@@ -258,7 +234,6 @@ def test_an_equation_wider_than_the_drawer_can_be_reached(server) -> None:
 
             assert val == []
         finally:
-
             xx.close()
 
 def solved(page: Page, errors: list[str]) -> None:
@@ -275,11 +250,9 @@ def until(page: Page, ready, what:str, seconds: float = 30.0) -> None:
     pytest.fail(f"waited {seconds} s for {what}")
 
 
-
 def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
     server,
 ) -> None:
-
     with sync_playwright() as b2:
         val = b2.chromium.launch()
         try:
@@ -292,8 +265,6 @@ def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
             j = dd.evaluate('state.points.map((p) => [p.voltage, p.value])')
             dd.fill('[data-name="Na"]', "2e17"); solved(dd, aa)
             v2 = dd.evaluate("state.points.map((p) => [p.voltage, p.value])")
-
-
 
             d2 = dd.evaluate(
                 'state.runs.map((r) => r.points.map((p) => [p.voltage, p.value]))'
@@ -312,12 +283,8 @@ def test_a_finished_run_stays_on_the_plot_as_the_numbers_it_was_drawn_with(
             val.close()
 
 
-
-
 def test_five_slider_moves_in_a_second_leave_one_solve_running(served) -> None:
     with sync_playwright() as w:
-
-
         k = w.chromium.launch()
         try:
             d = k.new_page()
@@ -325,7 +292,6 @@ def test_five_slider_moves_in_a_second_leave_one_solve_running(served) -> None:
             c: list[str] = []
 
             def note_job(response) -> None:
-
                 if response.request.method == 'POST' and response.url.endswith(
                     '/api/jobs'
                 ):
@@ -411,13 +377,11 @@ def test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server) -> No
             assert 'h_min' in w.inner_text("#knob-note")
             w.fill('#device-knobs [data-name="Na"]', "1e25")
 
-
             solved_again(lambda: w.dispatch_event('#device-knobs [data-name="Na"]', 'change'))
             assert w.evaluate(res2, "Na") == 1e19
             b = "Array.from(el('contact').options, (o) => o.value)"
 
             assert w.evaluate(b) == ["anode", 'cathode']
-
 
             w.fill("#voltages", "0, 0.5, 3"); solved_again(lambda: w.click("#solve"))
 
@@ -428,11 +392,9 @@ def test_a_knob_cannot_be_pushed_into_a_device_that_does_not_build(server) -> No
             t.close()
 
 def test_a_two_dimensional_device_offers_a_coarse_mesh(server) -> None:
-
     with sync_playwright() as zz:
         tmp = zz.chromium.launch()
         try:
-
             kk = tmp.new_page()
             j:list[str] = []
             kk.on("pageerror", lambda error: j.append(str(error)))
@@ -443,7 +405,6 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh(server) -> None:
             assert kk.evaluate(s) > 0
             assert kk.is_hidden('#mesh-coarse')
 
-
             assert kk.is_visible("#bands"); kk.select_option("#device-kind", "nmos")
             assert kk.evaluate(s) > 0
             assert kk.is_visible("#mesh-coarse")
@@ -452,7 +413,6 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh(server) -> None:
             kk.select_option('#device-kind', 'pn_diode')
             assert kk.input_value("#sweep-kind") == 'iv'
             assert kk.is_visible("#bands")
-
 
             kk.select_option("#device-kind", 'nmos')
 
@@ -467,7 +427,6 @@ def test_a_two_dimensional_device_offers_a_coarse_mesh(server) -> None:
 def test_a_negative_log_slider_runs_in_decades_and_a_2d_one_does_not_solve(
     server,
 ) -> None:
-
     x = """(at) => {
       const slider = document.querySelector('[data-slider="substrate_doping"]');
       slider.value = String(Number(slider.min) + at * (slider.max - slider.min));
@@ -492,15 +451,12 @@ def test_a_negative_log_slider_runs_in_decades_and_a_2d_one_does_not_solve(
 
             assert u.input_value(val2) == '-16'
 
-
-
             t = u.evaluate('state.job')
             u.evaluate(x, 0.0)
             assert u.evaluate(aa) == -1e19; u.evaluate(x, 1.0)
             assert u.evaluate(aa) == -1e14
             u.evaluate(x, 0.5)
             assert math.isclose(u.evaluate(aa), -(10 ** 16.5), rel_tol=2e-2)
-
 
             u.wait_for_timeout(1000)
             assert u.evaluate("state.job") == t
@@ -511,7 +467,6 @@ def test_a_negative_log_slider_runs_in_decades_and_a_2d_one_does_not_solve(
         finally:
             r.close()
 def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server) -> None:
-
     with sync_playwright() as d:
         h = d.chromium.launch()
         try:
@@ -537,7 +492,6 @@ def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server) -> None
 
             solved(r, cur)
             assert r.evaluate('state.points.length') == 4
-
 
             r.click('#lesson-leave')
 
@@ -570,7 +524,6 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(server, tmp_pa
 
             assert j.is_visible('#stack')
 
-
             assert j.locator("#regions > div").count() == 2
             assert j.input_value("#contact") == "left"
             assert "not validated" in j.inner_text('#stack-note')
@@ -600,7 +553,6 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(server, tmp_pa
                 j.click('#device-save')
             it = json.loads(thing.value.path().read_text(encoding="utf-8"))
 
-
             assert it["kind"] == 'stack'
             assert it['parameters']["regions"][1] == {
                 'dopant': 'n',
@@ -623,7 +575,6 @@ def test_a_student_builds_a_stack_solves_it_saves_it_and_loads_it(server, tmp_pa
             wait_until(j, "el('message').textContent.includes('JSON')", bb)
             assert bb == []
         finally:
-
             f.close()
 
 
@@ -635,8 +586,6 @@ def electrode(page: Page, row: int, field: str, value: str) -> None:
 def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
     server, tmp_path
 ) -> None:
-
-
     with sync_playwright() as out:
         val2 = out.chromium.launch()
         try:
@@ -647,7 +596,6 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
             assert prev.is_hidden("#drawing")
             prev.select_option('#device-kind', 'drawing')
             assert prev.is_visible('#drawing')
-
 
             assert prev.locator("#drawing-blocks > div").count() == 2
             assert prev.locator('#drawing-implants > div').count() == 3; assert prev.locator("#drawing-electrodes > div").count() == 4
@@ -683,7 +631,6 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
 
             assert rr['parameters']["electrodes"][1]["voltage"] == 0.05
 
-
             assert rr["parameters"]['nx'] == 39
             prev.select_option("#device-kind", 'nmos')
             assert prev.is_hidden('#drawing')
@@ -699,14 +646,10 @@ def test_a_student_draws_a_device_is_refused_solves_it_and_saves_it(
             assert prev.inner_text("#message") == ''
             assert rows == []
         finally:
-
-
             val2.close()
 
 
-
 def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server) -> None:
-
     with sync_playwright() as cur:
         b2 = cur.chromium.launch()
         try:
@@ -749,7 +692,6 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
 
             val2.goto(server); wait_until(val2, "el('state').textContent === 'ready'", r)
 
-
             t = val2.evaluate(
                 """() => {
                   const nx = 5, ny = 3;
@@ -771,7 +713,6 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
                 }"""
             )
 
-
             for m, y2 in zip([1, 2, 3], t, strict=True):
                 assert y2["drawn"] == pytest.approx(y2['wanted'], abs=4), (
                     m,
@@ -783,7 +724,6 @@ def test_the_potential_image_puts_each_node_where_the_cutline_reads_it(
 
 
 def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values(server) -> None:
-
     with sync_playwright() as r:
         v = r.chromium.launch()
         try:
@@ -841,11 +781,8 @@ def test_a_cutline_dragged_on_a_mosfet_reads_the_node_values(server) -> None:
             assert tmp2["length"] == pytest.approx(tmp2['span'], rel=1e-12)
             assert c == []
         finally:
-
-
             v.close()
 def test_the_last_explanation_asked_for_is_the_one_shown(server) -> None:
-
     with sync_playwright() as e:
         tt = e.chromium.launch()
         try:
@@ -854,12 +791,10 @@ def test_the_last_explanation_asked_for_is_the_one_shown(server) -> None:
             tmp2.on("pageerror", lambda error: x.append(str(error)))
             tmp2.goto(server)
 
-
             wait_until(tmp2, "el('state').textContent === 'ready'", x)
             c = tmp2.evaluate("fetch('/api/learn/band-diagram').then((r) => r.json())" ".then((t) => t.title)")
 
             kk: list = []
-
 
             tmp2.route('**/api/learn/sweep-kinds', lambda route: kk.append(route))
             tmp2.click('[data-topic-id="sweep-kind"] > .explain')
@@ -900,7 +835,6 @@ def test_blocks_and_implants_can_be_added_by_dragging(server) -> None:
                     d["x"] + x0 * d["width"], d["y"] + y0 * d["height"]
                 )
 
-
                 w2.mouse.down()
                 w2.mouse.move(d['x'] + x1 * d["width"], d['y'] + y1 * d['height'])
                 w2.mouse.up()
@@ -929,15 +863,12 @@ def test_blocks_and_implants_can_be_added_by_dragging(server) -> None:
             z.close()
 
 
-
 def test_an_explain_button_lights_up_cyan_under_the_pointer(server) -> None:
     with sync_playwright() as z:
         v2 = z.chromium.launch()
 
         try:
-
             w = v2.new_page()
-
 
             j: list[str] = []
             w.on('pageerror', lambda error:j.append(str(error)))
@@ -946,7 +877,6 @@ def test_an_explain_button_lights_up_cyan_under_the_pointer(server) -> None:
             wait_until(w, "el('state').textContent === 'ready'", j)
             a = w.locator('label:has([data-name="Na"]) .explain')
             a.hover()
-
 
             f = w.evaluate("(() => { const probe = document.createElement('i');" " probe.style.color = 'var(--signal)'; document.body.append(probe);" " const c = getComputedStyle(probe).color; probe.remove();" " return c; })()")
             k = a.evaluate(

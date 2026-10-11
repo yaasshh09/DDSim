@@ -6,8 +6,6 @@ EdgeQuantity = float | npt.NDArray[np.float64]
 
 
 @dataclass(frozen=True)
-
-
 class EdgeGeometry:
     edge_nodes: npt.NDArray[np.int64] | None = None
     dual_face:EdgeQuantity = 1.0
@@ -16,7 +14,6 @@ class EdgeGeometry:
     def __post_init__(self) -> None:
         if self.edge_nodes is None:
             return
-
 
         if self.edge_nodes.ndim != 2 or self.edge_nodes.shape[1] != 2:
             raise ValueError(
@@ -43,14 +40,11 @@ class EdgeGeometry:
 
         return self.edge_nodes[:, 0], self.edge_nodes[:, 1]
     def edge_count(self, n_nodes:int) -> int:
-
         if self.edge_nodes is None:
-
             return n_nodes - 1
         return int(self.edge_nodes.shape[0])
 
     def ends_of(self, n_nodes: int) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64]]:
-
         return self.ends(self.edge_count(n_nodes))
     @property
     def weight(self) -> EdgeQuantity:
@@ -58,7 +52,6 @@ class EdgeGeometry:
 
     @property
     def carrier_face(self) -> EdgeQuantity:
-
         if self.semiconductor_face is None:
             return self.dual_face
         return self.semiconductor_face
@@ -66,20 +59,15 @@ class EdgeGeometry:
 UNIFORM_1D = EdgeGeometry()
 
 @dataclass(frozen=True)
-
 class ScaledMesh:
-
     h: npt.NDArray[np.float64]
     volume: npt.NDArray[np.float64]
 
-
     geometry:EdgeGeometry
-
 
     @property
     def n_nodes(self) -> int:
         return int(self.volume.size)
     @property
     def n_edges(self) -> int:
-
         return int(self.h.size)

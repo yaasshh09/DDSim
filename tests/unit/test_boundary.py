@@ -35,8 +35,6 @@ def sample_assembly(n_nodes:int = 11, doping:float = 1e6) -> tuple:
     return cnt, psi
 
 
-
-
 def _poisson_assembly(mesh: object, scale:ScaleFactors, psi:np.ndarray, net_doping:np.ndarray) -> SparseAssembly:
     k2 = mesh.scaled(scale)
 
@@ -49,12 +47,9 @@ def _poisson_assembly(mesh: object, scale:ScaleFactors, psi:np.ndarray, net_dopi
         shape=(psi.size, psi.size),
     )
 def dense(assembly: SparseAssembly) -> np.ndarray:
-
     return sp.coo_matrix(
         (assembly.values, (assembly.rows, assembly.cols)), shape=assembly.shape
     ).toarray()
-
-
 
 
 def test_contact_potential_at_zero_bias_is_the_equilibrium_potential() -> None:
@@ -75,13 +70,10 @@ def test_contact_potential_is_finite_in_compensated_material() -> None:
         assert math.isfinite(ohmic_psi_scaled(c, 0.0))
 
 
-
-
 def test_contact_potential_is_negative_for_p_type() -> None:
     assert ohmic_psi_scaled(-1e6, 0.0) < 0.0
 def test_dirichlet_residual_is_the_potential_error() -> None:
     v, psi = sample_assembly()
-
 
     yy = apply_dirichlet(v, psi, node=0, target=2.5)
     assert yy.residual[0] == pytest.approx(psi[0] - 2.5, rel=1e-15)
@@ -103,19 +95,14 @@ def test_dirichlet_row_becomes_the_identity() -> None:
     np.testing.assert_allclose(d[3,:], f, atol=0.0)
 
 
-
-
 def test_dirichlet_eliminates_the_column_as_well_as_the_row() -> None:
     el, psi = sample_assembly()
 
     k2 = dense(apply_dirichlet(el, psi, node=3, target=0.0))
 
-
     c = np.zeros(el.shape[0])
     c[3] = 1.0
     np.testing.assert_allclose(k2[:, 3], c, atol=0.0)
-
-
 
 
 def test_dirichlet_folds_the_column_into_the_neighbouring_residuals() -> None:
@@ -127,9 +114,7 @@ def test_dirichlet_folds_the_column_into_the_neighbouring_residuals() -> None:
 
     y = d.residual+val * it
 
-
     y[3] = psi[3] - xx
-
 
     np.testing.assert_allclose(i.residual, y, rtol=1e-14)
 
@@ -139,13 +124,10 @@ def test_dirichlet_leaves_untouched_rows_untouched() -> None:
     t = dense(apply_dirichlet(aa, psi, node=3, target=0.0))
     r = [a for a in range(aa.shape[0]) if abs(a - 3) > 1]
 
-
     np.testing.assert_allclose(t[r,:], j[r,:], rtol=1e-15)
 
 
-
 def test_the_pinned_value_survives_an_ill_conditioned_system() -> None:
-
     a = 11
     bb = np.arange(a, dtype=np.int64)
 
@@ -174,7 +156,6 @@ def test_dirichlet_does_not_mutate_the_original_assembly() -> None:
     apply_dirichlet(y, psi, node=0, target=9.0)
 
     np.testing.assert_array_equal(y.residual, g)
-
 
 
 def test_dirichlet_rejects_a_node_outside_the_mesh() -> None:
@@ -210,8 +191,6 @@ def test_two_contacts_pin_both_ends() -> None:
         np.testing.assert_allclose(ii[v2,:], res2, atol=0.0)
 
 
-
-
 def test_contact_voltage_is_converted_from_volts_to_scaled_units() -> None:
     f = ScaleFactors.for_silicon()
     m, psi = sample_assembly(n_nodes=11)
@@ -225,13 +204,10 @@ def test_contact_voltage_is_converted_from_volts_to_scaled_units() -> None:
     assert jj.residual[0] == pytest.approx(psi[0]-a, rel=1e-12)
 
 
-
 def test_contact_reads_the_doping_at_its_own_node() -> None:
     rows = ScaleFactors.for_silicon()
 
-
     s, psi = sample_assembly(n_nodes=11); a = np.concatenate((np.full(5, -1e6), np.full(6, 1e6)))
-
 
     f = (OhmicContact(name="anode", node=0, voltage=0.0), OhmicContact(name="cathode", node=10, voltage=0.0),)
     w = apply_ohmic_contacts(s, psi, a, f, rows)
@@ -242,7 +218,6 @@ def test_contact_reads_the_doping_at_its_own_node() -> None:
     assert z2 > 0.0, 'n side contact must sit at positive psi'
 
 
-
 def test_contact_names_must_be_unique() -> None:
     d = ScaleFactors.for_silicon()
     y, psi = sample_assembly(n_nodes=11)
@@ -251,11 +226,9 @@ def test_contact_names_must_be_unique() -> None:
         apply_ohmic_contacts(y, psi, np.full(11, 1e6), k2, d)
 
 
-
 def test_built_in_potential_is_the_difference_between_the_two_contacts() -> None:
     r = ScaleFactors.for_silicon()
     v = 1e16 / r.C_0
-
 
     m = ohmic_psi_scaled(-v, 0.0)
     item = ohmic_psi_scaled(v, 0.0)
@@ -298,7 +271,6 @@ def test_the_two_pinned_densities_satisfy_mass_action_exactly() -> None:
         continuity_assembly(3), m, g, row, Carrier.ELECTRON
     ).residual[0]
 
-
     p = -apply_ohmic_densities(
         continuity_assembly(3), m, g, row, Carrier.HOLE
     ).residual[0]
@@ -306,12 +278,9 @@ def test_the_two_pinned_densities_satisfy_mass_action_exactly() -> None:
     np.testing.assert_allclose(p - n, 1e6, rtol=1e-12)
 
 
-
 def test_the_pinned_density_agrees_with_the_pinned_potential() -> None:
-
     w = -1e6
     mm = 0.4/ScaleFactors.for_silicon().psi_0
-
 
     psi = ohmic_psi_scaled(w, mm)
     d = np.array([w, w])
@@ -328,8 +297,6 @@ def test_ohmic_densities_apply_at_every_contact() -> None:
     np.testing.assert_allclose(-k2.residual[0], 1e-6, rtol=1e-6)
     np.testing.assert_allclose(-k2.residual[2], 1e6, rtol=1e-6)
     assert k2.residual[1] == 3.0
-
-
 
 
 def test_pinning_many_nodes_at_once_matches_pinning_them_one_at_a_time() -> None:
@@ -355,20 +322,16 @@ def test_pinning_the_same_node_twice_is_rejected() -> None:
 def test_pinning_many_nodes_rejects_one_outside_the_mesh() -> None:
     g, psi = sample_assembly(n_nodes=5)
 
-
     with pytest.raises(IndexError, match='outside the mesh'):
         apply_dirichlet_nodes(g, psi, [0, 9], [0.0, 1.0])
 
 
 class TestGateContact:
-
     def test_a_midgap_gate_at_zero_bias_sits_at_zero_psi(self) -> None:
-
         assert gate_psi_scaled(0.0, C.PHI_M_MIDGAP) == pytest.approx(
             0.0, abs=1e-12
         )
     def test_an_n_poly_gate_sits_half_a_gap_above_intrinsic(self) -> None:
-
         row = (C.Eg() / 2.0) / C.V_T()
 
         assert gate_psi_scaled(0.0, C.PHI_M_N_POLY) == pytest.approx(
@@ -376,7 +339,6 @@ class TestGateContact:
         )
     def test_bias_moves_the_gate_potential_one_for_one(self) -> None:
         cur = gate_psi_scaled(0.0, C.PHI_M_N_POLY)
-
 
         assert gate_psi_scaled(3.0, C.PHI_M_N_POLY) == pytest.approx(
             cur + 3.0, rel=1e-12
@@ -401,9 +363,7 @@ class TestGateContact:
         assert thing.nodes == (4, 5, 6)
         assert thing.voltage == 1.0
 
-
     def test_a_gate_with_no_nodes_is_refused(self) -> None:
-
         with pytest.raises(ValueError, match='at least one node'):
             GateContact(name="gate", nodes=(), voltage=0.0, work_function=C.PHI_M_N_POLY)
 
@@ -425,23 +385,17 @@ class TestOhmicPlate:
     def test_a_plate_holds_a_set_of_nodes(self) -> None:
         cc = OhmicPlate(name='body', nodes=(0, 1, 2), voltage=0.5)
 
-
         assert cc.nodes == (0, 1, 2)
         assert cc.voltage == 0.5
     def test_a_point_contact_reports_its_one_node_as_a_set(self) -> None:
-
         assert OhmicContact(name='anode', node=7, voltage=0.0).nodes == (7,)
     def test_a_plate_with_no_nodes_is_refused(self) -> None:
         with pytest.raises(ValueError, match="at least one node"):
-
             OhmicPlate(name="body", nodes=(), voltage=0.0)
     def test_a_plate_that_names_a_node_twice_is_refused(self) -> None:
         with pytest.raises(ValueError, match="more than once"):
-
             OhmicPlate(name="body", nodes=(3, 4, 3), voltage=0.0)
     def test_a_plate_pins_every_node_it_covers(self) -> None:
-
-
         res = uniform_mesh_1d(MICRON, 7)
         z = ScaleFactors.for_silicon()
         h = np.linspace(1e15, 1e17, 7) / z.C_0
@@ -449,11 +403,8 @@ class TestOhmicPlate:
         psi = np.asarray(psi_equilibrium_scaled(h))
         y2 = _poisson_assembly(res, z, psi, h)
 
-
         jj = apply_ohmic_contacts(y2, psi, h, (OhmicPlate(name="body", nodes=(0, 1, 2), voltage=0.0),), z,)
         bar = sp.coo_matrix((jj.values, (jj.rows, jj.cols)), shape=jj.shape).tocsr()
-
-
 
         for xx in (0, 1, 2):
             assert bar[xx,
@@ -497,7 +448,6 @@ class TestApplyContacts:
         res2 = np.full(5, -1e16 / c.C_0); psi = np.asarray(psi_equilibrium_scaled(res2))
         thing = (OhmicContact(name="body", node=0, voltage=0.0), GateContact(name="gate", nodes=(4,), voltage=1.0, work_function=C.PHI_M_N_POLY),)
 
-
         x2 = apply_contacts(
             _poisson_assembly(h, c, psi, res2),
             psi,
@@ -528,7 +478,6 @@ class TestApplyContacts:
 
         with pytest.raises(ValueError, match="more than once"):
             apply_contacts(_poisson_assembly(g, r, psi, aa), psi, aa, (OhmicContact(name='body', node=0, voltage=0.0), OhmicPlate(name="plate", nodes=(0, 1), voltage=0.0),), r,)
-
 
     def test_two_contacts_with_one_name_are_refused(self) -> None:
         s = uniform_mesh_1d(MICRON, 5)

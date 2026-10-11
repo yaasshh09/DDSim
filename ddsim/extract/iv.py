@@ -15,12 +15,10 @@ from ddsim.physics.mobility import diffusivity_at
 from ddsim.solve.continuation import continue_to
 
 
-
 def _models_at(device: Device, state: DeviceState, models:TransportModels | None) -> TransportModels:
     if models is None:
         models = TransportModels.for_device(device)
     return models.at_state(device, state.psi.data, state.n.data, state.p.data)
-
 
 
 def current_densities(device: Device, state: DeviceState, models: TransportModels | None = None,) -> tuple[Field, Field]:
@@ -29,9 +27,7 @@ def current_densities(device: Device, state: DeviceState, models: TransportModel
     r = device.scale
     rows = device.scaled_mesh
 
-
     w = edge_drop(state.psi.data, rows.geometry)
-
 
     a = diffusivity_at(models.Dn, w, rows.h)
 
@@ -66,7 +62,6 @@ def _per_unit_face(flux: npt.NDArray[np.float64], geometry: EdgeGeometry) -> npt
     )
 
 
-
 def edge_current_face(device: Device) -> npt.NDArray[np.float64]:
     row = np.asarray(device.scaled_mesh.geometry.carrier_face, dtype=np.float64)
     s = 0 if isinstance(device.mesh, Mesh1D) else 1
@@ -79,8 +74,6 @@ def node_current_density(device: Device, state: DeviceState, models: TransportMo
 
     a = j.n_nodes
     def spread(edges: slice) -> npt.NDArray[np.float64]:
-
-
         x = j.edge_nodes[edges, 0]
 
         k = j.edge_nodes[edges, 1]; row = vv[edges] * z[edges]
@@ -93,17 +86,12 @@ def node_current_density(device: Device, state: DeviceState, models: TransportMo
             d, dat, out=np.zeros(a), where=dat > 0.0
         )
 
-
-
     if isinstance(j, Mesh1D):
         return spread(slice(None)), np.zeros(a)
-
 
     b = slice(0, j.n_horizontal)
     tmp = slice(j.n_horizontal, j.n_edges)
     return spread(b), spread(tmp)
-
-
 
 
 def continuity_residuals(
@@ -111,7 +99,6 @@ def continuity_residuals(
     state: DeviceState,
     models: TransportModels | None = None,
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-
     models = _models_at(device, state, models)
     z = device.scaled_mesh
     y = coupled_residual(
@@ -133,7 +120,6 @@ def terminal_currents(device:Device, state:DeviceState, models: TransportModels 
     v, s = continuity_residuals(device, state, models)
     f = device.scale.J_0 * device.scale.x_0 ** (device.dimension - 1)
 
-
     w = {z.name: float(sum(-v[obj] + s[obj] for obj in z.nodes) * f) for z in device.semiconductor_contacts}
     for z in device.contacts:
         if z.name not in w:
@@ -154,19 +140,14 @@ def total_current(
 
 
 @dataclass(frozen=True)
-
-
 class IVPoint:
     voltage:float
 
     current:float
 
-
     state: DeviceState
 @dataclass(frozen=True)
-
 class IVCurve:
-
     contact:str
 
     points: tuple[IVPoint, ...]
@@ -198,11 +179,8 @@ class IVCurve:
         )
 
 
-
 @dataclass(frozen=True)
-
 class IVFrame:
-
     index: int
 
     voltage: float
@@ -217,7 +195,6 @@ def _walk_sweep(device: Device, contact: str, measured_at: str, voltages: list[f
             f"the sweep could not be started: no solution exists at "
             f"{start:+g} V to continue from. {t}"
         ) from t
-
 
     if s is None:
         raise RuntimeError(
@@ -242,7 +219,6 @@ def _walk_sweep(device: Device, contact: str, measured_at: str, voltages: list[f
 
         info = rr.solution
         bar = rr.parameter
-
 
         if not rr.converged:
             return IVCurve(
@@ -290,13 +266,10 @@ def iv_sweep(device: Device, contact: str, voltages: list[float], models: Transp
     def converged(solved: DeviceState | None) -> bool:
         return (solved is not None and solved.gummel is not None and solved.gummel.converged)
     def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
-
         info = device.with_bias(**{contact: voltage})
         if guess is not None:
             a = gummel(info, guess)
             return a if converged(a) else None
-
-
 
         vv: DeviceState | None = None
         i: RuntimeError | None = None
@@ -327,10 +300,8 @@ def gate_sweep(device: Device, voltages:list[float], contact:str = "gate", measu
                 f"{sorted(h)}"
             )
 
-
     if models is None:
         models = TransportModels.for_device(device)
-
 
     def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
         tmp2 = device.with_bias(**{contact: voltage})

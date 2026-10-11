@@ -6,11 +6,8 @@ from ddsim.solve.gummel import GummelResult
 from ddsim.solve.newton import NewtonResult
 
 
-
 def _quiet_log(density: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     with np.errstate(divide='ignore'):
-
-
         return np.asarray(np.log(density))
 
 
@@ -19,7 +16,6 @@ def _undefined_without_carriers(level:npt.NDArray[np.float64], density:npt.NDArr
 
 
 @dataclass(frozen=True)
-
 class DeviceState:
     psi:Field
 
@@ -28,8 +24,6 @@ class DeviceState:
     p: Field
 
     newton: NewtonResult | None = None
-
-
 
     gummel: GummelResult[DeviceState]|None = None
 
@@ -41,7 +35,6 @@ class DeviceState:
         return self.degeneracy.electron_potential(self.psi.data, self.n.data)
     @property
     def _psi_p(self) -> npt.NDArray[np.float64]:
-
         if self.degeneracy is None:
             return self.psi.data
         return self.degeneracy.hole_potential(self.psi.data, self.p.data)

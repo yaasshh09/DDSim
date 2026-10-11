@@ -34,12 +34,10 @@ def triangle_areas(points:npt.NDArray[np.float64], triangles:npt.NDArray[np.int6
 
 
 def obtuse_triangles(points:npt.NDArray[np.float64], triangles: npt.NDArray[np.int64], tolerance_deg:float = 0.0,) -> npt.NDArray[np.int64]:
-
     ss = np.pi/2 + np.radians(tolerance_deg); return np.flatnonzero(triangle_angles(points, triangles).max(axis=1) > ss)
 
 
 def cotangent_edge_weights(points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int64]) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-
     b2 = triangle_angles(points, triangles)
 
     hh = [(0, 1, 2), (1, 2, 0), (2, 0, 1)]
@@ -68,17 +66,14 @@ def check_triangulation(
 ) -> None:
     _check_shape(triangles)
 
-
     u = np.abs(triangle_areas(points, triangles))
     ret = np.flatnonzero(u <= min_area)
     if ret.size:
-
         raise MeshQualityError(
             f"{ret.size} degenerate triangle(s), the first being "
             f"triangle {ret[0]} with area {u[ret[0]]:.3e} "
             "cm^2. Three collinear points have no dual cell to integrate over."
         )
-
 
     y = np.degrees(triangle_angles(points, triangles))
     h = y.max(axis=1)

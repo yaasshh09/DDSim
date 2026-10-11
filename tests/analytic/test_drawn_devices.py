@@ -22,7 +22,6 @@ ID_TOLERANCE = 0.015
 ID_FLOOR = 1e-7
 
 
-
 def test_the_drawn_mos_capacitor_reproduces_mos_cap_c_v() -> None:
     z2, y2, u = MOS_CAP_DRAWING
     y = drawing(z2, y2, u, nx=3, ny=125, h_min_y=5e-8, degenerate=False)
@@ -31,8 +30,6 @@ def test_the_drawn_mos_capacitor_reproduces_mos_cap_c_v() -> None:
     assert f.complete and w.complete
     np.testing.assert_allclose(w.capacitance, f.capacitance, rtol=CV_TOLERANCE)
 @pytest.fixture(scope='module')
-
-
 def transfer_curves() -> tuple[np.ndarray, np.ndarray]:
     aa = []
     for j in (nmos(drain_voltage=0.05), drawing().with_bias(drain=0.05)):

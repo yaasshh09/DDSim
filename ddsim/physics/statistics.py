@@ -8,13 +8,9 @@ def n_boltzmann_scaled(psi: Scalar, phi_n: Scalar = 0.0) -> Scalar:
     return np.asarray(np.exp(np.asarray(psi) - np.asarray(phi_n)))
 
 
-
 def p_boltzmann_scaled(psi: Scalar,
          phi_p: Scalar = 0.0) -> Scalar:
-
-
     return np.asarray(np.exp(np.asarray(phi_p) - np.asarray(psi)))
-
 
 
 def dn_dpsi_scaled(psi: Scalar, phi_n: Scalar = 0.0) -> Scalar:
@@ -23,10 +19,7 @@ def dn_dpsi_scaled(psi: Scalar, phi_n: Scalar = 0.0) -> Scalar:
 
 
 def dp_dpsi_scaled(psi: Scalar, phi_p: Scalar = 0.0) -> Scalar:
-
     return -p_boltzmann_scaled(psi, phi_p)
-
-
 
 
 def n_boltzmann(psi:Scalar, phi_n:Scalar, n_i: float, V_T:float) -> Scalar:
@@ -34,8 +27,6 @@ def n_boltzmann(psi:Scalar, phi_n:Scalar, n_i: float, V_T:float) -> Scalar:
 
 def p_boltzmann(psi: Scalar, phi_p: Scalar, n_i:float, V_T: float) -> Scalar:
     return np.asarray(n_i * np.exp((np.asarray(phi_p) - np.asarray(psi)) / V_T))
-
-
 
 
 def psi_equilibrium_scaled(net_doping:Scalar) -> Scalar:
@@ -60,7 +51,6 @@ def equilibrium_densities_scaled(
 EXP_LIMIT = CONFIG.numerics.exp_limit
 
 
-
 QUADRATURE_ORDER = CONFIG.numerics.quadrature_order
 
 
@@ -76,7 +66,6 @@ JOYCE_DIXON_COEFFICIENTS = (
 
 
 JOYCE_DIXON_MAX_U = CONFIG.numerics.joyce_dixon_max_u
-
 
 
 def _fermi_dirac_integral(eta: Scalar, order: float) -> npt.NDArray[np.float64]:
@@ -109,15 +98,12 @@ def _checked_u(u: Scalar, strictly_positive:bool) -> npt.NDArray[np.float64]:
     e = np.asarray(u,
                    dtype=np.float64)
 
-
     if strictly_positive and np.any(e <= 0.0):
-
         raise ValueError(
             "n/Nc must be positive to take its logarithm, and the smallest "
             f"value given is {float(np.min(e)):g}"
         )
     if np.any(e < 0.0):
-
         raise ValueError(
             f"n/Nc cannot be negative, and the smallest value given is "
             f"{float(np.min(e)):g}"
@@ -142,17 +128,13 @@ def _joyce_dixon_correction(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float6
 
 
 def joyce_dixon_eta(u:Scalar) -> npt.NDArray[np.float64]:
-
     h = _checked_u(u,
                 strictly_positive=True)
     return np.asarray(np.log(h)+_joyce_dixon_correction(h))
 
 
 def degeneracy_factor(u:Scalar) -> npt.NDArray[np.float64]:
-
-
     return np.asarray(np.exp(-_joyce_dixon_correction(_checked_u(u, False))))
-
 
 
 def einstein_ratio(u:Scalar) -> npt.NDArray[np.float64]:
@@ -173,7 +155,6 @@ def _cap(values: Scalar, ceiling: float) -> npt.NDArray[np.float64]:
     return np.asarray(np.where(np.real(d) > ceiling, ceiling, d))
 
 
-
 def _joyce_dixon_slope(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     v2 = np.zeros_like(u)
 
@@ -183,11 +164,7 @@ def _joyce_dixon_slope(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
 
 
 @dataclass(frozen=True)
-
-
-
 class Degeneracy:
-
     Nc: float
     Nv:float
 
@@ -204,7 +181,6 @@ class Degeneracy:
 
     @staticmethod
     def _slope(u: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-
         cnt = np.real(u) >= JOYCE_DIXON_MAX_U
         return np.asarray(np.where(cnt, 0.0, _joyce_dixon_slope(u)))
 
@@ -220,7 +196,6 @@ class Degeneracy:
     def d_hole_potential_dp(self, p: Scalar) -> npt.NDArray[np.float64]:
         return np.asarray(self._slope(self._u(p, self.Nv))/self.Nv)
     def _density(self, exponent: Scalar, states: float) -> npt.NDArray[np.float64]:
-
         x = np.asarray(exponent) - float(np.log(states))
         item = np.isfinite(x)
         x = np.where(item, x, -EXP_LIMIT)
@@ -239,10 +214,7 @@ class Degeneracy:
     def electron_density(self, exponent: Scalar) -> npt.NDArray[np.float64]:
         return self._density(exponent, self.Nc)
 
-
     def hole_density(self, exponent:Scalar) -> npt.NDArray[np.float64]:
-
-
         return self._density(exponent, self.Nv)
     def dn_dpsi(self, n:Scalar) -> npt.NDArray[np.float64]:
         j = self._u(n, self.Nc)
@@ -264,10 +236,7 @@ class Degeneracy:
 
         return n.reshape(flag.shape), p.reshape(flag.shape)
 
-
     def equilibrium_psi(self, net_doping:Scalar) -> npt.NDArray[np.float64]:
-
-
         g = np.asarray(net_doping, dtype=np.float64)
         m = np.atleast_1d(g)
         n, p = self.equilibrium_densities(m)

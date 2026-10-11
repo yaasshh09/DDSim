@@ -6,13 +6,8 @@ import numpy as np
 from ddsim.core import constants as C
 
 
-
 @dataclass(frozen=True)
-
-
-
 class ScaleFactors:
-
     T: float
 
     C_0: float
@@ -36,26 +31,17 @@ class ScaleFactors:
             raise ValueError(f"T must be positive, got {T}")
         return cls(T=T, C_0=C.n_i(T) if C_0 is None else C_0, eps=C.eps_Si() if eps is None else eps, D_0=max(C.D_n(T), C.D_p(T)) if D_0 is None else D_0,)
 
-
-
     @cached_property
-
     def psi_0(self) -> float:
         return C.V_T(self.T)
 
     @cached_property
     def x_0(self) -> float:
-
         return math.sqrt(self.eps * self.psi_0 / (C.q * self.C_0))
 
-
     @cached_property
-
     def mu_0(self) -> float:
-
         return self.D_0 / self.psi_0
-
-
 
     @cached_property
     def t_0(self) -> float:
@@ -66,22 +52,14 @@ class ScaleFactors:
         return C.q * self.D_0 * self.C_0 / self.x_0
 
     @cached_property
-
-
     def R_0(self) -> float:
-
         return self.D_0 * self.C_0 / (self.x_0 * self.x_0)
-
 
     @cached_property
     def _registry(self) -> dict[str, float]:
-
         return {'V': self.psi_0, 'cm^-3': self.C_0, "cm": self.x_0, 'cm^2/s': self.D_0, "cm^2/(V s)": self.mu_0, 's':self.t_0, "A/cm^2": self.J_0, "cm^-3 s^-1":self.R_0, '1':1.0,}
 
-
-
     def factor(self, unit: str) -> float:
-
         xx = self._registry
 
         if unit not in xx:
@@ -100,6 +78,5 @@ class ScaleFactors:
         it = self.factor(unit)
 
         if isinstance(value, np.ndarray):
-
             return value * it
         return float(value) * it

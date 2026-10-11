@@ -15,7 +15,6 @@ def bar(net_doping: float, length:float = MICRON, n_nodes: int = 101) -> Device:
     return build_device(mesh=uniform_mesh_1d(length, n_nodes), doping=Uniform(net_doping), contacts=(OhmicContact("left", 0, 0.0), OhmicContact('right', n_nodes - 1, 0.0),),)
 
 
-
 def conductivity(device: Device, net_doping: float) -> float:
     n, p = equilibrium_densities_scaled(net_doping / device.scale.C_0)
     cc = float(n) * device.scale.C_0
@@ -24,8 +23,6 @@ def conductivity(device: Device, net_doping: float) -> float:
     return C.q * (C.mu_n(ys) * cc + C.mu_p(ys) * c)
 
 def measured_current(device:Device, voltage:float) -> float:
-
-
     b = device.with_bias(left=voltage)
     j = solve_bias(b)
     assert j.gummel is not None and j.gummel.converged, (
@@ -34,23 +31,17 @@ def measured_current(device:Device, voltage:float) -> float:
     return terminal_currents(b, j)['left']
 
 @pytest.mark.parametrize("net_doping", [1e18, 1e16, 1e15, -1e16])
-
-
 @pytest.mark.parametrize('voltage', [1e-4, 1e-2, 0.1])
-
 def test_current_matches_ohms_law(net_doping:float, voltage: float) -> None:
     f = bar(net_doping)
     v = conductivity(f, net_doping) * voltage / MICRON
 
-
     assert measured_current(f, voltage) == pytest.approx(v, rel=1e-7)
 @pytest.mark.parametrize('net_doping', [1e11, 1e10, 0.0, -1e10])
-
 def test_ohms_law_holds_where_both_carriers_conduct(net_doping: float) -> None:
     g = bar(net_doping); n, p = equilibrium_densities_scaled(net_doping/g.scale.C_0)
     k = C.mu_p() * float(p) / (C.mu_n() * float(n) + C.mu_p() * float(p))
     assert k > 1e-3, 'this case is meant to exercise the hole term'
-
 
     mm = conductivity(g,
        net_doping)*1e-3/MICRON
@@ -71,7 +62,6 @@ def test_current_falls_as_one_over_the_length() -> None:
     d = bar(1e16, length=MICRON)
     z = bar(1e16, length=10.0 * MICRON)
 
-
     assert measured_current(d, 0.01) == pytest.approx(
         10.0 * measured_current(z, 0.01), rel=1e-7
     )
@@ -88,7 +78,6 @@ def test_the_answer_does_not_depend_on_the_mesh() -> None:
 
 
 def slab(net_doping: float, voltage: float, length: float = MICRON, height:float = 0.2 * MICRON, nx:int = 41, ny: int = 11,) -> Device:
-
     out2 = tensor_mesh_2d(
         uniform_mesh_1d(length=length, n_nodes=nx),
         uniform_mesh_1d(length=height, n_nodes=ny),
@@ -111,10 +100,7 @@ def slab(net_doping: float, voltage: float, length: float = MICRON, height:float
     )
 
 
-
-
 def measured_current_2d(device:Device, contact: str = "right") -> float:
-
     h = solve_bias_newton(device, max_iterations=60)
     assert h.newton is not None and h.newton.converged, (
         f"the slab did not converge: {h.newton.message}"
@@ -122,21 +108,16 @@ def measured_current_2d(device:Device, contact: str = "right") -> float:
 
     return terminal_currents(device, h)[contact]
 @pytest.mark.parametrize('net_doping', [1e18, 1e16, -1e16])
-
 @pytest.mark.parametrize("voltage", [1e-2, 0.05])
-
-
 def test_the_two_dimensional_current_matches_ohms_law(
     net_doping: float, voltage: float
 ) -> None:
     g = slab(net_doping, voltage)
     b = 0.2 * MICRON
 
-
     hh = conductivity(g, net_doping)*(voltage/MICRON)*b
 
     assert measured_current_2d(g) == pytest.approx(hh, rel=1e-7)
-
 
 
 def test_the_two_dimensional_slab_does_not_depend_on_its_mesh() -> None:

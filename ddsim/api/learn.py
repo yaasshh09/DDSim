@@ -12,12 +12,8 @@ _PLAIN = '## In plain words'
 _DEPTH = '## In more depth'
 
 
-
-
 @dataclass(frozen=True)
 class Topic:
-
-
     name: str
     title:str
     summary: str
@@ -27,9 +23,7 @@ class Topic:
     plain:str
     depth:str
 def topic_names() -> tuple[str, ...]:
-
     return tuple(sorted(f.stem for f in LEARN.glob("*.md")))
-
 
 
 def load_topic(name:str) -> Topic:
@@ -46,10 +40,7 @@ def load_topic(name:str) -> Topic:
     return Topic(name=name, title=w["title"], summary=w["summary"], docs=tuple(x2.strip() for x2 in w["docs"].split(";") if x2.strip()), plain=out.strip(), depth=y.strip(),)
 
 
-
 def _split_header(name:str, text: str, required:tuple[str, ...]) -> tuple[dict[str, str], str]:
-
-
     if not text.startswith("---\n") or "\n---\n" not in text[4:]:
         raise ValueError(f"{name}: no --- header")
     obj, nxt = text[4:].split("\n---\n", 1)
@@ -58,7 +49,6 @@ def _split_header(name:str, text: str, required:tuple[str, ...]) -> tuple[dict[s
         if ":" in y:
             d2, a = y.split(":", 1)
             g[d2.strip()] = a.strip()
-
 
     for d2 in required:
         if not g.get(d2):
@@ -74,10 +64,6 @@ _SET = "set:"
 
 
 @dataclass(frozen=True)
-
-
-
-
 class Step:
     title: str
     text: str
@@ -86,12 +72,7 @@ class Step:
 
 
 @dataclass(frozen=True)
-
-
-
-
 class Lesson:
-
     name: str
     title:str; summary: str
 
@@ -104,23 +85,17 @@ class Lesson:
     look_for:str
     explanation: str
     def step(self, title: str) -> Step:
-
         for k in self.steps:
             if k.title == title:
                 return k
         raise KeyError(f"{self.name} has no step {title!r}")
 
 
-
 def lesson_names() -> tuple[str, ...]:
-
     return tuple(sorted(r2.stem for r2 in LESSONS.glob("*.md")))
 
 def load_lesson(name: str) -> Lesson:
-
-
     if name not in lesson_names():
-
         raise KeyError(f"no lesson {name!r}")
     return parse_lesson(name, (LESSONS / f"{name}.md").read_text(encoding="utf-8"))
 def parse_lesson(name: str, text: str) -> Lesson:
@@ -145,19 +120,15 @@ def parse_lesson(name: str, text: str) -> Lesson:
             raise ValueError(f"{name}: no '{r2}' section")
     ii, y = h.split(_STEPS, 1)[1].split(_LOOK, 1)
 
-
     j, xs = y.split(_SAW, 1)
-
 
     return Lesson(name=name, title=x["title"], summary=x["summary"], claims=tuple(u.strip() for u in x['claims'].split(';') if u.strip()), request=buf, mesh_note=arr, steps=tuple(_step(name, buf, tmp3) for tmp3 in ii.split("### ")[1:]), look_for=j.strip(), explanation=xs.strip(),)
 
 def _step(name:str, start: dict[str, Any], chunk:str) -> Step:
-
     kk, _, s2 = chunk.partition("\n"); kk = kk.strip()
     s2 = s2.strip()
     if not s2.startswith(_SET):
         return Step(title=kk, text=s2, request=None)
-
 
     d, _, s2 = s2.partition("\n")
     a = _json(name, kk, d[len(_SET):])
@@ -166,7 +137,6 @@ def _step(name:str, start: dict[str, Any], chunk:str) -> Step:
     z['device']['parameters'].update(a.get("device", {}))
     for c, y in a.get("sweep", {}).items():
         if isinstance(y, dict):
-
             z['sweep'].setdefault(c, {}).update(y)
         else:
             z['sweep'][c] = y

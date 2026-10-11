@@ -10,7 +10,6 @@ from ddsim.extract.params import subthreshold_slope
 THERMAL_LIMIT = 59.5
 
 
-
 NA_SUBSTRATE = 1e17
 
 
@@ -20,18 +19,13 @@ T_OX = 2e-6
 V_DS_LINEAR = 0.05
 
 
-
 @pytest.fixture(scope='module')
-
 def transfer():
-
     y = nmos(drain_voltage=V_DS_LINEAR)
     return gate_sweep(y, voltages=[0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5], models=TransportModels.for_device(y), step=0.1,)
 
 
 @pytest.fixture(scope='module')
-
-
 def solved_on():
     j = nmos(gate_voltage=1.5, drain_voltage=V_DS_LINEAR)
     z = TransportModels.for_device(j)
@@ -46,12 +40,8 @@ def test_the_terminal_currents_sum_to_zero(solved_on):
     hh = terminal_currents(a,
             zz)
 
-
-
     x = sum(hh.values())
     assert abs(x) < 1e-6 * abs(hh[DRAIN])
-
-
 
 
 def test_the_gate_carries_no_dc_current(solved_on):
@@ -71,7 +61,6 @@ def test_the_sweep_reaches_every_gate_bias(transfer):
     assert transfer.measured_at == DRAIN
 
 
-
 def test_the_curve_says_which_terminal_it_measured(transfer):
     assert 'gate into drain' in repr(transfer)
 
@@ -87,9 +76,7 @@ def test_the_transistor_switches(transfer):
 
 
 def test_the_subthreshold_slope_beats_no_thermal_limit(transfer):
-
     assert subthreshold_slope(transfer.voltage, transfer.current) >= THERMAL_LIMIT
-
 
 
 def depletion_approximation_slope(Na: float, t_ox: float) -> float:
@@ -100,9 +87,7 @@ def depletion_approximation_slope(Na: float, t_ox: float) -> float:
 def test_the_subthreshold_slope_matches_the_body_factor(transfer):
     v = depletion_approximation_slope(NA_SUBSTRATE, T_OX); j = subthreshold_slope(transfer.voltage, transfer.current)
 
-
     assert v == pytest.approx(93.9, abs=0.5)
-
 
     assert j == pytest.approx(v, rel=0.15)
     assert j > v
@@ -111,7 +96,6 @@ def test_the_channel_is_ohmic_at_a_small_drain_bias():
     z = TransportModels.for_device(nmos())
     m = None
     for tmp2 in (0.0, 0.5, 1.0, 1.5):
-
         m = solve_bias_newton(
             nmos(gate_voltage=tmp2), models=z, guess=m
         )
@@ -150,15 +134,10 @@ def test_a_gate_sweep_stops_and_says_where_when_it_stalls():
 
 
 def test_a_gate_sweep_that_cannot_even_start_raises():
-
-
     with pytest.raises(RuntimeError, match='could not be started'):
         gate_sweep(nmos(drain_voltage=V_DS_LINEAR), voltages=[0.5], max_iterations=2,)
 
 
-
-
 def test_a_gate_sweep_rejects_a_terminal_the_device_does_not_have():
-
     with pytest.raises(KeyError, match="no contact named 'collector'"):
         gate_sweep(nmos(), voltages=[0.5], measure_at='collector')

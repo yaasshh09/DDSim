@@ -12,33 +12,22 @@ from ddsim.discretize.assembly import SparseAssembly
 from ddsim.physics.statistics import Degeneracy, equilibrium_densities_scaled
 
 @dataclass(frozen=True)
-
-
 class OhmicContact:
     name: str
-
 
     node:int
 
     voltage: float
     @property
-
     def nodes(self) -> tuple[int, ...]:
         return (self.node,)
 
 
 @dataclass(frozen=True)
-
-
-
 class OhmicPlate:
-
     name: str
 
-
-
     nodes: tuple[int, ...]
-
 
     voltage:float
 
@@ -55,13 +44,11 @@ class OhmicPlate:
             )
 
 
-
 GATE_WORK_FUNCTION_RANGE = (2.0,
      7.0)
 
 @dataclass(frozen=True)
 class GateContact:
-
     name: str
 
     nodes:tuple[int, ...]
@@ -93,8 +80,6 @@ SemiconductorContact = OhmicContact | OhmicPlate
 Contact = OhmicContact | OhmicPlate | GateContact
 
 
-
-
 def gate_psi_scaled(
     applied:float, work_function: float, T: float = C.T_ROOM
 ) -> float:
@@ -114,8 +99,6 @@ def apply_dirichlet(
     target: float,
 ) -> SparseAssembly:
     return apply_dirichlet_nodes(assembly, value, (node,), (target,))
-
-
 
 
 def apply_dirichlet_nodes(
@@ -142,7 +125,6 @@ def apply_dirichlet_nodes(
     r = np.zeros(vv, dtype=bool)
     r[cc] = True
 
-
     c = r[assembly.rows]
     h = r[assembly.cols]
 
@@ -160,7 +142,6 @@ def apply_dirichlet_nodes(
     )
     dd[cc] = value[cc] - cur
 
-
     obj = ~(c | h); g = np.concatenate([assembly.rows[obj], cc])
     out2 = np.concatenate([assembly.cols[obj], cc])
     tt = np.concatenate([assembly.values[obj], np.ones(cc.size)])
@@ -175,18 +156,12 @@ def apply_dirichlet_nodes(
 
 
 class Carrier(Enum):
-
     ELECTRON = "electron"
     HOLE = "hole"
 
 
-
 @lru_cache(maxsize=64)
-
-
-
 def ohmic_density_scaled(net_doping:float, carrier:Carrier, degeneracy:Degeneracy|None = None) -> float:
-
     if degeneracy is None:
         y, k = equilibrium_densities_scaled(net_doping)
     else:
@@ -206,10 +181,8 @@ def apply_ohmic_densities(assembly: SparseAssembly, density: npt.NDArray[np.floa
     cur = [t for m2 in contacts for t in m2.nodes]
     return apply_dirichlet_nodes(assembly, density, cur, [ohmic_density_scaled(float(net_doping[t]), carrier, degeneracy) for t in cur],)
 def apply_ohmic_contacts(assembly: SparseAssembly, psi: npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[SemiconductorContact], scale: ScaleFactors, degeneracy: Degeneracy | None = None,) -> SparseAssembly:
-
     k = [t2.name for t2 in contacts]
     if len(set(k)) != len(k):
-
         raise ValueError(f"contact names must be unique, got {k}")
 
     y2, t = _ohmic_targets(net_doping, contacts, scale, degeneracy)
@@ -224,7 +197,6 @@ def _ohmic_targets(net_doping:npt.NDArray[np.float64], contacts:Sequence[Semicon
     c: list[int] = []
     xs: list[float] = []
     for m in contacts:
-
         v = m.voltage / scale.psi_0
         for h in m.nodes:
             c.append(h)
@@ -250,7 +222,6 @@ def apply_contacts(
 
     out2 = [d for d in contacts if not isinstance(d, GateContact)]
     m, g = _ohmic_targets(net_doping, out2, scale, degeneracy)
-
 
     for nxt in contacts:
         if isinstance(nxt, GateContact):

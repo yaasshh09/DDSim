@@ -31,7 +31,6 @@ T_OX = 0.1 * MICRON
 N_OX = 4
 
 
-
 DOPING = 1e16
 
 
@@ -62,9 +61,7 @@ def diode_2d(voltage:float = BIAS):
     )
 
 
-
 def capped_diode_2d(voltage:float = BIAS):
-
     z = uniform_mesh_1d(length=HEIGHT, n_nodes=NY)
 
     u = uniform_mesh_1d(length=T_OX, n_nodes=N_OX)
@@ -97,8 +94,6 @@ def spread(values: np.ndarray) -> float:
     return float(np.max(np.abs(values - values.mean()))/abs(values.mean()))
 
 
-
-
 @pytest.fixture(scope='module')
 def plain():
     b = diode_2d()
@@ -106,10 +101,7 @@ def plain():
     return b, item, prev
 
 
-
 @pytest.fixture(scope='module')
-
-
 def capped():
     w = capped_diode_2d()
     m, tmp2 = solved(w, NoRecombination())
@@ -123,15 +115,11 @@ def test_the_total_current_through_every_cut_is_the_same(plain) -> None:
     w2 = spread(val)
     assert w2 < 1e-6, f"the cut current varies by {w2:.2e}"
 def test_the_terminal_currents_sum_to_zero(plain) -> None:
-
     d, h, s = plain
     i = terminal_currents(d, h, s)
 
-
     v2 = max(abs(info) for info in i.values())
     assert abs(sum(i.values())) < 1e-8*v2
-
-
 
 
 def test_no_density_is_negative_anywhere(plain) -> None:
@@ -139,7 +127,6 @@ def test_no_density_is_negative_anywhere(plain) -> None:
 
     assert np.all(ret.n.data > 0.0)
     assert np.all(ret.p.data > 0.0)
-
 
 
 def test_the_current_runs_from_the_anode(plain) -> None:
@@ -153,7 +140,6 @@ def test_the_solution_is_the_same_on_every_row(plain) -> None:
     i, m, _ = plain
     zz, r = i.mesh.nx, i.mesh.ny
     for ss, z in (('psi', m.psi), ("n", m.n), ("p", m.p)):
-
         bar = z.data.reshape(r, zz)
         for x in range(1, r):
             np.testing.assert_allclose(
@@ -179,7 +165,6 @@ def test_the_terminal_current_is_the_1d_one_times_the_height(plain) -> None:
 
     t = build_device(mesh=x_axis(), doping=abrupt_junction(Na=DOPING, Nd=DOPING, position=JUNCTION), contacts=(OhmicPlate(name="anode", nodes=(0,), voltage=BIAS), OhmicPlate(name="cathode", nodes=(NX - 1,), voltage=0.0),),)
 
-
     b, g = solved(t, NoRecombination())
     i = terminal_currents(t, b, g)["anode"]
     assert arr.mean() == pytest.approx(i * HEIGHT, rel=1e-8)
@@ -197,8 +182,6 @@ def test_the_capped_device_still_conserves_current(capped) -> None:
     yy = spread(m); assert yy < 1e-6, f"the cut current varies by {yy:.2e}"
 
 
-
-
 def test_the_capped_terminal_currents_sum_to_zero(capped) -> None:
     m2, w, u = capped
     it = terminal_currents(m2, w, u)
@@ -213,7 +196,6 @@ def test_the_coupled_solve_reproduces_equilibrium_on_a_capped_device() -> None:
     y = capped_diode_2d(voltage=0.0)
     h = solve_equilibrium(y, frozen_quasi_fermi(y))
 
-
     tmp3, _ = solved(y, NoRecombination())
 
     np.testing.assert_allclose(
@@ -221,8 +203,6 @@ def test_the_coupled_solve_reproduces_equilibrium_on_a_capped_device() -> None:
     )
     np.testing.assert_allclose(tmp3.n.data, h.n.data, rtol=1e-10)
     np.testing.assert_allclose(tmp3.p.data, h.p.data, rtol=1e-10)
-
-
 
 
 def test_a_doping_dependent_mobility_works_on_a_2d_mesh() -> None:

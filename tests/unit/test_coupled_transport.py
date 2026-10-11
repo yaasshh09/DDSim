@@ -17,10 +17,7 @@ from ddsim.physics.recombination import SumOfRecombination
 from ddsim.solve.continuation import continue_to
 
 
-
 @pytest.fixture
-
-
 def diode():
     return pn_diode(n_nodes=81, anode_voltage=0.2)
 
@@ -35,12 +32,10 @@ def test_the_limiter_caps_the_potential_update():
     assert np.max(np.abs(s)) == pytest.approx(5.0)
 
 def test_the_limiter_takes_the_density_updates_in_full():
-
     u = np.array([1e6, -2e6, 3e6])
     hh = pack(np.array([40.0, -80.0, 1.0]), u, -u)
 
     x = limit_psi_step(hh, 5.0)
-
 
     np.testing.assert_array_equal(x[Unknown.N::UNKNOWNS_PER_NODE], u)
     np.testing.assert_array_equal(x[Unknown.P::UNKNOWNS_PER_NODE], -u)
@@ -49,8 +44,6 @@ def test_the_limiter_preserves_the_direction_within_psi():
     y = np.array([40.0, -80.0, 1.0])
     foo = pack(y, np.zeros(3), np.zeros(3))
 
-
-
     d = limit_psi_step(foo, 5.0)[Unknown.PSI::UNKNOWNS_PER_NODE]
 
     np.testing.assert_allclose(
@@ -58,11 +51,8 @@ def test_the_limiter_preserves_the_direction_within_psi():
     )
 
 
-
 def test_the_limiter_returns_its_argument_when_nothing_needs_capping():
     w2 = pack(np.array([1.0, -2.0]), np.array([9.0, 9.0]), np.array([9.0, 9.0]))
-
-
 
     assert limit_psi_step(w2, 5.0) is w2
 
@@ -94,10 +84,7 @@ def test_no_density_is_negative(diode):
     assert np.all(s.p.data > 0.0)
 
 
-
 def test_a_starting_guess_is_used_rather_than_recomputed(diode):
-
-
     a = solve_bias_newton(diode); t = solve_bias_newton(diode, guess=a)
     assert t.newton is not None
     assert t.newton.iterations < a.newton.iterations
@@ -107,17 +94,12 @@ def test_the_initial_guess_is_not_mutated(diode):
     m2 = initial_state(diode)
     tmp3 = m2.psi.data.copy()
 
-
     solve_bias_newton(diode, guess=m2)
-
 
     np.testing.assert_array_equal(m2.psi.data, tmp3)
 
 def test_a_failed_solve_is_reported_not_raised(diode):
-
-
     dd = solve_bias_newton(diode, max_iterations=1)
-
 
     assert dd.newton is not None
     assert not dd.newton.converged
@@ -128,14 +110,9 @@ def test_models_can_be_supplied(diode):
 
     assert b2.newton is not None; assert b2.newton.converged, b2.newton.message
 @pytest.fixture
-
-
-
-
 def hard_case():
     xx = pn_diode(Na=1e15, Nd=1e15, n_nodes=41, h_min=2e-7)
     return xx.with_bias(anode=1.2, cathode=0.0), initial_state(xx)
-
 
 
 def test_bare_newton_diverges_on_the_hard_case(hard_case):
@@ -160,7 +137,6 @@ def test_the_hybrid_converges_where_bare_newton_diverges(hard_case):
 def test_the_hybrid_keeps_its_quadratic_tail(hard_case):
     i, tmp3 = hard_case
     cc = solve_bias_hybrid(i, guess=tmp3)
-
 
     assert cc.newton is not None
     assert cc.newton.residual_history[-1] < 1e-13
@@ -187,12 +163,10 @@ def test_the_hybrid_agrees_with_bare_newton_where_both_converge(diode):
 
 
 def test_no_prelude_reduces_to_bare_newton(hard_case):
-
     res, x = hard_case
     j = solve_bias_hybrid(
         res, guess=x, gummel_cycles=0, retry_cycles=0
     )
-
 
     assert j.newton is not None
     assert not j.newton.converged
@@ -201,7 +175,6 @@ def test_no_prelude_reduces_to_bare_newton(hard_case):
 def test_the_hybrid_retries_with_more_gummel_after_a_newton_failure(hard_case):
     x, i = hard_case
     buf = solve_bias_hybrid(x, guess=i, gummel_cycles=1, retry_cycles=4)
-
 
     assert buf.newton is not None
     assert buf.newton.converged, buf.newton.message
@@ -221,21 +194,14 @@ def test_a_prelude_that_fails_still_hands_its_state_to_newton():
     g = pn_diode(Na=1e15, Nd=1e15, n_nodes=41, h_min=2e-7)
     ret = g.with_bias(anode=10.0, cathode=0.0)
 
-
     j = solve_bias_hybrid(ret, guess=initial_state(g))
-
-
 
     assert j.newton is not None
     assert not j.newton.converged
 
 
-
 def test_doping_dependent_mobility_lowers_the_diffusivity(diode):
-
-
     x = TransportModels.for_device(diode)
-
 
     u = TransportModels.for_device(diode, mobility="arora")
 
@@ -245,7 +211,6 @@ def test_doping_dependent_mobility_lowers_the_diffusivity(diode):
     assert np.size(u.Dn) == diode.mesh.n_edges
     assert np.all(np.asarray(u.Dn) < x.Dn)
 def test_doping_dependent_mobility_still_converges(diode):
-
     t = solve_bias_newton(diode, models=TransportModels.for_device(diode, mobility="arora"))
 
     assert t.newton is not None
@@ -258,8 +223,6 @@ def test_lower_mobility_gives_less_current(diode):
     v = TransportModels.for_device(lst)
     bb = TransportModels.for_device(lst, mobility="arora")
 
-
-
     flag = terminal_currents(
         lst, solve_bias_newton(lst, models=v), v
     )["anode"]
@@ -269,7 +232,6 @@ def test_lower_mobility_gives_less_current(diode):
     assert 0.0 < b < flag
 
 def test_auger_can_be_switched_on(diode):
-
     aa = TransportModels.for_device(diode, auger=True)
 
     assert isinstance(aa.recombination, SumOfRecombination)
@@ -287,11 +249,8 @@ def test_auger_raises_the_recombination_rate(diode):
 
 
 def test_auger_overtakes_srh_as_the_square_of_the_density(diode):
-
     i = TransportModels.for_device(diode, auger=True)
     x2, a = i.recombination.models
-
-
 
     def ratio(density: float) -> float:
         a2 = float(np.max(np.asarray(x2.rate(density, density))))
@@ -307,12 +266,9 @@ def test_auger_overtakes_srh_as_the_square_of_the_density(diode):
 
 
 def test_auger_still_converges(diode):
-
     m = solve_bias_newton(
         diode, models=TransportModels.for_device(diode, auger=True)
     )
-
-
 
     assert m.newton is not None; assert m.newton.converged, m.newton.message
     assert np.all(m.n.data > 0.0)
@@ -320,7 +276,6 @@ def test_auger_still_converges(diode):
 
 
 def test_both_models_together_converge(diode):
-
     m = TransportModels.for_device(diode, mobility='arora', auger=True)
     z = solve_bias_newton(diode, models=m)
 
@@ -329,7 +284,6 @@ def test_both_models_together_converge(diode):
 
 def test_an_unknown_mobility_model_is_rejected(diode):
     with pytest.raises(ValueError, match="mobility"):
-
         TransportModels.for_device(diode, mobility='arorra')
 def capacitor(gate_voltage:float = 1.0):
     return mos_cap(gate_voltage=gate_voltage, n_silicon=41, n_oxide=3)
@@ -346,7 +300,6 @@ def test_the_coupled_solve_reproduces_the_capacitor_at_equilibrium():
     np.testing.assert_allclose(i.p.data, m.p.data, rtol=1e-8, atol=1e-12)
 
 
-
 def test_the_gate_potential_is_imposed_exactly():
     m = capacitor(gate_voltage=1.0); j = next(vals for vals in m.contacts if vals.name == GATE)
     a = solve_bias_newton(m)
@@ -357,7 +310,6 @@ def test_the_gate_potential_is_imposed_exactly():
 
 
 def test_the_oxide_holds_no_carriers_on_the_coupled_path():
-
     y = capacitor(gate_voltage=1.0)
 
     out2 = solve_bias_newton(y)

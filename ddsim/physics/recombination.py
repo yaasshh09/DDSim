@@ -17,14 +17,12 @@ def scharfetter_lifetime(
     N_ref: float = C.N_REF_SRH,
     gamma: float = C.GAMMA_SRH,
 ) -> npt.NDArray[np.float64]:
-
     u = np.asarray(N_total, dtype=np.float64)
     if np.any(u < 0.0):
         raise ValueError("N_total is a total doping Na + Nd and cannot be negative. " 'Pass abs(net_doping) if that is what you have.')
     if tau_max < tau_min:
         raise ValueError(f"tau_max={tau_max} is below tau_min={tau_min}")
     if N_ref <= 0.0:
-
         raise ValueError(f"N_ref must be positive, got {N_ref}")
     return np.asarray(
         tau_min + (tau_max-tau_min) / (1.0 + (u / N_ref) ** gamma)
@@ -68,7 +66,6 @@ def d_srh_dp(
     return (n * c - (n*p-ni2) * tau_n)/(c * c)
 
 def srh_electron_linearization(n: Density, p:Density, tau_n: Lifetime, tau_p: Lifetime, ni2:float = 1.0, n1: float = 1.0, p1: float = 1.0,) -> tuple[Density, Density]:
-
     s2 = _denominator(n, p, tau_n, tau_p, n1, p1)
     return p/s2, ni2 / s2
 
@@ -78,20 +75,14 @@ def srh_hole_linearization(n:Density, p: Density, tau_n:Lifetime, tau_p:Lifetime
     return n / s, ni2 / s
 
 
-
-
 @runtime_checkable
-
 class RecombinationModel(Protocol):
-
     def rate(self, n: Density, p:Density) -> Density:
-
         ...
 
     def d_rate_dn(self, n: Density, p: Density) -> Density:
         ...
     def d_rate_dp(self, n: Density, p:Density) -> Density:
-
         ...
 
     def electron_linearization(
@@ -99,32 +90,23 @@ class RecombinationModel(Protocol):
     ) -> tuple[Density, Density]:
         ...
     def hole_linearization(self, n:Density, p:Density) -> tuple[Density, Density]:
-
         ...
 
 @dataclass(frozen=True)
-
-
-
 class SRHRecombination:
-
     tau_n:Lifetime
 
     tau_p: Lifetime
-
 
     ni2:float = 1.0
     n1:float = 1.0
     p1: float = 1.0
 
     def rate(self, n:Density, p:Density) -> Density:
-
-
         return srh_rate(n, p, self.tau_n, self.tau_p, self.ni2, self.n1, self.p1)
 
     def d_rate_dn(self, n:Density, p: Density) -> Density:
         return d_srh_dn(n, p, self.tau_n, self.tau_p, self.ni2, self.n1, self.p1)
-
 
     def d_rate_dp(self, n: Density, p: Density) -> Density:
         return d_srh_dp(n, p, self.tau_n, self.tau_p, self.ni2, self.n1, self.p1)
@@ -137,21 +119,13 @@ class SRHRecombination:
         return srh_hole_linearization(n, p, self.tau_n, self.tau_p, self.ni2, self.n1, self.p1)
 
 
-
 @dataclass(frozen=True)
-
-
-
 class NoRecombination:
-
-
     def _zeros(self, n:Density, p:Density) -> npt.NDArray[np.float64]:
         return np.zeros(np.broadcast_shapes(np.shape(n), np.shape(p)))
 
     def rate(self, n: Density, p: Density) -> Density:
-
         return self._zeros(n, p)
-
 
     def d_rate_dn(self, n: Density, p:Density) -> Density:
         return self._zeros(n, p)
@@ -159,44 +133,32 @@ class NoRecombination:
     def d_rate_dp(self, n:Density, p:Density) -> Density:
         return self._zeros(n, p)
 
-
     def electron_linearization(
         self, n:Density, p:Density
     ) -> tuple[Density, Density]:
         return self._zeros(n, p), self._zeros(n, p)
 
     def hole_linearization(self, n:Density, p: Density) -> tuple[Density, Density]:
-
         return self._zeros(n, p), self._zeros(n, p)
 
 
 @dataclass(frozen=True)
-
-
-
 class AugerRecombination:
-
     C_n: Lifetime
     C_p: Lifetime
 
     ni2: float = 1.0
 
-
     def _coefficient(self, n: Density, p: Density) -> Density:
         return self.C_n * n + self.C_p * p
 
     def rate(self, n: Density, p: Density) -> Density:
-
         return self._coefficient(n, p) * (n * p - self.ni2)
 
-
     def d_rate_dn(self, n: Density, p:Density) -> Density:
-
         return self.C_n*(n * p - self.ni2) + self._coefficient(n, p) * p
     def d_rate_dp(self, n: Density, p:Density) -> Density:
         return self.C_p*(n * p - self.ni2)+self._coefficient(n, p)*n
-
-
 
     def electron_linearization(
         self, n:Density, p:Density
@@ -204,27 +166,18 @@ class AugerRecombination:
         jj = self._coefficient(n, p)
         return jj * p, jj * self.ni2
 
-
-
     def hole_linearization(self, n:Density, p:Density) -> tuple[Density, Density]:
         out2 = self._coefficient(n, p)
         return out2 * n, out2 * self.ni2
 
 
-
 @dataclass(frozen=True)
-
-
 class SumOfRecombination:
-
-
     models: tuple[RecombinationModel, ...]
 
     def _sum(self, values: Iterable[Density], n: Density, p: Density) -> npt.NDArray[np.float64]:
         h = np.zeros(np.broadcast_shapes(np.shape(n), np.shape(p)))
         for bar in values:
-
-
             h = h + bar
         return h
     def rate(self, n: Density, p: Density) -> Density:
@@ -245,6 +198,5 @@ class SumOfRecombination:
             self._sum((j for _, j in x), n, p),
         )
     def hole_linearization(self, n: Density, p:Density) -> tuple[Density, Density]:
-
         j = [el.hole_linearization(n, p) for el in self.models]
         return (self._sum((r for r, _ in j), n, p), self._sum((a for _, a in j), n, p),)

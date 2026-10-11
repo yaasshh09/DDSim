@@ -16,12 +16,7 @@ _FULL_CELL_TOL = CONFIG.mesh.full_cell_tol
 
 
 @dataclass(frozen=True)
-
-
-
-
 class RegionMap:
-
     cell_material: npt.NDArray[np.int64]
 
     eps_r: npt.NDArray[np.float64]
@@ -38,7 +33,6 @@ class RegionMap:
     def edge_geometry(self, mesh:Mesh2D) -> EdgeGeometry:
         return EdgeGeometry(edge_nodes=mesh.edge_nodes, dual_face=mesh.dual_face, eps_r=self.eps_r, semiconductor_face=self.semiconductor_face,)
 
-
     def __repr__(self) -> str:
         vals = {"silicon":int(np.sum(self.cell_material == SILICON)), "oxide":int(np.sum(self.cell_material == OXIDE)),}
         return (
@@ -50,8 +44,6 @@ class RegionMap:
 def _node_line_index(axis:npt.NDArray[np.float64], position:float) -> int:
     s = np.abs(axis-position)
     x = int(np.argmin(s))
-
-
 
     foo = float(axis[-1] - axis[0])
     if s[x] > 1e-9*foo:
@@ -83,7 +75,6 @@ def _onto_edges(
     m[:,:-1] = cell_value * (0.5 * thing)[None,:]
     k = (w2+m).ravel()
 
-
     return np.asarray(np.concatenate([bb, k]) / mesh.dual_face)
 
 def region_map(
@@ -95,14 +86,12 @@ def region_map(
     buf = _onto_edges(mesh, vals)
     a2 = mesh.dual_face * _onto_edges(mesh, r)
 
-
     item = r * np.outer(0.5 * v, 0.5 * c)
     val = np.zeros((w, z)); val[:-1,:-1] += item
     val[:-1, 1:] += item
     val[1:,:-1] += item
     val[1:, 1:] += item
     f = val.ravel()
-
 
     u = np.flatnonzero(f == 0.0).astype(np.int64)
     return RegionMap(cell_material=cell_material, eps_r=buf, semiconductor_volume=f, semiconductor_face=a2, oxide_nodes=u,)

@@ -19,7 +19,6 @@ _MODEL_CHOICES:dict[str, tuple[str, ...]] = {"mobility": MOBILITY_MODELS}
 _REQUEST_ARGUMENTS = ("contact", 'measure_at')
 
 
-
 MEASURED_BY_DEFAULT = "drain"
 
 def _sweep(kind: str) -> Callable[..., Any]:
@@ -42,7 +41,6 @@ def model_parameters() -> tuple[Parameter, ...]:
 def build_models(
     device: Device, flags: dict[str, Any] | None = None
 ) -> TransportModels:
-
     c = {p.name: p for p in model_parameters()}
 
     z: dict[str, Any] = dict(
@@ -53,7 +51,6 @@ def build_models(
 def check_request(kind: str, device: Device, contact:str, settings: dict[str, Any] | None = None, models: dict[str, Any] | None = None, measure_at:str | None = None,) -> dict[str, Any]:
     vals = _sweep(kind)
     prev = {p.name: p for p in sweep_parameters(kind)}
-
 
     d: dict[str, Any] = dict(checked_arguments(kind, prev, settings or {}))
 
@@ -86,7 +83,6 @@ def check_request(kind: str, device: Device, contact:str, settings: dict[str, An
     if kind == "transfer" and measure_at is None:
         measure_at = MEASURED_BY_DEFAULT
     for w in (contact, measure_at):
-
         if w is not None and w not in e:
             raise KeyError(
                 f"no contact named {w!r} that the {kind} sweep can "

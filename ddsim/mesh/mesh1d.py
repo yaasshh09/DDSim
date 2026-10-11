@@ -14,36 +14,26 @@ _SCORE_SLACK = CONFIG.mesh.score_slack
 
 
 @dataclass(frozen=True)
-
-
-
 class Mesh1D:
-
-
     x: npt.NDArray[np.float64]
 
-
     h: npt.NDArray[np.float64]
-
 
     volume: npt.NDArray[np.float64]
     edge_nodes: npt.NDArray[np.int64]
     node_edges: tuple[tuple[int, ...], ...]
-
 
     def scaled(self,
       scale: ScaleFactors) -> ScaledMesh:
         return ScaledMesh(h=self.h / scale.x_0, volume=self.volume / scale.x_0, geometry=UNIFORM_1D,)
 
     @property
-
     def n_nodes(self) -> int:
         return int(self.x.size)
 
     @property
     def n_edges(self) -> int:
         return int(self.h.size)
-
 
     @property
     def length(self) -> float:
@@ -57,7 +47,6 @@ class Mesh1D:
 
 
 def _assemble(x:npt.NDArray[np.float64]) -> Mesh1D:
-
     c = np.diff(x)
 
     cnt = np.empty_like(x)
@@ -73,7 +62,6 @@ def _assemble(x:npt.NDArray[np.float64]) -> Mesh1D:
     for k in range(x.size):
         s2 = []
         if k > 0:
-
             s2.append(k - 1)
         if k < y:
             s2.append(k)
@@ -92,15 +80,11 @@ def uniform_mesh_1d(length:float, n_nodes:int) -> Mesh1D:
     return _assemble(np.linspace(0.0, length, n_nodes))
 
 
-
-
 def _geometric_sums(
     h_min: float,
     ratio: npt.NDArray[np.float64],
     n_intervals: npt.NDArray[np.float64],
 ) -> npt.NDArray[np.float64]:
-
-
     with np.errstate(over='ignore', invalid="ignore", divide="ignore"):
         f = h_min * (ratio ** n_intervals - 1.0) / (ratio - 1.0)
     return np.where(ratio == 1.0, h_min * n_intervals, f)
@@ -110,10 +94,8 @@ def _solve_ratios(side_length: float, h_min: float, n_intervals:npt.NDArray[np.i
     ys = np.asarray(n_intervals, dtype=np.float64)
     s = np.full(ys.shape, np.nan)
 
-
     a = h_min * ys
     j = ((ys > 0.0) & (h_min <= side_length*(1.0 + _DEGENERATE_TOLERANCE)) & (a <= side_length*(1.0 + _DEGENERATE_TOLERANCE)))
-
 
     c = j & ((ys == 1.0) | (np.abs(a - side_length) <= _DEGENERATE_TOLERANCE * side_length))
     s[c] = 1.0
@@ -146,7 +128,6 @@ def _solve_ratios(side_length: float, h_min: float, n_intervals:npt.NDArray[np.i
 
         if not x.any():
             break
-
 
     s[v] = 0.5*(out2 + m)
     return s
@@ -189,14 +170,11 @@ def graded_mesh_1d(
     else:
         d = np.arange(1, aa, dtype=np.int64)
 
-
     foo = d
     arr = aa - d
 
     h = _solve_ratios(row, h_min, foo)
     c2 = _solve_ratios(ss, h_min, arr)
-
-
 
     x = ((foo == 0) | np.isfinite(h)) & (
         (arr == 0)|np.isfinite(c2)
@@ -213,7 +191,6 @@ def graded_mesh_1d(
     prev = arr >= 2
     b[prev] = np.maximum(b[prev], c2[prev])
 
-
     c = np.ones(d.size)
     m = x & (foo > 0) & (arr > 0)
     val = (ss / _geometric_sums(h_min, c2[m], arr[m].astype(np.float64),))/(row / _geometric_sums(h_min, h[m], foo[m].astype(np.float64)))
@@ -223,10 +200,7 @@ def graded_mesh_1d(
                 c)
     jj[~x] = np.inf
 
-
-
     def score_splits(indices:npt.NDArray[np.intp],) -> tuple[npt.NDArray[np.float64] | None, float]:
-
         v: npt.NDArray[np.float64] | None = None
         flag = np.inf
         for num in indices:
@@ -242,7 +216,6 @@ def graded_mesh_1d(
                 max(b2.max(), (1.0 / b2).max())
             )
             if tt < flag:
-
                 flag = tt
 
                 v = e
@@ -274,10 +247,8 @@ def graded_mesh_1d(
     return _assemble(s)
 
 
-
 def graded_mesh_1d_at(length: float, n_nodes: int, points: tuple[float, ...], h_min: float, max_ratio: float = CONFIG.mesh.max_ratio,) -> Mesh1D:
     if len(points) == 1:
-
         if not 0.0 < points[0] < length:
             raise ValueError(
                 f"the point must lie inside (0, {length:g}), got {points[0]:g}"
@@ -314,7 +285,6 @@ def graded_mesh_1d_at(length: float, n_nodes: int, points: tuple[float, ...], h_
 
     obj, i = 1e-12, 1e6
     for _ in range(200):
-
         out2 = np.sqrt(obj * i)
         if wanted(out2).sum() > z:
             obj = out2
@@ -342,8 +312,6 @@ def graded_mesh_1d_at(length: float, n_nodes: int, points: tuple[float, ...], h_
         val.append(m[::-1] if y else m)
     v2 = np.concatenate(val)
 
-
-
     v = v2[1:] / v2[:-1]; hh = float(max(v.max(), (1.0/v).max()))
     if hh > max_ratio:
         raise ValueError(
@@ -351,8 +319,6 @@ def graded_mesh_1d_at(length: float, n_nodes: int, points: tuple[float, ...], h_
             f"between neighbouring cells, above max_ratio={max_ratio}. Add "
             "nodes, relax h_min, or raise max_ratio deliberately."
         )
-
-
 
     nxt = np.empty(n_nodes, dtype=np.float64)
     nxt[0] = 0.0
@@ -367,7 +333,6 @@ def graded_mesh_1d_through(length: float, n_nodes: int, lines: tuple[float, ...]
         raise ValueError(f"h_min must be positive, got {h_min}")
     for nxt, m in (("line", lines), ('point', points)):
         for c2 in m:
-
             if not 0.0 <= c2 <= length:
                 raise ValueError(
                     f"every {nxt} must lie inside [0, {length:g}], got {c2:g}"
@@ -402,7 +367,6 @@ def graded_mesh_1d_through(length: float, n_nodes: int, lines: tuple[float, ...]
 
     def integral(x: npt.NDArray[np.float64], g: float) -> npt.NDArray[np.float64]:
         if tt.size == 0:
-
             return np.asarray(x / h_min)
         yy = piece(distance(d[:-1]), distance(d[1:]), g)
         item = np.concatenate([[0.0], np.cumsum(yy)])
@@ -411,7 +375,6 @@ def graded_mesh_1d_through(length: float, n_nodes: int, lines: tuple[float, ...]
 
     idx = n_nodes - 1; g = 1.0
     if tt.size:
-
         k, w = 1e-12, 1e6
         for _ in range(200):
             z = float(np.sqrt(k * w))
@@ -421,10 +384,7 @@ def graded_mesh_1d_through(length: float, n_nodes: int, lines: tuple[float, ...]
                 w = z
         g = w
 
-
-
     x2 = integral(h, g); rr = np.diff(x2)*idx / x2[-1]
-
 
     c = np.maximum(np.floor(rr), 1.0).astype(np.int64)
     while c.sum() > idx:
@@ -437,7 +397,6 @@ def graded_mesh_1d_through(length: float, n_nodes: int, lines: tuple[float, ...]
     for res2, s2, ii, u, w2 in zip(
         h[:-1], h[1:], x2[:-1], x2[1:], c, strict=True
     ):
-
         bb = np.linspace(ii, u, int(w2)+1)[1:-1]
         r, ss = np.full_like(bb, res2), np.full_like(bb, s2)
         for _ in range(100):

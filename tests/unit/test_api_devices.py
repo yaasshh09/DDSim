@@ -17,15 +17,12 @@ def test_the_device_classes_are_offered() -> None:
     assert set(DEVICE_KINDS) == {'pn_diode', "mos_cap", "nmos", "stack", "drawing"}
 
 
-
 def test_the_parameters_come_from_the_constructor_signature() -> None:
     x = {a2.name for a2 in device_parameters("pn_diode")}
 
     assert 'Na' in x
     assert "junction" in x
     assert 'anode_voltage' in x
-
-
 
 
 def test_a_parameter_carries_its_default_and_its_type() -> None:
@@ -41,31 +38,23 @@ def test_a_parameter_carries_its_default_and_its_type() -> None:
 def test_a_boolean_parameter_is_offered_as_a_boolean() -> None:
     stuff = {p.name:p for p in device_parameters("nmos")}
 
-
-
     assert stuff['degenerate'].type == "bool"
     assert stuff["degenerate"].default is True
 
 def test_the_material_argument_is_not_offered() -> None:
     for t in DEVICE_KINDS:
-
         assert "material" not in {p.name for p in device_parameters(t)}
 
 
 def test_an_unknown_kind_names_the_ones_that_exist() -> None:
-
     with pytest.raises(ValueError, match="pn_diode"):
         device_parameters('transistor')
 
 
 def test_building_with_no_parameters_gives_the_constructor_default() -> None:
-
     rows = build_from_spec('pn_diode', {})
 
-
     assert rows.mesh.n_nodes == 201
-
-
 
 
 def test_a_parameter_reaches_the_constructor() -> None:
@@ -75,12 +64,10 @@ def test_a_parameter_reaches_the_constructor() -> None:
     assert k2.mesh.n_nodes == 51
 
 
-
 def test_an_unknown_parameter_is_refused_rather_than_ignored() -> None:
     with pytest.raises(ValueError, match='n_node'):
         build_from_spec("pn_diode", {'n_node':51})
 def test_a_parameter_of_the_wrong_type_is_refused() -> None:
-
     with pytest.raises(TypeError, match="Na"):
         build_from_spec("pn_diode", {"Na":"1e16"})
 
@@ -93,15 +80,12 @@ def test_a_boolean_is_refused_where_an_integer_is_wanted() -> None:
     with pytest.raises(TypeError, match='n_nodes'):
         build_from_spec('pn_diode', {"n_nodes":True})
 def test_an_integer_is_refused_where_a_boolean_is_wanted() -> None:
-
     with pytest.raises(TypeError, match="degenerate"):
         build_from_spec("nmos", {"degenerate": 1})
 
 
-
 def test_the_material_argument_cannot_be_passed_either() -> None:
     with pytest.raises(ValueError, match="material"):
-
         build_from_spec("pn_diode", {"material": 'silicon'})
 
 
@@ -114,47 +98,32 @@ def test_a_float_reaches_the_constructor_unchanged() -> None:
     assert r.net_doping.data[0] == pytest.approx(-2.5e16)
 
 def test_an_argument_with_no_default_is_not_a_knob() -> None:
-
     def example(required:float, optional: float = 1.0, named: str = "x") -> None:
         ...
 
     assert [p.name for p in parameters_of(example)] == ["optional", "named"]
 
 
-
-
 def test_a_coarse_preset_exists_for_every_device_not_solved_live() -> None:
-
-
     i = {w for w in DEVICE_KINDS if device_dimension(w) == 1}
 
     assert set(COARSE) == set(DEVICE_KINDS) - i
 
 @pytest.mark.parametrize("kind", sorted(COARSE))
-
-
-
 def test_a_coarse_preset_only_names_knobs_its_device_has(kind) -> None:
     r = {w.name for w in device_parameters(kind)}
 
     assert set(COARSE[kind].parameters) <= r
 
 @pytest.mark.parametrize("kind", sorted(COARSE))
-
-
-
 def test_a_coarse_preset_builds_and_is_coarser(kind) -> None:
     d = build_from_spec(kind, dict(COARSE[kind].parameters))
     a = build_from_spec(kind, {})
 
-
     assert node_count(d) < node_count(a)
 
 
-
 @pytest.mark.parametrize("kind", sorted(COARSE))
-
-
 def test_a_coarse_preset_says_what_changes(kind) -> None:
     u = COARSE[kind].note
     assert 'percent' in u, f"{kind}: {u!r} names no measured difference"
@@ -170,10 +139,7 @@ def test_a_stack_is_built_from_the_regions_the_page_sends() -> None:
     assert v.mesh.x[-1] == pytest.approx(1.4e-4, rel=1e-14)
 
 
-
-
 def test_the_default_regions_are_offered_as_the_page_sends_them() -> None:
-
     d = region_defaults("stack")
     assert d == [{'dopant': 'p', "length": 5e-5, "concentration": 1e16}, {"dopant": 'n', 'length': 5e-5, 'concentration': 1e16},]
     assert (build_from_spec("stack", {"regions": d}).mesh.x == build_from_spec("stack", {}).mesh.x).all()
@@ -185,11 +151,8 @@ def test_regions_are_not_a_knob_on_the_form() -> None:
     assert "regions" not in {p.name for p in device_parameters("stack")}
 
 
-
 def test_the_stack_is_solved_live() -> None:
     assert device_dimension('stack') == 1
-
-
 
 
 @pytest.mark.parametrize(
@@ -208,18 +171,12 @@ def test_the_stack_is_solved_live() -> None:
     ],
     ids=["not a list", 'not an object', "missing", "extra", 'string', 'bool', 'number'],
 )
-
-
 def test_a_malformed_region_is_refused_naming_it(regions, complaint) -> None:
-
     with pytest.raises((TypeError, ValueError), match=complaint):
-
         build_from_spec('stack', {'regions':regions})
 def test_regions_are_refused_on_a_device_that_has_none() -> None:
     with pytest.raises(ValueError, match='regions'):
         build_from_spec("pn_diode", {'regions': PIN})
-
-
 
 
 def test_the_phase_2_diode_drawn_as_a_stack_has_the_same_i_v() -> None:
@@ -238,13 +195,11 @@ def test_a_drawing_sent_as_its_defaults_is_the_default_drawing() -> None:
     import numpy as np
     from ddsim.device.drawing import drawing
 
-
     dat = build_from_spec("drawing", drawing_defaults("drawing"))
     s = drawing()
     np.testing.assert_array_equal(dat.mesh.node_x, s.mesh.node_x)
     np.testing.assert_array_equal(dat.mesh.node_y, s.mesh.node_y); np.testing.assert_array_equal(dat.net_doping.data, s.net_doping.data)
     assert [m.nodes for m in dat.contacts] == [m.nodes for m in s.contacts]
-
 
 
 def test_only_a_drawn_device_has_drawing_defaults() -> None:
@@ -259,8 +214,6 @@ def test_only_a_drawn_device_has_drawing_defaults() -> None:
     assert drawing_defaults('nmos') is None
 
 
-
-
 def test_the_drawing_lists_are_not_knobs() -> None:
     d = {p.name for p in device_parameters('drawing')}; assert not d & {'blocks', "implants", 'electrodes', "material"}
     assert {"nx", 'ny', 'h_min_x', "h_min_y", 'degenerate'} <= d
@@ -273,15 +226,11 @@ def test_the_drawing_lists_are_not_knobs() -> None:
         (lambda e: e.update(name=3.0), "electrode 2: name is a name"),
     ],
 )
-
-
-
 def test_a_bad_drawing_entry_is_named_by_number_and_field(change, complaint) -> None:
     kk = drawing_defaults("drawing")
     change(kk["electrodes"][1])
 
     with pytest.raises((TypeError, ValueError), match=complaint):
-
         build_from_spec("drawing", kk)
 
 
@@ -290,15 +239,12 @@ def test_a_device_not_drawn_refuses_drawing_parts() -> None:
         build_from_spec('stack', {'blocks':[]})
 
 
-
-
 def test_a_drawing_refusal_reaches_the_caller_with_its_reason() -> None:
     m = drawing_defaults('drawing')
     t = next(z for z in m["electrodes"] if z["name"] == "gate"); t['y0'] = t["y1"] = 0.0
     t['x0'], t['x1'] = 0.5e-4, 1.0e-4
 
     with pytest.raises(ValueError, match="Schottky"):
-
         build_from_spec('drawing', m)
 
 
@@ -311,11 +257,8 @@ def test_a_2d_mesh_over_the_budget_is_refused_though_no_knob_is() -> None:
         build_from_spec("nmos", {"n_silicon": 1000})
 
 
-
 @pytest.mark.parametrize('junction', [0.0, 5e-5])
-
 def test_a_diode_junction_on_a_contact_is_refused(junction: float) -> None:
-
     with pytest.raises(ValueError,
        match='inside'):
         build_from_spec('pn_diode', {"length": 5e-5, "junction": junction})

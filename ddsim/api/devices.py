@@ -16,9 +16,6 @@ DEVICE_KINDS: dict[str, Callable[..., Device]] = {"pn_diode": pn_diode, "mos_cap
 _EXPRESSIBLE = ("float", 'int', 'bool', "str")
 
 @dataclass(frozen=True)
-
-
-
 class Preset:
     parameters: dict[str, float | int]
 
@@ -70,23 +67,16 @@ COARSE:dict[str, Preset] = {
 
 
 def node_count(device: Device) -> int:
-
     return device.mesh.n_nodes
 
 
-
 @dataclass(frozen=True)
-
-
 class Parameter:
-
-
     name: str
 
     default: float | int | bool | str
 
     type:str
-
 
     choices: tuple[str, ...] = ()
 
@@ -94,16 +84,11 @@ class Parameter:
 
     unit:str = ""
 
-
-
     low: float | None = None
 
     high: float | None = None
 
-
     axis: str = "linear"
-
-
 
 
 def _builder(kind: str) -> Callable[..., Device]:
@@ -118,14 +103,11 @@ _UNIT = re.compile(r"\[([^\]]+)\]")
 _NUMBER = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?"
 
 
-
 _RANGE = re.compile(rf"Range\s+({_NUMBER})\s+to\s+({_NUMBER})(,\s*log)?")
-
 
 
 def argument_docs(function: Callable[..., Any]) -> dict[str, str]:
     return dict(_KNOBS.get(f"{getattr(function,'__module__','')}.{getattr(function, '__qualname__', '')}", {}))
-
 
 
 def _unit_of(explanation:str) -> str:
@@ -142,18 +124,13 @@ def _range_of(explanation:str) -> tuple[float | None, float | None, str]:
 
 
 @cache
-
-
 def device_dimension(kind:str) -> int:
     return 2 if hasattr(_builder(kind)().mesh, "ny") else 1
 @cache
-
-
 def contact_names(kind: str) -> tuple[str, ...]:
     return tuple(t.name for t in _builder(kind)().contacts)
 
 def parameters_of(function: Callable[..., Any], choices:dict[str, tuple[str, ...]]|None = None, docs: dict[str, str] | None = None) -> tuple[Parameter, ...]:
-
     m2 = choices or {}
 
     u = argument_docs(function) if docs is None else docs
@@ -172,7 +149,6 @@ def parameters_of(function: Callable[..., Any], choices:dict[str, tuple[str, ...
             **rest,
         )
     for i, m in inspect.signature(function).parameters.items():
-
         if m.default is inspect.Parameter.empty:
             continue
         if isinstance(m.default, Enum):
@@ -196,7 +172,6 @@ def parameters_of(function: Callable[..., Any], choices:dict[str, tuple[str, ...
                 )
             )
     return tuple(s)
-
 
 
 def enum_arguments(function: Callable[..., Any]) -> dict[str, type[Enum]]:
@@ -257,7 +232,6 @@ def drawing_defaults(kind: str) -> dict[str, list[dict[str, Any]]] | None:
     return {b:record_defaults(kind, b) or [] for b in DRAWING_PARTS}
 
 def records_from_json(name:str, sent: Any) -> tuple[Any, ...]:
-
     tmp2 = RECORDS[name]
     c = name[:-1]
     x = {m.name: m.type for m in fields(tmp2)}
@@ -278,7 +252,6 @@ def records_from_json(name:str, sent: Any) -> tuple[Any, ...]:
                 f"missing {w}, not a field {row}"
             )
         for m, dd in x.items():
-
             vals = d[m]
             i = (type(vals) is str if dd == "str" else type(vals) in (int, float))
             if not i:
@@ -295,7 +268,6 @@ def regions_from_json(sent: Any) -> tuple[Region, ...]:
                  sent)
 
 
-
 def build_from_spec(kind:str, parameters:dict[str, Any]) -> Device:
     print('building', kind)
     t2 = {p.name:p for p in device_parameters(kind)}
@@ -305,7 +277,6 @@ def build_from_spec(kind:str, parameters:dict[str, Any]) -> Device:
         if j in u:
             if record_defaults(kind, j) is None:
                 raise ValueError(f"{kind} is not built from {j}")
-
 
             w2[j] = records_from_json(j, u.pop(j))
     g = checked_arguments(kind, t2, u)
@@ -321,7 +292,6 @@ def build_from_spec(kind:str, parameters:dict[str, Any]) -> Device:
             f"{NODE_BUDGET}. Use fewer nodes along one axis, or the coarse mesh."
         )
     return buf
-
 
 
 def _checked(kind: str, parameter: Parameter, value:Any) -> float | int | bool | str:

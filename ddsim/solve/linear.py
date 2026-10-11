@@ -7,12 +7,7 @@ Number = TypeVar('Number', np.float64, np.complex128)
 
 
 @dataclass(frozen=True)
-
-
-
-
 class _CSCPattern:
-
     rows: npt.NDArray[np.int64]
 
     cols:npt.NDArray[np.int64]
@@ -25,13 +20,11 @@ class _CSCPattern:
     n_entries: int
 
     def matches(self, rows:npt.NDArray[np.integer], cols: npt.NDArray[np.integer], shape: tuple[int, int],) -> bool:
-
         return (
             shape == self.shape
             and np.array_equal(rows, self.rows)
             and np.array_equal(cols, self.cols)
         )
-
 
     def data(self, values:npt.NDArray[Number]) -> npt.NDArray[Number]:
         foo = values[self.order]
@@ -41,7 +34,6 @@ class _CSCPattern:
             np.add.at(arr, self.group, foo)
             return cast('npt.NDArray[Number]', arr)
 
-
         return cast(
             "npt.NDArray[Number]",
             np.bincount(
@@ -50,8 +42,6 @@ class _CSCPattern:
                 minlength=self.n_entries,
             ),
         )
-
-
 
 
 def _build_pattern(
@@ -67,11 +57,9 @@ def _build_pattern(
     s[0] = True
     s[1:] = (cc[1:] != cc[:-1]) | (tt[1:] != tt[:-1])
 
-
     val = np.cumsum(s) - 1
     item = np.ascontiguousarray(cc[s], dtype=np.int32)
     kk = tt[s]
-
 
     info = np.zeros(tmp + 1,
          dtype=np.int32)
@@ -81,8 +69,6 @@ def _build_pattern(
     return u, item, info
 
 class SparseLU:
-
-
     def __init__(self) -> None:
         self._lu: SuperLU|None = None
         self._pattern:_CSCPattern | None = None
@@ -112,13 +98,11 @@ class SparseLU:
         values:npt.NDArray[np.floating],
         shape: tuple[int, int],
     ) -> None:
-
         if shape[0] != shape[1]:
             raise ValueError(f"matrix must be square, got shape {shape}")
         shape = (int(shape[0]), int(shape[1]))
 
         a = np.asarray(values)
-
 
         if not np.issubdtype(a.dtype, np.inexact):
             a = a.astype(np.float64)
@@ -126,7 +110,6 @@ class SparseLU:
 
         v = (j is not None and self._matrix is not None and self._matrix.dtype == a.dtype and j.matches(rows, cols, shape))
         if v:
-
             assert j is not None and self._matrix is not None
             d = self._matrix
             d.data[:] = j.data(a)
@@ -154,7 +137,6 @@ class SparseLU:
     def solve(self, b:npt.NDArray[Number]) -> npt.NDArray[Number]:
         if self._lu is None:
             raise RuntimeError("no factorization available, call factorize first")
-
 
         m = np.asarray(b)
         if not np.issubdtype(m.dtype, np.inexact):

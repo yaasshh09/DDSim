@@ -9,15 +9,12 @@ from ddsim.physics.recombination import RecombinationModel
 Diffusivity = float | npt.NDArray[np.float64]
 
 
-
 BernoulliPair = tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]
 
 
 def _bernoulli_pair(
     psi:npt.NDArray[np.float64], geometry:EdgeGeometry = UNIFORM_1D
 ) -> BernoulliPair:
-
-
     i, r2 = geometry.ends_of(psi.size)
     c = psi[r2] - psi[i]
 
@@ -50,11 +47,9 @@ def hole_current(
     p: npt.NDArray[np.float64],
     geometry: EdgeGeometry = UNIFORM_1D,
 ) -> npt.NDArray[np.float64]:
-
     return _hole_current(
         h, Dp, _bernoulli_pair(psi, geometry), p, geometry
     )
-
 
 
 def _hole_current(
@@ -98,7 +93,6 @@ def _electron_continuity_residual(
                   i,
           m)
 
-
     return np.asarray(res2)
 def hole_continuity_residual(
     h: npt.NDArray[np.float64],
@@ -116,13 +110,10 @@ def _hole_continuity_residual(h: npt.NDArray[np.float64], volume: npt.NDArray[np
     m = _hole_current(h, Dp, bernoulli, p, geometry)
     tt, g = geometry.ends(h.size)
 
-
     i = R * volume
     np.add.at(i, tt, m)
     np.add.at(i, g, -m)
     return np.asarray(i)
-
-
 
 
 def electron_continuity_jacobian(
@@ -171,7 +162,6 @@ def hole_continuity_jacobian(
     dR_dp:npt.NDArray[np.float64],
     geometry:EdgeGeometry = UNIFORM_1D,
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
-
     return _hole_continuity_jacobian(
         h, volume, Dp, _bernoulli_pair(psi, geometry), psi.size, dR_dp, geometry
     )
@@ -192,13 +182,10 @@ def _hole_continuity_jacobian(h: npt.NDArray[np.float64], volume: npt.NDArray[np
 
     np.add.at(zz, k2, c2)
 
-
     a = np.concatenate([xx, j, k2])
     i = np.concatenate([xx, k2, j])
     w = np.concatenate([zz, -c2, -idx])
     return a, i, w
-
-
 
 
 def _check(mesh:Mesh1D, named:tuple[tuple[str, Field], ...]) -> None:
@@ -235,7 +222,6 @@ def assemble_electron_continuity(
     res2 = _electron_continuity_residual(
         a, b2, Dn, thing, n.data, x2, geometry
     )
-
 
     c, z, s = _electron_continuity_jacobian(a, b2, Dn, thing, mesh.n_nodes, np.asarray(w, dtype=np.float64), geometry,)
 

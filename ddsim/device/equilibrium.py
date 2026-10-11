@@ -40,12 +40,9 @@ def frozen_quasi_fermi(device: Device) -> tuple[Field, Field]:
     return phi_n, phi_p
 
 
-
-
 def insulator_guess(
     device: Device, psi: npt.NDArray[np.float64]
 ) -> npt.NDArray[np.float64]:
-
     if device.regions is None or device.regions.oxide_nodes.size == 0:
         return psi
 
@@ -69,8 +66,6 @@ def insulator_guess(
         device.material.T,
         device.degeneracy,
     )
-
-
 
     m = np.flatnonzero(device.regions.semiconductor_volume > 0.0)
 
@@ -150,7 +145,6 @@ def solve_equilibrium(device: Device, quasi_fermi: tuple[Field, Field] | None = 
             f"Residual history: {w.residual_history}"
         )
 
-
     w2 = 0.0 if phi_n is None else phi_n.data
     yy = 0.0 if phi_p is None else phi_p.data; psi = Field(w.x, "V", ScalingState.SCALED, Location.NODE, name="psi")
 
@@ -165,8 +159,6 @@ def solve_equilibrium(device: Device, quasi_fermi: tuple[Field, Field] | None = 
             t = b2.hole_density(yy-w.x)
         tmp = np.where(arr, s, 0.0)
         tmp2 = np.where(arr, t, 0.0)
-
-
 
     return DeviceState(
         psi=psi,

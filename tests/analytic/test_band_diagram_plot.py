@@ -26,8 +26,6 @@ def test_band_diagram_is_generated() -> None:
     k = s2 + b; c = s2 - b
     ys = np.zeros_like(v)
 
-
-
     r = -np.diff(psi) / z.mesh.h
     tmp3 = 0.5 * (v[:-1] + v[1:])
     d, mm = plt.subplots(3, 1, figsize=(7.5, 9), sharex=True)
@@ -59,7 +57,6 @@ def test_band_diagram_is_generated() -> None:
     for g in mm:
         g.grid(alpha=0.25, linewidth=0.5)
 
-
     d.tight_layout()
     OUTPUT.mkdir(parents=True, exist_ok=True); u = OUTPUT / "pn_diode_equilibrium.png"
     d.savefig(u, dpi=140)
@@ -67,7 +64,6 @@ def test_band_diagram_is_generated() -> None:
 
     assert u.exists()
     assert u.stat().st_size > 10_000
-
 
     assert j == pytest.approx(
         C.V_T() * math.log(1e16 * 1e16 / C.n_i() ** 2), rel=5e-3

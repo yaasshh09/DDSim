@@ -26,11 +26,8 @@ def mesh():
     return graded_mesh_1d(LENGTH, N_NODES, refine_at=JUNCTION, h_min=H_MIN)
 
 
-
 def p_on_the_left(offset: float) -> Device:
     return build_device(mesh=mesh(), doping=Step(left=-DOPING, right=DOPING, position=JUNCTION + offset), contacts=(OhmicContact("anode", 0, 0.0), OhmicContact("cathode", N_NODES - 1, 0.0),),)
-
-
 
 
 def n_on_the_left(offset:float) -> Device:
@@ -46,7 +43,6 @@ def n_on_the_left(offset:float) -> Device:
     )
 
 def anode_current(device: Device, voltage:float) -> float:
-
     xs = device.with_bias(anode=voltage)
     t = solve_bias(xs)
 
@@ -54,7 +50,6 @@ def anode_current(device: Device, voltage:float) -> float:
         f"the solve at {voltage:+g} V did not converge: {t.gummel}"
     )
     return terminal_currents(xs, t)["anode"]
-
 
 
 def test_the_graded_mesh_is_symmetric_about_a_central_refinement() -> None:
@@ -67,10 +62,7 @@ def test_the_dual_cells_mirror_too() -> None:
     idx = float(np.max(np.abs(d2 - d2[::-1]) / d2)); assert idx < b, f"worst {idx:.3e}, accumulation floor {b:.3e}"
 
 
-
 @pytest.mark.parametrize("voltage", [-1.0, -0.2, 0.0, 0.2, 0.4, 0.5])
-
-
 def test_a_mirrored_diode_gives_the_same_terminal_current(voltage: float) -> None:
     out2 = anode_current(p_on_the_left(OFF_NODE), voltage)
     z2 = anode_current(n_on_the_left(OFF_NODE), voltage)
@@ -101,13 +93,9 @@ def test_the_solved_profiles_are_reflections_of_each_other() -> None:
     np.testing.assert_allclose(t.p.data, kk.p.data[::-1], rtol=1e-11, atol=0.0)
 
 
-
-
 def test_the_current_densities_mirror_with_a_sign_change() -> None:
-
     g = p_on_the_left(OFF_NODE).with_bias(anode=0.4)
     prev = n_on_the_left(OFF_NODE).with_bias(anode=0.4)
-
 
     jj = solve_bias(g); s = TransportModels.for_device(g)
     num, tmp = current_densities(g, jj, s)
@@ -135,13 +123,11 @@ def test_a_node_on_the_step_is_the_only_thing_that_breaks_the_mirror() -> None:
     np.testing.assert_array_equal(row, e[::-1])
 
 
-
 def test_one_cell_of_base_width_is_worth_about_a_tenth_of_a_percent() -> None:
     obj = 0.5
     w = anode_current(p_on_the_left(0.0), obj)
     y = anode_current(p_on_the_left(H_MIN), obj)
     c = anode_current(n_on_the_left(0.0), obj)
-
 
     v = (y - w)/w
     num = (c-w)/w

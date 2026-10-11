@@ -11,14 +11,11 @@ DOPING = 1e16
 
 
 @pytest.fixture(scope="module")
-
-
 def equilibrium():
     w2 = pn_diode(Na=DOPING, Nd=DOPING, n_nodes=201)
     return w2, solve_equilibrium(w2)
 
 def test_the_gap_is_the_same_everywhere(equilibrium) -> None:
-
     v2, res2 = equilibrium
     w2 = band_edges(v2,
                       res2)
@@ -26,20 +23,15 @@ def test_the_gap_is_the_same_everywhere(equilibrium) -> None:
 
     np.testing.assert_allclose(w2.Ec-w2.Ev, x, rtol=1e-12)
 
-
     assert abs(x - C.Eg()) < 5e-3
 
 
 def test_in_equilibrium_both_quasi_fermi_levels_are_flat_at_zero(equilibrium) -> None:
-
     c, tt = equilibrium
     buf = band_edges(c, tt)
 
-
     np.testing.assert_allclose(buf.Efn, 0.0, atol=1e-9)
     np.testing.assert_allclose(buf.Efp, 0.0, atol=1e-9)
-
-
 
 
 def test_at_the_p_contact_the_valence_band_sits_where_boltzmann_puts_it(equilibrium,) -> None:

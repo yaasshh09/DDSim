@@ -19,7 +19,6 @@ from ddsim.device.doping import (
 MICRON = 1e-4
 
 
-
 def test_uniform_is_constant_everywhere() -> None:
     i = Uniform(1e16)
     a = np.linspace(0.0, MICRON, 11); np.testing.assert_allclose(i(a), 1e16)
@@ -27,7 +26,6 @@ def test_uniform_is_constant_everywhere() -> None:
 
 def test_uniform_accepts_a_scalar_position() -> None:
     assert Uniform(1e16)(0.5 * MICRON) == 1e16
-
 
 
 def test_negative_uniform_represents_acceptors() -> None:
@@ -47,16 +45,12 @@ def test_step_is_right_continuous_at_the_junction() -> None:
     assert r(0.5 * MICRON) == 1e16
 
 
-
-
 def test_step_changes_sign_across_the_junction() -> None:
     val2 = Step(left=-1e16, right=1e16, position=0.5 * MICRON)
     s = np.linspace(0.0, MICRON, 101)
     aa = val2(s)
     assert np.any(aa < 0.0)
     assert np.any(aa > 0.0)
-
-
 
 
 def test_gaussian_peaks_at_its_centre() -> None:
@@ -93,11 +87,8 @@ def test_erfc_decays_monotonically() -> None:
     assert np.all(np.diff(z(dat)) < 0.0)
 
 
-
-
 def test_erfc_rejects_non_positive_length() -> None:
     with pytest.raises(ValueError, match='length'):
-
         Erfc(peak=1e19, position=0.0, length=0.0)
 
 def test_profiles_compose_by_addition() -> None:
@@ -126,8 +117,6 @@ def test_profiles_subtract() -> None:
     assert it(0.0) == pytest.approx(6e15, rel=1e-15)
 
 
-
-
 def test_composed_profile_compensates_to_zero_where_terms_cancel() -> None:
     k2 = Uniform(1e16) + Uniform(-1e16)
     assert k2(0.0) == 0.0
@@ -135,8 +124,6 @@ def test_adding_a_non_profile_raises() -> None:
     with pytest.raises(TypeError):
         Uniform(1e16) + 5.0
 def test_a_profile_gives_the_same_values_on_any_mesh() -> None:
-
-
     foo = Uniform(-1e16) + Gaussian(peak=1e18, centre=0.5 * MICRON, sigma=1e-6)
     thing = np.linspace(0.0, MICRON, 11)
     a = np.linspace(0.0, MICRON, 1001)
@@ -154,17 +141,12 @@ def test_abrupt_junction_is_p_type_on_the_left() -> None:
     assert tmp(0.25 * MICRON) == pytest.approx(-1e16, rel=1e-15)
 
 
-
-
 def test_abrupt_junction_is_n_type_on_the_right() -> None:
     aa = abrupt_junction(Na=1e16, Nd=1e16, position=0.5 * MICRON)
     assert aa(0.75*MICRON) == pytest.approx(1e16, rel=1e-15)
 
 
-
-
 def test_abrupt_junction_takes_magnitudes_not_signed_values() -> None:
-
     s = abrupt_junction(Na=2e16, Nd=5e17, position=0.5 * MICRON)
     assert s(0.0) == pytest.approx(-2e16, rel=1e-15)
     assert s(MICRON) == pytest.approx(5e17, rel=1e-15)
@@ -178,7 +160,6 @@ def test_abrupt_junction_rejects_a_negative_donor_concentration() -> None:
         abrupt_junction(Na=1e16, Nd=-1e16, position=0.5 * MICRON)
 
 def test_a_bare_position_is_still_the_x_axis() -> None:
-
     t = np.linspace(0.0, MICRON, 5)
 
     cur = Coordinates.of(t)
@@ -192,18 +173,12 @@ def test_coordinates_pass_through_unchanged() -> None:
     assert Coordinates.of(tmp) is tmp
 
 
-
-
 def test_a_scalar_position_still_works() -> None:
     assert Coordinates.of(0.5 * MICRON).x == pytest.approx(0.5 * MICRON)
 
 
-
-
 def test_coordinates_refuse_axes_of_different_lengths() -> None:
-
     with pytest.raises(ValueError, match='same number of positions'):
-
         Coordinates(np.zeros(5), np.zeros(4))
 
 
@@ -222,7 +197,6 @@ def test_coordinates_refuse_an_axis_that_is_not_x_or_y() -> None:
     with pytest.raises(ValueError, match="x or y"):
         a2.axis('z')
 def test_along_y_reads_the_depth_coordinate() -> None:
-
     mm = np.linspace(0.0, MICRON, 7)
     cur = Coordinates(np.zeros_like(mm), mm)
     t = Gaussian(peak=1e19,
@@ -232,9 +206,7 @@ def test_along_y_reads_the_depth_coordinate() -> None:
     np.testing.assert_array_equal(Along(t, "y")(cur), t(mm))
 
 
-
 def test_along_x_is_what_a_profile_already_did() -> None:
-
     jj = Coordinates(np.linspace(0.0, MICRON, 7), np.linspace(0.0, MICRON, 7))
     hh = Gaussian(peak=1e19, centre=0.5 * MICRON, sigma=0.05 * MICRON)
     np.testing.assert_array_equal(Along(hh, 'x')(jj), hh(jj))
@@ -242,8 +214,6 @@ def test_along_x_is_what_a_profile_already_did() -> None:
 
 def test_along_y_on_a_line_is_refused() -> None:
     t = Along(Gaussian(peak=1e19, centre=0.0, sigma=1e-6), 'y')
-
-
 
     with pytest.raises(ValueError, match="no y coordinate"):
         t(np.linspace(0.0, MICRON, 5))
@@ -254,13 +224,9 @@ def test_along_refuses_an_axis_it_does_not_have() -> None:
         Along(Uniform(1e16), 'z')(tt)
 
 
-
 def test_a_product_is_separable() -> None:
-
     w2 = np.array([0.0, 0.5*MICRON, MICRON, 1.5*MICRON])
     s = np.array([0.0, 0.1 * MICRON, 0.2*MICRON, 0.3 * MICRON]); info = Coordinates(w2, s)
-
-
 
     vals = Step(left=1.0, right=0.0, position=MICRON)
     d = Gaussian(peak=1e20, centre=0.0, sigma=0.05 * MICRON)
@@ -269,14 +235,12 @@ def test_a_product_is_separable() -> None:
     np.testing.assert_allclose(u(info), vals(w2)*d(s), rtol=0.0)
 
 
-
 def test_a_product_multiplies_every_factor() -> None:
     y2 = Coordinates.of(np.zeros(3))
     rows = Uniform(2.0) * Uniform(3.0) * Uniform(5.0)
 
     assert isinstance(rows, Product)
     np.testing.assert_allclose(rows(y2), 30.0, rtol=0.0)
-
 
 
 def test_a_lateral_bound_is_two_steps_multiplied() -> None:
@@ -311,12 +275,8 @@ def test_mirroring_twice_is_the_original() -> None:
     d = Erfc(peak=0.5, position=0.4 * MICRON, length=0.05 * MICRON)
     d2 = np.linspace(0.0, 2.0 * MICRON, 21)
 
-
-
     out2 = Mirrored(Mirrored(d, about=MICRON), about=MICRON)
     np.testing.assert_allclose(out2(d2), d(d2), rtol=1e-13)
-
-
 
 
 def test_mirroring_leaves_the_depth_alone() -> None:
@@ -344,13 +304,10 @@ def test_mirroring_a_bare_position_reflects_it() -> None:
 
 
 def test_layers_takes_each_region_value_inside_it() -> None:
-
     k = Layers(boundaries=(MICRON, 2.0 * MICRON), values=(-1e18, 1e14, 1e18))
     e = np.array([0.5, 1.5, 2.5]) * MICRON
 
-
     np.testing.assert_array_equal(k(e), [-1e18, 1e14, 1e18])
-
 
 
 def test_layers_is_right_continuous_at_every_boundary() -> None:
@@ -375,7 +332,6 @@ def test_layers_needs_increasing_boundaries() -> None:
 ACROSS = np.linspace(-0.5 * MICRON, 1.5 * MICRON, 401)
 
 
-
 def test_an_abrupt_window_is_one_inside_and_zero_outside() -> None:
     it = Window(low=0.2 * MICRON, high=0.6 * MICRON)
 
@@ -395,7 +351,6 @@ def test_a_gaussian_window_holds_its_peak_inside_and_falls_off_outside() -> None
     y = (ACROSS >= 0.2*MICRON)&(ACROSS <= 0.6 * MICRON)
     assert np.all(stuff[y] == 1.0)
     f = ACROSS < 0.2 * MICRON
-
 
     arr = np.exp(-((0.2 * MICRON - ACROSS[f]) ** 2) / (2.0 * bar ** 2))
     np.testing.assert_allclose(stuff[f], arr, rtol=1e-15)
@@ -420,16 +375,13 @@ def test_an_erfc_window_open_on_the_left_is_the_nmos_lateral_edge() -> None:
     )
 
 
-
 def test_an_erfc_window_open_on_the_right_is_the_mirrored_edge() -> None:
-
     rr, s = 0.046*MICRON, 1.8*MICRON
     m = Window(low=1.4 * MICRON, high=math.inf, edge='erfc', length=rr)
     x = Erfc(peak=0.5, position=0.4 * MICRON, length=rr)
     np.testing.assert_allclose(
         m(ACROSS), Mirrored(x, 0.5*s)(ACROSS), rtol=1e-12, atol=1e-300
     )
-
 
 
 def test_an_erfc_window_is_half_its_peak_at_a_mask_edge() -> None:
@@ -439,7 +391,6 @@ def test_an_erfc_window_is_half_its_peak_at_a_mask_edge() -> None:
     assert a2(np.array([0.7 * MICRON]))[0] == pytest.approx(1.0, rel=1e-12)
 
 
-
 def test_a_narrow_erfc_window_never_reaches_its_peak() -> None:
     u = Window(
         low=0.5 * MICRON, high=0.51 * MICRON, edge="erfc", length=0.05 * MICRON
@@ -447,10 +398,7 @@ def test_a_narrow_erfc_window_never_reaches_its_peak() -> None:
     assert u(np.array([0.505 * MICRON]))[0] < 0.2
 
 
-
 def test_a_window_open_on_both_sides_is_one_everywhere() -> None:
-
-
     j = Window(low=-math.inf, high=math.inf, edge="erfc", length=0.01 * MICRON)
     np.testing.assert_array_equal(j(ACROSS), 1.0)
 
@@ -466,11 +414,9 @@ def test_a_window_is_refused_upside_down() -> None:
 
 def test_a_soft_window_needs_a_length() -> None:
     with pytest.raises(ValueError, match='length'):
-
         Window(low=0.2 * MICRON, high=0.6 * MICRON, edge="erfc")
 
 
 def test_a_window_edge_is_one_of_three() -> None:
     with pytest.raises(ValueError, match="abrupt, gaussian or erfc"):
-
         Window(low=0.2 * MICRON, high=0.6 * MICRON, edge="linear", length=1e-6)

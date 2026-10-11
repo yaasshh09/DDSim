@@ -16,7 +16,6 @@ OBTUSE = (
 )
 
 
-
 def test_an_equilateral_triangle_has_three_sixty_degree_angles():
     d = triangle_angles(*EQUILATERAL)
 
@@ -25,11 +24,9 @@ def test_an_equilateral_triangle_has_three_sixty_degree_angles():
 
 
 def test_the_angles_of_any_triangle_sum_to_pi():
-
     for it, u in (EQUILATERAL, RIGHT, OBTUSE):
         r = triangle_angles(it, u)
         np.testing.assert_allclose(r.sum(axis=1), np.pi, rtol=1e-12)
-
 
 
 def test_a_right_triangle_is_not_obtuse():
@@ -40,13 +37,11 @@ def test_a_right_triangle_is_not_obtuse():
     check_triangulation(*RIGHT)
 
 
-
 def test_an_obtuse_triangle_is_detected():
     t = triangle_angles(*OBTUSE)
     assert np.degrees(t).max() > 90.0
     np.testing.assert_array_equal(obtuse_triangles(*OBTUSE),
           [0])
-
 
 
 def test_check_triangulation_refuses_a_deliberately_obtuse_mesh():
@@ -77,14 +72,12 @@ def test_the_hypotenuse_of_a_right_triangle_gets_zero_weight():
     assert k.size == 1; assert z2[k[0]] == pytest.approx(0.0, abs=1e-15)
 
 
-
 def test_an_obtuse_triangle_produces_a_negative_weight():
     _, k = cotangent_edge_weights(*OBTUSE)
 
     assert k.min() < 0.0
 
 def test_two_triangles_sharing_an_edge_add_their_cotangents():
-
     kk = np.array([[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]])
     c = np.array([[0, 1, 2], [0, 2, 3]])
     ret, w = cotangent_edge_weights(kk, c)
@@ -94,18 +87,12 @@ def test_two_triangles_sharing_an_edge_add_their_cotangents():
     check_triangulation(kk, c)
 
 
-
-
 def test_a_degenerate_triangle_is_refused():
-
     tmp = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0]])
     z2 = np.array([[0, 1, 2]])
 
-
-
     with pytest.raises(MeshQualityError, match='degenerate'):
         check_triangulation(tmp, z2)
-
 
 
 def test_a_triangle_list_of_the_wrong_shape_is_refused():

@@ -7,14 +7,11 @@ from ddsim.core import constants
 JS = PAGE.parent / 'js'
 
 
-
 def first_party_script() -> str:
     return "\n".join(
         m.read_text(encoding="utf-8") for m in sorted(JS.glob('*.js'))
     )
 CLIENT = PAGE.read_text(encoding="utf-8") + first_party_script()
-
-
 
 
 def constant_names() -> list[str]:
@@ -30,22 +27,15 @@ def test_the_client_script_lives_in_static_js() -> None:
     assert '<script>' not in PAGE.read_text(encoding='utf-8')
 
 
-
-
 @pytest.mark.parametrize(
     'forbidden',
     ['Math.exp', 'Math.sinh', 'Math.asinh', 'Math.tanh', 'Math.cbrt'],
 )
-
 def test_the_client_never_evaluates_a_physical_function(forbidden) -> None:
     assert forbidden not in CLIENT
 
 
-
-
 def test_the_client_takes_no_natural_logarithm() -> None:
-
-
     assert not re.search(r"Math\.log\b", CLIENT)
     assert not re.search(r"Math\.log2\b", CLIENT)
 
@@ -64,7 +54,6 @@ def test_no_silicon_constant_is_named_in_the_client() -> None:
         if re.search(rf"\b{re.escape(y)}\b", vv)
     ]
 
-
     assert d == [], f"the client mentions {d}"
 
 
@@ -72,8 +61,6 @@ def test_the_client_does_not_convert_between_scaled_and_physical() -> None:
     k = first_party_script()
 
     for e in ("V_T", '0.0259', '38.7', "kT", "thermal"):
-
-
         assert e not in k
 
 

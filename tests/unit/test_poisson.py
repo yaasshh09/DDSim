@@ -21,9 +21,6 @@ def scaled_mesh(n_nodes: int = 21, length: float = MICRON) -> tuple:
 
 
 @pytest.mark.parametrize("doping_scaled", [-1e6, -1.0, 0.0, 1.0, 1e6, 1e8])
-
-
-
 def test_residual_is_zero_for_uniform_material_at_equilibrium(doping_scaled: float,) -> None:
     yy, vv = scaled_mesh(); i = np.full(yy.size + 1, doping_scaled)
     psi = np.full(yy.size + 1, float(psi_equilibrium_scaled(doping_scaled)))
@@ -33,13 +30,10 @@ def test_residual_is_zero_for_uniform_material_at_equilibrium(doping_scaled: flo
 def test_residual_is_nonzero_when_psi_is_off_equilibrium() -> None:
     ys, thing = scaled_mesh()
 
-
     z = np.full(ys.size + 1, 1e6)
     psi = np.full(ys.size + 1, float(psi_equilibrium_scaled(1e6)) + 0.1)
 
-
     assert np.max(np.abs(poisson_residual(ys, thing, psi, z))) > 1.0
-
 
 
 def test_laplacian_of_a_linear_potential_vanishes_in_the_interior() -> None:
@@ -62,8 +56,6 @@ def test_boundary_rows_use_a_reflecting_condition() -> None:
     assert a[0] == pytest.approx(k, rel=1e-14)
 
 
-
-
 def test_charge_term_has_the_sign_that_pulls_psi_toward_neutrality() -> None:
     t, kk = scaled_mesh(n_nodes=11)
 
@@ -76,10 +68,7 @@ def test_charge_term_has_the_sign_that_pulls_psi_toward_neutrality() -> None:
     assert np.all(ii[1:-1] > 0.0)
 
 
-
 def test_jacobian_matches_complex_step_differentiation() -> None:
-
-
     t, ys = scaled_mesh(n_nodes=20)
 
     k = np.random.default_rng(0); psi = k.uniform(-8.0, 8.0, 20)
@@ -93,7 +82,6 @@ def test_jacobian_matches_complex_step_differentiation() -> None:
         w = poisson_residual(t, ys, g, r).imag / hh
         np.testing.assert_allclose(d[:, z2], w, rtol=1e-12, atol=1e-12)
 def test_jacobian_matches_finite_difference_on_a_20_node_mesh() -> None:
-
     d2, c = scaled_mesh(n_nodes=20)
     idx = np.random.default_rng(1)
     psi = idx.uniform(-5.0, 5.0, 20)
@@ -107,9 +95,7 @@ def test_jacobian_matches_finite_difference_on_a_20_node_mesh() -> None:
         u = psi.copy()
         d = psi.copy()
 
-
         u[ii] += mm
-
 
         d[ii] -= mm
         rr = (
@@ -121,14 +107,12 @@ def test_jacobian_matches_finite_difference_on_a_20_node_mesh() -> None:
         )
 
 
-
 def test_jacobian_is_tridiagonal() -> None:
     f, x = scaled_mesh(n_nodes=15)
     mm, b, _ = poisson_jacobian(f, x, np.zeros(15), np.zeros(15))
     assert np.all(np.abs(mm-b) <= 1)
 
 def test_jacobian_diagonal_is_strictly_positive() -> None:
-
     m, c = scaled_mesh(n_nodes=15)
     psi = np.linspace(-10.0, 10.0, 15)
     h, cnt, flag = poisson_jacobian(m, c, psi, np.zeros(15))
@@ -141,9 +125,7 @@ def test_jacobian_off_diagonals_are_negative() -> None:
     assert np.all(row[res2 != r2] < 0.0)
 
 
-
 def test_jacobian_is_symmetric() -> None:
-
     j, s = scaled_mesh(n_nodes=15)
 
     psi = np.linspace(-3.0,
@@ -210,8 +192,6 @@ def test_assemble_rejects_a_charge_volume_of_the_wrong_length() -> None:
         assemble_poisson(m2.scaled(t), psi, flag, charge_volume=np.ones(9))
 
 
-
-
 def test_assemble_scales_the_mesh_by_the_debye_length() -> None:
     z2 = uniform_mesh_1d(MICRON, 11)
     vals = ScaleFactors.for_silicon()
@@ -235,7 +215,6 @@ def test_assemble_returns_a_square_system_of_the_right_size() -> None:
 
 
 def test_residual_uses_the_quasi_fermi_potentials_in_the_densities() -> None:
-
     t, v = scaled_mesh(n_nodes=11)
     psi = np.full(11, 2.0); c = np.zeros(11)
     d = np.full(11, 2.0)
@@ -265,7 +244,6 @@ def test_a_uniform_shift_of_psi_and_both_levels_leaves_the_residual_alone() -> N
         y, u, psi, z, np.zeros(11), np.zeros(11)
     )
 
-
     ret = poisson_residual(
         y, u, psi+38.7, z, np.full(11, 38.7), np.full(11, 38.7)
     )
@@ -286,10 +264,8 @@ def test_jacobian_with_quasi_fermi_matches_complex_step() -> None:
     )
     t = sp.coo_matrix((tt, (c, a)), shape=(20, 20)).toarray()
 
-
     s = 1e-30
     for val in range(20):
-
         buf = psi.astype(np.complex128)
 
         buf[val] += 1j * s
@@ -300,25 +276,19 @@ def test_jacobian_with_quasi_fermi_matches_complex_step() -> None:
             / s
         )
 
-
         np.testing.assert_allclose(t[:, val], z, rtol=1e-12, atol=1e-12)
 
 
 def test_an_insulator_node_contributes_no_charge_however_large_psi_gets():
-
-
     bb = 5
     ii = np.full(bb - 1, 0.5)
     h = np.full(bb, 0.5)
     h[-2:] = 0.0
 
-
     psi = np.array([0.0, 10.0, 100.0, 500.0, 800.0])
     r = np.zeros(bb)
 
-
     i = poisson_residual(ii, h, psi, r)
-
 
     assert np.all(np.isfinite(i)), (
         'an insulator node produced a non finite residual, so its carrier '
@@ -333,26 +303,20 @@ def test_an_insulator_node_contributes_no_charge_however_large_psi_gets():
 
 
 def test_the_insulator_rows_are_exactly_the_laplacian():
-
     aa = 5
     t = np.full(aa-1, 0.5)
     b = np.full(aa, 0.5)
     b[-2:] = 0.0
 
-
     psi = np.array([0.0, 10.0, 100.0, 500.0, 800.0]); cc = np.zeros(aa)
     g = poisson_residual(t, b, psi, cc)
-
 
     for res2 in (3, 4):
         h = 0.0
 
         if res2 > 0:
-
-
             h += (psi[res2]-psi[res2 - 1])/t[res2 - 1]
         if res2 < aa - 1:
-
             h -= (psi[res2 + 1] - psi[res2]) / t[res2]
         assert g[res2] == pytest.approx(h, rel=1e-14), (
             f"insulator node {res2} carries a charge term it should not"
@@ -367,7 +331,6 @@ def test_complex_step_survives_the_insulator_mask():
 
     d, f, x = poisson_jacobian(zz, b, psi, tmp3)
     w = sp.coo_matrix((x, (d, f)), shape=(m, m)).toarray()
-
 
     a = 1e-30
     for h in range(m):

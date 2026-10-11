@@ -6,30 +6,22 @@ from ddsim.device.stack import DOPING_RANGE, Region, stack
 MICRON = 1e-4
 
 
-
-
 def net_doping(device) -> np.ndarray:
     return device.doping(device.mesh.x)
-
 
 
 def test_the_default_stack_is_the_phase_2_diode_bit_for_bit() -> None:
     d, ii = stack(), pn_diode()
     np.testing.assert_array_equal(d.mesh.x, ii.mesh.x)
 
-
     np.testing.assert_array_equal(net_doping(d), net_doping(ii))
 def test_a_stack_has_a_contact_at_each_end() -> None:
-
-
     d = stack(left_voltage=0.3, right_voltage=-0.1)
     s, x = d.contacts
     assert (s.name, s.nodes, s.voltage) == ("left", (0,), 0.3)
 
     e = d.mesh.n_nodes - 1
     assert (x.name, x.nodes, x.voltage) == ("right", (e,), -0.1)
-
-
 
 
 def test_each_region_holds_its_own_doping() -> None:
@@ -43,7 +35,6 @@ def test_each_region_holds_its_own_doping() -> None:
     assert np.all(w[z < 0.2*MICRON] == -1e18)
     assert np.all(w[(z >= 0.2 * MICRON) & (z < 1.2 * MICRON)] == 1e14)
     assert np.all(w[z >= 1.2 * MICRON] == 1e18)
-
 
 
 @pytest.mark.parametrize("regions", [(Region("p", 0.2*MICRON, 1e18), Region("n", 1.0*MICRON, 1e14), Region('n', 0.2 * MICRON, 1e18),), (Region("n", 0.3 * MICRON, 1e18), Region('p', 0.2 * MICRON, 1e17), Region("n", 0.5 * MICRON, 1e16),), (Region("p", 0.1*MICRON, 1e17), Region('n', 0.1 * MICRON, 1e17), Region("p", 1.0*MICRON, 1e15), Region("n", 0.1 * MICRON, 1e17),),], ids=['pin', "npn", 'four regions'],)
@@ -65,8 +56,6 @@ def test_the_node_count_is_the_one_asked_for() -> None:
       n_nodes=301).mesh.n_nodes == 301
 
 
-
-
 def test_more_nodes_never_breaks_a_stack_with_a_short_segment() -> None:
     d = (Region("p", 10 * MICRON, 1e15), Region("n", 0.01 * MICRON, 1e17), Region("p", 0.01 * MICRON, 1e17), Region("n", 10*MICRON, 1e15),)
     for u in (101, 201, 401):
@@ -80,7 +69,6 @@ def test_more_nodes_than_the_stack_holds_at_h_min_is_refused() -> None:
 
 
 def test_a_region_the_graded_mesh_leaves_too_few_nodes_in_is_refused() -> None:
-
     it = (
         Region("n", MICRON, 1e16),
         Region("p", 3e-7, 1e18),
@@ -106,17 +94,12 @@ def test_a_stack_of_equal_regions_has_no_junction_either() -> None:
         stack((Region('n', MICRON, 1e16), Region('n', MICRON, 1e16)))
 
 
-
 def test_an_empty_stack_is_refused() -> None:
     with pytest.raises(ValueError, match="at least two regions"):
         stack(())
 
 
-
 @pytest.mark.parametrize("concentration", [1e13, 1e20, 0.0])
-
-
-
 def test_a_doping_outside_the_model_range_is_refused(concentration) -> None:
     nxt, cur = DOPING_RANGE
 
@@ -126,7 +109,6 @@ def test_a_doping_outside_the_model_range_is_refused(concentration) -> None:
     assert f"{nxt:g}" in str(a.value) and f"{cur:g}" in str(a.value)
 
     assert 'references/physics.md' in str(a.value)
-
 
 
 def test_the_ends_of_the_doping_range_are_accepted() -> None:
@@ -140,8 +122,6 @@ def test_a_dopant_that_is_not_n_or_p_is_refused() -> None:
 def test_a_region_with_no_length_is_refused() -> None:
     with pytest.raises(ValueError, match="region 2.*length"):
         stack((Region("p", MICRON, 1e16), Region('n', 0.0, 1e16)))
-
-
 
 
 def test_a_region_shorter_than_the_mesh_resolves_is_refused() -> None:

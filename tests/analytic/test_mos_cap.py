@@ -21,10 +21,7 @@ def phi_F(net_doping: float) -> float:
     return float(-C.V_T() * np.arcsinh(net_doping / (2.0 * C.n_i())))
 
 
-
 def flatband_voltage(net_doping: float, work_function: float) -> float:
-
-
     return float(C.work_function_difference(work_function, net_doping))
 def oxide_capacitance(t_ox: float) -> float:
     return C.eps_ox() / t_ox
@@ -37,15 +34,11 @@ def max_depletion_width(net_doping: float) -> float:
     )
 
 
-
 def threshold_voltage(net_doping: float, t_ox:float, work_function:float) -> float:
-
-
     Na = abs(net_doping)
 
     val2 = C.q * Na * max_depletion_width(net_doping)
     return (flatband_voltage(net_doping, work_function) + 2.0 * phi_F(net_doping) + val2 / oxide_capacitance(t_ox))
-
 
 
 def solved(net_doping=-NA, work_function=C.PHI_M_N_POLY, **kwargs):
@@ -61,10 +54,7 @@ def surface_potential(device, state) -> float:
 
 
 def gate_bias_for(target_psi_s: float, bracket=(-3.0, 3.0), **kwargs) -> float:
-
     def residual(v_gate:float) -> float:
-
-
         t, y = solved(gate_voltage=v_gate, **kwargs)
 
         return surface_potential(t,
@@ -72,9 +62,6 @@ def gate_bias_for(target_psi_s: float, bracket=(-3.0, 3.0), **kwargs) -> float:
     return float(brentq(residual, *bracket, xtol=1e-9))
 
 @pytest.mark.parametrize('work_function', [C.PHI_M_N_POLY, C.PHI_M_P_POLY, C.PHI_M_MIDGAP], ids=["n+poly", "p+poly", 'midgap'],)
-
-
-
 @pytest.mark.parametrize("net_doping", [-1e15, -1e16, -1e17], ids=str)
 def test_biasing_the_gate_at_phi_ms_leaves_the_stack_flat(
     work_function, net_doping
@@ -90,21 +77,16 @@ def test_the_flat_profile_is_already_the_answer():
     assert yy.newton.iterations == 0
 
 
-
 @pytest.mark.parametrize(
     'work_function',
     [C.PHI_M_N_POLY, C.PHI_M_P_POLY, C.PHI_M_MIDGAP],
     ids=["n+poly", "p+poly", "midgap"],
 )
-
-
 def test_the_bias_that_removes_the_band_bending_is_the_flatband_voltage(work_function,):
     k = gate_bias_for(0.0, work_function=work_function)
     j = flatband_voltage(-NA, work_function)
     assert k == pytest.approx(j, abs=GATE_TOLERANCE)
     assert k == pytest.approx(j, abs=1e-5)
-
-
 
 
 @pytest.mark.parametrize("net_doping", [-1e15, -1e16, -1e17], ids=str)
@@ -139,10 +121,7 @@ def surface_charge_exact(net_doping:float,
     return float(np.sqrt(2.0 * C.eps_Si() * C.V_T() * C.q * Na * prev))
 
 
-
-
 def surface_field(device, state) -> float:
-
     tmp2 = device.mesh
     assert device.regions is not None; ok = tmp2.nx // 2
     res = int(device.regions.interface_nodes(tmp2)[ok])
@@ -154,20 +133,13 @@ def surface_field(device, state) -> float:
     )
 
 
-
-
 @pytest.mark.parametrize("fraction", [0.25, 0.5, 0.75], ids=str)
-
-
-
 def test_the_surface_charge_matches_poisson_boltzmann(fraction):
-
     r = fraction * 2.0 * phi_F(-NA)
     stuff = gate_bias_for(r)
     dd, h = solved(gate_voltage=stuff)
     g = surface_potential(dd, h)
     assert g == pytest.approx(r, abs=1e-6)
-
 
     a = C.eps_Si()*surface_field(dd, h)
     assert a == pytest.approx(surface_charge_exact(-NA, g), rel=2e-3)
@@ -175,14 +147,10 @@ def test_the_surface_charge_matches_poisson_boltzmann(fraction):
     assert abs(a / f - 1.0) > 0.02
 
 
-
-
 def test_the_depletion_approximation_is_exact_at_threshold_by_cancellation():
-
     for y in (-1e15, -1e16, -1e17):
         j = 2.0 * phi_F(y); f = np.sqrt(2.0 * C.eps_Si() * C.q * abs(y) * j)
         assert surface_charge_exact(y, j) == pytest.approx(f, rel=1e-6)
-
 
 
 def test_the_bulk_is_neutral_far_from_the_surface():
@@ -194,7 +162,6 @@ def test_the_bulk_is_neutral_far_from_the_surface():
     assert abs(r.psi.data[m] - r.psi.data[k]) < 1e-9
 
 def test_the_oxide_potential_is_a_straight_line():
-
     dat, y = solved(gate_voltage=1.0)
     aa = dat.mesh
     assert dat.regions is not None
@@ -210,11 +177,8 @@ def test_the_oxide_potential_is_a_straight_line():
     assert np.max(np.abs(s)) < 1e-10 * np.ptp(psi)
 
 @pytest.mark.parametrize("v_gate", [-2.0, 0.0, 1.0], ids=['acc', 'zero', "inv"])
-
 def test_no_carrier_density_is_negative_anywhere(v_gate):
-
     m, k = solved(gate_voltage=v_gate); mm = np.asarray(m.charge_volume_scaled) > 0.0
-
 
     assert np.all(k.n.data[mm] > 0.0)
     assert np.all(k.p.data[mm] > 0.0)
@@ -223,8 +187,6 @@ def test_no_carrier_density_is_negative_anywhere(v_gate):
     assert np.any(ret), 'this device has no oxide, so it checks nothing'
     assert np.all(k.n.data[ret] == 0.0); assert np.all(k.p.data[ret] == 0.0)
 def test_the_solution_does_not_vary_across_the_device():
-
-
     c, h = solved(gate_voltage=1.0)
     v = c.mesh
 
@@ -241,10 +203,7 @@ def test_adding_columns_changes_nothing():
     np.testing.assert_allclose(j, b2, rtol=1e-10)
 
 
-
-
 def test_the_quasi_fermi_levels_are_undefined_in_the_oxide():
-
     x, z = solved(gate_voltage=1.0); obj = np.asarray(x.charge_volume_scaled) > 0.0
     u = ~obj
     assert np.any(u), 'this device has no oxide, so it checks nothing'

@@ -18,13 +18,9 @@ DEGENERATE_DOPING_TOP = CONFIG.drawing.degenerate_doping_top
 NODE_BUDGET = CONFIG.mesh.node_budget
 
 
-
 @dataclass(frozen=True)
-
 class Block:
-
     material: str
-
 
     x0: float
 
@@ -36,19 +32,13 @@ class Block:
 
 
 @dataclass(frozen=True)
-
-
-
-
 class Implant:
     dopant: str
-
 
     concentration:float
     x0: float
 
     x1: float
-
 
     y0:float
     y1:float
@@ -57,13 +47,10 @@ class Implant:
 
     straggle:float = 0.0
 
-
-
     lateral:float = 0.0
 
 
 @dataclass(frozen=True)
-
 class Electrode:
     name: str
     kind:str
@@ -75,7 +62,6 @@ class Electrode:
     y0:float
     y1:float
     voltage: float = 0.0
-
 
     work_function:float = C.PHI_M_N_POLY
 
@@ -107,10 +93,8 @@ NMOS_DRAWING = _nmos_drawing()
 MOS_CAP_DRAWING = _mos_cap_drawing()
 
 
-
 def _box(what:str, x0:float, x1:float, y0:float, y1: float) -> str:
     return f"{what} ({x0:g} to {x1:g} cm across, {y0:g} to {y1:g} cm up)"
-
 
 
 def _check_records(
@@ -120,7 +104,6 @@ def _check_records(
     degenerate:bool,
 ) -> None:
     for kk, e in enumerate(blocks, start=1):
-
         if e.material not in MATERIALS:
             raise ValueError(
                 f"block {kk}: a block is silicon or oxide, got {e.material!r}"
@@ -136,14 +119,10 @@ def _check_records(
     m2 = DEGENERATE_DOPING_TOP if degenerate else DOPING_RANGE[1]
     for kk, i in enumerate(implants, start=1):
         if i.dopant not in ('n', 'p'):
-
-
             raise ValueError(
                 f"implant {kk}: the dopant is 'n' or 'p', got {i.dopant!r}"
             )
         if i.profile not in ('uniform', 'gaussian'):
-
-
             raise ValueError(
                 f"implant {kk}: a profile is uniform or gaussian, got "
                 f"{i.profile!r}"
@@ -158,7 +137,6 @@ def _check_records(
             )
 
         if not (i.x0 < i.x1 and i.y0 < i.y1):
-
             raise ValueError(
                 f"implant {kk}: an implant needs a positive width and "
                 "height, x0 < x1 and y0 < y1"
@@ -194,8 +172,6 @@ def _check_records(
             )
 
 
-
-
 def _lines(
     things: list[tuple[str, float, float]], h_min:float, axis:str
 ) -> list[float]:
@@ -208,7 +184,6 @@ def _lines(
     for z, prev in zip(u[:-1],
           u[1:],
           strict=True):
-
         if prev - z < h_min:
             raise ValueError(
                 f"{', '.join(j[z])} and {', '.join(j[prev])} put mesh "
@@ -244,7 +219,6 @@ def _interfaces(
     return tmp2, a2
 
 
-
 def _implant_profile(implant: Implant, width: float, height: float) -> DopingProfile:
     tmp2 = -math.inf if implant.x0 <= 0.0 else implant.x0
     xx = math.inf if implant.x1 >= width else implant.x1
@@ -261,9 +235,7 @@ def _implant_profile(implant: Implant, width: float, height: float) -> DopingPro
     return Along(v, "x") * Along(j, 'y') * (w * implant.concentration)
 
 
-
 def _electrode_nodes(mesh: Mesh2D, electrode: Electrode) -> tuple[int, ...]:
-
     r2 = (
         (mesh.node_x >= electrode.x0)
         & (mesh.node_x <= electrode.x1)
@@ -271,7 +243,6 @@ def _electrode_nodes(mesh: Mesh2D, electrode: Electrode) -> tuple[int, ...]:
         & (mesh.node_y <= electrode.y1)
     )
     return tuple(int(out) for out in np.flatnonzero(r2))
-
 
 
 def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant, ...] = NMOS_DRAWING[1], electrodes: tuple[Electrode, ...] = NMOS_DRAWING[2], nx: int = CONFIG.drawing.nx, ny: int = CONFIG.drawing.ny, h_min_x: float = CONFIG.drawing.h_min_x, h_min_y: float = CONFIG.drawing.h_min_y, degenerate: bool = True, material: Material | None = None,) -> Device:
@@ -282,7 +253,6 @@ def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant
     i = min(jj.x0 for jj in blocks)
     z2 = min(tt.y0 for tt in blocks)
     if i != 0.0 or z2 != 0.0:
-
         raise ValueError(
             f"the drawing starts at x={i:g}, y={z2:g} cm; draw it "
             "from the origin, x = 0 and y = 0 at its lower left corner"
@@ -305,14 +275,12 @@ def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant
                 f"{bar:g} cm across and 0 to {b:g} cm up"
             )
 
-
     if nx * ny > NODE_BUDGET:
         raise ValueError(
             f"a mesh of {nx} by {ny} is {nx * ny} nodes, over the budget of "
             f"{NODE_BUDGET}. A 2D solve slows faster than its node count grows; "
             'the benchmark nmos is 8379 nodes and about 20 s for a transfer curve.'
         )
-
 
     ss = _lines([(thing, w2.x0, w2.x1) for thing, w2 in zz], h_min_x, 'x'); row = _lines([(thing, w2.y0, w2.y1) for thing, w2 in zz], h_min_y, 'y')
     m = _paint(blocks, np.array(ss), np.array(row))
@@ -341,8 +309,6 @@ def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant
         if vv.x0 == 0.0 and vv.x1 == bar:
             prev = NODES_INSIDE
         if vv.y0 == 0.0 and vv.y1 == b:
-
-
             val2 = NODES_INSIDE
         if min(prev, val2) < NODES_INSIDE:
             raise ValueError(
@@ -398,7 +364,6 @@ def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant
                 )
             b2[hh] = d2.name
 
-
     ys = {
         hh
         for val in yy
@@ -424,13 +389,11 @@ def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant
                 'electrode on it.'
             )
 
-
     j = Sum(tuple(_implant_profile(tmp3, bar, b) for tmp3 in implants))
 
     foo = j(Coordinates(cc.node_x, cc.node_y)).reshape(cc.ny, cc.nx)
     k2 = v.reshape(cc.ny, cc.nx)
     for s2, c2, w in (("p", 'holes', foo < 0.0), ('n', 'electrons', foo > 0.0),):
-
         y2, h = ndimage.label(k2 & w)
         for cur in range(1, h + 1):
             rr = set(np.flatnonzero(y2.ravel() == cur).tolist())

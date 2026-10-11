@@ -25,11 +25,8 @@ from tests.analytic.test_pn_equilibrium import (analytic_depletion_width, analyt
 THERMAL_LIMIT = 59.5
 
 
-
 @functools.cache
 def run(lesson: str, step:str|None = None):
-
-
     rr = load_lesson(lesson)
     t2 = rr.request if step is None else rr.step(step).request
     assert t2 is not None, f"{lesson}: step {step!r} sets nothing up"
@@ -51,14 +48,11 @@ def run(lesson: str, step:str|None = None):
 
 
 def psi_of(device, state) -> np.ndarray:
-
     return np.asarray(state.psi.to_physical(device.scale).data)
 JUNCTION = '01-pn-junction'
 
 
 @pytest.mark.parametrize('step', [None, "Dope one side harder"])
-
-
 def test_built_in_potential_matches_the_textbook_formula(step) -> None:
     zz, dd, d = run(JUNCTION,
             step)
@@ -72,8 +66,6 @@ def test_built_in_potential_matches_the_textbook_formula(step) -> None:
     assert psi[-1] - psi[0] == pytest.approx(analytic_V_bi(Na, Nd), rel=5e-3)
 
 
-
-
 def test_depletion_width_matches_the_depletion_approximation() -> None:
     w, row, _ = run(JUNCTION)
     r2 = depletion_width_from_field(w, row.points[0].state)
@@ -81,13 +73,11 @@ def test_depletion_width_matches_the_depletion_approximation() -> None:
     assert r2 == pytest.approx(analytic_depletion_width(1e16, 1e16), rel=3e-2)
 
 
-
 def test_the_fermi_level_is_flat_at_equilibrium() -> None:
     el, s2, _ = run(JUNCTION)
     val2 = band_edges(el, s2.points[0].state)
 
     for v in (val2.Efn, val2.Efp):
-
         assert np.ptp(v) < 1e-6
 
 def test_the_lightly_doped_side_takes_the_potential_drop() -> None:
@@ -108,7 +98,6 @@ def test_forward_current_rises_a_decade_every_60_millivolts() -> None:
     assert np.all(h < 1.06)
 
 
-
 def test_reverse_bias_widens_the_depletion_region_as_the_square_root() -> None:
     c, aa, _ = run(BIAS, 'Reverse bias'); i = analytic_V_bi(1e16,
               1e16)
@@ -122,7 +111,6 @@ MOSCAP = '03-mos-capacitor'
 
 
 def c_over_cox(step):
-
     _, k, h = run(MOSCAP, step)
 
     t2 = h["device"]["parameters"].get("t_ox", 1e-6)
@@ -130,11 +118,7 @@ def c_over_cox(step):
 
 
 @pytest.mark.parametrize('step', [None, "High frequency"])
-
-
 def test_the_capacitance_never_exceeds_the_oxide(step) -> None:
-
-
     r, y = c_over_cox(step)
     assert np.all(y < 1.0)
     assert y[np.argmin(r)] > 0.9
@@ -148,7 +132,6 @@ def test_the_high_frequency_minimum_matches_the_depletion_approximation() -> Non
     bb = v[np.argmax(h)]
     assert bb < a
     assert bb == pytest.approx(a, rel=0.08)
-
 
 
 def test_only_a_slow_signal_sees_the_inversion_layer() -> None:
@@ -170,7 +153,6 @@ def test_the_subthreshold_slope_sits_above_the_body_factor_estimate() -> None:
     assert z > THERMAL_LIMIT
     assert z > y2
     assert z == pytest.approx(y2, rel=0.15)
-
 
 
 def test_the_threshold_lands_near_the_textbook_formula() -> None:

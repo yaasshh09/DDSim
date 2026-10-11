@@ -7,30 +7,19 @@ from ddsim.core import constants as C
 Doping = float | npt.NDArray[np.float64]
 
 
-
-
 @runtime_checkable
-
-
 class MobilityModel(Protocol):
-
     def __call__(self, total_doping:Doping) -> npt.NDArray[np.float64]:
         ...
 
 
-
 @dataclass(frozen=True)
-
-
-
 class ConstantMobility:
     value: float
-
 
     def __call__(self, total_doping: Doping) -> npt.NDArray[np.float64]:
         return np.full(np.shape(total_doping), self.value, dtype=np.float64)
 @dataclass(frozen=True)
-
 class AroraMobility:
     mu_min: float
 
@@ -59,7 +48,6 @@ class AroraMobility:
             exponent=0.88 * x **-0.146,
         )
 
-
     def __call__(self, total_doping: Doping) -> npt.NDArray[np.float64]:
         hh = np.abs(np.asarray(total_doping, dtype=np.float64))
         return np.asarray(
@@ -68,9 +56,7 @@ class AroraMobility:
 
 
 @runtime_checkable
-
 class EdgeMobilityModel(Protocol):
-
     def __call__(self, X: npt.NDArray[Any], h: npt.NDArray[np.float64]) -> npt.NDArray[Any]:
         ...
     def derivative(
@@ -84,12 +70,8 @@ def _magnitude(X:npt.NDArray[Any]) -> npt.NDArray[Any]:
     return np.abs(X)
 
 @dataclass(frozen=True)
-
 class CaugheyThomas:
-
     low_field: npt.NDArray[np.float64]
-
-
 
     v_sat: float
 
@@ -98,10 +80,7 @@ class CaugheyThomas:
         if self.v_sat <= 0.0:
             raise ValueError(f"v_sat must be positive, got {self.v_sat}")
         if self.beta <= 0.0:
-
             raise ValueError(f"beta must be positive, got {self.beta}")
-
-
 
     def _ratio(self, X: npt.NDArray[Any], h:npt.NDArray[np.float64]) -> npt.NDArray[Any]:
         return np.asarray(
@@ -113,7 +92,6 @@ class CaugheyThomas:
         return np.asarray(self.low_field / (1.0+x**self.beta)**(1.0/self.beta))
 
     def derivative(self, X:npt.NDArray[np.float64], h:npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-
         e = self._ratio(X, h)
         f = self.low_field / (h * self.v_sat)
         return np.asarray(
@@ -126,14 +104,8 @@ class CaugheyThomas:
 
 
 @dataclass(frozen=True)
-
-
 class LombardiSurface:
-
-
-
     B:float
-
 
     C_ac: float
     tau: float
@@ -143,12 +115,9 @@ class LombardiSurface:
     alpha: float
     eta:float
 
-
-
     kappa:float
 
     T: float = C.T_ROOM
-
 
     E_floor:float = 1.0e2
     @classmethod
@@ -167,7 +136,6 @@ class LombardiSurface:
 
     @classmethod
     def holes(cls, T:float = C.T_ROOM) -> LombardiSurface:
-
         return cls(
             B=1.51e7,
             C_ac=4.18e3,
@@ -180,13 +148,10 @@ class LombardiSurface:
             T=T,
         )
 
-
     def _floored(self, E_perp: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-
         f = np.asarray(E_perp, dtype=np.float64)
         if np.any(f < 0.0):
             raise ValueError("E_perp is the magnitude of the field normal to the " "interface and cannot be negative. A signed difference " "reached here without its absolute value.")
-
 
         return np.maximum(f,
                      self.E_floor)
@@ -211,7 +176,6 @@ class LombardiSurface:
         total_doping: Doping,
         carriers: Doping,
     ) -> npt.NDArray[np.float64]:
-
         y = self.acoustic(E_perp, total_doping)
         jj = self.roughness(E_perp, total_doping, carriers)
         v = np.asarray(mu_bulk, dtype=np.float64)

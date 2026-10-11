@@ -22,7 +22,6 @@ GATE_VOLTAGES = list(np.round(np.arange(-0.2, 0.351, 0.05), 4)) + list(
 THERMAL_LIMIT = 59.5
 
 @pytest.fixture(scope="module")
-
 def sweep():
     return gate_length_sweep(
         gate_lengths=[LONG, SHORT],
@@ -33,7 +32,6 @@ def sweep():
 def test_the_sweep_returns_a_point_per_gate_length(sweep):
     assert [z.L_gate for z in sweep] == [LONG, SHORT]
 def test_every_point_carries_both_curves_it_was_extracted_from(sweep):
-
     for j in sweep:
         assert j.linear.measured_at == "drain"
         assert j.saturated.measured_at == 'drain'
@@ -43,23 +41,17 @@ def test_every_point_carries_both_curves_it_was_extracted_from(sweep):
 
 def test_the_subthreshold_slope_beats_no_thermal_limit(sweep):
     for d in sweep:
-
         assert d.subthreshold_slope >= THERMAL_LIMIT
 
 
 def test_the_subthreshold_slope_degrades_as_the_gate_shortens(sweep):
     h, i = sweep
 
-
-
     assert i.subthreshold_slope > h.subthreshold_slope
 
 
-
 def test_the_threshold_rolls_off(sweep):
-
     thing, v = sweep
-
 
     assert v.threshold_linear < thing.threshold_linear
 def test_both_threshold_methods_roll_off_the_same_way(sweep):
@@ -76,7 +68,6 @@ def test_drain_induced_barrier_lowering_is_positive_and_worsens(sweep):
     assert tmp.dibl > cnt.dibl
 
 
-
 def test_the_saturation_exponent_falls_from_the_square_law(sweep):
     tmp2, x = sweep
     assert tmp2.saturation_exponent <= 2.0
@@ -88,11 +79,7 @@ def test_the_saturation_exponent_falls_from_the_square_law(sweep):
 def test_the_short_device_drives_more_current(sweep):
     item, g = sweep
 
-
-
     assert g.peak_transconductance > (item.peak_transconductance)
-
-
 
 
 def drain_current(L_gate: float, field_dependent:bool) -> float:
@@ -111,7 +98,6 @@ def drain_current(L_gate: float, field_dependent:bool) -> float:
         )
 
     def at_gate(gate: float, previous):
-
         z = solve_bias_newton(device_at(gate), models=thing, guess=previous)
         return z if z.newton is not None and z.newton.converged else None
 
@@ -123,13 +109,11 @@ def drain_current(L_gate: float, field_dependent:bool) -> float:
     return float(terminal_currents(device_at(1.2), d.solution)[DRAIN])
 
 
-
 def test_velocity_saturation_is_what_holds_the_short_device_back():
     mm = drain_current(1e-4, field_dependent=False)
     zz = drain_current(1e-4, field_dependent=True)
     d2 = drain_current(5e-6, field_dependent=False)
     m = drain_current(5e-6, field_dependent=True)
-
 
     assert zz == pytest.approx(mm, rel=0.05)
     assert m < 0.75 * d2
@@ -140,7 +124,6 @@ def test_a_sweep_with_no_gate_lengths_is_refused():
 
 def test_two_equal_drain_biases_are_refused():
     with pytest.raises(ValueError, match='two different drain biases'):
-
         gate_length_sweep(gate_lengths=[LONG], gate_voltages=GATE_VOLTAGES, drain_low=0.05, drain_high=0.05,)
 
 
@@ -151,10 +134,7 @@ def test_the_process_is_the_one_that_was_handed_in():
     assert "L_gate" not in SHORT_CHANNEL_PROCESS
 
 
-
-
 def test_the_leakage_floor_at_the_head_of_a_curve_is_trimmed_off():
-
     b = np.array([-0.4, -0.3, -0.2, -0.1, 0.0])
     x2 = np.array([-6.8e-8, -6.4e-8, 5.9e-7, 1.5e-5, 3.7e-4])
 
@@ -178,7 +158,6 @@ def test_a_curve_that_never_turns_on_is_refused():
       -1e-8,
                       -1e-8,
                      1e-9])
-
 
     with pytest.raises(ValueError, match="Extend the gate sweep"):
         usable_span(a, b)

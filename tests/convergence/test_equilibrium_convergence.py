@@ -9,7 +9,6 @@ from ddsim.device.pn_diode import pn_diode
 
 MICRON = 1e-4
 def diode_on(n_nodes: int, Na: float = 1e16, Nd: float = 1e16):
-
     return pn_diode(
         Na=Na,
         Nd=Nd,
@@ -18,7 +17,6 @@ def diode_on(n_nodes: int, Na: float = 1e16, Nd: float = 1e16):
         n_nodes=n_nodes,
         h_min=4.0*MICRON / (n_nodes-1),
     )
-
 
 
 def peak_field(device, state) -> float:
@@ -36,13 +34,11 @@ def test_peak_field_converges_under_mesh_refinement() -> None:
     m = c2[-1]
     j = [abs(cur - m) / m for cur in c2[:-1]]
 
-
     assert all(
         res2 < i for i, res2 in zip(j[:-1], j[1:], strict=True)
     ), f"errors must shrink monotonically, got {j}"
 
 def test_peak_field_converges_at_second_order() -> None:
-
     j = [201, 401, 801, 1601]
     mm = []
     for s2 in j:
@@ -96,8 +92,6 @@ def test_newton_converges_in_under_ten_iterations_across_doping() -> None:
         )
 
 def test_newton_residual_tail_is_quadratic() -> None:
-
-
     b2 = pn_diode(Na=1e16, Nd=1e16, length=4.0 * MICRON, junction=2.0 * MICRON)
 
     e = solve_equilibrium(b2)
@@ -105,7 +99,6 @@ def test_newton_residual_tail_is_quadratic() -> None:
     m = np.array(e.newton.residual_history)
     row = m / m[0]
     res = row[row > 100.0 * row[-1]]
-
 
     xs = res[-3:]
     assert len(xs) == 3, f"no usable tail in {m}"
@@ -121,7 +114,6 @@ def test_newton_residual_tail_is_quadratic() -> None:
     assert max(ret)/min(ret) < 10.0, f"C is not constant: {ret}"
 
 
-
 def test_newton_ends_with_unlimited_steps() -> None:
     r = pn_diode(Na=1e16, Nd=1e16, length=4.0 * MICRON, junction=2.0 * MICRON)
     a = solve_equilibrium(r)
@@ -132,7 +124,6 @@ def test_residual_falls_by_many_orders_of_magnitude() -> None:
 
     s = solve_equilibrium(j)
     xs = s.newton.residual_history[0]
-
 
     b = s.newton.residual_history[-1]; assert b / xs < 1e-14
 
@@ -145,7 +136,6 @@ def test_the_charge_neutral_guess_is_a_good_starting_point() -> None:
 
     from ddsim.physics.statistics import psi_equilibrium_scaled
 
-
     b = np.asarray(psi_equilibrium_scaled(cnt.net_doping_scaled.data))
     mm = np.abs(psi - b)
     w = 2.0 * MICRON
@@ -156,7 +146,6 @@ def test_the_charge_neutral_guess_is_a_good_starting_point() -> None:
     assert mm[flag].max() < 1e-6, f"worst {mm[flag].max():.3e}"
     assert mm.max() > 1.0, 'the junction must actually need solving'
 
-
     assert g > 0.0
 
 def test_newton_converges_on_lightly_doped_material() -> None:
@@ -165,7 +154,6 @@ def test_newton_converges_on_lightly_doped_material() -> None:
             Na=el, Nd=el, length=4.0 * MICRON, junction=2.0 * MICRON
         )
         x = solve_equilibrium(s)
-
 
         assert x.newton is not None
 
@@ -178,7 +166,6 @@ def test_newton_converges_on_lightly_doped_material() -> None:
         )
 
 def test_the_threshold_floor_does_not_loosen_a_normally_doped_solve() -> None:
-
     for j in (1e15, 1e16, 1e18):
         obj = pn_diode(Na=j, Nd=j)
         t = solve_equilibrium(obj)
@@ -198,13 +185,10 @@ def test_the_threshold_floor_does_not_loosen_a_normally_doped_solve() -> None:
 def test_a_stalled_solve_says_what_it_was_aiming_for() -> None:
     h = pn_diode(Na=1e16, Nd=1e16)
 
-
-
     num = solve_poisson(
         h, np.zeros(h.mesh.n_nodes), max_iterations=1
     )
     assert not num.converged
     assert "threshold" in num.message
-
 
     assert f"{num.residual_history[-1]:.3e}" in num.message

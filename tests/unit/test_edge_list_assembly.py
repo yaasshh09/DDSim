@@ -20,10 +20,7 @@ from ddsim.mesh.mesh1d import uniform_mesh_1d
 N_NODES = 20
 
 
-
 @pytest.fixture
-
-
 def problem():
     w = uniform_mesh_1d(length=1e-4, n_nodes=N_NODES)
     mm = build_device(
@@ -54,7 +51,6 @@ def problem():
         'models': b,
         "n_edges":w.n_edges,
     }
-
 
 
 def residual_of(problem, geometry, order=None):
@@ -91,7 +87,6 @@ def chain(n_edges):
 def test_the_explicit_1d_edge_list_reproduces_the_default_bit_for_bit(problem):
     rows = EdgeGeometry(edge_nodes=chain(problem["n_edges"]))
 
-
     np.testing.assert_array_equal(
         residual_of(problem, rows), residual_of(problem, None)
     )
@@ -112,7 +107,6 @@ def test_the_answer_does_not_depend_on_the_order_the_edges_are_listed_in(problem
     np.testing.assert_allclose(matrix_of(problem, i, g), matrix_of(problem, None), rtol=1e-13, atol=0.0,)
 
 def test_the_answer_does_not_depend_on_which_end_of_an_edge_is_called_left(problem):
-
     g = chain(problem['n_edges'])[:,::-1].copy()
     m = EdgeGeometry(edge_nodes=g)
     np.testing.assert_allclose(residual_of(problem, m), residual_of(problem, None), rtol=1e-13, atol=0.0,)
@@ -125,7 +119,6 @@ def test_the_answer_does_not_depend_on_which_end_of_an_edge_is_called_left(probl
 
 
 def test_the_term_scales_do_not_depend_on_the_edge_order_either(problem):
-
     tmp2 = problem['models']
     row = np.random.default_rng(11)
     el = row.permutation(problem['n_edges'])
@@ -134,7 +127,6 @@ def test_the_term_scales_do_not_depend_on_the_edge_order_either(problem):
     def scales(geometry, order=None):
         geometry = UNIFORM_1D if geometry is None else geometry
         return residual_term_scales(h=problem['h'] if order is None else problem["h"][order], volume=problem['volume'], x=problem['x'], net_doping=problem["net_doping"], Dn=np.asarray(tmp2.Dn) if order is None else np.asarray(tmp2.Dn)[order], Dp=np.asarray(tmp2.Dp) if order is None else np.asarray(tmp2.Dp)[order], geometry=geometry,)
-
 
     np.testing.assert_allclose(
         scales(hh, el), scales(None), rtol=1e-13, atol=0.0

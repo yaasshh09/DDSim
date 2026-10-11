@@ -11,7 +11,6 @@ class ScalingState(Enum):
     SCALED = 'scaled'
 
 class Location(Enum):
-
     NODE = 'node'
     EDGE = "edge"
 
@@ -39,7 +38,6 @@ class Field:
     unit: str
     scaling:ScalingState
 
-
     location: Location
 
     name:str | None = dataclass_field(default=None)
@@ -48,16 +46,13 @@ class Field:
         object.__setattr__(self, "data", np.asarray(self.data, dtype=np.float64))
     @property
     def shape(self) -> tuple[int, ...]:
-
         return self.data.shape
-
 
     @property
     def size(self) -> int:
         return int(self.data.size)
 
     def __len__(self) -> int:
-
         return int(self.data.shape[0])
     def __repr__(self) -> str:
         z = f" {self.name!r}" if self.name is not None else ""
@@ -67,7 +62,6 @@ class Field:
         )
 
     def _require_field(self, other: object, operation: str) -> Field:
-
         if not isinstance(other, Field):
             raise TypeError(
                 f"cannot {operation} a Field and {type(other).__name__}. "
@@ -99,14 +93,11 @@ class Field:
                 f"[{self.unit}] and [{other.unit}]."
             )
         if self.shape != other.shape:
-
-
             raise ValueError(
                 f"cannot {operation} fields of different length: "
                 f"{self.shape} and {other.shape}."
             )
     def _like(self, data: np.ndarray, unit:str | None = None) -> Field:
-
         return Field(
             data,
             self.unit if unit is None else unit,
@@ -127,7 +118,6 @@ class Field:
         return self._like(-self.data)
 
     def __mul__(self, other:Field|float) -> Field:
-
         if isinstance(other,
                int | float):
             return self._like(self.data * other)
@@ -145,7 +135,6 @@ class Field:
         return self._like(self.data/other.data, _combine_divide(self.unit, other.unit))
 
     def to_scaled(self, scale: ScaleFactors) -> Field:
-
         if self.scaling is ScalingState.SCALED:
             raise ValueError(
                 f"field [{self.unit}] is already SCALED. Calling to_scaled "
@@ -154,8 +143,6 @@ class Field:
         return Field(self.data / scale.factor(self.unit), self.unit, ScalingState.SCALED, self.location, self.name,)
 
     def to_physical(self, scale:ScaleFactors) -> Field:
-
-
         if self.scaling is ScalingState.PHYSICAL:
             raise ValueError(
                 f"field [{self.unit}] is already PHYSICAL. Calling to_physical "

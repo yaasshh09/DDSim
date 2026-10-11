@@ -46,43 +46,30 @@ def bias_points() -> list[float]:
 
 
 @pytest.fixture(scope='module')
-
 def device():
     return mos_cap(substrate_doping=BENCHMARK.substrate_doping, t_ox=BENCHMARK.t_ox, t_si=BENCHMARK.t_si, n_silicon=BENCHMARK.n_silicon, n_oxide=BENCHMARK.n_oxide, h_min=BENCHMARK.h_min, work_function=BENCHMARK.work_function,)
 
 
-
-
 @pytest.fixture(scope="module")
-
-
-
 def curves(device):
     j = bias_points()
 
     return {cur:cv_sweep(device, GATE, j, response=cur) for cur in Response}
 
 @pytest.fixture(scope="module")
-
 def landmarks(device):
     return {
         bb: cv_sweep(device, GATE, [V_FB, V_TH], response=bb)
         for bb in Response
     }
 @pytest.fixture(scope="module")
-
-
-
 def golden():
     s = P.read_mos_golden(str(GOLDEN_DIR / f"{BENCHMARK.name}.csv"))
     b, aa = P.central_difference(s.gate_voltage, s.charge)
     return np.asarray(b), np.asarray(aa)
 
 
-
-
 def ddsim_differenced(curves):
-
     item = curves[Response.LOW_FREQUENCY]
     y = np.isin(np.round(item.gate_voltage, 4), BENCHMARK.voltages)
 
@@ -108,18 +95,15 @@ def test_the_annotated_numbers_are_the_ones_the_plot_will_show(curves, landmarks
     tt = float(m.capacitance[0])
     assert tt == pytest.approx(C_OX, rel=0.02)
 
-
     m2 = float(landmarks[Response.LOW_FREQUENCY].capacitance[0])
     assert m2 == pytest.approx(C_FB,
                       rel=1e-3)
     z = float(landmarks[Response.HIGH_FREQUENCY].capacitance[1])
     assert z == pytest.approx(C_MIN, rel=0.05)
 
-
     j = float(m.capacitance[-1])
     assert j == pytest.approx(C_OX, rel=0.05)
     assert float(r.capacitance[-1]) < 0.2*C_OX
-
 
 
 def test_the_overlaid_curves_agree(curves, golden):
@@ -127,7 +111,6 @@ def test_the_overlaid_curves_agree(curves, golden):
     r2, j = ddsim_differenced(curves)
 
     np.testing.assert_allclose(r2, g, atol=1e-9)
-
 
     s2 = float(
         np.max(
@@ -139,7 +122,6 @@ def test_the_overlaid_curves_agree(curves, golden):
     assert s2 < BENCHMARK.tolerance, (
         f"worst disagreement {s2:.3%}, allowed {BENCHMARK.tolerance:.3%}"
     )
-
 
 
 def test_mos_cv_plot_is_generated(curves, golden):
@@ -167,7 +149,6 @@ def test_mos_cv_plot_is_generated(curves, golden):
         zorder=4,
     )
 
-
     t2.plot(
         bar.gate_voltage,
         bar.capacitance * NANO,
@@ -185,7 +166,6 @@ def test_mos_cv_plot_is_generated(curves, golden):
         (C_FB, r"$C_{FB} = C_{ox} \parallel \varepsilon_{Si}/L_D$", 0.055),
         (C_MIN, r"$C_{min} = C_{ox} \parallel \varepsilon_{Si}/W_{max}$", -0.022),
     ):
-
         t2.axhline(z2 * NANO, color='grey', linestyle=':', linewidth=0.9)
         t2.annotate(
             f"{b2} = {z2 * NANO:.1f}",
@@ -209,7 +189,6 @@ def test_mos_cv_plot_is_generated(curves, golden):
             va="bottom",
             ha='right',
         )
-
 
     for w, i in (
         (0.5 * (out2 + V_FB), "accumulation"),
@@ -245,14 +224,11 @@ def test_mos_cv_plot_is_generated(curves, golden):
     )
     t2.legend(loc='upper center', bbox_to_anchor=(0.5, -0.13), ncol=1, fontsize=9, frameon=False,)
 
-
     OUTPUT.mkdir(parents=True, exist_ok=True)
     t = OUTPUT / "mos_cap_cv.png"
     d.savefig(t, dpi=140, bbox_inches='tight')
 
     plt.close(d)
-
-
 
     assert t.exists()
     assert t.stat().st_size > 10_000

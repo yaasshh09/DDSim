@@ -23,18 +23,13 @@ from ddsim.solve.newton import NewtonResult
 COARSE = {"n_contact":4, 'n_sd': 10, 'n_channel': 12, "n_silicon": 29, 'n_oxide': 4, "h_min_x": 5e-7, 'h_min_y':1e-7, "drain_voltage": 0.05,}
 
 
-
 def fet(gate_voltage: float = 0.0):
-
     return nmos(gate_voltage=gate_voltage, **COARSE)
 @pytest.fixture(scope="module")
-
-
 def device():
     return fet()
 
 @pytest.fixture(scope='module')
-
 def bulk_models(device):
     return TransportModels.for_device(device, mobility='arora')
 
@@ -45,16 +40,11 @@ def surface_models(device):
 
 
 @pytest.fixture(scope='module')
-
-
-
 def inverted(surface_models):
     i = None
     for y2 in (0.0, 1.0, 2.0):
         i = solve_bias_newton(fet(y2), surface_models, guess=i, max_iterations=60)
     return i
-
-
 
 
 def sweeps_taken(result) -> int:
@@ -63,9 +53,7 @@ def test_a_device_has_no_surface_model_unless_it_is_asked_for(bulk_models):
     assert bulk_models.surface is None
 
 
-
 def test_a_solve_without_one_runs_a_single_newton_and_no_outer_loop(device, bulk_models):
-
     aa = solve_bias_newton(device, bulk_models)
 
     assert aa.newton.converged
@@ -85,15 +73,11 @@ def test_the_converged_state_is_self_consistent(inverted, surface_models):
         row, inverted.psi.data, inverted.n.data, inverted.p.data
     )
 
-
-
     d2 = solve_bias_newton(row, stuff, guess=inverted, max_iterations=60)
     assert d2.newton.iterations == 0
     np.testing.assert_array_equal(d2.psi.data, inverted.psi.data)
     np.testing.assert_array_equal(d2.n.data, inverted.n.data)
     np.testing.assert_array_equal(d2.p.data, inverted.p.data)
-
-
 
 
 def test_reaching_it_takes_more_than_one_sweep(inverted):
@@ -106,7 +90,6 @@ def test_the_reported_cost_is_the_whole_cost(inverted):
     assert s.converged
     assert s.iterations >= sweeps_taken(s)
     assert len(s.update_history) == s.iterations
-
 
 
 def test_an_exhausted_sweep_budget_is_reported_as_not_converged(surface_models):
@@ -127,7 +110,6 @@ def test_the_oxide_keeps_its_bulk_mobility(inverted,
     np.testing.assert_array_equal(a2[g], b.mu_bulk_p[g])
 
 
-
 def test_the_silicon_does_not_keep_its_bulk_mobility(inverted, surface_models):
     d = surface_models.surface
     cc, _ = d.corrected(
@@ -138,8 +120,6 @@ def test_the_silicon_does_not_keep_its_bulk_mobility(inverted, surface_models):
 
 
 @pytest.fixture(scope='module')
-
-
 def transfer_curves(device):
     z2 = [0.0, 1.0, 2.0]
 
@@ -151,7 +131,6 @@ def transfer_curves(device):
     return s2
 
 def test_the_correction_dies_away_from_the_interface(inverted, surface_models):
-
     g = fet(2.0)
     m = surface_models.surface
     t, _ = m.corrected(
@@ -160,7 +139,6 @@ def test_the_correction_dies_away_from_the_interface(inverted, surface_models):
 
     z = (t / m.mu_bulk_n).reshape(g.mesh.y_axis.n_nodes, g.mesh.x_axis.n_nodes)
     obj = z[:, g.mesh.x_axis.n_nodes // 2]
-
 
     y = int(np.argmin(obj))
     assert obj[y] < 0.5
@@ -175,13 +153,9 @@ def test_the_on_current_falls_by_the_factor_the_physics_doc_names(
     assert 1.7 < z2 < 3.0, f"on current fell by {z2:.2f}x"
 
 
-
-
 def test_the_reduction_grows_with_gate_bias(transfer_curves):
     dat = transfer_curves[False] / transfer_curves[True]
     assert np.all(np.diff(dat) > 0.0)
-
-
 
 
 def test_the_normal_field_at_the_channel_is_a_physical_number(inverted):
@@ -206,11 +180,9 @@ def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
 
     g = []
 
-
     def run(models, x):
         g.append(models)
         if len(g) == 1:
-
             psi, n, p = unpack(x)
             out2 = pack(psi + 0.5 * np.cos(np.arange(psi.size)), n, p)
             return NewtonResult(x=out2, converged=True, iterations=5, residual_history=[1e-2, 1e-6, 1e-9, 1e-12, 1e-14, 1e-15], update_history=[1.0, 1e-3, 1e-6, 1e-9, 1e-12],)
@@ -225,8 +197,6 @@ def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
 
     u = _surface_fixed_point(device, surface_models, run, y, max_sweeps=10, rtol=1e-8)
 
-
-
     assert len(g) == 2, "the first sweep converged, so a second must run"; assert not u.converged
 
     assert u.message == 'stub refused to converge'
@@ -234,9 +204,7 @@ def test_a_sweep_that_fails_still_reports_what_the_earlier_ones_cost(
     assert len(u.update_history) == 7
 
 def test_at_state_leaves_models_without_a_surface_alone(bulk_models, device):
-
     m = initial_state(device)
-
 
     assert (bulk_models.at_state(device, m.psi.data, m.n.data, m.p.data) is bulk_models)
 
@@ -248,9 +216,7 @@ def test_the_constant_mobility_can_be_corrected_too(device):
     assert b2.shape == (device.mesh.n_nodes,); np.testing.assert_allclose(b2, C.mu_n(device.material.T), rtol=1e-14)
 
 
-
 def test_an_unknown_mobility_model_is_refused_here_too(device):
-
     with pytest.raises(ValueError, match="unknown mobility model"):
         TransportModels.for_device(device, mobility="masetti", surface=True)
 
@@ -259,9 +225,6 @@ def test_an_unknown_mobility_model_is_refused_here_too(device):
 
 
 @pytest.fixture(scope='module')
-
-
-
 def both_models(device):
     return TransportModels.for_device(
         device, mobility='arora', field_dependent=True, surface=True
@@ -278,7 +241,6 @@ def test_the_two_field_models_compose(both_models, transfer_curves, device):
 def test_the_fixed_point_reaches_through_the_saturation_wrapper(
     both_models, device
 ):
-
     d2 = None
     for x2 in (0.0, 1.0):
         d2 = solve_bias_newton(fet(x2), both_models, guess=d2, max_iterations=60)
@@ -292,13 +254,11 @@ def test_the_fixed_point_reaches_through_the_saturation_wrapper(
     assert _surface_moved(bb, bb) == 0.0
 
 
-
 def test_a_cold_solve_with_velocity_saturation_converges():
     tmp = fet()
     m2 = TransportModels.for_device(
         tmp, mobility="arora", field_dependent=True
     )
-
 
     h = solve_bias_newton(tmp, m2, max_iterations=60)
     assert h.newton.converged
@@ -306,7 +266,6 @@ def test_a_cold_solve_with_velocity_saturation_converges():
 
 
 def test_the_prelude_runs_only_where_it_is_needed(device):
-
     d = initial_state(device)
     b = TransportModels.for_device(
         device, mobility='arora', field_dependent=True
@@ -322,10 +281,8 @@ def test_the_prelude_runs_only_where_it_is_needed(device):
     assert not _needs_a_low_field_prelude(zz, None)
 
 
-
 def test_the_prelude_models_carry_no_state_dependence(both_models):
     num = _low_field_models(both_models)
-
 
     assert num.surface is None; assert not num.field_dependent
     assert not isinstance(num.Dn, CaugheyThomas); assert not isinstance(num.Dp, CaugheyThomas); np.testing.assert_array_equal(num.Dn, both_models.Dn.low_field)
@@ -348,19 +305,15 @@ def test_a_terminal_current_uses_the_diffusivity_the_answer_implies(
     for r in (0.0, 1.0, 2.0):
         vv = solve_bias_newton(fet(r), surface_models, guess=vv, max_iterations=60, residual_rtol=1e-12,)
 
-
-
     d = terminal_currents(fet(2.0),
          vv,
              surface_models)
     a = abs(sum(d.values()))
 
-
     assert a / abs(d["drain"]) < 1e-8
 
 
 def test_a_vanished_diffusivity_counts_as_having_moved(surface_models):
-
     b = np.ones(3)
     t = replace(surface_models, Dn=np.array([0.0, 2.0, 0.0]), Dp=b)
     m = replace(surface_models, Dn=np.array([3.0, 2.0, 0.0]), Dp=b)
@@ -371,7 +324,6 @@ def test_a_vanished_diffusivity_counts_as_having_moved(surface_models):
 
 
 def test_the_surface_model_alone_solves_at_a_drain_bias():
-
     s = nmos(**{**COARSE, "gate_voltage": 1.2, "drain_voltage": 0.3})
     k = TransportModels.for_device(s, mobility='arora', surface=True)
 
@@ -383,7 +335,6 @@ def test_the_surface_model_alone_solves_at_a_drain_bias():
     )
 
     m = solve_bias_newton(s, k, max_iterations=60)
-
 
     assert m.newton.converged, m.newton.message
 def _trench_drawing():
@@ -397,7 +348,6 @@ def _trench_drawing():
 
 
 def test_surface_mobility_refuses_a_vertical_interface() -> None:
-
     from ddsim.device.transport import TransportModels
     with pytest.raises(ValueError, match='vertical'):
         TransportModels.for_device(_trench_drawing(),
@@ -411,7 +361,6 @@ def test_the_trench_still_solves_without_surface_mobility() -> None:
 
 
 def test_a_drawing_with_only_flat_interfaces_takes_surface_mobility() -> None:
-
     from ddsim.device.drawing import drawing; from ddsim.device.transport import TransportModels
 
     j = TransportModels.for_device(drawing(), surface=True)

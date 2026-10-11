@@ -21,11 +21,8 @@ V_FB = flatband_voltage(-NA, C.PHI_M_N_POLY)
 C_OX = oxide_capacitance(T_OX)
 
 
-
-
 def debye_length(net_doping:float) -> float:
     return float(np.sqrt(C.eps_Si()*C.V_T()/(C.q * abs(net_doping))))
-
 
 
 def in_series(*capacitances: float) -> float:
@@ -52,12 +49,8 @@ def semiconductor_charge(device, state) -> float:
     )
 
 
-
 @pytest.mark.parametrize("v_gate", [-3.0, V_FB, 0.0, 2.0], ids=str)
-
-
 def test_the_gate_charge_is_the_silicon_charge_turned_round(v_gate):
-
     u, ss = solved(gate_voltage=v_gate)
     d2 = terminal_charge(u, ss, GATE)
     d = terminal_charge(u, ss, BODY)
@@ -69,8 +62,6 @@ def test_the_gate_charge_is_the_silicon_charge_turned_round(v_gate):
 
 
 def test_the_body_contact_is_not_the_other_plate(_v_gate=-3.0):
-
-
     g, k = solved(gate_voltage=_v_gate)
     foo = terminal_charge(g, k, GATE)
     d = terminal_charge(g, k, BODY)
@@ -98,7 +89,6 @@ def test_accumulation_reaches_the_oxide_capacitance():
     assert e == pytest.approx(C_OX, rel=0.01); assert e < C_OX, "a series capacitance cannot exceed either member"
 
 
-
 def test_the_flatband_capacitance_is_the_debye_length_in_series():
     u = in_series(C_OX, C.eps_Si() / debye_length(-NA))
     assert capacitance_at(V_FB) == pytest.approx(u,
@@ -112,12 +102,9 @@ def test_the_high_frequency_minimum_is_the_maximum_depletion_width():
     assert u == pytest.approx(f, rel=0.02)
 
 
-
 def test_the_low_frequency_curve_comes_back_up_in_inversion():
     num = capacitance_at(V_FB + 4.0)
     assert num == pytest.approx(C_OX, rel=0.02)
-
-
 
 
 def test_the_high_frequency_curve_stays_down_in_inversion():
@@ -129,28 +116,19 @@ def test_the_high_frequency_curve_stays_down_in_inversion():
     assert a2 > 8.0*c
 
 
-
 @pytest.mark.parametrize("v_gate", [-3.0, -2.0, V_FB, V_FB+0.3], ids=str)
-
-
 def test_the_two_responses_agree_wherever_there_is_no_inversion(v_gate):
-
     mm = capacitance_at(v_gate)
     v = capacitance_at(v_gate, response=Response.HIGH_FREQUENCY); assert v == pytest.approx(mm, rel=1e-6)
 
 def test_every_capacitance_is_positive_and_below_the_oxide_value():
-
-
     d = cv_sweep(mos_cap(substrate_doping=-NA, t_ox=T_OX, t_si=T_SI), GATE, list(np.linspace(V_FB - 2.0, V_FB + 2.0, 9)),)
-
 
     assert np.all(d.capacitance > 0.0)
     assert np.all(d.capacitance < C_OX)
 
 
 @pytest.mark.parametrize("v_gate", [-2.0, -0.5, 0.5], ids=str)
-
-
 def test_the_exact_derivative_matches_a_central_difference(v_gate):
     out = 1e-2
     t = capacitance_at(v_gate)
@@ -167,14 +145,11 @@ def test_the_derivative_is_not_the_difference_it_is_checked_against():
     assert s != (cnt - k)/(2*d2)
 
 
-
 def test_an_n_type_substrate_mirrors_the_curve():
-
     v = C.PHI_M_MIDGAP
 
     it = flatband_voltage(-NA, v)
     w = flatband_voltage(+NA, v)
-
 
     for m2 in (-1.5, -0.5, 0.5, 1.5):
         u = capacitance_at(it + m2, net_doping=-NA,
@@ -191,7 +166,6 @@ def test_a_sweep_returns_a_point_for_every_bias_asked_for():
     assert len(yy.points) == len(w)
 
 
-
 def test_a_sweep_agrees_with_solving_each_point_alone():
     cur = [-2.0, -0.5, 1.0]
 
@@ -202,7 +176,6 @@ def test_a_sweep_agrees_with_solving_each_point_alone():
 
 
 def test_a_thicker_oxide_lowers_the_whole_curve():
-
     m2 = capacitance_at(V_FB - 5.0)
     u = mos_cap(substrate_doping=-NA, t_ox=2*T_OX, t_si=T_SI, gate_voltage=V_FB - 5.0)
     x2 = small_signal_capacitance(u, solve_equilibrium(u), GATE)
@@ -217,8 +190,6 @@ def test_the_whole_curve_shifts_with_the_body_bias():
     np.testing.assert_allclose(t2.capacitance, kk.capacitance, rtol=1e-9)
 
 
-
-
 def test_the_shift_is_a_shift_and_not_a_no_op():
     g = 0.4
     b = cv_sweep(mos_cap(substrate_doping=-NA), GATE, [V_FB])
@@ -230,9 +201,7 @@ def test_the_shift_is_a_shift_and_not_a_no_op():
     )
 
 
-
 def test_a_terminal_that_is_not_being_swept_does_not_move():
-
     from ddsim.extract.cv import _bare_poisson, _potential_derivative
 
     ii, cc = solved(gate_voltage=-2.0)
@@ -244,7 +213,6 @@ def test_a_terminal_that_is_not_being_swept_does_not_move():
     xs = next(z for z in ii.contacts if z.name == BODY)
     np.testing.assert_allclose(x[list(f.nodes)] * ii.scale.psi_0, 1.0, rtol=1e-14)
     np.testing.assert_array_equal(x[list(xs.nodes)], 0.0)
-
 
 
 THICK_T_OX = 1e-5
@@ -260,7 +228,6 @@ def test_a_thick_oxide_still_reports_a_charge_at_twenty_volts():
     kk = []
 
     for h in z:
-
         out2, info = thick_oxide_solved(h)
         flag = terminal_charge(out2, info, GATE)
 
@@ -284,7 +251,6 @@ def test_a_thick_oxide_still_reports_a_charge_at_twenty_volts():
 def test_a_thick_oxide_still_reports_a_capacitance_at_twenty_volts():
     item = oxide_capacitance(THICK_T_OX)
     for d in (10.0, 15.0, 20.0, 25.0):
-
         vv, num = thick_oxide_solved(d)
         r = small_signal_capacitance(vv, num, GATE)
         assert np.isfinite(r), f"capacitance at {d:+g} V is {r}"

@@ -7,7 +7,6 @@ from ddsim.api.sweeps import SWEEP_KINDS, model_parameters, sweep_parameters
 
 
 def every_knob():
-
     for kk in DEVICE_KINDS:
         for ret in device_parameters(kk):
             yield f"device {kk}", ret
@@ -28,27 +27,17 @@ SLIDER_IDS = [f"{kind} {parameter.name}" for kind, parameter in SLIDER_KNOBS]
 
 
 @pytest.fixture
-
-
 def client():
     with TestClient(create_app()) as u:
-
-
         yield u
 
 
 @pytest.mark.parametrize(("owner", "parameter"), KNOBS, ids=IDS)
-
 def test_every_knob_has_an_explanation(owner, parameter) -> None:
-
     assert parameter.explanation.strip(), f"{owner} {parameter.name} has no Args: line"
 @pytest.mark.parametrize(("owner", 'parameter'), KNOBS, ids=IDS)
-
-
 def test_every_numeric_knob_has_a_unit(owner, parameter) -> None:
-
     if parameter.type in ('float', "int"):
-
         assert parameter.unit, (
             f"{owner} {parameter.name}: no [unit] in {parameter.explanation!r}"
         )
@@ -64,7 +53,6 @@ def test_argument_docs_reads_the_knob_file_and_the_unit() -> None:
     assert parameters_of(sample, docs={'depth': "how far down [cm], measured from the top surface."})[0].unit == "cm"
 
 
-
 def test_a_knob_crosses_the_schema_with_its_explanation(client) -> None:
     d = client.get("/api/schema").json()['devices']['pn_diode']
     s2 = next(g for g in d if g["name"] == 'Na')
@@ -73,11 +61,7 @@ def test_a_knob_crosses_the_schema_with_its_explanation(client) -> None:
     assert "acceptor" in s2['explanation']
 
 
-
 @pytest.mark.parametrize(('kind', "parameter"), SLIDER_KNOBS, ids=SLIDER_IDS)
-
-
-
 def test_every_slider_knob_declares_a_range(kind, parameter) -> None:
     assert parameter.low is not None and parameter.high is not None, (
         f"device {kind} {parameter.name}: no 'Range lo to hi' in "
@@ -89,7 +73,6 @@ def test_every_slider_knob_declares_a_range(kind, parameter) -> None:
         f"device {kind} {parameter.name}: the default {parameter.default} is "
         f"outside its own range {parameter.low} to {parameter.high}"
     )
-
 
 
 def test_the_parser_reads_a_declared_range() -> None:
@@ -104,16 +87,12 @@ def test_the_parser_reads_a_declared_range() -> None:
     assert v["doping"].axis == 'log'
 
 
-
 def test_a_knob_with_no_declared_range_offers_none() -> None:
-
-
     def sample(depth:float = 1.0) -> None:
         ...
     g = parameters_of(sample, docs={'depth':"how far down [cm]."})[0]
 
     assert g.low is None
-
 
     assert g.high is None
     assert g.axis == 'linear'
@@ -123,11 +102,9 @@ def test_a_range_crosses_the_schema(client) -> None:
     tmp3 = client.get('/api/schema').json()["devices"]["pn_diode"]
     kk = next(j for j in tmp3 if j['name'] == "Na")
 
-
     assert kk["low"] == 1e14
     assert kk['high'] == 1e19
     assert kk["axis"] == 'log'
-
 
 
 def test_the_schema_says_which_devices_are_one_dimensional(client) -> None:

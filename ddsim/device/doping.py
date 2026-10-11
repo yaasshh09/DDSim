@@ -10,10 +10,8 @@ Axis = Literal["x", "y"]
 
 @dataclass(frozen=True)
 class Coordinates:
-
     x: npt.NDArray[np.float64]
     y: npt.NDArray[np.float64] | None = None
-
 
     def __post_init__(self) -> None:
         if self.y is not None and self.y.size != self.x.size:
@@ -30,13 +28,9 @@ class Coordinates:
         return cls(np.asarray(at, dtype=np.float64))
     def axis(self, name: Axis) -> npt.NDArray[np.float64]:
         if name == "x":
-
             return self.x
         if name == "y":
-
-
             if self.y is None:
-
                 raise ValueError(
                     "this profile reads the depth of the device, but it was "
                     'evaluated somewhere with no y coordinate. A 1D mesh is a '
@@ -47,7 +41,6 @@ class Coordinates:
 Position = float|npt.NDArray[np.float64] | Coordinates
 
 class DopingProfile(ABC):
-
     @abstractmethod
     def __call__(self, at: Position) -> npt.NDArray[np.float64]:
         ...
@@ -77,23 +70,14 @@ class DopingProfile(ABC):
     __rmul__ = __mul__
 
 
-
 @dataclass(frozen=True)
-
-
-
 class Uniform(DopingProfile):
-
     value: float
 
     def __call__(self, at: Position) -> npt.NDArray[np.float64]:
         return np.full_like(Coordinates.of(at).x, self.value)
 
 @dataclass(frozen=True)
-
-
-
-
 class Step(DopingProfile):
     left: float
     right: float
@@ -103,16 +87,9 @@ class Step(DopingProfile):
         w = Coordinates.of(at).x; return np.where(w < self.position, self.left, self.right)
 
 
-
 @dataclass(frozen=True)
-
-
-
-
 class Layers(DopingProfile):
-
     boundaries: tuple[float, ...]
-
 
     values: tuple[float, ...]
 
@@ -123,7 +100,6 @@ class Layers(DopingProfile):
                 f"{len(self.values)} values and {len(self.boundaries)} boundaries"
             )
 
-
         if any(np.diff(self.boundaries) <= 0.0):
             raise ValueError(
                 f"layer boundaries must be increasing, got {self.boundaries}"
@@ -133,19 +109,13 @@ class Layers(DopingProfile):
         return np.asarray(self.values, dtype=np.float64)[u]
 
 @dataclass(frozen=True)
-
-
 class Gaussian(DopingProfile):
-
-
     peak: float
 
     centre:float
     sigma: float
 
     def __post_init__(self) -> None:
-
-
         if self.sigma <= 0.0:
             raise ValueError(f"sigma must be positive, got {self.sigma}")
     def __call__(self, at: Position) -> npt.NDArray[np.float64]:
@@ -153,10 +123,8 @@ class Gaussian(DopingProfile):
         return np.asarray(self.peak * np.exp(-(v ** 2) / (2.0 * self.sigma ** 2)))
 
 
-
 @dataclass(frozen=True)
 class Erfc(DopingProfile):
-
     peak:float
     position: float
     length: float
@@ -174,10 +142,7 @@ WindowEdge = Literal['abrupt', 'gaussian', "erfc"]
 
 
 @dataclass(frozen=True)
-
-
 class Window(DopingProfile):
-
     low: float
 
     high:float
@@ -185,17 +150,13 @@ class Window(DopingProfile):
 
     length:float = 0.0
 
-
     def __post_init__(self) -> None:
         if self.edge not in ("abrupt", 'gaussian', 'erfc'):
             raise ValueError(
                 f"a window edge is abrupt, gaussian or erfc, got {self.edge!r}"
             )
 
-
         if not self.low <= self.high:
-
-
             raise ValueError(
                 f"a window needs low <= high, got low={self.low:g} and "
                 f"high={self.high:g}"
@@ -208,9 +169,7 @@ class Window(DopingProfile):
     def __call__(self, at:Position) -> npt.NDArray[np.float64]:
         g = Coordinates.of(at).x
         if self.edge == "abrupt":
-
             return np.where((g >= self.low)&(g <= self.high), 1.0, 0.0)
-
 
         if self.edge == "gaussian":
             kk = np.maximum(np.maximum(self.low - g, g - self.high), 0.0)
@@ -219,11 +178,7 @@ class Window(DopingProfile):
             return np.asarray(0.5 * _erfc((self.low - g) / self.length))
         return np.asarray(0.5 * (_erfc((g - self.high) / self.length) - _erfc((g - self.low) / self.length)))
 @dataclass(frozen=True)
-
-
-
 class Sum(DopingProfile):
-
     terms: tuple[DopingProfile, ...]
 
     def __call__(self, at: Position) -> npt.NDArray[np.float64]:
@@ -235,12 +190,7 @@ class Sum(DopingProfile):
 
 
 @dataclass(frozen=True)
-
-
 class Scaled(DopingProfile):
-
-
-
     profile: DopingProfile
     factor:float
 
@@ -248,19 +198,12 @@ class Scaled(DopingProfile):
         return np.asarray(self.factor*self.profile(at))
 
 
-
 @dataclass(frozen=True)
-
-
-
-
 class Product(DopingProfile):
     factors: tuple[DopingProfile, ...]
 
     def __call__(self, at:Position) -> npt.NDArray[np.float64]:
-
         d2 = self.factors[0](at)
-
 
         for y2 in self.factors[1:]:
             d2 = d2 * y2(at)
@@ -268,11 +211,7 @@ class Product(DopingProfile):
 
 
 @dataclass(frozen=True)
-
-
-
 class Mirrored(DopingProfile):
-
     profile:DopingProfile
 
     about:float
@@ -282,12 +221,8 @@ class Mirrored(DopingProfile):
         return self.profile(Coordinates(2.0 * self.about - z.x, z.y))
 
 
-
 @dataclass(frozen=True)
-
-
 class Along(DopingProfile):
-
     profile: DopingProfile
 
     axis: Axis
@@ -297,10 +232,8 @@ class Along(DopingProfile):
 
 
 def abrupt_junction(Na: float, Nd: float, position:float) -> DopingProfile:
-
     if Na <= 0.0:
         raise ValueError(f"Na must be positive, got {Na}")
     if Nd <= 0.0:
-
         raise ValueError(f"Nd must be positive, got {Nd}")
     return Step(left=-Na, right=Nd, position=position)

@@ -6,12 +6,10 @@ from ddsim.device.mosfet import nmos; from ddsim.device.pn_diode import pn_diode
 from ddsim.extract.iv import gate_sweep, iv_sweep
 
 
-
 MICRON = 1e-4
 
 
 COARSE_FET = {"n_contact":4, "n_sd":10, "n_channel":12, "n_silicon":29, 'n_oxide':4, 'h_min_x': 5e-7, "h_min_y":1e-7, "drain_voltage": 0.05,}
-
 
 
 def diode():
@@ -26,13 +24,10 @@ def solver_history(state:Any) -> list[float]:
 
 
 @pytest.mark.parametrize(('what', 'sweep'), [('diode', lambda on_frame:iv_sweep(diode(), 'anode', [0.1, 0.3], on_frame=on_frame),), ("mosfet", lambda on_frame: gate_sweep(nmos(**COARSE_FET), [0.2, 0.4], step=0.2, on_frame=on_frame),),], ids=["diode", "mosfet"],)
-
-
 def test_a_current_sweep_is_bit_for_bit_unchanged_by_watching_it(what, sweep):
     hh = sweep(None)
     c: list[Any] = []
     e = sweep(c.append)
-
 
     assert c, f"the {what} sweep reported nothing, so this proves nothing"
     assert e.complete == hh.complete; np.testing.assert_array_equal(e.voltage, hh.voltage)
@@ -43,10 +38,7 @@ def test_a_current_sweep_is_bit_for_bit_unchanged_by_watching_it(what, sweep):
         np.testing.assert_array_equal(bb.state.p.data, x.state.p.data)
 
 
-
-
 def test_a_capacitance_sweep_is_bit_for_bit_unchanged_by_watching_it():
-
     tmp3 = [-1.0, 0.0, 1.0]
     a = cv_sweep(mos_cap(), 'gate', tmp3)
     x: list[Any] = []

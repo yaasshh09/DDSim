@@ -12,7 +12,6 @@ SERIES_MAX_ETA = -0.05
 TAIL = 60.0
 
 def F_series(eta: float, order: float = 0.5) -> float:
-
     if eta > SERIES_MAX_ETA:
         raise ValueError(
             f"the alternating series converges for eta < 0 and is only "
@@ -40,7 +39,6 @@ def eta_reference(u: float) -> float:
     return float(
         brentq(lambda e: u_reference(e) - u, -80.0, 80.0, xtol=1e-14, rtol=8.9e-16)
     )
-
 
 
 def einstein_reference(u:float) -> float:

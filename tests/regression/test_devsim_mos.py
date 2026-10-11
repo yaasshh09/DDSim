@@ -21,9 +21,7 @@ FLOOR_FRACTION = 1e-3
         ("Phi_M midgap", P.PHI_M_MIDGAP, C.PHI_M_MIDGAP),
     ],
 )
-
 def test_mos_constants_mirror_ddsim(name: str, mirror: float, actual: float) -> None:
-
     assert mirror == actual, (
         f"{name} is {mirror} in the generator and {actual} in ddsim. The "
         "golden data was solved with the generator's value, so it is stale. "
@@ -34,22 +32,14 @@ def golden_path(benchmark: P.MosBenchmark) -> Path:
     return GOLDEN_DIR / f"{benchmark.name}.csv"
 
 
-
-
 @pytest.mark.parametrize("benchmark", P.MOS_BENCHMARKS, ids= lambda b: b.name)
-
-
 def test_golden_data_exists(benchmark: P.MosBenchmark) -> None:
     assert golden_path(benchmark).is_file(), (
         f"no golden curve for {benchmark.name}. Generate it with "
         "tests/regression/devsim_gen/generate_mos_cv.py, see the README there."
     )
 @pytest.mark.parametrize("benchmark", P.MOS_BENCHMARKS, ids= lambda b: b.name)
-
-
-
 def test_golden_header_records_its_provenance(benchmark: P.MosBenchmark) -> None:
-
     f = P.read_mos_golden(str(golden_path(benchmark)))
     assert f.header['device'] == benchmark.name
     assert f.header['generator'].startswith('devsim ')
@@ -59,11 +49,9 @@ def test_golden_header_records_its_provenance(benchmark: P.MosBenchmark) -> None
     assert f.header["statistics"] == "Boltzmann"
     assert f.header["oxide"].startswith("Poisson only")
 @pytest.mark.parametrize("benchmark", P.MOS_BENCHMARKS, ids= lambda b:b.name)
-
 def test_golden_reference_is_converged(benchmark: P.MosBenchmark) -> None:
     foo = P.read_mos_golden(str(golden_path(benchmark)))
     u = foo.header["mesh convergence"].split()[0]
-
 
     assert float(u) < 0.1 * benchmark.tolerance, (
         f"{benchmark.name} golden data is converged only to {u}, which "
@@ -71,9 +59,6 @@ def test_golden_reference_is_converged(benchmark: P.MosBenchmark) -> None:
         "assert. Refine the generator mesh and regenerate."
     )
 @pytest.mark.parametrize("benchmark", P.MOS_BENCHMARKS, ids= lambda b: b.name)
-
-
-
 def test_golden_header_matches_the_benchmark(benchmark: P.MosBenchmark) -> None:
     el = P.read_mos_golden(str(golden_path(benchmark)))
     for out, ret in (('substrate doping', benchmark.substrate_doping), ("t_ox", benchmark.t_ox), ('t_si', benchmark.t_si), ('work function', benchmark.work_function), ('tolerance', benchmark.tolerance),):
@@ -85,7 +70,6 @@ def test_golden_header_matches_the_benchmark(benchmark: P.MosBenchmark) -> None:
         "the golden bias points are not the ones parameters.py asks for"
     )
 _SOLVED:dict[str, CVCurve] = {}
-
 
 
 def ddsim_curve(benchmark:P.MosBenchmark) -> CVCurve:
@@ -105,13 +89,8 @@ def ddsim_curve(benchmark:P.MosBenchmark) -> CVCurve:
     return _SOLVED[benchmark.name]
 
 
-
 @pytest.mark.parametrize("benchmark", P.MOS_BENCHMARKS, ids= lambda b: b.name)
-
-
 def test_ddsim_reaches_every_golden_bias(benchmark: P.MosBenchmark) -> None:
-
-
     vals = ddsim_curve(benchmark); assert vals.complete, f"ddsim stopped early: {vals.message}"
     assert list(vals.gate_voltage) == pytest.approx(list(benchmark.voltages))
 
@@ -120,13 +99,11 @@ def compare(voltage: list[float], expected:list[float], actual:list[float], tole
     tmp2 = max(abs(u) for u in expected)
     vv = FLOOR_FRACTION*tmp2
 
-
     k: list[str] = []
 
     a = 0.0
     for rows, vals, c in zip(voltage, expected, actual, strict=True):
         if abs(vals) < vv:
-
             if abs(c) >= vv:
                 k.append(
                     f"{rows:+.3f} V: devsim gives {vals:.3e}, below the "
@@ -143,12 +120,7 @@ def compare(voltage: list[float], expected:list[float], actual:list[float], tole
     return k, a
 
 
-
 @pytest.mark.parametrize("benchmark", P.MOS_BENCHMARKS, ids= lambda b:b.name)
-
-
-
-
 def test_ddsim_matches_devsim_charge(benchmark: P.MosBenchmark) -> None:
     w = P.read_mos_golden(str(golden_path(benchmark)))
     d2 = ddsim_curve(benchmark)
@@ -165,7 +137,6 @@ def test_ddsim_matches_devsim_charge(benchmark: P.MosBenchmark) -> None:
 def test_ddsim_matches_devsim_capacitance(benchmark: P.MosBenchmark) -> None:
     i = P.read_mos_golden(str(golden_path(benchmark)))
     h = ddsim_curve(benchmark)
-
 
     r, e = P.central_difference(i.gate_voltage, i.charge)
     _, c = P.central_difference(
@@ -222,8 +193,6 @@ def test_disagreement_is_ddsim_discretization() -> None:
         f"{n} nodes at h_min {h:.0e}: {u:.4%}"
         for (n, h), u in zip(CONVERGENCE_LADDER, z, strict=True)
     )
-
-
 
     for ss in range(1,
          len(z)):

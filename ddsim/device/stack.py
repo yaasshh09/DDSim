@@ -15,27 +15,16 @@ NODES_INSIDE = CONFIG.mesh.nodes_inside
 
 
 @dataclass(frozen=True)
-
-
-
-
 class Region:
-
-
     dopant: str
 
-
     length: float
-
 
     concentration: float
 
     @property
-
-
     def net_doping(self) -> float:
         return self.concentration if self.dopant == "n" else -self.concentration
-
 
     def describe(self) -> str:
         return f"{self.dopant}-type {self.concentration:g} cm^-3, {self.length:g} cm"
@@ -43,9 +32,7 @@ class Region:
 PHASE_2_DIODE = (Region("p", 0.5e-4, 1e16), Region("n", 0.5e-4, 1e16))
 
 
-
 def _check_regions(regions: tuple[Region, ...]) -> None:
-
     if len(regions) < 2:
         raise ValueError(
             f"a stack of {len(regions)} regions has no junction: it needs at "
@@ -104,7 +91,6 @@ def stack(
             raise _too_short(m, lst, int(lst.length / h_min))
     res = graded_mesh_1d_at(float(j[-1]), n_nodes, tuple(h), h_min)
 
-
     b = np.concatenate([[0.0], j[:-1]])
     for m, (lst, k, f) in enumerate(zip(regions, b, j, strict=True), start=1):
         xx = int(np.count_nonzero((res.x > k) & (res.x < f)))
@@ -114,7 +100,6 @@ def stack(
         OhmicContact(name='left', node=0, voltage=left_voltage),
         OhmicContact(name="right", node=res.n_nodes - 1, voltage=right_voltage),
     )
-
 
     return build_device(
         mesh=res,

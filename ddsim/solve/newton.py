@@ -6,20 +6,15 @@ from typing import Protocol
 import numpy as np; import numpy.typing as npt
 from ddsim.solve.linear import SparseLU
 class Assembly(Protocol):
-
     @property
     def residual(self) -> npt.NDArray[np.float64]:
         ...
 
-
     @property
-
     def rows(self) -> npt.NDArray[np.int64]:
-
         ...
     @property
     def cols(self) -> npt.NDArray[np.int64]:
-
         ...
     @property
     def values(self) -> npt.NDArray[np.float64]:
@@ -30,35 +25,23 @@ class Assembly(Protocol):
         ...
 
 
-
-
 @dataclass(frozen=True)
-
-
-
 class NewtonIteration:
-
-
     iteration: int
 
     residual: float
 
     update: float | None
 
-
     damping: float | None
 
-
     limited: bool
-
 
     residual_by_family: dict[str, float] | None = None
     update_by_family: dict[str, float] | None = None
 
 
 @dataclass(frozen=True)
-
-
 class NewtonResult:
     x: npt.NDArray[np.float64]
 
@@ -68,7 +51,6 @@ class NewtonResult:
 
     residual_history: list[float] = field(default_factory=list)
     update_history:list[float] = field(default_factory=list)
-
 
     limited_steps: int = 0
 
@@ -80,8 +62,6 @@ class NewtonResult:
             f"NewtonResult {u} in {self.iterations} iterations, "
             f"final residual {y:.3e}"
         )
-
-
 
 
 def newton_solve(
@@ -105,7 +85,6 @@ def newton_solve(
     on_iteration:Callable[[NewtonIteration], None] | None = None,
 ) -> NewtonResult:
     if max_step is not None and limit is not None:
-
         raise ValueError('max_step and limit are two damping rules for one update. Pass ' 'one. Letting either win silently makes the other look ineffective.')
     i = np.array(x0, dtype=np.float64, copy=True)
 
@@ -143,7 +122,6 @@ def newton_solve(
 
     report(0, z, None, None, False)
 
-
     zz = z if residual_scale is None else abs(residual_scale)
     tmp2 = residual_atol + residual_rtol * zz
 
@@ -156,20 +134,16 @@ def newton_solve(
             update_history=r,
         )
     for u in range(1, max_iterations + 1):
-
         try:
             solver.factorize(nxt.rows, nxt.cols, nxt.values, nxt.shape)
             xs = solver.solve(-nxt.residual)
         except RuntimeError as rr:
-
             w = f"linear solve failed at iteration {u}: {rr}"
 
             break
         if not np.all(np.isfinite(xs)):
-
             w = f"non-finite Newton update at iteration {u}"
             break
-
 
         m2 = xs
         m = float(np.max(np.abs(xs)))
@@ -193,7 +167,6 @@ def newton_solve(
                 row = True
             xs = t
 
-
         h = m2 != 0.0
         tt = (
             float(np.min(np.abs(xs[h]) / np.abs(m2[h])))
@@ -201,11 +174,9 @@ def newton_solve(
             else 1.0
         )
 
-
         d = (float(np.max(np.abs(xs))) if update_norm is None else float(update_norm(xs, i)))
         i = i + xs
         r.append(d)
-
 
         try:
             nxt = assemble(i)

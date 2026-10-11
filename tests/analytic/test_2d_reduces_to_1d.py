@@ -20,16 +20,12 @@ from ddsim.physics.recombination import (
 )
 
 
-
 NX = 21; NY = 4
 
 HEIGHT = 2e-5
 
 
 @pytest.fixture
-
-
-
 def setup():
     w = graded_mesh_1d(
         length=1e-4, n_nodes=NX, refine_at=0.5e-4, h_min=2e-6
@@ -64,9 +60,7 @@ def setup():
     )
     k = TransportModels.for_device(m2, recombination=v, mobility='arora')
 
-
     flag = z.x_0
-
 
     rows = initial_state(m2)
     f = np.linspace(0.0, 3.0 * np.pi, NX); psi = rows.psi.data + 0.35 * np.cos(f)
@@ -86,9 +80,7 @@ def setup():
     }
 
 
-
 def residual_1d(setup):
-
     w, k, d = setup["device"], setup["models"], setup['x_0']
     return coupled_residual(
         h=w.mesh.h / d,
@@ -112,7 +104,6 @@ def residual_2d(setup):
     d = np.concatenate([i[:1], i])
     tmp3 = np.concatenate([e[:1], e])
 
-
     a = np.concatenate([c(i, NY), c(d, NY-1)])
     rr = np.concatenate([c(e, NY), c(tmp3, NY - 1)])
     return coupled_residual(
@@ -130,25 +121,20 @@ def residual_2d(setup):
 
 
 @pytest.mark.parametrize("component", list(Unknown), ids= lambda u: u.name)
-
 def test_the_2d_residual_is_the_1d_one_scaled_by_the_row_height(setup, component):
-
     t2 = unpack(residual_1d(setup))[component]
 
     obj = unpack(residual_2d(setup))[component]
     buf = setup['y_axis'].volume / setup["x_0"]
-
 
     for cc in range(NY):
         flag = obj[cc * NX:(cc + 1) * NX]
 
         np.testing.assert_allclose(flag, buf[cc] * t2, rtol=1e-12, atol=1e-13 * np.abs(t2).max())
 def test_the_row_factor_is_not_the_same_on_every_row(setup):
-
     f = setup["y_axis"].volume; assert f[0] == pytest.approx(0.5 * f[1], rel=1e-15)
     assert len(set(np.round(f, 20))) == 2
 def test_the_vertical_edges_carry_no_current_in_a_y_uniform_state(setup):
-
     z = setup["mesh_2d"]
     psi = np.tile(setup['psi'], NY)
 

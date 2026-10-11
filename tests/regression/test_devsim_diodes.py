@@ -11,15 +11,9 @@ GOLDEN_DIR = Path(__file__).resolve().parents[2] / 'data' / "golden"
 NOISE_FACTOR = 3.0
 
 @pytest.mark.parametrize(('name', 'mirror', "actual"), [("q", P.Q, C.q), ("k_B", P.K_B, C.k_B), ("eps_0", P.EPS_0, C.eps_0), ("T", P.T, C.T_ROOM), ('eps_r_Si', P.EPS_R_SI, C.EPS_R_SI), ('n_i', P.N_I, C.N_I_300), ('mu_n', P.MU_N, C.MU_N_300), ("mu_p", P.MU_P, C.MU_P_300), ('tau_n_max', P.TAU_N_MAX, C.TAU_N_MAX), ("tau_p_max", P.TAU_P_MAX, C.TAU_P_MAX), ('tau_n_min', P.TAU_N_MIN, C.TAU_N_MIN), ("tau_p_min", P.TAU_P_MIN, C.TAU_P_MIN), ('N_ref_SRH', P.N_REF_SRH, C.N_REF_SRH), ('gamma_SRH', P.GAMMA_SRH, C.GAMMA_SRH), ("V_T", P.V_T, C.V_T()),],)
-
-
-
-
 def test_generator_constants_mirror_ddsim(
     name: str, mirror: float, actual: float
 ) -> None:
-
-
     assert mirror == actual, (
         f"{name} is {mirror} in the generator and {actual} in ddsim. The "
         "golden data was solved with the generator's value, so it is stale. "
@@ -29,7 +23,6 @@ def test_generator_constants_mirror_ddsim(
 def test_generator_lifetime_matches_ddsim() -> None:
     from ddsim.physics.recombination import scharfetter_lifetime
 
-
     for ok in (0.0, 1e14, 5e16, 1e18, 1e20):
         k = float(
             scharfetter_lifetime(ok, tau_max=C.TAU_N_MAX, tau_min=C.TAU_N_MIN)
@@ -38,19 +31,11 @@ def test_generator_lifetime_matches_ddsim() -> None:
         assert t == pytest.approx(k,
                     rel=1e-15)
 def golden_path(benchmark: P.DiodeBenchmark) -> Path:
-
     return GOLDEN_DIR / f"{benchmark.name}.csv"
 
 
-
 @pytest.mark.parametrize('benchmark', P.BENCHMARKS, ids= lambda b: b.name)
-
-
-
-
 def test_golden_data_exists(benchmark: P.DiodeBenchmark) -> None:
-
-
     assert golden_path(benchmark).is_file(), (
         f"no golden curve for {benchmark.name}. Generate it with "
         'tests/regression/devsim_gen/generate_diodes.py, see the README there.'
@@ -58,9 +43,7 @@ def test_golden_data_exists(benchmark: P.DiodeBenchmark) -> None:
 
 
 @pytest.mark.parametrize('benchmark', P.BENCHMARKS, ids= lambda b:b.name)
-
 def test_golden_header_records_its_provenance(benchmark: P.DiodeBenchmark) -> None:
-
     c = P.read_golden(str(golden_path(benchmark)))
     assert c.header["device"] == benchmark.name
     assert c.header["generator"].startswith("devsim ")
@@ -72,9 +55,6 @@ def test_golden_header_records_its_provenance(benchmark: P.DiodeBenchmark) -> No
 
 
 @pytest.mark.parametrize('benchmark', P.BENCHMARKS, ids= lambda b: b.name)
-
-
-
 def test_golden_header_matches_the_benchmark(benchmark:P.DiodeBenchmark) -> None:
     x = P.read_golden(str(golden_path(benchmark)))
     for tmp3, v in (
@@ -89,14 +69,11 @@ def test_golden_header_matches_the_benchmark(benchmark:P.DiodeBenchmark) -> None
             f"parameters.py now says {v}. The golden data is stale."
         )
 
-
-
     assert x.voltage == pytest.approx(list(benchmark.voltages)), (
         'the golden bias points are not the ones parameters.py asks for'
     )
 
 _SOLVED: dict[str, IVCurve] = {}
-
 
 
 def ddsim_curve(benchmark:P.DiodeBenchmark) -> IVCurve:
@@ -113,21 +90,14 @@ def ddsim_curve(benchmark:P.DiodeBenchmark) -> IVCurve:
     return _SOLVED[benchmark.name]
 
 
-
 @pytest.mark.parametrize("benchmark", P.BENCHMARKS, ids= lambda b:b.name)
-
-
-
 def test_ddsim_reaches_every_golden_bias(benchmark: P.DiodeBenchmark) -> None:
-
     m = ddsim_curve(benchmark)
     assert m.complete, f"ddsim stopped early: {m.message}"
     assert list(m.voltage) == pytest.approx(list(benchmark.voltages))
 
 
-
 @pytest.mark.parametrize("benchmark", P.BENCHMARKS, ids= lambda b: b.name)
-
 def test_ddsim_matches_devsim(benchmark: P.DiodeBenchmark) -> None:
     xs = P.read_golden(str(golden_path(benchmark))); v = ddsim_curve(benchmark)
     j = dict(zip(v.voltage, v.current, strict=True))

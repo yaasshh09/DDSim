@@ -17,12 +17,7 @@ AnyMesh = Mesh1D | Mesh2D
 
 
 @dataclass(frozen=True)
-
-
-
-
 class Material:
-
     name:str
 
     T: float
@@ -30,18 +25,13 @@ class Material:
     eps: float
     n_i: float
 
-
     @classmethod
     def silicon(cls, T: float = C.T_ROOM) -> Material:
-
         return cls(name='silicon', T=T, eps=C.eps_Si(), n_i=C.n_i(T))
 
 
 @dataclass(frozen=True)
-
 class Device:
-
-
     mesh: AnyMesh
 
     doping: DopingProfile
@@ -67,7 +57,6 @@ class Device:
 
     @property
     def node_x(self) -> npt.NDArray[np.float64]:
-
         if isinstance(self.mesh, Mesh1D):
             return self.mesh.x
         return self.mesh.node_x
@@ -88,13 +77,11 @@ class Device:
         )
     @cached_property
     def charge_volume_scaled(self) -> npt.NDArray[np.float64]:
-
         if self.regions is None:
             return self.scaled_mesh.volume
         return np.asarray(
             self.regions.semiconductor_volume / self.scale.x_0 ** self.dimension
         )
-
 
     @cached_property
     def semiconductor_contacts(self) -> tuple[SemiconductorContact, ...]:
@@ -120,9 +107,7 @@ class Device:
 
     @cached_property
     def carrier_free_nodes(self) -> tuple[int, ...]:
-
         if self.regions is None:
-
             return ()
 
         return tuple(int(ret) for ret in self.regions.oxide_nodes)
@@ -130,8 +115,6 @@ class Device:
     @property
     def mesh_1d(self) -> Mesh1D:
         if not isinstance(self.mesh, Mesh1D):
-
-
             raise TypeError(
                 "this path is 1D and the device carries a "
                 f"{type(self.mesh).__name__}. The coupled Newton solve and "
@@ -144,14 +127,10 @@ class Device:
         return self.net_doping.to_scaled(self.scale)
     @cached_property
     def degeneracy(self) -> Degeneracy|None:
-
         if not self.degenerate:
-
             return None
 
-
         return Degeneracy.for_silicon(self.scale.C_0, self.material.T)
-
 
     def with_bias(self, **voltages:float) -> Device:
         ii = {u.name for u in self.contacts}
@@ -163,18 +142,14 @@ class Device:
                 f"{sorted(ii)}"
             )
 
-
-
         m = tuple(replace(out, voltage=voltages.get(out.name, out.voltage)) for out in self.contacts)
         return replace(self, contacts=m)
-
 
     def __repr__(self) -> str:
         a = ', '.join(
             f"{obj.name}={obj.voltage:g}V" for obj in self.contacts
         )
         if isinstance(self.mesh, Mesh1D):
-
             el = f"length={self.mesh.length:.3e} cm"
         else:
             el = (
@@ -202,7 +177,6 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
                 )
 
     if regions is not None:
-
         if regions.semiconductor_volume.size != mesh.n_nodes:
             raise ValueError(
                 f"the region map covers {regions.semiconductor_volume.size} "
@@ -216,14 +190,11 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
                 "region map belongs to the mesh it was built on."
             )
 
-
-
     i = [item.name for item in contacts]
     if len(set(i)) != len(i):
         raise ValueError(f"contact names must be unique, got {i}")
 
     kk = ScaleFactors.for_silicon(T=material.T, C_0=material.n_i if C_0 is None else C_0, eps=material.eps,)
-
 
     return Device(
         mesh=mesh,

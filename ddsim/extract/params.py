@@ -9,24 +9,19 @@ def _checked(
 ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     h = np.asarray(voltage, dtype=np.float64)
 
-
     c2 = np.asarray(current, dtype=np.float64)
 
     if h.shape != c2.shape:
-
         raise ValueError(
             f"voltage and current must be the same length, got {h.shape} and {c2.shape}"
         )
 
-
     if h.size < 2:
-
         raise ValueError("at least two points are needed to take a slope")
     if positive and np.any(c2 <= 0.0):
         raise ValueError("every current must be positive to take its logarithm. Trim the " "reverse biased end of the sweep before extracting.")
     if np.any(np.diff(h) <= 0.0):
         raise ValueError('voltage must be strictly increasing')
-
 
     return h, c2
 
@@ -38,8 +33,6 @@ def _rising(J: npt.NDArray[np.float64], what:str) -> None:
             "at rather than extracting from."
         )
 def ideality_factor(voltage: npt.NDArray[np.float64], current: npt.NDArray[np.float64], T: float = C.T_ROOM,) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-
-
     i, a2 = _checked(voltage, current)
     y = 0.5 * (i[:-1]+i[1:])
 
@@ -47,8 +40,6 @@ def ideality_factor(voltage: npt.NDArray[np.float64], current: npt.NDArray[np.fl
 
 
 def saturation_current(voltage: npt.NDArray[np.float64], current: npt.NDArray[np.float64], window: tuple[float, float] | None = None, ideality: float | None = None, T: float = C.T_ROOM,) -> tuple[float, float]:
-
-
     k, u = _checked(voltage, current)
 
     if window is not None:
@@ -76,9 +67,7 @@ def subthreshold_slope(
                 current)
 
     if window is not None:
-
         w = (y2 >= window[0]) & (y2 <= window[1])
-
 
         if int(np.count_nonzero(w)) < 2:
             raise ValueError(
@@ -93,7 +82,6 @@ def subthreshold_slope(
 def transconductance(voltage: npt.NDArray[np.float64], current: npt.NDArray[np.float64],) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     t2, xx = _checked(voltage, current, positive=False)
     return 0.5 * (t2[:-1] + t2[1:]), np.diff(xx) / np.diff(t2)
-
 
 
 def threshold_constant_current(voltage:npt.NDArray[np.float64], current:npt.NDArray[np.float64], target:float, width:float = 1.0,) -> float:
@@ -126,11 +114,9 @@ def threshold_linear_extrapolation(
     a = 0.5 * (v[y] + v[y+1])
     z = x[y] - a/jj[y]
 
-
     if drain_voltage is None:
         return float(z)
     return float(z - 0.5 * drain_voltage)
-
 
 
 def saturation_exponent(
@@ -141,7 +127,6 @@ def saturation_exponent(
 ) -> float:
     xs, bb = _checked(voltage, current, positive=False)
     res = xs
-
 
     if window is not None:
         w = (res >= window[0]) & (res <= window[1])

@@ -26,8 +26,6 @@ def test_process_mirrors_ddsim() -> None:
         )
 
 
-
-
 def test_the_surface_spacing_mirrors_ddsim() -> None:
     s2 = inspect.signature(nmos).parameters["h_min_y"].default
     for b in P.MOSFET_BENCHMARKS:
@@ -47,8 +45,6 @@ def test_the_surface_spacing_mirrors_ddsim() -> None:
             "devsim_oxide_cells, see references/pitfalls.md."
         )
 def test_full_stack_parameters_mirror_ddsim() -> None:
-
-
     from ddsim.physics.mobility import AroraMobility, LombardiSurface
     from ddsim.physics.statistics import (
         JOYCE_DIXON_COEFFICIENTS,
@@ -89,7 +85,6 @@ def test_full_stack_parameters_mirror_ddsim() -> None:
     assert P.JOYCE_DIXON_MAX_U == JOYCE_DIXON_MAX_U
 
 
-
 def test_ddsim_resolves_the_implant() -> None:
     k = SHORT_CHANNEL_PROCESS
     dd, _ = P.implant_shape(dict(k))
@@ -100,7 +95,6 @@ def test_ddsim_resolves_the_implant() -> None:
     g = np.asarray(u.mesh.y_axis.x)
     item = g[g <= d * (1.0 + 1e-12)]
     flag = np.diff(item)
-
 
     tmp3 = flag[item[:-1] > d - 2.0 * t]
     assert tmp3.size > 0
@@ -113,14 +107,11 @@ def test_ddsim_resolves_the_implant() -> None:
     )
 
 @pytest.mark.parametrize('target', [1e-3, 0.01, 0.1, 0.5, 1.0, 1.5, 1.99])
-
 def test_erfcinv_matches_the_library(target:float) -> None:
     z = pytest.importorskip('scipy.special')
     assert P.erfcinv(target) == pytest.approx(float(z.erfcinv(target)), rel=1e-12, abs=1e-12)
 
 def test_first_resolved_point_trims_only_the_floor() -> None:
-
-
     kk = 1e-2
     ys = [1e-9, 1e-7, 1e-5, 1e-3, 1e-1]
     assert P.first_resolved_point(ys, kk) == 0
@@ -130,9 +121,7 @@ def test_first_resolved_point_trims_only_the_floor() -> None:
 
     item = [-2.5e-10, -8.7e-11, 1.87e-12, 3.35e-10, 1.75e-9]
 
-
     assert P.first_resolved_point(item, kk) == 2
-
 
 
 def test_first_resolved_point_refuses_to_trim_a_real_current() -> None:
@@ -154,22 +143,17 @@ def test_implant_shape_matches_ddsim() -> None:
     assert ys*0.5 * math.erfc(float(h["lateral_diffusion"]) / g) == pytest.approx(Na, rel=1e-9)
 
 
-
 def golden_path(benchmark: P.MosfetBenchmark) -> Path:
     return GOLDEN_DIR / f"{benchmark.name}.csv"
 
 
 @pytest.mark.parametrize('benchmark', P.MOSFET_BENCHMARKS, ids= lambda b:b.name)
-
-
-
 def test_golden_data_exists(benchmark: P.MosfetBenchmark) -> None:
     assert golden_path(benchmark).is_file(), (
         f"no golden curves for {benchmark.name}. Generate them with "
         "tests/regression/devsim_gen/generate_mosfet.py, see the README there."
     )
 @pytest.mark.parametrize("benchmark", P.MOSFET_BENCHMARKS, ids= lambda b: b.name)
-
 def test_golden_header_records_its_provenance(
     benchmark: P.MosfetBenchmark,
 ) -> None:
@@ -182,12 +166,10 @@ def test_golden_header_records_its_provenance(
     assert vv.header["recombination"].startswith('SRH only')
 
 
-
 @pytest.mark.parametrize('benchmark', P.MOSFET_BENCHMARKS, ids= lambda b: b.name)
 def test_golden_header_matches_the_benchmark(
     benchmark:P.MosfetBenchmark,
 ) -> None:
-
     k = P.read_mosfet_golden(str(golden_path(benchmark)))
     for m, d in (("L_gate", benchmark.L_gate), ("drain low", benchmark.drain_low), ('drain high', benchmark.drain_high), ("tolerance", benchmark.tolerance),):
         assert float(k.header[m]) == pytest.approx(d, rel=1e-9), (
@@ -195,7 +177,6 @@ def test_golden_header_matches_the_benchmark(
             f"parameters.py now says {d}. The golden data is stale."
         )
     for m, d in P.MOSFET_PROCESS.items():
-
         assert float(k.header[m]) == pytest.approx(d, rel=1e-9), (
             f"{m} in {benchmark.name}.csv is {k.header[m]} but the "
             f"process now says {d}. The golden data is stale."
@@ -205,10 +186,7 @@ def test_golden_header_matches_the_benchmark(
     )
 
 
-
 @pytest.mark.parametrize("benchmark", P.MOSFET_BENCHMARKS, ids= lambda b:b.name)
-
-
 def test_golden_reference_is_converged(benchmark: P.MosfetBenchmark) -> None:
     ret = P.read_mosfet_golden(str(golden_path(benchmark)))
     assert "mesh convergence" in ret.header, (
@@ -232,13 +210,8 @@ def test_golden_reference_is_converged(benchmark: P.MosfetBenchmark) -> None:
     )
 
 
-
 @pytest.mark.parametrize("benchmark", P.MOSFET_BENCHMARKS, ids= lambda b: b.name)
-
-
 @pytest.mark.parametrize('high', [False, True], ids=["Vd_low", 'Vd_high'])
-
-
 def test_golden_terminals_balance(
     benchmark:P.MosfetBenchmark, high:bool
 ) -> None:
@@ -254,7 +227,6 @@ def test_golden_terminals_balance(
 _SOLVED:dict[tuple[str, float], IVCurve] = {}
 
 
-
 def ddsim_curve(benchmark:P.MosfetBenchmark, drain:float) -> IVCurve:
     mm = (benchmark.name, drain)
     if mm not in _SOLVED:
@@ -263,16 +235,10 @@ def ddsim_curve(benchmark:P.MosfetBenchmark, drain:float) -> IVCurve:
         _SOLVED[mm] = gate_sweep(nxt, list(benchmark.gate_voltages), models=b)
     return _SOLVED[mm]
 @pytest.mark.parametrize("benchmark", P.MOSFET_BENCHMARKS, ids= lambda b: b.name)
-
 @pytest.mark.parametrize("high", [False, True], ids=["Vd_low", 'Vd_high'])
-
-
-
-
 def test_ddsim_reaches_every_golden_bias(
     benchmark: P.MosfetBenchmark, high: bool
 ) -> None:
-
     res = benchmark.drain_high if high else benchmark.drain_low
     r = ddsim_curve(benchmark, res)
 
@@ -280,11 +246,8 @@ def test_ddsim_reaches_every_golden_bias(
     assert list(r.voltage) == pytest.approx(list(benchmark.gate_voltages))
 
 
-
 @pytest.mark.parametrize('benchmark', P.MOSFET_BENCHMARKS, ids= lambda b: b.name)
 @pytest.mark.parametrize('high', [False, True], ids=["Vd_low", "Vd_high"])
-
-
 def test_ddsim_matches_devsim_drain_current(
     benchmark: P.MosfetBenchmark, high:bool
 ) -> None:
@@ -298,7 +261,6 @@ def test_ddsim_matches_devsim_drain_current(
     ):
         if abs(t) < P.CURRENT_FLOOR_MOSFET:
             if abs(m2) >= P.CURRENT_FLOOR_MOSFET:
-
                 bb.append(
                     f"{s2:+.3f} V: devsim gives {t:.3e}, below the "
                     f"{P.CURRENT_FLOOR_MOSFET:.3e} floor, but ddsim gives "
@@ -313,7 +275,6 @@ def test_ddsim_matches_devsim_drain_current(
                 f"{s2:+.3f} V: devsim {t:.6e}, ddsim {m2:.6e}, "
                 f"off by {c2:.2%}, allowed {w:.2%}"
             )
-
 
     assert not bb, (
         f"{benchmark.name} at Vd = {r2} V disagrees with DEVSIM at "
@@ -342,7 +303,6 @@ def _devsim_thresholds(name: str) -> tuple[float, float]:
                    vals.L_gate),
     )
 def _ddsim_thresholds(name: str) -> tuple[float, float]:
-
     d = P.MOSFET_BY_NAME[name]
     v = []
     for z in (d.drain_low, d.drain_high):
@@ -372,7 +332,6 @@ def test_rolloff_reference_is_converged(benchmark:P.MosfetBenchmark) -> None:
     )
     x2 = g.header["mesh convergence"]
 
-
     s = float(x2.split()[0])
     assert s < benchmark.tolerance, (
         f"{benchmark.name} golden data is converged only to {s:.3e}, "
@@ -388,8 +347,6 @@ def test_rolloff_reference_is_converged(benchmark:P.MosfetBenchmark) -> None:
     )
 
 @pytest.mark.parametrize("high", [False, True], ids=['Vd_low', 'Vd_high'])
-
-
 def test_rolloff_threshold_falls_in_both_codes(high:bool) -> None:
     s = 1 if high else 0
     z2 = [_devsim_thresholds(i)[s] for i in P.ROLLOFF_TREND]
@@ -403,9 +360,7 @@ def test_rolloff_threshold_falls_in_both_codes(high:bool) -> None:
 
 
 @pytest.mark.parametrize("high", [False, True], ids=["Vd_low", "Vd_high"])
-
 def test_rolloff_magnitude_matches_devsim(high: bool) -> None:
-
     t2 = 1 if high else 0
     w = [_devsim_thresholds(t)[t2] for t in P.ROLLOFF_TREND]
     stuff = [_ddsim_thresholds(t)[t2] for t in P.ROLLOFF_TREND]
@@ -427,12 +382,7 @@ def test_rolloff_magnitude_matches_devsim(high: bool) -> None:
 
 
 @pytest.mark.parametrize("name", P.ROLLOFF_TREND)
-
-
-
 def test_rolloff_dibl_matches_devsim(name: str) -> None:
-
-
     ok = P.MOSFET_BY_NAME[name]
     num = ok.drain_high - ok.drain_low
     t2, out2 = _devsim_thresholds(name)
@@ -450,12 +400,10 @@ def test_rolloff_dibl_matches_devsim(name: str) -> None:
     )
 
 
-
 _SOLVED_FULL: dict[tuple[str, float], IVCurve] = {}
 
 
 def ddsim_full_curve(benchmark:P.MosfetBenchmark, drain:float) -> IVCurve:
-
     k = (benchmark.name, drain)
     if k not in _SOLVED_FULL:
         m = nmos(L_gate=benchmark.L_gate, drain_voltage=drain, **SHORT_CHANNEL_PROCESS,)
@@ -466,10 +414,7 @@ def ddsim_full_curve(benchmark:P.MosfetBenchmark, drain:float) -> IVCurve:
     return _SOLVED_FULL[k]
 
 
-
 def _ddsim_full_thresholds(name:str) -> tuple[float, float]:
-
-
     nxt = P.MOSFET_BY_NAME[name]
     a = []
     for bb in (nxt.drain_low, nxt.drain_high):
@@ -483,7 +428,6 @@ def _ddsim_full_thresholds(name:str) -> tuple[float, float]:
 
 
 @pytest.mark.parametrize("name", P.FULL_STACK_TREND)
-
 def test_full_stack_golden_data_exists(name:str) -> None:
     ret = P.MOSFET_BY_NAME[name]
     assert golden_path(ret).is_file(), (
@@ -494,11 +438,7 @@ def test_full_stack_golden_data_exists(name:str) -> None:
     )
 
 
-
-
 @pytest.mark.parametrize("name", P.FULL_STACK_TREND)
-
-
 def test_full_stack_header_records_the_models(name: str) -> None:
     e = P.read_mosfet_golden(str(golden_path(P.MOSFET_BY_NAME[name])))
     assert e.header["statistics"].startswith('Fermi-Dirac'); assert e.header['mobility'].startswith('Arora')
@@ -508,7 +448,6 @@ def test_full_stack_header_records_the_models(name: str) -> None:
 @pytest.mark.parametrize(
     "benchmark", P.FULL_STACK_BENCHMARKS, ids= lambda b: b.name
 )
-
 def test_full_stack_reference_is_converged(
     benchmark: P.MosfetBenchmark,
 ) -> None:
@@ -537,15 +476,12 @@ def test_full_stack_reference_is_converged(
 FULL_STACK_FLOOR = 1e-5
 
 
-
 LOAD_BEARING = 1e-4
 
 @pytest.mark.parametrize(
     "benchmark", P.FULL_STACK_BENCHMARKS, ids= lambda b:b.name
 )
 @pytest.mark.parametrize('high', [False, True], ids=["Vd_low", 'Vd_high'])
-
-
 def test_full_stack_golden_terminals_balance(
     benchmark:P.MosfetBenchmark, high:bool
 ) -> None:
@@ -553,14 +489,11 @@ def test_full_stack_golden_terminals_balance(
     c = w2.drain_high if high else w2.drain_low
     e = LOAD_BEARING*REFERENCE_CURRENT/benchmark.L_gate
 
-
     m, d = 0.0, 0.0
 
     for ys, v in enumerate(c):
         if abs(v) < e:
-
             continue
-
 
         el = w2.imbalance(ys,
              high)
@@ -576,11 +509,7 @@ def test_full_stack_golden_terminals_balance(
 
 
 @pytest.mark.parametrize("benchmark", P.FULL_STACK_BENCHMARKS, ids= lambda b:b.name)
-
-
-
 @pytest.mark.parametrize('high', [False, True], ids=["Vd_low", "Vd_high"])
-
 def test_full_stack_ddsim_reaches_every_golden_bias(
     benchmark: P.MosfetBenchmark, high: bool
 ) -> None:
@@ -590,22 +519,15 @@ def test_full_stack_ddsim_reaches_every_golden_bias(
     assert yy.complete, f"ddsim stopped early: {yy.message}"; assert list(yy.voltage) == pytest.approx(list(benchmark.gate_voltages))
 
 
-
-
 @pytest.mark.parametrize(
     'benchmark', P.FULL_STACK_BENCHMARKS, ids= lambda b: b.name
 )
-
-
 @pytest.mark.parametrize("high", [False, True], ids=['Vd_low', "Vd_high"])
-
 def test_full_stack_drain_current_matches_devsim(benchmark:P.MosfetBenchmark, high:bool) -> None:
     ii = P.read_mosfet_golden(str(golden_path(benchmark)))
     w = benchmark.drain_high if high else benchmark.drain_low; r = ddsim_full_curve(benchmark, w)
     flag = ii.drain_high if high else ii.drain_low
     d = FULL_STACK_FLOOR * REFERENCE_CURRENT / benchmark.L_gate
-
-
 
     c:list[str] = []
     a2 = 0.0
@@ -635,12 +557,7 @@ def test_full_stack_drain_current_matches_devsim(benchmark:P.MosfetBenchmark, hi
 
 
 @pytest.mark.parametrize('high', [False, True], ids=["Vd_low", "Vd_high"])
-
-
-
 def test_full_stack_threshold_falls_in_both_codes(high: bool) -> None:
-
-
     k2 = 1 if high else 0
     g = [_devsim_thresholds(t)[k2] for t in P.FULL_STACK_TREND]
 
@@ -655,14 +572,8 @@ def test_full_stack_threshold_falls_in_both_codes(high: bool) -> None:
         )
 
 
-
-
 @pytest.mark.parametrize("high", [False, True], ids=["Vd_low", "Vd_high"])
-
-
-
 def test_full_stack_rolloff_matches_devsim(high: bool) -> None:
-
     z2 = 1 if high else 0
     ii = [_devsim_thresholds(j)[z2] for j in P.FULL_STACK_TREND]
     out = [_ddsim_full_thresholds(j)[z2] for j in P.FULL_STACK_TREND]
@@ -682,15 +593,12 @@ def test_full_stack_rolloff_matches_devsim(high: bool) -> None:
 
 
 @pytest.mark.parametrize('name', P.FULL_STACK_TREND)
-
-
 def test_full_stack_dibl_matches_devsim(name: str) -> None:
     out2 = P.MOSFET_BY_NAME[name]
     j = out2.drain_high - out2.drain_low
 
     t, val2 = _devsim_thresholds(name)
     x, m = _ddsim_full_thresholds(name)
-
 
     a = (t - val2) / j
     a2 = (x - m) / j

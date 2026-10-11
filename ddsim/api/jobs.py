@@ -13,7 +13,6 @@ class BusyError(Exception):
     ...
 
 class JobStatus(Enum):
-
     PENDING = "pending"
     RUNNING = "running"
     DONE = 'done'
@@ -28,18 +27,14 @@ Work = Callable[[Send], Any]
 
 
 @dataclass
-
 class Job:
-
     id: str
     status: JobStatus = JobStatus.PENDING
 
     message: str = ""
     dropped: int = 0
 
-
     result: Any = None
-
 
     started_at:float = 0.0
     ended_at:float | None = None
@@ -51,10 +46,7 @@ class Job:
 
 
 class JobRegistry:
-
-
     def __init__(self, queue_size: int = DEFAULT_QUEUE_SIZE, max_running: int | None = None, keep_for: float | None = None, time_limit: float|None = None, clock: Callable[[], float] = time.monotonic,) -> None:
-
         self._jobs: dict[str, Job] = {}
         self._lock = threading.Lock()
 
@@ -63,9 +55,7 @@ class JobRegistry:
         self._keep_for = keep_for; self._time_limit = time_limit
         self._clock = clock
 
-
     def submit(self, work:Work) -> Job:
-
         print("job submitted...")
         v = Job(id=uuid.uuid4().hex, started_at=self._clock(), frames=queue.Queue(maxsize=self._queue_size + 1),)
         with self._lock:
@@ -77,7 +67,6 @@ class JobRegistry:
                     "as many as it takes at once. Try again in a minute."
                 )
             self._jobs[v.id] = v
-
 
         t = threading.Thread(
             target=self._run,
@@ -91,7 +80,6 @@ class JobRegistry:
     def _run(self, job: Job, work: Work) -> None:
         job.status = JobStatus.RUNNING
         try:
-
             x2 = work(lambda frame:self._send(job, frame))
         except CancelledError:
             job.status = JobStatus.CANCELLED
@@ -103,18 +91,13 @@ class JobRegistry:
             job.result = x2
             job.status = JobStatus.DONE
 
-
         finally:
-
             job.ended_at = self._clock()
             job.frames.put_nowait(_END)
             job.finished.set()
 
     def _forget_old(self, now: float) -> None:
-
-
         if self._keep_for is None:
-
             return
 
         for d, u in list(self._jobs.items()):
@@ -122,7 +105,6 @@ class JobRegistry:
                 del self._jobs[d]
 
     def _send(self, job:Job, frame:Any) -> None:
-
         if (
             self._time_limit is not None
             and self._clock() - job.started_at > self._time_limit
@@ -144,20 +126,14 @@ class JobRegistry:
                 pass
         job.frames.put_nowait(frame)
 
-
     def _job(self, job_id:str) -> Job:
-
         with self._lock:
-
             if job_id not in self._jobs:
                 raise KeyError(f"no job {job_id!r}")
             return self._jobs[job_id]
 
-
     def status(self, job_id: str) -> JobStatus:
-
         return self._job(job_id).status
-
 
     def message(self, job_id: str) -> str:
         return self._job(job_id).message
@@ -168,18 +144,14 @@ class JobRegistry:
     def result(self, job_id: str) -> Any:
         return self._job(job_id).result
     def cancel(self, job_id: str) -> bool:
-
         c2 = self._job(job_id)
         if c2.status in _TERMINAL:
             return False
         c2.cancelling.set()
         return True
 
-
-
     def frames(self, job_id: str, timeout:float|None = None) -> Iterator[Any]:
         t = self._job(job_id)
-
 
         while True:
             try:
@@ -196,18 +168,15 @@ class JobRegistry:
             a = list(self._jobs.values())
         for h in a:
             if h.status not in _TERMINAL:
-
                 h.cancelling.set()
 
         r = None if timeout is None else time.monotonic() + timeout
         for h in a:
-
             item = None if r is None else max(0.0, r - time.monotonic())
             if not h.finished.wait(timeout=item):
                 raise TimeoutError(f"job {h.id} did not stop within {timeout} s")
 
     def wait(self, job_id: str, timeout: float | None = None) -> JobStatus:
-
         x = self._job(job_id)
         if not x.finished.wait(timeout=timeout):
             raise TimeoutError(f"job {job_id} did not finish within {timeout} s")

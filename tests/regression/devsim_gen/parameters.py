@@ -6,9 +6,7 @@ from dataclasses import dataclass, field
 Q = 1.602176634e-19
 
 
-
 K_B = 1.380649e-23
-
 
 
 EPS_0 = 8.8541878128e-14
@@ -20,7 +18,6 @@ EPS_R_SI = 11.7
 N_I = 1.0e10
 
 MU_N = 1417.0
-
 
 
 MU_P = 470.0
@@ -84,7 +81,6 @@ E_PERP_FLOOR = 1.0e2
 V_SAT_N = 1.07e7
 
 
-
 V_SAT_P = 8.3e6
 
 BETA_N = 2.0
@@ -108,11 +104,7 @@ JOYCE_DIXON_MAX_U = 8.0
 
 
 @dataclass(frozen=True)
-
-
-
 class DiodeBenchmark:
-
     name: str
 
     number: int
@@ -121,13 +113,9 @@ class DiodeBenchmark:
 
     Nd: float
 
-
     length: float
 
-
     junction:float
-
-
 
     voltages: tuple[float, ...]
 
@@ -137,16 +125,12 @@ class DiodeBenchmark:
 
     devsim_h_junction: float = 2e-7
 
-
     devsim_h_bulk: float = 2e-6
-
 
     notes: str = ""
 
 
 CURRENT_FLOOR = 1e-10
-
-
 
 
 def _forward(stop:float, step: float = 0.05) -> tuple[float, ...]:
@@ -227,24 +211,13 @@ MODEL_SUMMARY:tuple[str, ...] = (
 )
 
 
-
-
 @dataclass
-
-
-
 class GoldenCurve:
-
-
     name: str
 
     header: dict[str, str] = field(default_factory=dict)
 
-
-
     voltage: list[float] = field(default_factory=list)
-
-
 
     current:list[float] = field(default_factory=list)
 
@@ -261,7 +234,6 @@ class GoldenCurve:
 def read_golden(path:str) -> GoldenCurve:
     el = GoldenCurve(name='')
     with open(path, encoding="utf-8") as a:
-
         for w in a:
             w = w.rstrip("\n")
             if w.startswith("#"):
@@ -281,13 +253,10 @@ def read_golden(path:str) -> GoldenCurve:
 
 
 @dataclass(frozen=True)
-
 class MosBenchmark:
-
     name: str
 
     number:int
-
 
     substrate_doping: float
 
@@ -299,14 +268,9 @@ class MosBenchmark:
 
     tolerance: float
 
-
-
     n_silicon:int = 121
 
-
-
     n_oxide:int = 5
-
 
     h_min: float = 5e-8
     devsim_h_surface: float = 5e-9
@@ -317,7 +281,6 @@ class MosBenchmark:
 
 def _gate_sweep(low: float, high: float, step: float) -> tuple[float, ...]:
     res = round((high - low) / step)
-
 
     return tuple(round(low + lst * step, 10) for lst in range(res + 1))
 
@@ -372,12 +335,7 @@ MOS_MODEL_SUMMARY: tuple[str, ...] = (
 )
 
 @dataclass
-
-
-
-
 class MosGoldenCurve:
-
     name: str
     header: dict[str, str] = field(default_factory=dict)
     gate_voltage:list[float] = field(default_factory=list)
@@ -387,14 +345,11 @@ class MosGoldenCurve:
         return float(self.header['tolerance'])
 
 def read_mos_golden(path: str) -> MosGoldenCurve:
-
     e = MosGoldenCurve(name='')
     with open(path, encoding="utf-8") as c:
         for d in c:
-
             d = d.rstrip("\n")
             if d.startswith("#"):
-
                 r = d[1:].strip()
                 if ":" in r:
                     g, _, j = r.partition(':')
@@ -410,7 +365,6 @@ def read_mos_golden(path: str) -> MosGoldenCurve:
     return e
 
 def central_difference(voltage:list[float] | tuple[float, ...], charge: list[float]|tuple[float, ...],) -> tuple[list[float], list[float]]:
-
     e: list[float] = []
     flag:list[float] = []
     for xx in range(1,
@@ -444,10 +398,7 @@ MOSFET_PROCESS:dict[str, float] = {
 }
 
 
-
 def implant_shape(process:dict[str, float]) -> tuple[float, float]:
-
-
     Na = -process["substrate_doping"]
     f = process["sd_peak"]
 
@@ -464,30 +415,20 @@ REDUCED_MODELS = "reduced"
 FULL_MODELS = 'full'
 
 
-
 @dataclass(frozen=True)
-
-
-
 class MosfetBenchmark:
-
     name:str
-
-
 
     number:int
 
-
     L_gate:float
     gate_voltages: tuple[float, ...]
-
 
     drain_low: float
     drain_high:float
     tolerance: float
 
     devsim_h_junction: float = 5e-7
-
 
     devsim_h_channel: float = 2e-6
 
@@ -499,15 +440,12 @@ class MosfetBenchmark:
 
     models:str = REDUCED_MODELS
 
-
     notes: str = ""
-
 
 
 CURRENT_FLOOR_MOSFET = 1e-12
 
 def _gate_range(low: float, high: float, step: float) -> tuple[float, ...]:
-
     f = round((high - low) / step); return tuple(round(low + h*step, 10) for h in range(f + 1))
 MOSFET_BENCHMARKS: tuple[MosfetBenchmark, ...] = (MosfetBenchmark(name="nmos_1um", number=6, L_gate=1e-4, gate_voltages=_gate_range(0.0, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.05, notes=('The long device. At 1 um this process has no short channel effect ' "left in it, so it is the reference the shorter ones are measured " 'against and the one place where a disagreement is about the 2D ' "transport rather than about a barrier."),), MosfetBenchmark(name='nmos_180nm', number=7, L_gate=1.8e-5, gate_voltages=_gate_range(0.0, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.05, devsim_h_junction=2.25e-7, devsim_h_channel=4.5e-7, notes=("The same process drawn at 180 nm. The lateral encroachment leaves " '160 nm of metallurgical channel, so roll-off has started but the ' "device is still comfortably long channel. The lateral spacings " 'are half what they first were, because on this device the columns ' "and not the implant rows carry the mesh error: halving them alone " 'moved the drain current 6.9e-3 of a 7.3e-3 total and halving the ' 'rows alone moved it 5.7e-4. At 4.5e-7 the gate spans 40 columns, ' 'against the 20 it had and the 50 the 1 um device gets.'),), MosfetBenchmark(name='nmos_65nm', number=8, L_gate=6.5e-6, gate_voltages=_gate_range(-0.2, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.08, devsim_h_junction=8.125e-8, devsim_h_channel=1.625e-7, notes=("45 nm of metallurgical channel. This is the DIBL row: the point of " 'it is the gap between the two curves, so the gate sweep starts ' 'below zero to hold the off state of both. The lateral spacings are ' 'half what they first were, and the columns carry that alone ' "because the rows cannot take up any slack. Halving one axis at a " 'time from the original mesh: columns alone moved the drain current ' "1.6606e-2 of a 1.964e-2 total, rows alone 2.6789e-3. Halving the " "rows again is not available, since most of their residual is " "devsim_h_surface and that is already 6.25e-9, where the next " 'halving is a third of an angstrom and past where a continuum ' "model means anything. The columns converge at order 2.07, taken " "off the 180 nm device's own before and after pair rather than " "assumed, so one halving takes their 1.6606e-2 to about 3.9e-3 and " "leaves the pair near 6.6e-3. A quartering was tried first and its " 'halved mesh check could not be solved in the memory available, ' "11022 silicon nodes shipping and about four times that to check."),),)
 
@@ -539,9 +477,7 @@ ROLLOFF_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
 )
 
 
-
 def _full_stack(name:str, L_gate: float) -> MosfetBenchmark:
-
     return MosfetBenchmark(
         name=name,
         number=10,
@@ -626,17 +562,12 @@ def mosfet_model_summary(models:str) -> tuple[str,
         return FULL_STACK_MODEL_SUMMARY
     return MOSFET_MODEL_SUMMARY
 @dataclass
-
-
-
 class MosfetGoldenCurve:
-
     name:str
     header: dict[str, str] = field(default_factory=dict); gate_voltage: list[float] = field(default_factory=list)
     drain_low:list[float] = field(default_factory=list)
     source_low:list[float] = field(default_factory=list)
     drain_high: list[float] = field(default_factory=list)
-
 
     source_high: list[float] = field(default_factory=list)
 
@@ -645,8 +576,6 @@ class MosfetGoldenCurve:
         return float(self.header["tolerance"])
 
     def imbalance(self, index:int, high:bool) -> float:
-
-
         t = (self.drain_high if high else self.drain_low)[index]
         x = (self.source_high if high else self.source_low)[index]
         ok = max(abs(t), abs(x))
@@ -662,7 +591,6 @@ def first_resolved_point(current: Sequence[float], target: float) -> int:
             break
 
     if v:
-
         foo = max(abs(c2) for c2 in z[:v])
         if foo >= 1e-4 * target:
             raise AssertionError(
@@ -671,7 +599,6 @@ def first_resolved_point(current: Sequence[float], target: float) -> int:
                 'extracted at to be the terminal floor. Trimming it would be '
                 'hiding a solver problem rather than ignoring roundoff.'
             )
-
 
     return v
 def read_mosfet_golden(path: str) -> MosfetGoldenCurve:

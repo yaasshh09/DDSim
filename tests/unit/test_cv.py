@@ -16,19 +16,11 @@ NA = 1e16
 T_OX = 1e-6
 
 @pytest.fixture(scope="module")
-
-
-
 def cap():
     k2 = mos_cap(substrate_doping=-NA, t_ox=T_OX, gate_voltage=-2.0); return k2, solve_equilibrium(k2)
 
 
-
-
 @pytest.mark.parametrize('call', [lambda d, s:terminal_charge(d, s, "drain"), lambda d, s:small_signal_capacitance(d, s, "drain"),], ids=["charge", 'capacitance'],)
-
-
-
 def test_a_terminal_that_is_not_there_is_named_in_the_refusal(cap, call):
     t, yy = cap
     with pytest.raises(KeyError, match="drain"):
@@ -45,7 +37,6 @@ def test_the_refusal_lists_the_terminals_that_are_there(cap):
 def test_a_sweep_checks_the_contact_before_solving_anything(cap):
     j, _ = cap
     with pytest.raises(KeyError, match="drain"):
-
         cv_sweep(j, "drain", [0.0])
 
 def test_a_1d_device_needs_no_width():
@@ -55,16 +46,12 @@ def test_a_1d_device_needs_no_width():
     assert z != 0.0
 
 
-
 def test_a_reverse_biased_diode_has_a_junction_capacitance():
-
     v = pn_diode(anode_voltage=-1.0)
     k = small_signal_capacitance(
         v, solve_equilibrium(v), 'anode'
     )
     assert k > 0.0
-
-
 
 
 def test_giving_a_width_scales_the_answer_by_it(cap):
@@ -75,7 +62,6 @@ def test_giving_a_width_scales_the_answer_by_it(cap):
     assert flag == pytest.approx(0.5*b, rel=1e-14)
 
 
-
 def test_the_capacitance_takes_the_same_width(cap):
     val, w = cap
     cnt = small_signal_capacitance(val, w, GATE)
@@ -84,7 +70,6 @@ def test_the_capacitance_takes_the_same_width(cap):
 
 
 def test_a_curve_reports_what_it_is():
-
     y = cv_sweep(mos_cap(substrate_doping=-NA), GATE, [-1.0, 0.0]); val = repr(y)
     assert "2 points" in val and "complete" in val
     assert Response.LOW_FREQUENCY.value in val
@@ -105,7 +90,6 @@ def test_an_empty_curve_says_so():
     assert g.charge.size == 0
 
 
-
 def test_a_sweep_that_cannot_converge_returns_what_it_reached():
     c = float(C.work_function_difference(C.PHI_M_N_POLY, -NA))
     z = cv_sweep(
@@ -120,7 +104,6 @@ def test_a_sweep_that_cannot_converge_returns_what_it_reached():
     assert f"{c + 2.0:+g}" in z.message
 
 def test_the_charge_on_the_curve_is_the_charge_at_the_point():
-
     c = mos_cap(substrate_doping=-NA)
     v = cv_sweep(c, GATE, [-1.5])
     dd = v.points[0]

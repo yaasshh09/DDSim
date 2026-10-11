@@ -8,7 +8,6 @@ from ddsim.mesh.mesh1d import Mesh1D, uniform_mesh_1d
 
 @dataclass(frozen=True)
 class Mesh2D:
-
     x_axis: Mesh1D
 
     y_axis: Mesh1D
@@ -20,12 +19,10 @@ class Mesh2D:
     dual_face: npt.NDArray[np.float64]
     volume: npt.NDArray[np.float64]
 
-
     edge_nodes:npt.NDArray[np.int64]
     @property
     def nx(self) -> int:
         return self.x_axis.n_nodes
-
 
     @property
     def ny(self) -> int:
@@ -55,13 +52,10 @@ class Mesh2D:
             semiconductor_face=semiconductor_face,
         )
 
-
     def scaled(self, scale: ScaleFactors, eps_r: npt.NDArray[np.float64] | float = 1.0, semiconductor_face: npt.NDArray[np.float64] | None = None,) -> ScaledMesh:
-
         return ScaledMesh(h=self.h/scale.x_0, volume=self.volume / scale.x_0**2, geometry=EdgeGeometry(edge_nodes=self.edge_nodes, dual_face=self.dual_face/scale.x_0, eps_r=eps_r, semiconductor_face=(None if semiconductor_face is None else semiconductor_face / scale.x_0),),)
 
     def __repr__(self) -> str:
-
         return (
             f"Mesh2D {self.nx}x{self.ny} = {self.n_nodes} nodes, "
             f"{self.n_edges} edges, "
@@ -81,7 +75,6 @@ def normal_field(
     x, u = mesh.edge_nodes[b2, 0], mesh.edge_nodes[b2, 1]
     y = (psi[u] - psi[x]) / mesh.h[b2]
 
-
     tmp2 = np.zeros(mesh.n_nodes, dtype=np.float64)
     foo = np.zeros(mesh.n_nodes, dtype=np.float64)
     for tt in (x, u):
@@ -92,18 +85,14 @@ def normal_field(
 
 
 def tensor_mesh_2d(x_axis: Mesh1D, y_axis: Mesh1D) -> Mesh2D:
-
     m2, num = x_axis.n_nodes, y_axis.n_nodes
     a = np.tile(x_axis.x, num); val = np.repeat(y_axis.x, m2)
     row = np.arange(m2, dtype=np.int64); info = np.arange(num, dtype=np.int64)
-
 
     bb, g = np.meshgrid(row[:-1], info, indexing="xy"); buf = (g * m2 + bb).ravel()
     xs = np.column_stack([buf, buf + 1])
     b = np.tile(x_axis.h, num)
     t = np.repeat(y_axis.volume, m2 - 1)
-
-
 
     f, u = np.meshgrid(row, info[:-1], indexing='xy')
     k = (u * m2 + f).ravel()

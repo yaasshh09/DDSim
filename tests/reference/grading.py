@@ -40,5 +40,4 @@ def solve_ratio(side_length: float, h_min: float, n_intervals: int) -> float | N
         if t-x <= RATIO_TOLERANCE * x:
             break
 
-
     return 0.5 * (x + t)

@@ -26,8 +26,6 @@ COARSE_FET = {
     'drain_voltage': 0.05,
 }
 class ReaderStoppedError(Exception):
-
-
     ...
 def collect() -> tuple[list[Any], Callable[[object], None]]:
     z: list[Any] = []
@@ -46,26 +44,20 @@ def diode(**overrides: float):
     return pn_diode(**y)
 
 
-
 def of_type(frames:list[Any], kind:type) -> list[Any]:
     return [cur for cur in frames if isinstance(cur,
          kind)]
 
 
-
-
 def test_a_gummel_solve_reports_its_cycles() -> None:
     h, i = collect()
-
 
     f = solve_bias(diode(), on_frame=i)
     assert f.gummel is not None; r = of_type(h, GummelIteration)
 
-
     assert [k2.update for k2 in r] == f.gummel.update_history
 
 def test_a_newton_solve_reports_its_iterations() -> None:
-
     z, x = collect()
     ret = solve_bias_newton(diode(), on_frame=x)
     assert ret.newton is not None
@@ -77,7 +69,6 @@ def test_a_coupled_newton_iteration_names_each_equation_family() -> None:
     zz, c = collect()
 
     solve_bias_newton(diode(anode_voltage=0.4), on_frame=c)
-
 
     g = of_type(zz, NewtonIteration); assert len(g) > 2
     for w2 in g:
@@ -92,7 +83,6 @@ def test_a_coupled_newton_iteration_names_each_equation_family() -> None:
             assert list(w2.update_by_family) == ['psi', 'n', 'p']
             assert max(w2.update_by_family.values()) == w2.update
     assert any(len(set(k2.residual_by_family.values())) == 3 for k2 in g)
-
 
 
 def test_a_diverged_iterate_is_not_paired_with_an_older_split() -> None:
@@ -120,7 +110,6 @@ def test_a_newton_solve_that_knows_no_families_reports_none() -> None:
             shape=(1, 1),
         )
 
-
     newton_solve(assemble, np.array([3.0]), on_iteration=foo)
     assert j
     assert all(d.residual_by_family is None for d in j)
@@ -128,19 +117,14 @@ def test_a_newton_solve_that_knows_no_families_reports_none() -> None:
     assert all(x2.update_by_family is None for x2 in j)
 
 
-
 def test_an_equilibrium_solve_reports_its_iterations() -> None:
     b, t = collect()
 
     solve_equilibrium(mos_cap(gate_voltage=-1.0), on_frame=t)
 
-
-
     assert of_type(b, NewtonIteration)
 def test_a_ramped_solve_reports_the_fractions_it_stepped_through() -> None:
     m, v = collect()
-
-
 
     solve_bias_ramped(nmos(gate_voltage=0.4, **COARSE_FET), on_frame=v)
 
@@ -149,10 +133,8 @@ def test_a_ramped_solve_reports_the_fractions_it_stepped_through() -> None:
     assert num[-1].parameter == pytest.approx(1.0)
 
 
-
 def test_a_hybrid_solve_reports_both_halves() -> None:
     out2, w2 = collect()
-
 
     solve_bias_hybrid(diode(), on_frame=w2)
 
@@ -161,12 +143,9 @@ def test_a_hybrid_solve_reports_both_halves() -> None:
 
 
 def test_the_guess_solve_inside_a_bias_solve_stays_quiet() -> None:
-
     z, el = collect()
 
     i = solve_bias_newton(diode(), guess=None, on_frame=el)
-
-
 
     assert i.newton is not None
     assert len(of_type(z, NewtonIteration)) == len(
@@ -176,7 +155,6 @@ def test_the_guess_solve_inside_a_bias_solve_stays_quiet() -> None:
 
 def test_a_diode_sweep_reports_solver_frames_and_finished_points() -> None:
     z, b = collect()
-
 
     d2 = iv_sweep(diode(), 'anode', [0.1, 0.2], on_frame=b)
     assert d2.complete
@@ -190,8 +168,6 @@ def test_a_point_frame_carries_the_numbers_that_land_on_the_curve() -> None:
     info = iv_sweep(diode(), 'anode', [0.0, 0.15], on_frame=lst)
     r = of_type(item, IVFrame)
 
-
-
     assert [s.index for s in r] == [0, 1]
     assert [s.voltage for s in r] == list(info.voltage)
     assert [s.current for s in r] == list(info.current)
@@ -200,14 +176,12 @@ def test_a_point_frame_arrives_after_the_solve_that_produced_it() -> None:
     c, foo = collect()
     iv_sweep(diode(), 'anode', [0.1], on_frame=foo)
 
-
     el = next(
         s for s, m in enumerate(c) if isinstance(m, IVFrame)
     )
     assert of_type(c[:el], GummelIteration)
 
 def test_a_stalled_sweep_reports_the_points_it_did_reach() -> None:
-
     b, z = collect()
 
     t = iv_sweep(
@@ -223,7 +197,6 @@ def test_a_stalled_sweep_reports_the_points_it_did_reach() -> None:
     assert not t.complete
     assert len(of_type(b, IVFrame)) == len(t.points)
     assert any(not num.converged for num in of_type(b, ContinuationEvent))
-
 
 
 def test_a_gate_sweep_reports_newton_iterations_not_gummel_cycles() -> None:
@@ -243,11 +216,9 @@ def test_a_capacitance_sweep_reports_its_points() -> None:
     v = of_type(r, CVFrame)
     assert [i.gate_voltage for i in v] == list(prev.gate_voltage)
 
-
     assert [i.capacitance for i in v] == list(prev.capacitance)
     assert [i.charge for i in v] == list(prev.charge)
     assert of_type(r, NewtonIteration)
-
 
 
 @pytest.mark.parametrize(
@@ -260,25 +231,19 @@ def test_a_capacitance_sweep_reports_its_points() -> None:
     ids=["diode", "mosfet", "capacitor"],
 )
 def test_a_callback_that_raises_unwinds_the_whole_sweep(sweep) -> None:
-
     def send(frame:object) -> None:
         raise ReaderStoppedError('stop here')
-
 
     with pytest.raises(ReaderStoppedError):
         sweep(send)
 
 
-
-
 def test_cancelling_a_submitted_sweep_stops_it() -> None:
-
     cnt = JobRegistry()
     u = diode()
     rows = cnt.submit(
         lambda send: iv_sweep(u, "anode", [0.1, 0.2, 0.3, 0.4], on_frame=send)
     )
-
 
     r = cnt.frames(rows.id,
         timeout=120.0)
@@ -300,12 +265,8 @@ def test_cancelling_a_submitted_sweep_stops_it() -> None:
     ],
     ids=["gummel", "newton", "iv", 'cv'],
 )
-
-
 def test_no_callback_is_the_default(call) -> None:
     assert call() is not None
-
-
 
 
 def test_a_watched_sweep_and_a_quiet_one_draw_the_same_curve() -> None:

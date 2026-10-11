@@ -34,8 +34,6 @@ needs_golden = pytest.mark.skipif(
 )
 
 
-
-
 def gate_points() -> list[float]:
     c = min(BENCHMARK.gate_voltages)
     stuff = max(BENCHMARK.gate_voltages)
@@ -43,11 +41,7 @@ def gate_points() -> list[float]:
     return [round(c + STEP*z, 6) for z in range(u)]
 
 
-
-
 @pytest.fixture(scope='module')
-
-
 def curve():
     res2 = nmos(
         L_gate=BENCHMARK.L_gate,
@@ -59,14 +53,8 @@ def curve():
     return gate_sweep(res2, gate_points(), models=h)
 
 @pytest.fixture(scope='module')
-
-
-
 def golden():
-
     return P.read_mosfet_golden(str(golden_path()))
-
-
 
 
 def test_the_sweep_reaches_every_bias(curve) -> None:
@@ -74,24 +62,13 @@ def test_the_sweep_reaches_every_bias(curve) -> None:
     assert list(curve.voltage) == pytest.approx(gate_points())
 
 
-
-
 @needs_golden
-
-
-
-
 def test_the_golden_points_are_all_sixteen(golden) -> None:
-
     assert list(golden.gate_voltage) == pytest.approx(list(BENCHMARK.gate_voltages))
 
 
 @needs_golden
-
-
 def test_the_on_state_agreement_is_what_the_figure_claims(curve, golden) -> None:
-
-
     k = np.interp(np.array(golden.gate_voltage), np.array(list(curve.voltage)), np.array(list(curve.current)),)
     ii = 0.0
     y = 0.0
@@ -112,7 +89,6 @@ def test_mosfet_transfer_plot_is_generated(curve, golden) -> None:
     r2 = np.array(list(curve.voltage)); tmp3 = np.abs(np.array(list(curve.current)))
     u = np.abs(np.array(golden.drain_low))
 
-
     b = np.interp(
         np.array(golden.gate_voltage), r2, np.array(list(curve.current))
     )
@@ -125,7 +101,6 @@ def test_mosfet_transfer_plot_is_generated(curve, golden) -> None:
     )
     m2, i = plt.subplots(figsize=(7.6,
                   5.6))
-
 
     i.semilogy(r2, tmp3, "-", color='tab:blue', linewidth=2.0, label='ddsim', zorder=2,)
     i.semilogy(

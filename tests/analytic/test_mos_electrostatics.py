@@ -32,10 +32,6 @@ COLUMN = 1
 
 
 @pytest.fixture(scope="module")
-
-
-
-
 def stack():
     k = int(round((T_SI + T_OX) / DY)) + 1
     j = tensor_mesh_2d(uniform_mesh_1d(length=WIDTH, n_nodes=NX), uniform_mesh_1d(length=T_SI + T_OX, n_nodes=k),)
@@ -44,7 +40,6 @@ def stack():
 
 
 def solve_at(stack, v_gate, regions=None):
-
     v, b, e = stack
     regions = b if regions is None else regions
     c = v.scaled(e, eps_r=regions.eps_r)
@@ -53,12 +48,10 @@ def solve_at(stack, v_gate, regions=None):
         regions.semiconductor_volume > 0.0, -NA / e.C_0, 0.0
     )
 
-
     u = [v.node_at(y, 0) for y in range(v.nx)]
     info = [v.node_at(y, v.ny - 1) for y in range(v.nx)]
     w = ohmic_psi_scaled(-NA/e.C_0, 0.0)
     s = gate_psi_scaled(v_gate / e.psi_0, METAL)
-
 
     g = u + info
     x2 = [w] * len(u) + [s] * len(info)
@@ -81,16 +74,13 @@ def column_psi(stack, result):
 
 
 def interface_row():
-
     return int(round(T_SI / DY))
-
 
 
 def flatband_voltage():
     return float(C.work_function_difference(METAL, -NA))
 
 def test_the_flatband_voltage_is_the_work_function_difference(stack):
-
     vals, mm, h = solve_at(stack, flatband_voltage())
     psi = column_psi(stack, vals)
 
@@ -101,17 +91,10 @@ def test_a_millivolt_off_flatband_is_visible(stack):
     num, _, _ = solve_at(stack, flatband_voltage() + 1e-3)
     psi = column_psi(stack, num)
 
-
-
     assert psi.max()-psi.min() > 1e-3
 
 
-
 @pytest.mark.parametrize("v_gate", [0.0, 1.0, -1.0])
-
-
-
-
 def test_the_potential_in_the_oxide_is_a_straight_line(stack, v_gate):
     foo, _, _ = solve_at(stack,
         v_gate)
@@ -124,16 +107,13 @@ def test_the_potential_in_the_oxide_is_a_straight_line(stack, v_gate):
     i = abs(w[-1] - w[0])
     assert i > 1.0, "no field across the oxide, so linearity means nothing"
 
-
     thing = np.polyval(np.polyfit(tmp, w, 1), tmp)
     assert np.max(np.abs(thing - w)) / i < 1e-12
-
 
 
 def test_the_slope_changes_across_the_interface_by_the_permittivity_ratio(
     stack,
 ):
-
     t, _, _ = solve_at(stack, 0.0)
 
     psi = column_psi(stack, t)
@@ -141,14 +121,11 @@ def test_the_slope_changes_across_the_interface_by_the_permittivity_ratio(
 
     ss = (psi[ii] - psi[ii - 1]) / DY
 
-
     r = (psi[ii + 1] - psi[ii]) / DY
     assert ss / r == pytest.approx(C.EPS_R_OX / C.EPS_R_SI, rel=0.01)
 
 
 def test_giving_the_oxide_silicon_permittivity_moves_the_slope_ratio(stack):
-
-
     u, val2, _ = stack
     b = dataclasses.replace(val2, eps_r=np.ones_like(val2.eps_r))
 
@@ -162,15 +139,11 @@ def test_giving_the_oxide_silicon_permittivity_moves_the_slope_ratio(stack):
     assert j > 2.0 * (C.EPS_R_OX / C.EPS_R_SI)
 
 
-
-
 def test_the_surface_inverts_under_positive_gate_bias(stack):
     _, f, _ = solve_at(stack, 0.0)
     vals = column_psi(stack, solve_at(stack, -3.0)[0])[interface_row()]
     prev = column_psi(stack, solve_at(stack, 3.0)[0])[interface_row()]
 
-
     assert vals < f, 'negative gate must accumulate holes'
-
 
     assert prev > 0.0, "positive gate must invert the p-type surface"

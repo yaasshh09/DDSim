@@ -45,7 +45,6 @@ N_NODES = 20
 
 @pytest.fixture
 def device():
-
     res2 = uniform_mesh_1d(length=1e-4, n_nodes=N_NODES)
     return build_device(
         mesh=res2,
@@ -74,7 +73,6 @@ def device():
         'arora+auger+field',
     ],
 )
-
 def models(request, device):
     jj, g, xs = request.param
     return TransportModels.for_device(
@@ -83,31 +81,25 @@ def models(request, device):
 
 
 @pytest.fixture
-
 def geometry(device):
     x2 = device.scale; return device.mesh.h / x2.x_0, device.mesh.volume/x2.x_0
 
 
 @pytest.fixture
-
 def equilibrium_x(device):
     m = initial_state(device)
     return pack(m.psi.data, m.n.data, m.p.data)
 @pytest.fixture
-
-
 def perturbed_x(device):
     g = initial_state(device)
     z2 = np.linspace(0.0, 3.0 * np.pi, device.mesh.n_nodes)
     psi = g.psi.data + 0.35 * np.cos(z2)
-
 
     n = g.n.data*np.exp(0.20*np.sin(z2))
     p = g.p.data * np.exp(-0.15 * np.cos(2.0 * z2))
 
     return pack(psi, n, p)
 @pytest.fixture(params=["equilibrium", "perturbed"])
-
 def state_x(request, equilibrium_x, perturbed_x):
     return equilibrium_x if request.param == "equilibrium" else perturbed_x
 
@@ -117,13 +109,11 @@ def residual_at(geometry, device, models):
     def evaluate(x):
         return coupled_residual(h=i, volume=c, x=x, net_doping=device.net_doping_scaled.data, Dn=models.Dn, Dp=models.Dp, recombination=models.recombination,)
 
-
     return evaluate
 def dense_jacobian(geometry, x, models):
     f, val2 = geometry
     k, u, b = coupled_jacobian(h=f, volume=val2, x=x, Dn=models.Dn, Dp=models.Dp, recombination=models.recombination,)
     out = x.size; return coo_matrix((b, (k, u)), shape=(out, out)).toarray()
-
 
 
 def block(matrix,
@@ -138,7 +128,6 @@ def node_field(values, unit, name):
     )
 
 def assemble_state(device, models, x):
-
     psi, n, p = unpack(x)
 
     return assemble_coupled(
@@ -155,17 +144,14 @@ def assemble_state(device, models, x):
 
 
 def test_pack_and_unpack_round_trip():
-
     psi = np.array([1.0, 2.0, 3.0])
     n = np.array([4.0, 5.0, 6.0])
     p = np.array([7.0, 8.0, 9.0])
     g, bb, rr = unpack(pack(psi, n, p))
     np.testing.assert_array_equal(g, psi)
 
-
     np.testing.assert_array_equal(bb, n)
     np.testing.assert_array_equal(rr, p)
-
 
 
 def test_ordering_is_interleaved_by_node():
@@ -182,7 +168,6 @@ def test_unpack_returns_views_not_copies():
     assert a[0] == -1.0
 
 
-
 def test_pack_rejects_mismatched_lengths():
     with pytest.raises(ValueError, match='same length'):
         pack(np.zeros(3), np.zeros(4), np.zeros(3))
@@ -196,8 +181,6 @@ def test_psi_rows_match_the_poisson_residual(device, geometry, models):
 
     p = np.exp(phi_p - psi)
 
-
-
     z = coupled_residual(h=a, volume=k2, x=pack(psi, n, p), net_doping=device.net_doping_scaled.data, Dn=models.Dn, Dp=models.Dp, recombination=models.recombination,)
     rr = poisson_residual(
         a, k2, psi, device.net_doping_scaled.data, phi_n, phi_p
@@ -208,7 +191,6 @@ def test_psi_rows_match_the_poisson_residual(device, geometry, models):
 def test_electron_rows_match_the_uncoupled_continuity_residual(
     device, geometry, models, perturbed_x
 ):
-
     a, nxt = geometry
     psi, n, p = unpack(perturbed_x)
     b = np.asarray(models.recombination.rate(n, p), dtype=np.float64)
@@ -217,22 +199,17 @@ def test_electron_rows_match_the_uncoupled_continuity_residual(
 
     c = electron_continuity_residual(a, nxt, i, psi, n, b)
 
-
     np.testing.assert_allclose(a2[Unknown.N::UNKNOWNS_PER_NODE], c, rtol=1e-13, atol=0.0)
 
 
 def test_hole_rows_match_the_uncoupled_continuity_residual(
     device, geometry, models, perturbed_x
 ):
-
-
     tt, j = geometry
     psi, n, p = unpack(perturbed_x)
     u = np.asarray(models.recombination.rate(n, p), dtype=np.float64)
 
     nxt = diffusivity_at(models.Dp, edge_drop(psi), tt)
-
-
 
     rr = residual_at(geometry, device, models)(perturbed_x)
 
@@ -244,16 +221,11 @@ def test_residual_preserves_a_complex_dtype(device, geometry, models, perturbed_
         perturbed_x.astype(np.complex128)
     )
 
-
     assert np.iscomplexobj(d)
 
 
 @pytest.fixture
-
-
 def flat_bar():
-
-
     y = uniform_mesh_1d(length=1e-4, n_nodes=N_NODES)
     g = build_device(
         mesh=y,
@@ -266,7 +238,6 @@ def flat_bar():
     v = TransportModels.for_device(g)
     k = g.scale
 
-
     z = g.net_doping_scaled.data
     psi = np.full(y.n_nodes, np.arcsinh(z[0] / 2.0))
     yy = pack(psi, np.exp(psi), np.exp(-psi))
@@ -275,8 +246,6 @@ def flat_bar():
 
 ALL_BLOCKS = [(tmp, b) for tmp in Unknown for b in Unknown]
 @pytest.mark.parametrize('row,col', ALL_BLOCKS, ids= lambda u: u.name)
-
-
 def test_every_jacobian_block_matches_complex_step(device, geometry, models, state_x, row, col):
     tmp2 = complex_step_jacobian(
         residual_at(geometry, device, models), state_x
@@ -292,14 +261,8 @@ def test_every_jacobian_block_matches_complex_step(device, geometry, models, sta
     )
 
 
-
-
 @pytest.mark.parametrize("row,col", ALL_BLOCKS, ids= lambda u: u.name)
-
-
-
 def test_every_jacobian_block_matches_complex_step_at_a_flat_potential(flat_bar, row, col):
-
     r, s2, a2, ret = flat_bar
     psi, _, _ = unpack(ret)
     assert np.all(psi[1:] - psi[:-1] == 0.0), 'the fixture is not flat'
@@ -310,20 +273,13 @@ def test_every_jacobian_block_matches_complex_step_at_a_flat_potential(flat_bar,
     c = block(t, row, col)
     res = np.max(np.abs(c))
 
-
     np.testing.assert_allclose(
         tt, c, rtol=1e-10, atol=1e-10 * max(res, 1e-300)
     )
 
 
-
 @pytest.fixture
-
-
-
-
 def lopsided_bar():
-
     w = uniform_mesh_1d(length=1e-4, n_nodes=N_NODES)
     j = build_device(
         mesh=w,
@@ -344,9 +300,7 @@ def lopsided_bar():
     return j, m, ss, f
 
 @pytest.mark.parametrize('row,col', ALL_BLOCKS, ids= lambda u:u.name)
-
 def test_every_jacobian_block_matches_complex_step_per_edge_diffusivity(lopsided_bar, row, col):
-
     i, b2, tmp3, t = lopsided_bar
     b = np.asarray(b2.Dn)
     assert b.size == i.mesh.n_edges, "Dn is not per edge"
@@ -358,10 +312,7 @@ def test_every_jacobian_block_matches_complex_step_per_edge_diffusivity(lopsided
 
     xx = block(d2, row, col)
 
-
     k = block(z, row, col); s = np.max(np.abs(k))
-
-
 
     np.testing.assert_allclose(
         xx, k, rtol=1e-10, atol=1e-10 * max(s, 1e-300)
@@ -378,11 +329,9 @@ def test_the_psi_block_carries_no_boltzmann_charge_term(
     d = 1.0 / res2
 
     for w in range(res2.size):
-
         out[w, w] += d[w]
         out[w + 1, w + 1] += d[w]
         out[w, w + 1] -= d[w]
-
 
         out[w + 1, w] -= d[w]
 
@@ -411,8 +360,6 @@ def test_the_recombination_cross_blocks_are_diagonal(
         e = block(z, s, v); assert np.count_nonzero(e - np.diag(np.diag(e))) == 0
 
 
-
-
 def test_the_jacobian_sparsity_is_block_tridiagonal(geometry, models, perturbed_x):
     c, s = geometry
     ii, cur, _ = coupled_jacobian(
@@ -431,16 +378,13 @@ def test_the_jacobian_sparsity_is_block_tridiagonal(geometry, models, perturbed_
 def test_assemble_coupled_agrees_with_the_array_level_functions(device, geometry, models, perturbed_x):
     d = assemble_state(device, models, perturbed_x)
 
-
     a = residual_at(geometry, device, models)(perturbed_x)
-
 
     assert d.shape == (UNKNOWNS_PER_NODE * device.mesh.n_nodes, UNKNOWNS_PER_NODE * device.mesh.n_nodes,)
     np.testing.assert_array_equal(d.residual, a)
 
 
 def test_assemble_coupled_rejects_a_physical_field(device, models, perturbed_x):
-
     psi, n, p = unpack(perturbed_x)
 
     with pytest.raises(ValueError,
@@ -466,18 +410,14 @@ def test_unknown_index_agrees_with_the_packed_layout(device):
     obj = pack(psi, n, p)
 
     for e in range(4):
-
         assert obj[unknown_index(e, Unknown.PSI)] == psi[e]
-
 
         assert obj[unknown_index(e, Unknown.N)] == n[e]
         assert obj[unknown_index(e, Unknown.P)] == p[e]
 
 
 def test_assemble_coupled_rejects_an_edge_field(device, models, perturbed_x):
-
     psi, n, p = unpack(perturbed_x)
-
 
     with pytest.raises(ValueError,
                 match="NODE"):
@@ -540,9 +480,7 @@ def test_the_contact_densities_agree_with_the_contact_potential(device):
     res = device.with_bias(anode=0.35, cathode=0.0)
     r2 = res.net_doping_scaled.data
     for r in res.contacts:
-
         buf = r.voltage / res.scale.psi_0
-
 
         psi = ohmic_psi_scaled(float(r2[r.node]), buf)
         n = ohmic_density_scaled(float(r2[r.node]), Carrier.ELECTRON)
@@ -552,14 +490,11 @@ def test_the_contact_densities_agree_with_the_contact_potential(device):
         assert n * p == pytest.approx(1.0, rel=1e-12)
 
 
-
-
 def test_the_applied_bias_moves_psi_and_leaves_the_densities_alone(device):
     j = device.net_doping_scaled.data[0]
     g = ohmic_psi_scaled(float(j), 0.0)
     x = ohmic_psi_scaled(float(j),
            1.0)
-
 
     assert x - g == pytest.approx(1.0, rel=1e-14)
     assert ohmic_density_scaled(float(j), Carrier.ELECTRON) == ohmic_density_scaled(float(j), Carrier.ELECTRON)
@@ -603,37 +538,26 @@ def test_row_scaling_keeps_the_system_finite(device, geometry, models, perturbed
     )
     t = assemble_coupled_arrays(h=u, volume=k, x=perturbed_x, net_doping=device.net_doping_scaled.data, Dn=models.Dn, Dp=models.Dp, recombination=models.recombination,)
 
-
-
     f = scale_rows(t, row_weights(g, device.mesh.n_nodes))
 
     assert np.all(np.isfinite(f.residual))
     assert np.all(np.isfinite(f.values))
 def test_a_state_with_no_carriers_anywhere_is_refused():
-
     b = np.full(4, 0.1)
     g = np.full(5, 0.1); u = pack(np.zeros(5), np.zeros(5), np.zeros(5))
 
-
     with pytest.raises(ValueError, match="no terms"):
-
         residual_term_scales(b, g, u, np.zeros(5), Dn=1.0, Dp=1.0)
 
 
-
-
 def test_a_state_whose_terms_overflow_is_a_diverged_iterate_not_a_bad_state():
-
     kk = np.full(4, 0.1)
     r = np.full(5, 0.1)
     s = pack(np.zeros(5), np.full(5, np.inf), np.ones(5))
 
-
     with np.errstate(invalid='ignore', over='ignore'):
-
         with pytest.raises(FloatingPointError, match="diverged"):
             residual_term_scales(kk, r, s, np.zeros(5), Dn=1.0, Dp=1.0)
-
 
 
 def test_the_shared_path_reproduces_the_standalone_functions_exactly(device, geometry, models, perturbed_x):
@@ -696,17 +620,11 @@ def test_a_row_with_no_terms_in_it_is_skipped_rather_than_dividing_by_zero():
     assert g == pytest.approx(0.5)
 
 
-
-
 def test_a_row_whose_terms_collapsed_is_skipped_like_one_with_none() -> None:
-
-
     y2 = 3
     v = np.full(y2, 2.0)
     s = np.array([1.0, 1e-20, 4.0]); c = np.full(y2, 8.0)
     z = (v, s, c)
-
-
 
     aa = row_weights(z, y2)
     bb = np.zeros(UNKNOWNS_PER_NODE * y2)
@@ -727,8 +645,6 @@ def test_a_row_just_above_the_floor_still_counts() -> None:
     u[unknown_index(0, Unknown.N)] = t * 10.0*0.25
 
     r = residual_measure(u / lst, res, cc)
-
-
 
     assert r == pytest.approx(0.25)
 

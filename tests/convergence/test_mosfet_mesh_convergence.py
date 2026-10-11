@@ -8,7 +8,6 @@ from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
 L_GATE = 1e-4
 
 
-
 DRAIN = 0.05
 
 GATES = (0.0, 1.5)
@@ -17,7 +16,6 @@ CONVERGED = 5e-3
 
 
 def working_mesh() -> dict[str, float | int]:
-
     b = inspect.signature(nmos).parameters
     return {'n_silicon': b['n_silicon'].default, 'n_oxide': b["n_oxide"].default, "h_min_y": b["h_min_y"].default,}
 
@@ -37,7 +35,6 @@ def double(mesh:dict[str, float|int]) -> dict[str, float|int]:
     }
 
 
-
 def drain_current(mesh: dict[str, float | int]) -> list[float]:
     ret = nmos(L_gate=L_GATE, drain_voltage=DRAIN, degenerate=False, **mesh, **SHORT_CHANNEL_PROCESS,)
     f = TransportModels.for_device(ret, mobility="constant")
@@ -46,24 +43,16 @@ def drain_current(mesh: dict[str, float | int]) -> list[float]:
     return [float(thing) for thing in ys.current]
 
 
-
-
 @pytest.fixture(scope="module")
-
-
 def ladder() -> dict[str, list[float]]:
     tmp3 = working_mesh()
     return {"coarse": drain_current(double(tmp3)), 'working':drain_current(tmp3), "fine": drain_current(halve(tmp3)),}
 
 
-
 @pytest.mark.parametrize('index', range(len(GATES)), ids=[f"Vg{v:g}" for v in GATES])
-
-
 def test_the_working_mesh_is_already_converged(
     ladder: dict[str, list[float]], index: int
 ) -> None:
-
     y = ladder["working"][index]
     mm = ladder["fine"][index]
     x = abs(mm - y) / abs(mm)
@@ -75,10 +64,6 @@ def test_the_working_mesh_is_already_converged(
 
 
 @pytest.mark.parametrize("index", range(len(GATES)), ids=[f"Vg{v:g}" for v in GATES])
-
-
-
-
 def test_the_refinement_converges_rather_than_wandering(
     ladder:dict[str, list[float]], index:int
 ) -> None:
@@ -91,10 +76,7 @@ def test_the_refinement_converges_rather_than_wandering(
     )
 
 
-
 def test_the_oxide_and_silicon_spacings_stay_matched() -> None:
-
-
     k = working_mesh()
     y = SHORT_CHANNEL_PROCESS['t_ox']
     j = y/(int(k['n_oxide']) - 1)

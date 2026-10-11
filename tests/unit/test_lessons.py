@@ -10,21 +10,14 @@ from ddsim.api.sweeps import check_request
 CLAIMS = pathlib.Path(__file__).parents[1] / "analytic" / 'test_lesson_claims.py'
 
 
-
 @pytest.fixture
-
-
-
 def client():
-
     with TestClient(create_app()) as ok:
         yield ok
 def checks() -> set[str]:
-
     i = ast.parse(CLAIMS.read_text(encoding="utf-8"))
 
     return {ys.name.removeprefix('test_') for ys in i.body if isinstance(ys, ast.FunctionDef) and ys.name.startswith('test_')}
-
 
 
 LESSON = '''---
@@ -66,13 +59,9 @@ def test_a_lesson_splits_into_its_parts() -> None:
     assert cnt.explanation == 'Physics.'
 
 
-
-
 def test_a_step_without_a_set_line_changes_nothing() -> None:
     h = parse_lesson("example", LESSON)
     assert h.steps[0].request is None
-
-
 
 
 def test_a_step_is_the_start_with_its_own_changes_on_top() -> None:
@@ -84,7 +73,6 @@ def test_a_step_is_the_start_with_its_own_changes_on_top() -> None:
     assert tmp['sweep']["settings"] == {"step": 0.05, "start":0.1}
     assert tmp['sweep']['contact'] == "anode"
     assert k.request['device']['parameters'] == {"Na":1e17, 'length': 2e-4}
-
 
 
 def test_the_text_after_a_set_line_is_the_step() -> None:
@@ -118,7 +106,6 @@ def test_a_lesson_on_its_own_device_says_what_its_own_coarse_mesh_costs() -> Non
 
 
 def test_a_lesson_on_the_converged_mesh_carries_no_note() -> None:
-
     assert parse_lesson("example", LESSON).mesh_note == ''
 
 
@@ -128,29 +115,20 @@ def test_a_coarse_mesh_a_device_does_not_have_is_refused() -> None:
         parse_lesson('example', jj)
 
 @pytest.mark.parametrize(("broken", 'complaint'), [(LESSON.replace("claims: first_claim; second_claim\n", ""), "claims"), (LESSON.replace("## What you saw", '## Something'), 'What you saw'), (LESSON.replace('## Steps', '## Stairs'), "Steps"), (LESSON.replace('"voltages":[0.0,0.1]', '"voltages":[0.0,'), "sweep"), (LESSON.replace("set: {", "set: {{"), "Push it"), (LESSON.replace("---\ntitle", "title"), 'header'),],)
-
-
 def test_a_malformed_lesson_says_what_is_wrong(broken, complaint) -> None:
     with pytest.raises(ValueError, match=complaint):
         parse_lesson('example', broken)
 
 
 def test_an_unknown_lesson_is_a_key_error() -> None:
-
     with pytest.raises(KeyError):
         load_lesson("../app")
 
 def test_there_are_the_five_lessons_the_phase_asks_for() -> None:
-
     assert len(lesson_names()) == 5
 
 
-
 @pytest.mark.parametrize('name', lesson_names())
-
-
-
-
 def test_every_lesson_is_complete(name) -> None:
     s = load_lesson(name)
 
@@ -163,16 +141,13 @@ def test_every_lesson_is_complete(name) -> None:
     assert s.look_for.strip()
 
 
-
 @pytest.mark.parametrize("name", lesson_names())
 def test_every_claim_a_lesson_names_has_a_check(name) -> None:
     k = set(load_lesson(name).claims) - checks()
     assert not k, f"{name} claims {sorted(k)} and nothing tests it"
 
 
-
 def test_every_check_belongs_to_a_lesson() -> None:
-
     u = {c for m in lesson_names() for c in load_lesson(m).claims}
 
     assert checks() <= u, sorted(checks()-u)
@@ -195,11 +170,7 @@ def test_every_request_a_lesson_makes_is_one_the_api_takes(name) -> None:
         )
 
 
-
-
 @pytest.mark.parametrize('path', sorted(LESSONS.glob('*.md')), ids= lambda p:p.name)
-
-
 def test_no_lesson_uses_an_em_dash(path) -> None:
     assert "\u2014" not in path.read_text(encoding="utf-8")
 
@@ -208,7 +179,6 @@ def test_the_lessons_are_listed(client) -> None:
 
     assert [c['name'] for c in out] == list(lesson_names())
     assert all(e['title'] and e['summary'] for e in out)
-
 
 
 def test_a_lesson_is_served_whole(client) -> None:

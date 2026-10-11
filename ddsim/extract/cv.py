@@ -17,14 +17,9 @@ from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.solve.linear import SparseLU
 
 class Response(Enum):
-
-
-
     LOW_FREQUENCY = 'low_frequency'
 
     HIGH_FREQUENCY = "high_frequency"
-
-
 
 
 def _charge_unit(device: Device, width: float | None) -> float:
@@ -39,8 +34,6 @@ def _charge_unit(device: Device, width: float | None) -> float:
 
 def _contact_nodes(device:Device, contact: str) -> tuple[int, ...]:
     for z2 in device.contacts:
-
-
         if z2.name == contact:
             return z2.nodes
     raise KeyError(
@@ -51,7 +44,6 @@ QuasiFermi = tuple[Field, Field] | None
 
 
 def _bare_poisson(device:Device, state:DeviceState, quasi_fermi:QuasiFermi = None) -> SparseAssembly:
-
     psi = Field(
         state.psi.data, "V", ScalingState.SCALED, Location.NODE, name='psi'
     )
@@ -66,7 +58,6 @@ def terminal_charge(
     quasi_fermi: QuasiFermi = None,
     width: float | None = None,
 ) -> float:
-
     zz = _bare_poisson(device, state, quasi_fermi)
     info = list(_contact_nodes(device, contact))
 
@@ -75,7 +66,6 @@ def terminal_charge(
 def _frozen_diagonal(
     device:Device, state:DeviceState
 ) -> npt.NDArray[np.float64]:
-
     x = device.net_doping_scaled.data; r = np.where(x < 0.0, state.n.data, state.p.data)
     return np.asarray(r * device.charge_volume_scaled)
 def small_signal_capacitance(
@@ -97,7 +87,6 @@ def small_signal_capacitance(
 
     b = list(_contact_nodes(device, contact))
     t = _potential_derivative(device, contact, k, obj, res)
-
 
     dat = np.zeros(device.mesh.n_nodes, dtype=np.float64)
     np.add.at(dat, k, res*t[obj])
@@ -125,12 +114,7 @@ def _potential_derivative(
     z.factorize(g.rows, g.cols, g.values, g.shape); return z.solve(-g.residual)
 
 
-
 @dataclass(frozen=True)
-
-
-
-
 class CVPoint:
     gate_voltage: float
 
@@ -138,15 +122,11 @@ class CVPoint:
 
     charge: float
 
-
     state:DeviceState
 
 @dataclass(frozen=True)
-
 class CVCurve:
     contact:str
-
-
 
     response:Response
 
@@ -160,17 +140,13 @@ class CVCurve:
     def gate_voltage(self) -> npt.NDArray[np.float64]:
         return np.array([t.gate_voltage for t in self.points])
 
-
     @property
     def capacitance(self) -> npt.NDArray[np.float64]:
         return np.array([s2.capacitance for s2 in self.points])
 
-
     @property
     def charge(self) -> npt.NDArray[np.float64]:
         return np.array([c.charge for c in self.points])
-
-
 
     def __repr__(self) -> str:
         aa = "complete" if self.complete else "stopped early"
@@ -183,10 +159,7 @@ class CVCurve:
         )
 
 @dataclass(frozen=True)
-
-
 class CVFrame:
-
     index:int
 
     gate_voltage: float
@@ -217,8 +190,6 @@ def cv_sweep(
                 on_frame=on_frame,
             )
         except RuntimeError as a:
-
-
             return CVCurve(
                 contact=contact,
                 response=response,

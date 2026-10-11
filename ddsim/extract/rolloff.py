@@ -23,17 +23,13 @@ SHORT_CHANNEL_PROCESS: Mapping[str, Any] = {"substrate_doping": -1e18, "sd_peak"
 REFERENCE_CURRENT = CONFIG.sweeps.reference_current
 
 @dataclass(frozen=True)
-
-
 class RollOffPoint:
-
     L_gate: float
     threshold_linear: float
     threshold_saturated: float
     threshold_extrapolated: float
 
     subthreshold_slope:float
-
 
     dibl:float
 
@@ -43,7 +39,6 @@ class RollOffPoint:
     linear:IVCurve
 
     saturated: IVCurve
-
 
 
 def usable_span(
@@ -79,8 +74,6 @@ def gate_length_sweep(
     surface: bool = True,
     step:float = CONFIG.sweeps.rolloff_step,
 ) -> tuple[RollOffPoint, ...]:
-
-
     if not gate_lengths:
         raise ValueError("a gate length sweep needs at least one gate length")
 
@@ -102,7 +95,6 @@ def gate_length_sweep(
             m["linear"].voltage, m["linear"].current
         )
 
-
         j, e = usable_span(m['saturated'].voltage, m["saturated"].current)
         mm = reference_current / ret
         ok = threshold_constant_current(u, w, mm)
@@ -111,7 +103,6 @@ def gate_length_sweep(
             u, w, drain_voltage=drain_low
         )
         _, x2 = transconductance(u, w)
-
 
         i = (threshold_constant_current(u, w, mm/10.0 ** slope_decades), ok,)
         it.append(

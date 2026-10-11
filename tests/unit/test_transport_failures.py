@@ -7,7 +7,6 @@ from ddsim.device.transport import (TransportError, _check_positive, initial_sta
 MICRON = 1e-4
 
 
-
 def diode():
     return pn_diode(
         Na=1e16,
@@ -19,9 +18,7 @@ def diode():
     )
 
 
-
 def shifted_state(device, shift:float):
-
     i = initial_state(device)
     return replace(
         i,
@@ -38,7 +35,6 @@ def shifted_state(device, shift:float):
 def test_a_stalled_poisson_block_raises_with_the_reason() -> None:
     dat = diode()
     v = shifted_state(dat, 400.0)
-
 
     with pytest.raises(TransportError, match='Poisson block did not converge'):
         poisson_block(dat)(v)
@@ -61,7 +57,6 @@ def test_solve_bias_reports_a_stalled_block_rather_than_raising() -> None:
     assert t.gummel is not None
     assert not t.gummel.converged
     assert 'Poisson' in t.gummel.message
-
 
 
 def test_a_non_positive_density_is_refused_rather_than_clamped() -> None:
@@ -100,6 +95,5 @@ def test_the_state_repr_reports_the_ranges() -> None:
     assert "n" in m2
 
 def test_the_overflow_guard_is_unreachable_by_arithmetic() -> None:
-
     num = MAX_PSI_STEP * 50
     assert np.exp(num) * 1e10 < np.finfo(np.float64).max

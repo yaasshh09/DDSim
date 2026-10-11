@@ -39,12 +39,10 @@ from ddsim.physics.statistics import Degeneracy, einstein_ratio
 from tests.reference.complexstep import complex_step_jacobian
 
 
-
 N_NODES = 20
 
 
 HEAVY = 1e20
-
 
 
 def junction(degenerate: bool, n_nodes:int = N_NODES):
@@ -60,7 +58,6 @@ def flat_bar(doping: float):
 
     psi = np.full(s.n_nodes, float(tt.degeneracy.equilibrium_psi(bb[0])))
     v = pack(psi, np.full(s.n_nodes, float(n)), np.full(s.n_nodes, float(p)))
-
 
     k = tt.scale
     return (
@@ -81,13 +78,10 @@ def perturbed(device):
 
 
 def dense(rows, cols, values, size):
-
     return coo_matrix((values, (rows, cols)), shape=(size, size)).toarray()
 
 
-
 def blocks_agree(assembled, reference, rtol=1e-10):
-
     for y in Unknown:
         for g in Unknown:
             tmp = assembled[y::UNKNOWNS_PER_NODE, g::UNKNOWNS_PER_NODE]
@@ -120,14 +114,12 @@ def test_the_contact_values_are_boltzmann_without_the_statistics() -> None:
     assert ohmic_density_scaled(1e10, Carrier.ELECTRON) * ohmic_density_scaled(1e10, Carrier.HOLE) == pytest.approx(1.0, rel=1e-14)
 
 def test_the_degenerate_contact_moves_the_potential_by_thirty_millivolts() -> None:
-
     b2 = Degeneracy.for_silicon(C.n_i())
     x = HEAVY / C.n_i()
     j = (ohmic_psi_scaled(x, 0.0, b2)-ohmic_psi_scaled(x, 0.0))*C.V_T()*1e3
     assert j == pytest.approx(30.5, rel=1e-2)
 
 def test_the_degenerate_contact_carries_the_applied_bias_unchanged() -> None:
-
     s = Degeneracy.for_silicon(C.n_i())
     c = HEAVY/C.n_i()
     flag = 0.4 / C.V_T()
@@ -153,7 +145,6 @@ def test_the_three_contact_values_are_one_state() -> None:
 def test_the_poisson_densities_are_their_own_derivatives_under_boltzmann() -> None:
     psi = np.linspace(-10.0, 10.0, 7)
     n, p, zz, g = _carrier_densities(psi, None, None); np.testing.assert_array_equal(zz, n)
-
 
     np.testing.assert_array_equal(g, p)
 
@@ -187,7 +178,6 @@ def test_boltzmann_returns_psi_itself_for_both_carriers() -> None:
 
 
 def test_the_two_carriers_see_different_potentials_when_degenerate() -> None:
-
     f = Degeneracy.for_silicon(C.n_i()); psi = np.zeros(3)
     n = np.array([1e6, 1e9, 1e10])
     row, j = effective_potentials(psi, n, n, f)
@@ -199,11 +189,7 @@ def test_the_two_carriers_see_different_potentials_when_degenerate() -> None:
 
 
 @pytest.mark.parametrize("doping", [HEAVY, -HEAVY], ids=['n+', "p+"])
-
-
-
 def test_every_block_matches_complex_step_on_a_flat_degenerate_bar(doping) -> None:
-
     y, s, b, j, item = flat_bar(doping)
 
     cc = y.net_doping_scaled.data
@@ -236,9 +222,6 @@ def test_every_block_matches_complex_step_on_a_flat_degenerate_bar(doping) -> No
     [("constant", False), ('arora', True)],
     ids=["constant", "arora+field"],
 )
-
-
-
 def test_every_block_matches_complex_step_at_a_perturbed_junction(mobility, field) -> None:
     m = junction(degenerate=True)
     bb = TransportModels.for_device(m, mobility=mobility, auger=True, field_dependent=field)
@@ -263,8 +246,6 @@ def test_every_block_matches_complex_step_at_a_perturbed_junction(mobility, fiel
 
 
 def test_the_continuity_diagonal_picks_up_the_einstein_ratio() -> None:
-
-
     res2, g, s, row, out = flat_bar(HEAVY)
     _, n, _ = unpack(out); res = float(einstein_ratio(n[0] / res2.degeneracy.Nc))
     assert res == pytest.approx(2.13, rel=1e-2)
@@ -337,7 +318,6 @@ def test_the_solver_entry_point_assembles_what_the_public_ones_do() -> None:
         np.testing.assert_array_equal(z, tmp2)
 
 
-
 def test_the_coupled_contacts_pin_the_degenerate_values() -> None:
     foo = junction(degenerate=True)
     s = TransportModels.for_device(foo)
@@ -378,7 +358,6 @@ def test_the_coupled_contacts_pin_the_degenerate_values() -> None:
     )
 
 def test_the_quasi_fermi_level_is_read_under_the_states_own_statistics() -> None:
-
     cur = junction(degenerate=True, n_nodes=201)
     b = solve_equilibrium(cur)
     assert float(np.max(np.abs(b.phi_n.data))) < 1e-12
@@ -414,12 +393,9 @@ def test_the_lagged_gummel_path_lands_where_the_coupled_newton_does() -> None:
     [(-HEAVY, electron_block), (HEAVY, hole_block)],
     ids=["electrons in p+", "holes in n+"],
 )
-
-
 def test_equilibrium_is_a_fixed_point_of_each_continuity_block(
     doping, make_block
 ) -> None:
-
     dat = uniform_mesh_1d(length=1e-4, n_nodes=51)
     info = build_device(mesh=dat, doping=Uniform(doping), contacts=(OhmicContact(name="left", node=0, voltage=0.0), OhmicContact(name='right', node=50, voltage=0.0),), degenerate=True,)
 
@@ -430,7 +406,6 @@ def test_equilibrium_is_a_fixed_point_of_each_continuity_block(
 def test_the_two_contact_writers_name_the_same_density() -> None:
     r = replace(pn_diode(Na=1e17, Nd=HEAVY, n_nodes=51), degenerate=True); e = solve_equilibrium(r)
     z = r.net_doping_scaled.data
-
 
     b = impose_ohmic_densities(
         e.n.data,
@@ -456,7 +431,6 @@ def test_the_two_contact_writers_name_the_same_density() -> None:
         Carrier.ELECTRON,
         r.degeneracy,
     )
-
 
     for u in r.ohmic_contacts:
         for x in u.nodes:
@@ -492,7 +466,6 @@ def test_the_degenerate_diode_carries_a_current_close_to_the_boltzmann_one() -> 
     assert rr[True] != rr[False]
 
 
-
 def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None:
     yy = junction(degenerate=True, n_nodes=201)
     u = TransportModels.for_device(yy)
@@ -505,18 +478,14 @@ def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None
 
     thing = yy.net_doping_scaled.data
 
-
-
     _, n, p = unpack(m)
     y = np.asarray(u.recombination.rate(n, p), dtype=np.float64)
-
 
     c = residual_term_scales(
         g, a, m, thing, u.Dn, u.Dp, y, degeneracy=yy.degeneracy
     )
 
     r2 = coupled_residual(h=g, volume=a, x=m, net_doping=thing, Dn=u.Dn, Dp=u.Dp, recombination=u.recombination, degeneracy=yy.degeneracy,)
-
 
     assert float(np.max(np.abs(n * p - 1.0))) == pytest.approx(0.693, rel=1e-2)
     z2, i, res2 = unpack(r2)
@@ -525,10 +494,8 @@ def test_degenerate_equilibrium_is_a_fixed_point_of_the_coupled_system() -> None
     assert float(np.max(np.abs(i - y*a) / arr)) < 1e-13
     assert float(np.max(np.abs(res2 - y*a)/b)) < 1e-13
 def test_a_boltzmann_equilibrium_has_no_recombination_to_subtract() -> None:
-
     i = junction(degenerate=False, n_nodes=201)
     z2 = TransportModels.for_device(i)
-
 
     cc = solve_equilibrium(i); a2 = pack(cc.psi.data, cc.n.data, cc.p.data)
     d = i.scale
@@ -538,7 +505,6 @@ def test_a_boltzmann_equilibrium_has_no_recombination_to_subtract() -> None:
 
     _, n, p = unpack(a2)
     z = np.asarray(z2.recombination.rate(n, p), dtype=np.float64)
-
 
     y = residual_term_scales(c, it, a2, u, z2.Dn, z2.Dp, z)
     ss = coupled_residual(
@@ -556,14 +522,12 @@ def test_a_boltzmann_equilibrium_has_no_recombination_to_subtract() -> None:
         assert float(np.max(np.abs(b) / r)) < 1e-14
 
 def test_the_solved_state_holds_the_degenerate_relation_at_every_node() -> None:
-
     a = junction(degenerate=True, n_nodes=201); c = solve_equilibrium(a)
 
     f, item = effective_potentials(c.psi.data, c.n.data, c.p.data, a.degeneracy)
 
     assert float(np.ptp(np.log(c.n.data) - f)) < 1e-13
     assert float(np.ptp(np.log(c.p.data) + item)) < 1e-13
-
 
 
 def test_the_built_in_potential_rises_by_the_predicted_correction() -> None:

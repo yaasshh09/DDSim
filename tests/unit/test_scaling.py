@@ -6,20 +6,16 @@ from ddsim.core.scaling import ScaleFactors
 UNITS = ['V', "cm^-3", "cm", "cm^2/s", 'cm^2/(V s)', "s", "A/cm^2", 'cm^-3 s^-1', "1"]
 
 
-
 @pytest.fixture
-
 def scale() -> ScaleFactors:
     return ScaleFactors.for_silicon()
 
 
 def test_psi_0_equals_thermal_voltage(scale:ScaleFactors) -> None:
-
     assert scale.psi_0 == C.V_T(300.0)
 
 def test_c_0_defaults_to_n_i(scale: ScaleFactors) -> None:
     assert scale.C_0 == C.n_i(300.0)
-
 
 
 def test_c_0_is_a_constructor_parameter() -> None:
@@ -34,8 +30,6 @@ def test_x_0_is_the_debye_length_at_c_0(scale: ScaleFactors) -> None:
     ('doping', "debye_nm"),
     [(1e15, 128.0), (1e16, 40.0), (1e17, 13.0), (1e18, 4.1), (1e20, 0.4)],
 )
-
-
 def test_debye_length_matches_doc_table(doping: float, debye_nm: float) -> None:
     k = ScaleFactors.for_silicon(C_0=doping)
 
@@ -45,16 +39,11 @@ def test_intrinsic_debye_length_follows_the_doc_formula(scale: ScaleFactors) -> 
     assert scale.x_0 * 1e4 == pytest.approx(40.885, rel=1e-4)
 
 
-
 def test_d_0_is_the_larger_carrier_diffusivity(scale: ScaleFactors) -> None:
-
     assert scale.D_0 == max(C.D_n(300.0), C.D_p(300.0))
 
 def test_mu_0_equals_d_0_over_psi_0(scale: ScaleFactors) -> None:
-
     assert scale.mu_0 == pytest.approx(scale.D_0 / scale.psi_0, rel=1e-15)
-
-
 
 
 def test_t_0_equals_x_0_squared_over_d_0(scale: ScaleFactors) -> None:
@@ -74,21 +63,14 @@ def test_r_0_equals_d_0_c_0_over_x_0_squared(scale: ScaleFactors) -> None:
         1e16,
                   1e18,
      1e20])
-
-
-
 def test_scaled_poisson_coefficient_is_unity(doping: float) -> None:
     rows = ScaleFactors.for_silicon(C_0=doping)
     z = rows.eps*rows.psi_0 / (C.q*rows.C_0*rows.x_0 ** 2)
     assert z == pytest.approx(1.0, rel=1e-14)
 @pytest.mark.parametrize('doping', [1e10, 1e16, 1e20])
 def test_scaled_current_coefficient_is_unity(doping:float) -> None:
-
-
     i = ScaleFactors.for_silicon(C_0=doping); h = C.q * i.D_0 * i.C_0 / (i.x_0*i.J_0)
     assert h == pytest.approx(1.0, rel=1e-14)
-
-
 
 
 def test_scaled_recombination_coefficient_is_unity(scale: ScaleFactors) -> None:
@@ -101,8 +83,6 @@ def test_round_trip_physical_to_scaled_to_physical(scale: ScaleFactors, unit: st
 
 
 @pytest.mark.parametrize("unit", UNITS)
-
-
 def test_round_trip_scaled_to_physical_to_scaled(
     scale: ScaleFactors, unit: str
 ) -> None:
@@ -117,7 +97,6 @@ def test_to_scaled_divides_by_the_factor(scale:ScaleFactors) -> None:
 
 
 def test_to_physical_multiplies_by_the_factor(scale: ScaleFactors) -> None:
-
     assert scale.to_physical(40.0, "V") == pytest.approx(40.0*C.V_T(300.0), rel=1e-15)
 
 def test_dimensionless_unit_is_the_identity(scale:ScaleFactors) -> None:
@@ -127,7 +106,6 @@ def test_dimensionless_unit_is_the_identity(scale:ScaleFactors) -> None:
 
 def test_scalar_input_returns_a_scalar(scale: ScaleFactors) -> None:
     assert isinstance(scale.to_scaled(1.0, "V"), float)
-
 
 
 def test_array_input_returns_an_array(scale: ScaleFactors) -> None:
@@ -147,7 +125,6 @@ def test_scale_factors_are_immutable(scale: ScaleFactors) -> None:
 
 
 def test_negative_c_0_raises() -> None:
-
     with pytest.raises(ValueError, match='C_0'):
         ScaleFactors.for_silicon(C_0=-1.0)
 
@@ -158,20 +135,15 @@ def test_scale_factors_at_400k_differ_from_300k() -> None:
     assert f.C_0 > e.C_0
 
 
-
 def test_poisson_coefficient_is_unity_at_400k() -> None:
-
     w = ScaleFactors.for_silicon(T=400.0)
     h = w.eps * w.psi_0 / (C.q * w.C_0 * w.x_0 ** 2)
 
     assert h == pytest.approx(1.0, rel=1e-14)
 
 
-
-
 def test_non_positive_temperature_raises() -> None:
     with pytest.raises(ValueError, match='T'):
-
         ScaleFactors.for_silicon(T=0.0)
 
 
@@ -184,7 +156,5 @@ def test_non_positive_diffusivity_raises() -> None:
 
 
 def test_direct_construction_rejects_non_positive_temperature() -> None:
-
-
     with pytest.raises(ValueError, match="T"):
         ScaleFactors(T=-1.0, C_0=1e10, eps=1e-12, D_0=30.0)

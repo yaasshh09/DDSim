@@ -41,14 +41,11 @@ DEVSIM_VALUES = ('yes', 'scripted', "no")
 SEPARATOR = ' + '
 
 
-
 def _capabilities() -> list[dict[str, str]]:
     with (SCOREBOARD / "capabilities.csv").open(newline="", encoding="utf-8") as e:
-
         aa = csv.DictReader(e)
         assert tuple(aa.fieldnames or ()) == CAPABILITY_COLUMNS
         return list(aa)
-
 
 
 def _devsim_api() -> set[str]:
@@ -57,14 +54,11 @@ def _devsim_api() -> set[str]:
 
 
 def _function_exists(token:str) -> bool:
-
     res2, _, g = token.partition("::")
     v = ROOT / res2
     if not g or not v.is_file():
         return False
     return any(isinstance(r, (ast.FunctionDef, ast.AsyncFunctionDef)) and r.name == g for r in ast.walk(ast.parse(v.read_text(encoding='utf-8'))))
-
-
 
 
 def _evidence(cell: str) -> list[str]:
@@ -84,14 +78,11 @@ def test_the_capability_matrix_has_its_columns_and_values() -> None:
 def test_every_ddsim_yes_cites_a_test_that_exists() -> None:
     x = []
     for res2 in _capabilities():
-
         kk = _evidence(res2['ddsim_evidence'])
         if res2["ddsim"] == "yes":
-
             if not kk:
                 x.append(f"{res2['capability']}: no evidence")
             for w2 in kk:
-
                 if not w2.startswith('tests/') or not _function_exists(w2):
                     x.append(f"{res2['capability']}: {w2}")
         elif kk:
@@ -99,7 +90,6 @@ def test_every_ddsim_yes_cites_a_test_that_exists() -> None:
     assert not x, x
 
 def test_every_devsim_claim_cites_its_api_or_our_script() -> None:
-
     u = _devsim_api()
     ys = []
     for h in _capabilities():
@@ -117,7 +107,6 @@ def test_every_devsim_claim_cites_its_api_or_our_script() -> None:
     assert not ys, ys
 
 
-
 def test_the_devsim_api_snapshot_says_where_it_came_from() -> None:
     k = (SCOREBOARD/'devsim_api.txt').read_text(encoding='utf-8')
     z2 = [r for r in k.splitlines() if r.startswith("#")]
@@ -129,8 +118,6 @@ def test_the_devsim_api_snapshot_says_where_it_came_from() -> None:
     "token",
     ["tests/nowhere.py::test_x", "tests/regression/test_scoreboard.py::no_such"],
 )
-
-
 def test_a_function_that_does_not_exist_is_not_evidence(token: str) -> None:
     assert not _function_exists(token)
 
@@ -149,10 +136,7 @@ def test_the_case_set_is_the_seeded_draw_from_todays_ranges() -> None:
     assert hh == cc
 
 
-
 def test_the_case_set_has_the_split_phase_8_names() -> None:
-
-
     kk: dict[str, int] = {}
     for el in _cases():
         kk[el["device"]] = kk.get(el["device"], 0)+1
@@ -163,24 +147,20 @@ def test_the_case_set_has_the_split_phase_8_names() -> None:
 
 def test_every_drawn_knob_sits_inside_its_declared_range() -> None:
     for y in _cases():
-
         k = {p.name:p for p in device_parameters(y['device'])}
         for s, e in json.loads(y["knobs"]).items():
-
             p = k[s]
             assert p.low is not None and p.high is not None, s
             assert p.low <= e <= p.high, (y["case"], s, e)
 
 
 def test_only_physical_knobs_are_drawn() -> None:
-
     for y in _cases():
         t2 = set(json.loads(y["knobs"]))
         assert t2 == set(tool.PHYSICAL[y['device']]), y["case"]
 
 
 def _case(device: str = 'pn_diode', **knobs:float) -> Any:
-
     item = {"pn_diode":{}, "mos_cap":{}, "nmos":{'L_gate':1e-4}}[device]
     return tool.Case("x001", device, {**item, **knobs}, 0)
 
@@ -188,7 +168,6 @@ def _case(device: str = 'pn_diode', **knobs:float) -> Any:
 def _result(driver:str, value: float, imbalance: float = 0.0, converged: bool = True,) -> Any:
     return tool.Result("x001", driver, converged, value, imbalance, abs(value), 0.0, '')
 def test_two_currents_under_the_floor_agree() -> None:
-
     nxt = _case()
     assert tool.agree(nxt, _result("a", 1e-12), _result('b', -3e-11))
 
@@ -202,18 +181,13 @@ def test_a_diode_current_off_by_more_than_two_percent_disagrees() -> None:
 
     assert not tool.agree(d2, _result("a", 1.03e-3), c)
 def test_an_unbalanced_diode_current_above_the_floor_is_not_valid() -> None:
-
-
     t = _case()
     assert tool.valid(t, _result("a", 1e-6, imbalance=1e-10))
     assert not tool.valid(t, _result("a", 1e-6, imbalance=1e-8))
 
 
-
-
 def test_a_mosfet_tail_current_need_not_balance() -> None:
     ys = _case("nmos", L_gate=1e-4)
-
 
     jj = tool.floor(ys)
     i = _result('a', 5.0 * jj, imbalance=2.0 * jj)
@@ -222,16 +196,13 @@ def test_a_mosfet_tail_current_need_not_balance() -> None:
     assert not tool.valid(ys, hh)
 
 def test_a_case_whose_references_disagree_is_dropped() -> None:
-
     a = _case()
 
     aa = [_result('ddsim', 1e-3), _result('ddsim_fine', 1e-3), _result('devsim_fine', 2e-3),]
 
-
     v = tool.score([a], aa)
     assert v.dropped == {"x001": "the references disagree"}
     assert v.passes.get("ddsim", 0) == 0
-
 
 
 def test_one_valid_reference_is_enough() -> None:
@@ -256,7 +227,6 @@ def test_the_floors_are_the_ones_tier_4_measured() -> None:
     from tests.regression import test_devsim_mosfet as M
     from tests.regression.devsim_gen import parameters as P
 
-
     assert tool.DIODE_FLOOR == P.CURRENT_FLOOR
 
     assert tool.MOSFET_FLOOR == M.FULL_STACK_FLOOR; assert tool.MOSFET_BALANCE == M.LOAD_BEARING
@@ -268,12 +238,9 @@ def test_a_current_under_the_floor_does_not_agree_with_a_real_one() -> None:
     assert not tool.agree(nxt, _result('a', 1e-12), _result("b", 1e-6))
 
 
-
-
 def test_richardson_recovers_a_known_limit_and_order() -> None:
     z, out, m, cnt = 2.0, 1.7, 2, 1e-3; y = []
     for d2 in tool.REFINEMENTS:
-
         x = round(1000 * d2 ** m)
         y.append((d2,
              x,
@@ -289,14 +256,12 @@ def test_richardson_recovers_a_known_limit_and_order() -> None:
     assert c.nodes_for_one_percent == pytest.approx(flag, rel=1e-6)
 
 
-
 def test_richardson_refuses_moves_that_do_not_shrink() -> None:
     f = [(1.0, 100, 1.0), (1.5, 225, 1.1), (2.25, 506, 1.0)]
 
     assert tool.richardson(f, 2).order is None
 
 def test_richardson_refuses_an_order_scharfetter_gummel_cannot_have() -> None:
-
     k = [(1.0, 100, 6.0), (1.5, 225, 6.1), (2.25, 506, 6.198)]
     assert tool.richardson(k, 2).order is None
 
@@ -311,22 +276,14 @@ GENERATOR = {'ddsim': "tools/scoreboard.py", "devsim":'devsim_gen/scoreboard.py'
 
 
 def _provenance(path: Path) -> tuple[list[str], str]:
-
     h = path.read_text(encoding="utf-8").splitlines()
     foo = [aa for aa in h if aa.startswith("#")]
-
 
     z = [aa for aa in h if not aa.startswith('#')]
     return foo, z[0]
 @pytest.mark.parametrize("tool_name", sorted(GENERATOR))
-
-
-
 @pytest.mark.parametrize("axis",
                sorted(RESULT_COLUMNS))
-
-
-
 def test_every_result_csv_says_where_it_came_from(tool_name: str, axis: str) -> None:
     y, r = _provenance(SCOREBOARD/f"{tool_name}_{axis}.csv")
 
@@ -342,7 +299,6 @@ def test_every_result_csv_says_where_it_came_from(tool_name: str, axis: str) -> 
         assert any('one BLAS thread' in v for v in y)
     if axis == 'robustness':
         assert any("default BLAS threads" in v for v in y)
-
 
 
 def test_the_scoreboard_readme_is_what_the_csvs_say() -> None:
@@ -389,11 +345,9 @@ def test_ddsim_passes_no_fewer_cold_solves_than_its_best() -> None:
     assert ss >= BEST_ROBUSTNESS
 
 
-
 def test_ddsim_needs_no_more_nodes_than_its_best() -> None:
     g = tool.read_accuracy(SCOREBOARD / 'ddsim_accuracy.csv')
     dat = {n: tool.richardson(v, tool.dimension(n)) for n, v in g.items()}
-
 
     for s, e in BEST_NODES_FOR_ONE_PERCENT.items():
         xx = dat[s].nodes_for_one_percent
@@ -401,12 +355,9 @@ def test_ddsim_needs_no_more_nodes_than_its_best() -> None:
         assert xx is not None, f"{s} left the asymptotic range"; assert xx <= e * 1.001, s
 
 
-
 def test_no_ddsim_capability_goes_from_yes_to_no() -> None:
     c2 = {rr['capability'] for rr in _capabilities() if rr["ddsim"] == "yes"}
     assert BEST_CAPABILITIES <= c2
-
-
 
 
 def test_a_sweep_that_never_converged_has_no_speed(tmp_path:Path) -> None:
