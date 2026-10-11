@@ -92,7 +92,7 @@ def test_a_diode_solve_streams_finishes_and_draws_in_a_real_browser(server) -> N
             kk:set[str] = set()
             num.on("request", lambda request: kk.add(request.url.split("/")[2]))
             num.goto(server)
-            num.wait_for_function("el('state').textContent === 'ready'")
+            wait_until(num, "el('state').textContent === 'ready'", m)
             num.fill("#voltages", '0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6')
             num.click("#solve")
             wait_until(num, "state.residual.length > 0 && el('state').textContent === 'solving'", m,)
