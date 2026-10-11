@@ -9,7 +9,7 @@ it and fails if this file is stale. The rules are the 2026-09-25,
 
 | Axis | DDSim | DEVSIM 2.11 |
 |---|---|---|
-| Robustness: cold solves passed, of 157 scored | 152 | stock ramp 95, my ramp 142 |
+| Robustness: cold solves passed, of 186 scored | 186 | stock ramp 130, my ramp 175 |
 | Accuracy: benchmarks reaching 1% on fewer nodes, of 10 | 2 | 5 (3 not in the asymptotic range) |
 | Error estimates reported | none | none |
 | Speed: time per bias point, benchmarks both tools finished | 1.6x faster | 1x |
@@ -17,50 +17,21 @@ it and fails if this file is stale. The rules are the 2026-09-25,
 
 ## Robustness
 
-157 of 200 cases scored.
+186 of 200 cases scored.
 
 | Driver | Passed |
 |---|---|
-| ddsim | 152 |
-| ddsim_fine | 155 |
-| devsim_stock | 95 |
-| devsim_expert | 142 |
-| devsim_fine | 138 |
+| ddsim | 186 |
+| ddsim_fine | 186 |
+| devsim_stock | 130 |
+| devsim_expert | 175 |
+| devsim_fine | 169 |
 
 Dropped cases, which count for nobody:
 
-- d002: no valid reference
-- d005: no valid reference
-- d008: no valid reference
-- d010: no valid reference
-- d012: no valid reference
-- d013: no valid reference
-- d015: no valid reference
-- d017: no valid reference
-- d018: no valid reference
-- d019: no valid reference
-- d020: no valid reference
-- d023: no valid reference
-- d024: no valid reference
-- d026: no valid reference
-- d027: no valid reference
-- d029: no valid reference
-- d033: no valid reference
-- d034: no valid reference
-- d035: no valid reference
-- d036: no valid reference
-- d038: no valid reference
-- d039: no valid reference
-- d042: no valid reference
-- d044: no valid reference
-- d047: no valid reference
-- d049: no valid reference
-- d051: no valid reference
-- d053: no valid reference
-- d054: no valid reference
-- d055: no valid reference
-- d057: no valid reference
-- d058: no valid reference
+- d006: the references disagree
+- d026: the references disagree
+- d045: the references disagree
 - m006: the references disagree
 - m009: the references disagree
 - m020: no valid reference

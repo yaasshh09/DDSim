@@ -305,7 +305,7 @@ def test_the_scoreboard_readme_is_what_the_csvs_say() -> None:
     m = (SCOREBOARD / 'README.md').read_text(encoding="utf-8")
     assert m == tool.summary(tool.load_board()), ('run `tools/scoreboard.py summary` and commit the README it writes')
 
-BEST_ROBUSTNESS = 152
+BEST_ROBUSTNESS = 186
 BEST_NODES_FOR_ONE_PERCENT = {
     'diode_1e16_1e16': 13.64,
     'diode_1e18_1e16': 22.19,
