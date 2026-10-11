@@ -2,7 +2,7 @@ from __future__ import annotations
 import math
 import numpy as np, pytest
 from ddsim.core import constants as C
-from ddsim.device.builder import build_device
+from ddsim.device.builder import Material, build_device
 from ddsim.device.doping import Step
 from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
 from ddsim.device.pn_diode import pn_diode
@@ -22,7 +22,7 @@ def analytic_depletion_width(Na:float, Nd: float, bias: float = 0.0) -> float:
     return math.sqrt(2.0 * C.eps_Si() * (j - bias) / C.q * (1.0 / Na + 1.0/Nd))
 
 
-def long_diode(Na:float, Nd: float, bias: float = 0.0, length:float = 12.0 * MICRON):
+def long_diode(Na:float, Nd: float, bias: float = 0.0, length:float = 12.0 * MICRON, T: float = 300.0):
     return pn_diode(
         Na=Na,
         Nd=Nd,
@@ -31,6 +31,7 @@ def long_diode(Na:float, Nd: float, bias: float = 0.0, length:float = 12.0 * MIC
         n_nodes=801,
         h_min=5e-8,
         anode_voltage=bias,
+        material=Material.silicon(T),
     )
 
 
@@ -47,6 +48,13 @@ def test_built_in_potential_matches_the_analytic_form(Na: float, Nd:float) -> No
     u = analytic_V_bi(Na, Nd)
 
     assert d2 == pytest.approx(u, rel=5e-3)
+
+
+@pytest.mark.parametrize('T', [250.0, 300.0, 350.0, 400.0])
+def test_built_in_potential_follows_temperature(T: float) -> None:
+    d = long_diode(1e16, 1e17, T=T)
+    psi = solve_equilibrium(d).psi.to_physical(d.scale).data
+    assert psi[-1] - psi[0] == pytest.approx(analytic_V_bi(1e16, 1e17, T), rel=1e-6)
 
 
 def test_built_in_potential_is_not_the_value_quoted_in_the_docs() -> None:
