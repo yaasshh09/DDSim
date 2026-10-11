@@ -3,9 +3,10 @@ import math
 import numpy as np
 import pytest
 from ddsim.core import constants as C
+from ddsim.device.builder import Material
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import solve_bias
-from ddsim.extract.iv import iv_sweep, total_current
+from ddsim.extract.iv import current_densities, iv_sweep, total_current
 from ddsim.extract.params import ideality_factor, saturation_current
 from ddsim.physics.recombination import scharfetter_lifetime
 
@@ -108,6 +109,24 @@ def test_reverse_current_saturates_between_its_two_analytic_bounds() -> None:
     dat = C.q*C.n_i() * depletion_width(1e16, 1e16, -1.0)/r
 
     assert ss < h < dat
+
+
+def long_base_electron_current(T: float) -> float:
+    xj = 2000 * MICRON
+    d = pn_diode(Na=1e15, Nd=1e18, length=2 * xj, junction=xj, n_nodes=801, h_min=1e-6, material=Material.silicon(T)).with_bias(anode=-0.5)
+    s = solve_bias(d)
+    assert s.gummel is None or s.gummel.converged
+    jn, _ = current_densities(d, s)
+    x = d.node_x; mid = 0.5 * (x[1:] + x[:-1])
+    return abs(float(jn.data[np.argmin(abs(mid - (xj - 3 * MICRON)))]))
+
+
+def test_saturation_current_follows_n_i_squared_D_over_L_in_temperature() -> None:
+    tau = float(scharfetter_lifetime(1e15, tau_max=C.TAU_N_MAX))
+    want = {T: C.n_i(T) ** 2 * math.sqrt(C.D_n(T) / tau) for T in (300.0, 350.0, 400.0)}
+    got = {T: long_base_electron_current(T) for T in want}
+    for T in (350.0, 400.0):
+        assert got[T] / got[300.0] == pytest.approx(want[T] / want[300.0], rel=0.02)
 
 
 def test_reverse_current_is_flat_with_bias() -> None:
