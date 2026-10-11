@@ -1,136 +1,136 @@
-from  __future__  import  annotations
+from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 from ddsim.api.app import create_app
-from  ddsim.api.devices  import (DEVICE_KINDS, argument_docs, device_parameters, parameters_of ,)
+from ddsim.api.devices import (DEVICE_KINDS, argument_docs, device_parameters, parameters_of,)
 from ddsim.api.sweeps import SWEEP_KINDS, model_parameters, sweep_parameters
 
 
-def  every_knob() :
+def every_knob():
 
-    for kk in DEVICE_KINDS :
+    for kk in DEVICE_KINDS:
         for ret in device_parameters(kk):
-            yield f"device {kk}" ,  ret
-    for kk in SWEEP_KINDS  :
-        for ret in sweep_parameters(kk) :
-            yield f"sweep {kk}",ret
+            yield f"device {kk}", ret
+    for kk in SWEEP_KINDS:
+        for ret in sweep_parameters(kk):
+            yield f"sweep {kk}", ret
     for ret in model_parameters():
         yield 'models', ret
 
 
-KNOBS =  list(every_knob())
+KNOBS = list(every_knob())
 
-IDS =   [f"{owner} {parameter.name}"  for owner,   parameter  in  KNOBS ]
+IDS = [f"{owner} {parameter.name}" for owner, parameter in KNOBS]
 
-SLIDER_KNOBS= [(kind, parameter) for kind in DEVICE_KINDS for parameter in device_parameters(kind) if parameter.type in("float", "int")]
+SLIDER_KNOBS = [(kind, parameter) for kind in DEVICE_KINDS for parameter in device_parameters(kind) if parameter.type in ("float", "int")]
 
-SLIDER_IDS  = [ f"{kind} {parameter.name}" for kind,   parameter in SLIDER_KNOBS]
+SLIDER_IDS = [f"{kind} {parameter.name}" for kind, parameter in SLIDER_KNOBS]
 
 
 @pytest.fixture
 
 
 def client():
-    with TestClient(create_app())as u :
+    with TestClient(create_app()) as u:
 
 
         yield u
 
 
-@pytest.mark.parametrize(("owner","parameter"),KNOBS,ids =IDS)
+@pytest.mark.parametrize(("owner", "parameter"), KNOBS, ids=IDS)
 
-def test_every_knob_has_an_explanation(  owner, parameter ) -> None :
+def test_every_knob_has_an_explanation(owner, parameter) -> None:
 
     assert parameter.explanation.strip(), f"{owner} {parameter.name} has no Args: line"
-@pytest.mark.parametrize(("owner", 'parameter'), KNOBS, ids  = IDS)
+@pytest.mark.parametrize(("owner", 'parameter'), KNOBS, ids=IDS)
 
 
-def  test_every_numeric_knob_has_a_unit( owner, parameter )   ->  None  :
+def test_every_numeric_knob_has_a_unit(owner, parameter) -> None:
 
-    if parameter.type in( 'float' ,  "int"  )  :
+    if parameter.type in ('float', "int"):
 
         assert parameter.unit, (
             f"{owner} {parameter.name}: no [unit] in {parameter.explanation!r}"
         )
 
 
-def  test_argument_docs_reads_the_knob_file_and_the_unit() ->   None  :
+def test_argument_docs_reads_the_knob_file_and_the_unit() -> None:
     from ddsim.device.pn_diode import pn_diode
-    m=argument_docs(pn_diode)
+    m = argument_docs(pn_diode)
     assert "acceptor" in m['Na'] and '[cm^-3]' in m["Na"]
-    def sample(  depth   :  float =  1.0,  flag  : bool  =  False )  ->  None  :
+    def sample(depth: float = 1.0, flag: bool = False) -> None:
         ...
     assert argument_docs(sample) == {}
     assert parameters_of(sample, docs={'depth': "how far down [cm], measured from the top surface."})[0].unit == "cm"
 
 
 
-def test_a_knob_crosses_the_schema_with_its_explanation(client)-> None :
-    d= client.get("/api/schema").json() ['devices']['pn_diode']
-    s2 =next(g for g in d if g["name"]== 'Na')
+def test_a_knob_crosses_the_schema_with_its_explanation(client) -> None:
+    d = client.get("/api/schema").json()['devices']['pn_diode']
+    s2 = next(g for g in d if g["name"] == 'Na')
 
-    assert s2["unit"]=="cm^-3"
+    assert s2["unit"] == "cm^-3"
     assert "acceptor" in s2['explanation']
 
 
 
-@pytest.mark.parametrize(('kind',"parameter"),SLIDER_KNOBS,ids= SLIDER_IDS)
+@pytest.mark.parametrize(('kind', "parameter"), SLIDER_KNOBS, ids=SLIDER_IDS)
 
 
 
-def test_every_slider_knob_declares_a_range(kind, parameter)  ->  None  :
-    assert parameter.low is not None and parameter.high is not None,(
+def test_every_slider_knob_declares_a_range(kind, parameter) -> None:
+    assert parameter.low is not None and parameter.high is not None, (
         f"device {kind} {parameter.name}: no 'Range lo to hi' in "
         f"{parameter.explanation!r}"
     )
 
-    assert parameter.low <parameter.high
-    assert parameter.low<=parameter.default<=parameter.high,(
+    assert parameter.low < parameter.high
+    assert parameter.low <= parameter.default <= parameter.high, (
         f"device {kind} {parameter.name}: the default {parameter.default} is "
         f"outside its own range {parameter.low} to {parameter.high}"
     )
 
 
 
-def test_the_parser_reads_a_declared_range ( )  ->   None  :
-    def  sample(depth  :   float =  1.0,   doping : float  =   1e16 ) ->  None :
+def test_the_parser_reads_a_declared_range() -> None:
+    def sample(depth: float = 1.0, doping: float = 1e16) -> None:
         ...
 
-    v = { p.name  : p  for  p  in parameters_of ( sample, docs={"depth": "how far down [cm]. Range 1e-5 to 1e-3.", 'doping':'how much [cm^-3]. Range 1e14 to 1e19, log.'} )}
+    v = {p.name: p for p in parameters_of(sample, docs={"depth": "how far down [cm]. Range 1e-5 to 1e-3.", 'doping':'how much [cm^-3]. Range 1e14 to 1e19, log.'})}
 
-    assert(v['depth'].low,v["depth"].high)==(1e-5,1e-3)
-    assert  v["depth" ].axis  ==   'linear'
-    assert(v["doping"].low, v["doping"].high)==  (1e14, 1e19)
-    assert v["doping"].axis  == 'log'
-
-
-
-def test_a_knob_with_no_declared_range_offers_none() ->None:
+    assert (v['depth'].low, v["depth"].high) == (1e-5, 1e-3)
+    assert v["depth"].axis == 'linear'
+    assert (v["doping"].low, v["doping"].high) == (1e14, 1e19)
+    assert v["doping"].axis == 'log'
 
 
-    def sample(depth:float =1.0) ->None :
+
+def test_a_knob_with_no_declared_range_offers_none() -> None:
+
+
+    def sample(depth:float = 1.0) -> None:
         ...
-    g   =   parameters_of(  sample, docs = {'depth':"how far down [cm]."} )   [  0]
+    g = parameters_of(sample, docs={'depth':"how far down [cm]."})[0]
 
     assert g.low is None
 
 
     assert g.high is None
-    assert g.axis== 'linear'
+    assert g.axis == 'linear'
 
 
-def  test_a_range_crosses_the_schema( client)  ->  None :
-    tmp3= client.get('/api/schema').json() ["devices"]["pn_diode"]
-    kk =next(j for j in tmp3 if j['name']== "Na")
+def test_a_range_crosses_the_schema(client) -> None:
+    tmp3 = client.get('/api/schema').json()["devices"]["pn_diode"]
+    kk = next(j for j in tmp3 if j['name'] == "Na")
 
 
-    assert kk["low"]   ==  1e14
-    assert kk['high'] ==1e19
-    assert kk["axis"]=='log'
+    assert kk["low"] == 1e14
+    assert kk['high'] == 1e19
+    assert kk["axis"] == 'log'
 
 
 
-def test_the_schema_says_which_devices_are_one_dimensional(client)-> None :
-    u  =  client.get(  "/api/schema").json( ) [ "dimensions" ]
+def test_the_schema_says_which_devices_are_one_dimensional(client) -> None:
+    u = client.get("/api/schema").json()["dimensions"]
 
-    assert u  == {'pn_diode' :  1, 'mos_cap':  2, 'nmos': 2, 'stack' : 1, "drawing"  : 2,}
+    assert u == {'pn_diode': 1, 'mos_cap': 2, 'nmos': 2, 'stack': 1, "drawing": 2,}

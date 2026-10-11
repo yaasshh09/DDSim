@@ -5,44 +5,44 @@ from scipy.integrate import quad
 from scipy.optimize import brentq
 
 
-SERIES_TERMS=400
+SERIES_TERMS = 400
 
 
 SERIES_MAX_ETA = -0.05
-TAIL   =  60.0
+TAIL = 60.0
 
-def F_series(eta : float,order : float =0.5) ->float :
+def F_series(eta: float, order: float = 0.5) -> float:
 
-    if eta >  SERIES_MAX_ETA  :
+    if eta > SERIES_MAX_ETA:
         raise ValueError(
             f"the alternating series converges for eta < 0 and is only "
             f"trusted below {SERIES_MAX_ETA}, got {eta}"
         )
-    j  = np.arange(1.0, SERIES_TERMS +1.0)
-    c=((-1.0)  ** (j  + 1.0))  *np.exp(j *eta) / j **(order + 1.0)
-    return float ( math.gamma( order   + 1.0 )   *   np.sum( c))
+    j = np.arange(1.0, SERIES_TERMS + 1.0)
+    c = ((-1.0) ** (j + 1.0)) * np.exp(j * eta) / j ** (order + 1.0)
+    return float(math.gamma(order + 1.0) * np.sum(c))
 
 
-def F_quad(eta :float,order:float = 0.5) -> float:
-    t=max(eta,0.0)
+def F_quad(eta:float, order:float = 0.5) -> float:
+    t = max(eta, 0.0)
 
-    def integrand(x:float) ->float:
-        return x ** order  / (1.0 +  math.exp(x -eta))
+    def integrand(x:float) -> float:
+        return x ** order / (1.0 + math.exp(x - eta))
 
-    ys,_ =quad(integrand,0.0,t+ TAIL,limit=400,points= [t])
-    return  float (  ys)
+    ys, _ = quad(integrand, 0.0, t + TAIL, limit=400, points=[t])
+    return float(ys)
 
 
-def u_reference(eta : float) -> float:
-    return F_quad(eta, 0.5)/ math.gamma(1.5)
+def u_reference(eta: float) -> float:
+    return F_quad(eta, 0.5) / math.gamma(1.5)
 
-def  eta_reference( u  :  float)  ->   float  :
+def eta_reference(u: float) -> float:
     return float(
-        brentq(lambda e: u_reference(e)  - u, -  80.0, 80.0, xtol  =1e-14, rtol =8.9e-16)
+        brentq(lambda e: u_reference(e) - u, -80.0, 80.0, xtol=1e-14, rtol=8.9e-16)
     )
 
 
 
-def einstein_reference(u:float) ->  float  :
-    y =eta_reference(u)
-    return 2.0  *F_quad(y, 0.5) /F_quad(y, - 0.5)
+def einstein_reference(u:float) -> float:
+    y = eta_reference(u)
+    return 2.0 * F_quad(y, 0.5) / F_quad(y, -0.5)

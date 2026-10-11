@@ -1,147 +1,147 @@
 from __future__ import annotations
 import math
 from collections.abc import Sequence
-from  dataclasses import  dataclass , field
+from dataclasses import dataclass, field
 
-Q =  1.602176634e-19
-
-
-
-K_B= 1.380649e-23
+Q = 1.602176634e-19
 
 
 
-EPS_0 =8.8541878128e-14
-
-T  = 300.0
-EPS_R_SI  = 11.7
-
-
-N_I=1.0e10
-
-MU_N =  1417.0
+K_B = 1.380649e-23
 
 
 
-MU_P =470.0
+EPS_0 = 8.8541878128e-14
 
-TAU_N_MAX= 1e-5
-
-TAU_P_MAX =3e-6
-
-
-TAU_N_MIN=  0.0
+T = 300.0
+EPS_R_SI = 11.7
 
 
-TAU_P_MIN  = 0.0
+N_I = 1.0e10
+
+MU_N = 1417.0
+
+
+
+MU_P = 470.0
+
+TAU_N_MAX = 1e-5
+
+TAU_P_MAX = 3e-6
+
+
+TAU_N_MIN = 0.0
+
+
+TAU_P_MIN = 0.0
 
 
 N_REF_SRH = 5e16
 
-GAMMA_SRH  =  1.0
-EPS_R_OX :float =3.9
+GAMMA_SRH = 1.0
+EPS_R_OX:float = 3.9
 
 
-CHI_SI: float =4.05
+CHI_SI: float = 4.05
 
-_EG_0 :  float   =   1.1696
-_EG_ALPHA  : float = 4.73e-4 ; _EG_BETA  :  float   =  636.0
-EG :float = _EG_0 -_EG_ALPHA * T*T /(T + _EG_BETA)
-PHI_M_N_POLY  :  float = CHI_SI
+_EG_0: float = 1.1696
+_EG_ALPHA: float = 4.73e-4; _EG_BETA: float = 636.0
+EG:float = _EG_0 - _EG_ALPHA * T*T / (T + _EG_BETA)
+PHI_M_N_POLY: float = CHI_SI
 
-PHI_M_MIDGAP  :   float = CHI_SI   + EG /  2.0
+PHI_M_MIDGAP: float = CHI_SI + EG / 2.0
 
 
-V_T = K_B * T/ Q
+V_T = K_B * T / Q
 
-ARORA_N : tuple[float, float, float, float] =  (88.0, 1252.0, 1.432e17, 0.88)
-ARORA_P :  tuple[  float, float ,  float,   float  ]  =  (54.3 ,  407.0,   2.67e17 ,   0.88  )
+ARORA_N: tuple[float, float, float, float] = (88.0, 1252.0, 1.432e17, 0.88)
+ARORA_P: tuple[float, float, float, float] = (54.3, 407.0, 2.67e17, 0.88)
 
-LOMBARDI_N  :   dict[  str,  float ]  = {
-    "B"   :  3.61e7 ,
-    "C"   :  1.70e4,
-    "tau" : 0.0233 ,
-    "delta" :  3.58e18,
-    "A" :   2.58,
-    "alpha"   :  6.85e-21,
-    "eta" :   0.0767,
-    "kappa"   :  1.7,
+LOMBARDI_N: dict[str, float] = {
+    "B": 3.61e7,
+    "C": 1.70e4,
+    "tau": 0.0233,
+    "delta": 3.58e18,
+    "A": 2.58,
+    "alpha": 6.85e-21,
+    "eta": 0.0767,
+    "kappa": 1.7,
 }
 
-LOMBARDI_P  :dict[str, float]  = {
-    'B' :  1.51e7,
-    'C' : 4.18e3,
-    "tau"  : 0.0119,
-    "delta" : 4.10e15,
-    "A"  :2.18,
-    'alpha' : 7.82e-21,
-    "eta" :  0.123,
-    'kappa':  0.9,
+LOMBARDI_P:dict[str, float] = {
+    'B': 1.51e7,
+    'C': 4.18e3,
+    "tau": 0.0119,
+    "delta": 4.10e15,
+    "A":2.18,
+    'alpha': 7.82e-21,
+    "eta": 0.123,
+    'kappa': 0.9,
 }
 
 E_PERP_FLOOR = 1.0e2
 
-V_SAT_N  =1.07e7
+V_SAT_N = 1.07e7
 
 
 
-V_SAT_P  = 8.3e6
+V_SAT_P = 8.3e6
 
-BETA_N =2.0
+BETA_N = 2.0
 
-BETA_P=1.0
+BETA_P = 1.0
 
 
 NC_300 = 2.86e19
 
-NV_300=3.10e19
+NV_300 = 3.10e19
 
 
-JOYCE_DIXON  =  (
-    1.0  /  math.sqrt ( 8.0 ),
-    3.0 /  16.0 - math.sqrt(3.0 )  /  9.0 ,
-    1.48386e-4 ,
-    -  4.42563e-6 ,
+JOYCE_DIXON = (
+    1.0 / math.sqrt(8.0),
+    3.0 / 16.0 - math.sqrt(3.0) / 9.0,
+    1.48386e-4,
+    -4.42563e-6,
 )
 
-JOYCE_DIXON_MAX_U=  8.0
+JOYCE_DIXON_MAX_U = 8.0
 
 
 @dataclass(frozen=True)
 
 
 
-class DiodeBenchmark  :
+class DiodeBenchmark:
 
-    name  :  str
+    name: str
 
-    number : int
+    number: int
 
     Na: float
 
-    Nd : float
+    Nd: float
 
 
     length: float
 
 
-    junction :float
+    junction:float
 
 
 
-    voltages : tuple[float, ...]
+    voltages: tuple[float, ...]
 
-    tolerance : float
-    n_nodes  :  int  = 201
-    h_min  :   float   = 1e-7
+    tolerance: float
+    n_nodes: int = 201
+    h_min: float = 1e-7
 
-    devsim_h_junction : float= 2e-7
-
-
-    devsim_h_bulk  :   float = 2e-6
+    devsim_h_junction: float = 2e-7
 
 
-    notes  :  str =   ""
+    devsim_h_bulk: float = 2e-6
+
+
+    notes: str = ""
 
 
 CURRENT_FLOOR = 1e-10
@@ -149,70 +149,70 @@ CURRENT_FLOOR = 1e-10
 
 
 
-def _forward(stop :float, step : float =  0.05)-> tuple[float, ...] :
-    cur  = round(stop  / step)
-    return tuple(round(h *step,10)for h in range(cur+ 1))
-REVERSE = (-   1.0, -   0.75 ,   -   0.5 , - 0.25 , -  0.1)
+def _forward(stop:float, step: float = 0.05) -> tuple[float, ...]:
+    cur = round(stop / step)
+    return tuple(round(h * step, 10) for h in range(cur + 1))
+REVERSE = (-1.0, -0.75, -0.5, -0.25, -0.1)
 
-BENCHMARKS  :   tuple[  DiodeBenchmark,   ...]   =   (
-    DiodeBenchmark (
-        name   =  "diode_1e16_1e16" ,
-        number  = 1,
-        Na = 1e16,
-        Nd  =   1e16,
-        length   =  1e-4,
-        junction  =   0.5e-4,
-        voltages  =   REVERSE +  _forward(  0.7) ,
-        tolerance   = 0.02,
-        notes =  (
+BENCHMARKS: tuple[DiodeBenchmark, ...] = (
+    DiodeBenchmark(
+        name="diode_1e16_1e16",
+        number=1,
+        Na=1e16,
+        Nd=1e16,
+        length=1e-4,
+        junction=0.5e-4,
+        voltages=REVERSE + _forward(0.7),
+        tolerance=0.02,
+        notes=(
             'Symmetric junction, the clean analytic target. Reverse bias is '
             "generation limited and forward bias is diffusion limited, so the "
             "one sweep exercises both SRH branches."
-        ) ,
+        ),
     ),
-    DiodeBenchmark (
-        name  =  "diode_1e18_1e16" ,
-        number  =   2 ,
-        Na  = 1e18 ,
-        Nd  =  1e16 ,
-        length   =  1e-4 ,
-        junction   =  0.5e-4 ,
-        voltages  =  _forward( 0.7),
-        tolerance  =  0.03 ,
-        notes  =   (
+    DiodeBenchmark(
+        name="diode_1e18_1e16",
+        number=2,
+        Na=1e18,
+        Nd=1e16,
+        length=1e-4,
+        junction=0.5e-4,
+        voltages=_forward(0.7),
+        tolerance=0.03,
+        notes=(
             'Asymmetric junction. The p side is two decades heavier, so almost '
             'all the injection is into the n side and the Scharfetter lifetime '
             "differs by a factor of twenty across the junction."
         ),
-    ) ,
+    ),
     DiodeBenchmark(
-        name =  'diode_1e20_1e15',
-        number  = 3 ,
-        Na  =   1e20,
-        Nd = 1e15,
-        length  =  1e-4,
-        junction   =   0.5e-4,
-        voltages  = _forward(0.7),
-        tolerance  =   0.05,
-        notes  =  (
+        name='diode_1e20_1e15',
+        number=3,
+        Na=1e20,
+        Nd=1e15,
+        length=1e-4,
+        junction=0.5e-4,
+        voltages=_forward(0.7),
+        tolerance=0.05,
+        notes=(
             "P+N. docs/04-validation.md lists this one as the degeneracy test. "
             "Both codes are run in Boltzmann statistics here, so what it "
             "actually measures is agreement at a doping where Boltzmann is "
             'already wrong, which is a code comparison and not a physics '
             "check. Fermi-Dirac is deferred with the rest of it."
         ),
-    ) ,
+    ),
 )
-BY_NAME :  dict[  str,  DiodeBenchmark ]  =  {b.name  :   b  for b in BENCHMARKS }
+BY_NAME: dict[str, DiodeBenchmark] = {b.name: b for b in BENCHMARKS}
 
 
-def  scharfetter_lifetime(
-    N_total  :   float,   tau_max :  float,   tau_min   :   float  =   0.0
-) ->  float :
-    return float(tau_min + (tau_max -  tau_min)/ (1.0 + (N_total/ N_REF_SRH)**  GAMMA_SRH))
+def scharfetter_lifetime(
+    N_total: float, tau_max: float, tau_min: float = 0.0
+) -> float:
+    return float(tau_min + (tau_max - tau_min) / (1.0 + (N_total / N_REF_SRH) ** GAMMA_SRH))
 
 
-MODEL_SUMMARY :tuple[str, ...]  =(
+MODEL_SUMMARY:tuple[str, ...] = (
     'statistics:      Boltzmann',
     "transport:       Scharfetter-Gummel, Einstein relation D = V_t * mu",
     f"mobility:        constant, mu_n = {MU_N} and mu_p = {MU_P} cm^2/(V s)",
@@ -233,120 +233,120 @@ MODEL_SUMMARY :tuple[str, ...]  =(
 
 
 
-class GoldenCurve :
+class GoldenCurve:
 
 
     name: str
 
-    header : dict[str, str]=field(default_factory = dict)
+    header: dict[str, str] = field(default_factory=dict)
 
 
 
-    voltage :   list[ float] = field (default_factory  = list)
+    voltage: list[float] = field(default_factory=list)
 
 
 
-    current:list[float]= field(default_factory =list)
+    current:list[float] = field(default_factory=list)
 
-    cathode_current : list[float]  = field(default_factory=  list)
+    cathode_current: list[float] = field(default_factory=list)
 
-    def imbalance(self,index :int)-> float:
-        ys =  self.current[index]
-        dat =self.cathode_current[index]
-        flag= max(abs(ys), abs(dat))
-        if flag == 0.0 :
+    def imbalance(self, index:int) -> float:
+        ys = self.current[index]
+        dat = self.cathode_current[index]
+        flag = max(abs(ys), abs(dat))
+        if flag == 0.0:
             return 0.0
-        return abs(ys + dat)/ flag
+        return abs(ys + dat) / flag
 
-def read_golden(path :str)->GoldenCurve:
-    el  =   GoldenCurve(  name   = '' )
-    with open(path, encoding =  "utf-8")  as a  :
+def read_golden(path:str) -> GoldenCurve:
+    el = GoldenCurve(name='')
+    with open(path, encoding="utf-8") as a:
 
         for w in a:
-            w=w.rstrip("\n")
+            w = w.rstrip("\n")
             if w.startswith("#"):
-                nxt  =  w[1 :].strip()
-                if ":"  in  nxt   :
-                    tmp3, _, g  =  nxt.partition(':')
+                nxt = w[1:].strip()
+                if ":" in nxt:
+                    tmp3, _, g = nxt.partition(':')
 
                     el.header.setdefault(tmp3.strip(), g.strip())
                 continue
             if not w or w.startswith('voltage'):
                 continue
-            k,   aa, r   = w.split(",")   [ :   3  ]
-            el.voltage.append(  float(k  ) )
+            k, aa, r = w.split(",")[:3]
+            el.voltage.append(float(k))
             el.current.append(float(aa))
             el.cathode_current.append(float(r))
-    el.name   =  el.header.get ( "device" , '' );return el
+    el.name = el.header.get("device", ''); return el
 
 
-@dataclass(frozen= True)
+@dataclass(frozen=True)
 
 class MosBenchmark:
 
-    name  : str
+    name: str
 
     number:int
 
 
-    substrate_doping : float
+    substrate_doping: float
 
     t_ox: float
-    t_si : float
+    t_si: float
 
     work_function:float
-    voltages : tuple[float,...]
+    voltages: tuple[float, ...]
 
-    tolerance  :  float
-
-
-
-    n_silicon :int=121
+    tolerance: float
 
 
 
-    n_oxide:int=5
+    n_silicon:int = 121
 
 
-    h_min  : float=5e-8
-    devsim_h_surface : float = 5e-9
-    devsim_h_bulk  :  float  =   1e-6
 
-    devsim_oxide_cells:int= 8
-    notes : str = ''
-
-def _gate_sweep(low : float, high : float, step  : float)  ->  tuple[float, ...]  :
-    res =  round ((high  -  low)  /   step  )
+    n_oxide:int = 5
 
 
-    return tuple (round(low   + lst *   step,   10)   for  lst in  range(res  + 1)  )
+    h_min: float = 5e-8
+    devsim_h_surface: float = 5e-9
+    devsim_h_bulk: float = 1e-6
 
-MOS_BENCHMARKS : tuple[MosBenchmark, ...]=(
+    devsim_oxide_cells:int = 8
+    notes: str = ''
+
+def _gate_sweep(low: float, high: float, step: float) -> tuple[float, ...]:
+    res = round((high - low) / step)
+
+
+    return tuple(round(low + lst * step, 10) for lst in range(res + 1))
+
+MOS_BENCHMARKS: tuple[MosBenchmark, ...] = (
     MosBenchmark(
-        name =  'mos_cap_5nm',
-        number  =4,
-        substrate_doping =-  1e16,
-        t_ox  =5e-7,
-        t_si =2e-4,
-        work_function = PHI_M_N_POLY,
-        voltages =  _gate_sweep(-2.0, 2.0, 0.1),
-        tolerance =0.02,
-        notes=  (
+        name='mos_cap_5nm',
+        number=4,
+        substrate_doping=-1e16,
+        t_ox=5e-7,
+        t_si=2e-4,
+        work_function=PHI_M_N_POLY,
+        voltages=_gate_sweep(-2.0, 2.0, 0.1),
+        tolerance=0.02,
+        notes=(
             'Thin oxide, so the oxide drop is small and most of the bias lands '
             'on the silicon surface. That puts the weight of the comparison on '
             "the semiconductor charge rather than on the parallel plate."
         ),
     ),
     MosBenchmark(
-        name  = 'mos_cap_20nm',
-        number = 5,
-        substrate_doping=- 1e16,
-        t_ox =2e-6,
+        name='mos_cap_20nm',
+        number=5,
+        substrate_doping=-1e16,
+        t_ox=2e-6,
         t_si=2e-4,
-        work_function  = PHI_M_N_POLY,
-        voltages = _gate_sweep(-2.0, 2.0, 0.1),
-        tolerance  = 0.02,
-        notes  = (
+        work_function=PHI_M_N_POLY,
+        voltages=_gate_sweep(-2.0, 2.0, 0.1),
+        tolerance=0.02,
+        notes=(
             'Four times the oxide of device 4 and otherwise identical, so the '
             'pair separates an error in the oxide from an error in the '
             "silicon: only the first moves with t_ox."
@@ -355,8 +355,8 @@ MOS_BENCHMARKS : tuple[MosBenchmark, ...]=(
 )
 
 
-MOS_MODEL_SUMMARY :  tuple [str, ... ]   =   (
-    "statistics:      Boltzmann" ,
+MOS_MODEL_SUMMARY: tuple[str, ...] = (
+    "statistics:      Boltzmann",
     "carriers:        equilibrium, phi_n = phi_p = body bias, no transport",
     "oxide:           Poisson only, no carriers, no fixed interface charge",
     "interface:       continuity of normal D, which box integration gives for "
@@ -376,92 +376,92 @@ MOS_MODEL_SUMMARY :  tuple [str, ... ]   =   (
 
 
 
-class MosGoldenCurve  :
+class MosGoldenCurve:
 
-    name :  str
-    header  :  dict[str, str]= field(default_factory=  dict)
-    gate_voltage:list[float]= field(default_factory=list)
-    charge : list[float] =  field(default_factory  =list)
+    name: str
+    header: dict[str, str] = field(default_factory=dict)
+    gate_voltage:list[float] = field(default_factory=list)
+    charge: list[float] = field(default_factory=list)
     @property
-    def  tolerance (  self )   ->  float  :
+    def tolerance(self) -> float:
         return float(self.header['tolerance'])
 
-def read_mos_golden(  path :   str)  ->  MosGoldenCurve  :
+def read_mos_golden(path: str) -> MosGoldenCurve:
 
-    e=MosGoldenCurve(name='')
-    with open(path, encoding= "utf-8") as c :
-        for  d in  c   :
+    e = MosGoldenCurve(name='')
+    with open(path, encoding="utf-8") as c:
+        for d in c:
 
-            d= d.rstrip("\n")
+            d = d.rstrip("\n")
             if d.startswith("#"):
 
-                r =  d[1 :].strip()
-                if ":" in r :
-                    g, _, j  = r.partition(':')
+                r = d[1:].strip()
+                if ":" in r:
+                    g, _, j = r.partition(':')
                     e.header.setdefault(g.strip(), j.strip())
                 continue
             if not d or d.startswith('gate_voltage'):
                 continue
 
-            thing, t = d.split(",") [: 2]
+            thing, t = d.split(",")[:2]
             e.gate_voltage.append(float(thing))
             e.charge.append(float(t))
-    e.name=e.header.get('device',"")
+    e.name = e.header.get('device', "")
     return e
 
-def central_difference(voltage:list[float] |tuple[float,...], charge: list[float]|tuple[float,...],)->tuple[list[float],list[float]] :
+def central_difference(voltage:list[float] | tuple[float, ...], charge: list[float]|tuple[float, ...],) -> tuple[list[float], list[float]]:
 
-    e : list[float]= []
-    flag:list[float]= []
+    e: list[float] = []
+    flag:list[float] = []
     for xx in range(1,
-                   len(voltage)- 1):
-        jj = voltage[xx + 1] -voltage[xx  - 1]
-        e.append ( voltage[ xx ]  )
-        flag.append((charge[xx +  1] -  charge[xx  - 1]) /jj)
-    return e,flag
+                   len(voltage) - 1):
+        jj = voltage[xx + 1] - voltage[xx - 1]
+        e.append(voltage[xx])
+        flag.append((charge[xx + 1] - charge[xx - 1]) / jj)
+    return e, flag
 
-def  erfcinv(  target  :  float )  -> float :
-    if not 0.0 < target<2.0 :
+def erfcinv(target: float) -> float:
+    if not 0.0 < target < 2.0:
         raise ValueError(f"erfc maps onto (0, 2), so target must too, got {target}")
-    m2, t = - 30.0, 30.0
-    for _ in  range( 200)   :
-        i= 0.5*(m2+t)
-        if math.erfc(i)  >  target  :
-            m2=i
-        else :
-            t= i
-    return 0.5 * (m2  +t)
+    m2, t = -30.0, 30.0
+    for _ in range(200):
+        i = 0.5*(m2+t)
+        if math.erfc(i) > target:
+            m2 = i
+        else:
+            t = i
+    return 0.5 * (m2 + t)
 
-MOSFET_PROCESS:dict[str,float]= {
-    'substrate_doping': - 1e18,
+MOSFET_PROCESS:dict[str, float] = {
+    'substrate_doping': -1e18,
     "sd_peak":1e20,
     'x_j':2.5e-6,
     'lateral_diffusion':1.0e-6,
-    "t_ox" :2e-7,
-    "sd_length" :4e-5,
+    "t_ox":2e-7,
+    "sd_length":4e-5,
     'contact_length':2e-5,
     "t_si":1e-4,
 }
 
 
 
-def implant_shape(process:dict[str,float]) -> tuple[float,float]:
+def implant_shape(process:dict[str, float]) -> tuple[float, float]:
 
 
-    Na= - process["substrate_doping"]
-    f= process["sd_peak"]
+    Na = -process["substrate_doping"]
+    f = process["sd_peak"]
 
-    bb= process["x_j"]/ math.sqrt(2.0 *  math.log(f/  Na))
-    hh=process["lateral_diffusion"]/erfcinv(2.0* Na/f);return  bb,  hh
+    bb = process["x_j"] / math.sqrt(2.0 * math.log(f / Na))
+    hh = process["lateral_diffusion"]/erfcinv(2.0 * Na/f); return bb, hh
 
-H_DEPTH_SIGMAS =0.25
+H_DEPTH_SIGMAS = 0.25
 
 
-H_DEPTH  =implant_shape(MOSFET_PROCESS)[0] *H_DEPTH_SIGMAS
+H_DEPTH = implant_shape(MOSFET_PROCESS)[0] * H_DEPTH_SIGMAS
 
-REDUCED_MODELS  =  "reduced"
+REDUCED_MODELS = "reduced"
 
-FULL_MODELS ='full'
+FULL_MODELS = 'full'
 
 
 
@@ -469,60 +469,60 @@ FULL_MODELS ='full'
 
 
 
-class  MosfetBenchmark :
+class MosfetBenchmark:
 
     name:str
 
 
 
-    number  :int
+    number:int
 
 
-    L_gate :float
-    gate_voltages  :  tuple[ float,   ... ]
+    L_gate:float
+    gate_voltages: tuple[float, ...]
 
 
-    drain_low  : float
-    drain_high :float
-    tolerance :   float
+    drain_low: float
+    drain_high:float
+    tolerance: float
 
-    devsim_h_junction: float  = 5e-7
-
-
-    devsim_h_channel  : float=2e-6
-
-    devsim_h_contact  : float =  4e-6
-    devsim_h_surface :float =  6.25e-9
-    devsim_h_depth  :   float  = H_DEPTH
-
-    devsim_oxide_cells  :  int  = 32
-
-    models:str=REDUCED_MODELS
+    devsim_h_junction: float = 5e-7
 
 
-    notes: str =""
+    devsim_h_channel: float = 2e-6
+
+    devsim_h_contact: float = 4e-6
+    devsim_h_surface:float = 6.25e-9
+    devsim_h_depth: float = H_DEPTH
+
+    devsim_oxide_cells: int = 32
+
+    models:str = REDUCED_MODELS
+
+
+    notes: str = ""
 
 
 
-CURRENT_FLOOR_MOSFET  = 1e-12
+CURRENT_FLOOR_MOSFET = 1e-12
 
-def _gate_range (low   :  float,  high   :  float,   step  :   float  ) ->   tuple[  float ,   ...  ] :
+def _gate_range(low: float, high: float, step: float) -> tuple[float, ...]:
 
-    f = round((high - low) / step); return tuple(round(low +h*step,10)for h in range(f+ 1))
-MOSFET_BENCHMARKS   :   tuple[  MosfetBenchmark,   ...] =   (MosfetBenchmark(name =  "nmos_1um", number =  6 , L_gate  =  1e-4, gate_voltages =  _gate_range( 0.0,  1.5 ,  0.1) , drain_low  =  0.05 , drain_high  = 1.0, tolerance   =   0.05, notes  = ('The long device. At 1 um this process has no short channel effect ' "left in it, so it is the reference the shorter ones are measured " 'against and the one place where a disagreement is about the 2D ' "transport rather than about a barrier."),) , MosfetBenchmark (name  =  'nmos_180nm', number  = 7, L_gate   =   1.8e-5, gate_voltages  =  _gate_range(  0.0 , 1.5,  0.1  ) , drain_low  = 0.05, drain_high   =  1.0, tolerance  =   0.05, devsim_h_junction   =   2.25e-7, devsim_h_channel  =   4.5e-7, notes  =   ("The same process drawn at 180 nm. The lateral encroachment leaves " '160 nm of metallurgical channel, so roll-off has started but the ' "device is still comfortably long channel. The lateral spacings " 'are half what they first were, because on this device the columns ' "and not the implant rows carry the mesh error: halving them alone " 'moved the drain current 6.9e-3 of a 7.3e-3 total and halving the ' 'rows alone moved it 5.7e-4. At 4.5e-7 the gate spans 40 columns, ' 'against the 20 it had and the 50 the 1 um device gets.'),), MosfetBenchmark(name  =   'nmos_65nm', number   =  8 , L_gate = 6.5e-6, gate_voltages =  _gate_range( -  0.2 , 1.5, 0.1) , drain_low  = 0.05, drain_high =  1.0, tolerance   = 0.08, devsim_h_junction  = 8.125e-8 , devsim_h_channel =   1.625e-7, notes  =  ("45 nm of metallurgical channel. This is the DIBL row: the point of " 'it is the gap between the two curves, so the gate sweep starts ' 'below zero to hold the off state of both. The lateral spacings are ' 'half what they first were, and the columns carry that alone ' "because the rows cannot take up any slack. Halving one axis at a " 'time from the original mesh: columns alone moved the drain current ' "1.6606e-2 of a 1.964e-2 total, rows alone 2.6789e-3. Halving the " "rows again is not available, since most of their residual is " "devsim_h_surface and that is already 6.25e-9, where the next " 'halving is a third of an angstrom and past where a continuum ' "model means anything. The columns converge at order 2.07, taken " "off the 180 nm device's own before and after pair rather than " "assumed, so one halving takes their 1.6606e-2 to about 3.9e-3 and " "leaves the pair near 6.6e-3. A quartering was tried first and its " 'halved mesh check could not be solved in the memory available, ' "11022 silicon nodes shipping and about four times that to check.") ,) ,)
+    f = round((high - low) / step); return tuple(round(low + h*step, 10) for h in range(f + 1))
+MOSFET_BENCHMARKS: tuple[MosfetBenchmark, ...] = (MosfetBenchmark(name="nmos_1um", number=6, L_gate=1e-4, gate_voltages=_gate_range(0.0, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.05, notes=('The long device. At 1 um this process has no short channel effect ' "left in it, so it is the reference the shorter ones are measured " 'against and the one place where a disagreement is about the 2D ' "transport rather than about a barrier."),), MosfetBenchmark(name='nmos_180nm', number=7, L_gate=1.8e-5, gate_voltages=_gate_range(0.0, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.05, devsim_h_junction=2.25e-7, devsim_h_channel=4.5e-7, notes=("The same process drawn at 180 nm. The lateral encroachment leaves " '160 nm of metallurgical channel, so roll-off has started but the ' "device is still comfortably long channel. The lateral spacings " 'are half what they first were, because on this device the columns ' "and not the implant rows carry the mesh error: halving them alone " 'moved the drain current 6.9e-3 of a 7.3e-3 total and halving the ' 'rows alone moved it 5.7e-4. At 4.5e-7 the gate spans 40 columns, ' 'against the 20 it had and the 50 the 1 um device gets.'),), MosfetBenchmark(name='nmos_65nm', number=8, L_gate=6.5e-6, gate_voltages=_gate_range(-0.2, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.08, devsim_h_junction=8.125e-8, devsim_h_channel=1.625e-7, notes=("45 nm of metallurgical channel. This is the DIBL row: the point of " 'it is the gap between the two curves, so the gate sweep starts ' 'below zero to hold the off state of both. The lateral spacings are ' 'half what they first were, and the columns carry that alone ' "because the rows cannot take up any slack. Halving one axis at a " 'time from the original mesh: columns alone moved the drain current ' "1.6606e-2 of a 1.964e-2 total, rows alone 2.6789e-3. Halving the " "rows again is not available, since most of their residual is " "devsim_h_surface and that is already 6.25e-9, where the next " 'halving is a third of an angstrom and past where a continuum ' "model means anything. The columns converge at order 2.07, taken " "off the 180 nm device's own before and after pair rather than " "assumed, so one halving takes their 1.6606e-2 to about 3.9e-3 and " "leaves the pair near 6.6e-3. A quartering was tried first and its " 'halved mesh check could not be solved in the memory available, ' "11022 silicon nodes shipping and about four times that to check."),),)
 
-def _rolloff(name:str,L_gate:float) -> MosfetBenchmark :
+def _rolloff(name:str, L_gate:float) -> MosfetBenchmark:
     return MosfetBenchmark(
         name=name,
-        number= 9,
+        number=9,
         L_gate=L_gate,
-        gate_voltages=_gate_range(- 0.4,0.6,0.05),
-        drain_low= 0.05,
+        gate_voltages=_gate_range(-0.4, 0.6, 0.05),
+        drain_low=0.05,
         drain_high=1.0,
         tolerance=0.10,
-        devsim_h_junction= L_gate /80.0,
-        devsim_h_channel =L_gate /40.0,
-        notes =(
+        devsim_h_junction=L_gate / 80.0,
+        devsim_h_channel=L_gate / 40.0,
+        notes=(
             f"Gate length {L_gate * 1e7:g} nm, one point of the benchmark 9 "
             "threshold roll-off trend. Not one of benchmarks 6 to 8: those "
             "compare a drain current at every bias to 5 or 8 percent, and this "
@@ -531,7 +531,7 @@ def _rolloff(name:str,L_gate:float) -> MosfetBenchmark :
     )
 
 
-ROLLOFF_BENCHMARKS  : tuple[MosfetBenchmark, ...] =(
+ROLLOFF_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
     _rolloff("rolloff_200nm", 2e-5),
     _rolloff("rolloff_100nm", 1e-5),
     _rolloff('rolloff_70nm', 7e-6),
@@ -540,51 +540,51 @@ ROLLOFF_BENCHMARKS  : tuple[MosfetBenchmark, ...] =(
 
 
 
-def _full_stack(name :str, L_gate  : float) -> MosfetBenchmark :
+def _full_stack(name:str, L_gate: float) -> MosfetBenchmark:
 
-    return MosfetBenchmark (
-        name  = name,
-        number =  10,
-        L_gate   =  L_gate,
-        gate_voltages   = _gate_range (-   0.4,  0.6, 0.05  ),
-        drain_low   =   0.05 ,
-        drain_high  =  1.0 ,
-        tolerance =  0.10 ,
-        devsim_h_junction  =  min(  L_gate  /   80.0 ,  5e-7  ),
-        devsim_h_channel   = min ( L_gate   /  40.0, 2e-6 ) ,
-        models =  FULL_MODELS,
-        notes  =   (
+    return MosfetBenchmark(
+        name=name,
+        number=10,
+        L_gate=L_gate,
+        gate_voltages=_gate_range(-0.4, 0.6, 0.05),
+        drain_low=0.05,
+        drain_high=1.0,
+        tolerance=0.10,
+        devsim_h_junction=min(L_gate / 80.0, 5e-7),
+        devsim_h_channel=min(L_gate / 40.0, 2e-6),
+        models=FULL_MODELS,
+        notes=(
             f"Gate length {L_gate * 1e7:g} nm at the full Phase 5 model stack, "
             "one point of the benchmark 10 trend. The same device as its "
             'benchmark 9 sibling and a different set of models, which is what '
             "makes the pair worth having: a disagreement that is in both is "
             "the geometry, and one that is only here is a mobility model or "
             'the statistics.'
-        ) ,
+        ),
     )
 
-FULL_STACK_BENCHMARKS  :  tuple [MosfetBenchmark,   ...  ]  =   (
-    _full_stack(  "fullstack_1um", 1e-4  ) ,
-    _full_stack ("fullstack_200nm",  2e-5),
-    _full_stack ('fullstack_100nm' ,   1e-5 ),
-    _full_stack(  'fullstack_70nm', 7e-6) ,
-    _full_stack ( "fullstack_50nm",   5e-6  ) ,
+FULL_STACK_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
+    _full_stack("fullstack_1um", 1e-4),
+    _full_stack("fullstack_200nm", 2e-5),
+    _full_stack('fullstack_100nm', 1e-5),
+    _full_stack('fullstack_70nm', 7e-6),
+    _full_stack("fullstack_50nm", 5e-6),
 )
 
-FULL_STACK_TREND  :  tuple[str, ...]  = tuple(
+FULL_STACK_TREND: tuple[str, ...] = tuple(
     x2.name for x2 in FULL_STACK_BENCHMARKS
 )
 
-ROLLOFF_TREND: tuple[str,...]=('nmos_1um',) +tuple(
+ROLLOFF_TREND: tuple[str, ...] = ('nmos_1um',) + tuple(
     m.name for m in ROLLOFF_BENCHMARKS
 )
 
-MOSFET_BY_NAME  :  dict[ str ,  MosfetBenchmark  ] = {b.name  :   b for  b in  MOSFET_BENCHMARKS  +  ROLLOFF_BENCHMARKS   + FULL_STACK_BENCHMARKS}
-MOSFET_MODEL_SUMMARY  : tuple [  str ,   ...  ]   =  (
+MOSFET_BY_NAME: dict[str, MosfetBenchmark] = {b.name: b for b in MOSFET_BENCHMARKS + ROLLOFF_BENCHMARKS + FULL_STACK_BENCHMARKS}
+MOSFET_MODEL_SUMMARY: tuple[str, ...] = (
     "statistics:      Boltzmann",
-    "transport:       Scharfetter-Gummel, Einstein relation D = V_t * mu" ,
+    "transport:       Scharfetter-Gummel, Einstein relation D = V_t * mu",
     f"mobility:        constant, mu_n = {MU_N} and mu_p = {MU_P} cm^2/(V s)",
-    'recombination:   SRH only, no Auger, no band to band, no impact ionisation' ,
+    'recombination:   SRH only, no Auger, no band to band, no impact ionisation',
     "SRH lifetimes:   Scharfetter, tau = tau_max / (1 + |N| / N_ref), with "
     f"tau_n_max = {TAU_N_MAX} s, tau_p_max = {TAU_P_MAX} s, N_ref = {N_REF_SRH} cm^-3",
     'SRH trap level:  midgap, n1 = p1 = n_i',
@@ -593,14 +593,14 @@ MOSFET_MODEL_SUMMARY  : tuple [  str ,   ...  ]   =  (
     'gate:            ideal metal, Dirichlet on psi at V_gate + '
     '(PHI_M_MIDGAP - Phi_M), no poly depletion, no gate overlap',
     'oxide:           Poisson only, no carriers, no fixed interface charge',
-    "body:            ideal ohmic plate over the whole bottom edge, at 0 V" ,
+    "body:            ideal ohmic plate over the whole bottom edge, at 0 V",
     f"constants:       q = {Q} C, k = {K_B} J/K, eps_0 = {EPS_0} F/cm, "
     f"eps_r(Si) = {EPS_R_SI}, eps_r(ox) = {EPS_R_OX}, n_i = {N_I:.6e} cm^-3, "
-    f"T = {T} K, chi = {CHI_SI} eV, Eg = {EG:.6f} eV" ,
+    f"T = {T} K, chi = {CHI_SI} eV, Eg = {EG:.6f} eV",
 )
-_FULL_STACK_REPLACED=('statistics:',"transport:","mobility:",'source/drain:')
+_FULL_STACK_REPLACED = ('statistics:', "transport:", "mobility:", 'source/drain:')
 
-FULL_STACK_MODEL_SUMMARY: tuple[str,...]=(
+FULL_STACK_MODEL_SUMMARY: tuple[str, ...] = (
     "statistics:      Fermi-Dirac by the Joyce-Dixon series, "
     f"Nc = {NC_300:.3e} and Nv = {NV_300:.3e} cm^-3, series capped at "
     f"n/Nc = {JOYCE_DIXON_MAX_U:g}",
@@ -614,15 +614,15 @@ FULL_STACK_MODEL_SUMMARY: tuple[str,...]=(
     "across solves, in both codes",
     'source/drain:    ideal ohmic plates on the silicon surface, psi and both '
     'densities from neutrality against the degenerate mass action product',
-) +tuple(
+) + tuple(
     lst
     for lst in MOSFET_MODEL_SUMMARY
     if not lst.startswith(_FULL_STACK_REPLACED)
 )
 
-def mosfet_model_summary(models:str)->tuple[str,
-          ...] :
-    if models  ==  FULL_MODELS :
+def mosfet_model_summary(models:str) -> tuple[str,
+          ...]:
+    if models == FULL_MODELS:
         return FULL_STACK_MODEL_SUMMARY
     return MOSFET_MODEL_SUMMARY
 @dataclass
@@ -631,40 +631,40 @@ def mosfet_model_summary(models:str)->tuple[str,
 
 class MosfetGoldenCurve:
 
-    name :str
-    header: dict[str,str] =field(default_factory=dict) ; gate_voltage   : list [float]   =  field ( default_factory =  list )
-    drain_low :list[float]  =  field(default_factory = list)
-    source_low:list[float] =field(default_factory =list)
-    drain_high   :  list[float  ]  = field( default_factory =  list)
+    name:str
+    header: dict[str, str] = field(default_factory=dict); gate_voltage: list[float] = field(default_factory=list)
+    drain_low:list[float] = field(default_factory=list)
+    source_low:list[float] = field(default_factory=list)
+    drain_high: list[float] = field(default_factory=list)
 
 
-    source_high: list[float]=field(default_factory = list)
+    source_high: list[float] = field(default_factory=list)
 
     @property
-    def tolerance(self)-> float  :
+    def tolerance(self) -> float:
         return float(self.header["tolerance"])
 
-    def imbalance(self,index :int,high:bool)-> float:
+    def imbalance(self, index:int, high:bool) -> float:
 
 
-        t =  (self.drain_high if  high  else self.drain_low)  [ index  ]
-        x=(self.source_high if high else self.source_low)[index]
+        t = (self.drain_high if high else self.drain_low)[index]
+        x = (self.source_high if high else self.source_low)[index]
         ok = max(abs(t), abs(x))
-        return 0.0 if ok  == 0.0 else abs(t +x) / ok
+        return 0.0 if ok == 0.0 else abs(t + x) / ok
 
 
-def first_resolved_point( current :  Sequence[  float], target :   float  )  ->   int  :
-    z=[float(w2) for w2 in current]
+def first_resolved_point(current: Sequence[float], target: float) -> int:
+    z = [float(w2) for w2 in current]
     v = 0
-    for d in range(len(z)  - 1, 0, - 1) :
-        if  z[  d ]  <= z[ d  -   1 ]   or z[ d  -  1 ]  <=  0.0  :
-            v =d
+    for d in range(len(z) - 1, 0, -1):
+        if z[d] <= z[d - 1] or z[d - 1] <= 0.0:
+            v = d
             break
 
-    if v  :
+    if v:
 
-        foo =  max(abs(c2)for c2 in z[: v])
-        if foo >=1e-4 *target:
+        foo = max(abs(c2) for c2 in z[:v])
+        if foo >= 1e-4 * target:
             raise AssertionError(
                 f"a dropped point reaches {foo:.3e} A/cm against a target "
                 f"of {target:.3e}, which is too close to the current being "
@@ -674,28 +674,28 @@ def first_resolved_point( current :  Sequence[  float], target :   float  )  -> 
 
 
     return v
-def read_mosfet_golden(path:  str)  ->  MosfetGoldenCurve :
-    x  = MosfetGoldenCurve (  name  =   ''  )
-    with open(path, encoding  = 'utf-8')  as f:
+def read_mosfet_golden(path: str) -> MosfetGoldenCurve:
+    x = MosfetGoldenCurve(name='')
+    with open(path, encoding='utf-8') as f:
         for d in f:
-            d =d.rstrip("\n")
+            d = d.rstrip("\n")
             if d.startswith("#"):
-                e=d[1 :].strip()
+                e = d[1:].strip()
 
-                if  ":"  in e   :
-                    i,_,tt=e.partition(":")
+                if ":" in e:
+                    i, _, tt = e.partition(":")
 
                     x.header.setdefault(i.strip(), tt.strip())
 
                 continue
-            if not d or d.startswith('gate_voltage') :
+            if not d or d.startswith('gate_voltage'):
                 continue
-            rows=d.split(",")
+            rows = d.split(",")
             x.gate_voltage.append(float(rows[0]))
             x.drain_low.append(float(rows[1]))
             x.source_low.append(float(rows[2]))
             x.drain_high.append(float(rows[3]))
 
-            x.source_high.append(float(rows[ 4 ]  ) )
-    x.name  = x.header.get('device',  '')
+            x.source_high.append(float(rows[4]))
+    x.name = x.header.get('device', '')
     return x

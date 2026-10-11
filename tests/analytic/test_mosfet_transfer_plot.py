@@ -2,31 +2,31 @@ from __future__ import annotations
 import pathlib
 import matplotlib; import numpy as np, pytest
 
-matplotlib.use('Agg') ; import matplotlib.pyplot as plt
+matplotlib.use('Agg'); import matplotlib.pyplot as plt
 from ddsim.device.mosfet import nmos
 from ddsim.device.transport import TransportModels
 from ddsim.extract.iv import gate_sweep
 from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
 from tests.regression.devsim_gen import parameters as P
-OUTPUT=pathlib.Path(__file__).resolve().parents[2] / 'images'
-GOLDEN_DIR= pathlib.Path(__file__).resolve().parents[2]/'data' /'golden'
-BENCHMARK= P.MOSFET_BY_NAME['nmos_1um']
+OUTPUT = pathlib.Path(__file__).resolve().parents[2] / 'images'
+GOLDEN_DIR = pathlib.Path(__file__).resolve().parents[2]/'data' / 'golden'
+BENCHMARK = P.MOSFET_BY_NAME['nmos_1um']
 
-DRAIN   = BENCHMARK.drain_low
+DRAIN = BENCHMARK.drain_low
 
-STEP=0.02
-
-
-ABOVE_THRESHOLD=0.7
-
-CLAIM =0.01
+STEP = 0.02
 
 
-def golden_path()  -> pathlib.Path :
+ABOVE_THRESHOLD = 0.7
+
+CLAIM = 0.01
+
+
+def golden_path() -> pathlib.Path:
     return GOLDEN_DIR / f"{BENCHMARK.name}.csv"
-needs_golden= pytest.mark.skipif(
+needs_golden = pytest.mark.skipif(
     not golden_path().exists(),
-    reason =(
+    reason=(
         "no DEVSIM golden data for nmos_1um. Generate it with "
         ".venv-devsim/Scripts/python.exe -m "
         "tests.regression.devsim_gen.generate_mosfet nmos_1um"
@@ -36,11 +36,11 @@ needs_golden= pytest.mark.skipif(
 
 
 
-def gate_points()->list[float] :
-    c  =  min( BENCHMARK.gate_voltages)
-    stuff =  max (  BENCHMARK.gate_voltages )
-    u= int(round((stuff- c) /  STEP)) + 1
-    return[round(c +STEP*z,6)for z in range(u)]
+def gate_points() -> list[float]:
+    c = min(BENCHMARK.gate_voltages)
+    stuff = max(BENCHMARK.gate_voltages)
+    u = int(round((stuff - c) / STEP)) + 1
+    return [round(c + STEP*z, 6) for z in range(u)]
 
 
 
@@ -49,27 +49,27 @@ def gate_points()->list[float] :
 
 
 def curve():
-    res2=nmos(
-        L_gate= BENCHMARK.L_gate,
-        drain_voltage= DRAIN,
-        degenerate = False,
+    res2 = nmos(
+        L_gate=BENCHMARK.L_gate,
+        drain_voltage=DRAIN,
+        degenerate=False,
         **SHORT_CHANNEL_PROCESS,
     )
-    h=TransportModels.for_device(res2, mobility ='constant')
-    return gate_sweep(res2,gate_points(),models= h)
+    h = TransportModels.for_device(res2, mobility='constant')
+    return gate_sweep(res2, gate_points(), models=h)
 
-@pytest.fixture(scope =  'module')
+@pytest.fixture(scope='module')
 
 
 
-def golden() :
+def golden():
 
     return P.read_mosfet_golden(str(golden_path()))
 
 
 
 
-def test_the_sweep_reaches_every_bias(curve)->None :
+def test_the_sweep_reaches_every_bias(curve) -> None:
     assert curve.complete, f"ddsim stopped early: {curve.message}"
     assert list(curve.voltage) == pytest.approx(gate_points())
 
@@ -81,7 +81,7 @@ def test_the_sweep_reaches_every_bias(curve)->None :
 
 
 
-def  test_the_golden_points_are_all_sixteen(golden  )   ->   None   :
+def test_the_golden_points_are_all_sixteen(golden) -> None:
 
     assert list(golden.gate_voltage) == pytest.approx(list(BENCHMARK.gate_voltages))
 
@@ -89,92 +89,92 @@ def  test_the_golden_points_are_all_sixteen(golden  )   ->   None   :
 @needs_golden
 
 
-def test_the_on_state_agreement_is_what_the_figure_claims(curve,golden)->None :
+def test_the_on_state_agreement_is_what_the_figure_claims(curve, golden) -> None:
 
 
-    k=  np.interp(np.array(golden.gate_voltage), np.array(list(curve.voltage)), np.array(list(curve.current)),)
-    ii   =  0.0
-    y =0.0
-    for cnt, t, res in zip(golden.gate_voltage, golden.drain_low, k, strict  = True)  :
-        if cnt< ABOVE_THRESHOLD :
+    k = np.interp(np.array(golden.gate_voltage), np.array(list(curve.voltage)), np.array(list(curve.current)),)
+    ii = 0.0
+    y = 0.0
+    for cnt, t, res in zip(golden.gate_voltage, golden.drain_low, k, strict=True):
+        if cnt < ABOVE_THRESHOLD:
             continue
-        mm =  abs(res -t)/  abs(t)
-        if mm> ii:
-            ii, y  =  mm,   cnt
-    assert ii <=CLAIM,(
+        mm = abs(res - t) / abs(t)
+        if mm > ii:
+            ii, y = mm, cnt
+    assert ii <= CLAIM, (
         f"above {ABOVE_THRESHOLD} V of gate the two codes disagree by "
         f"{ii:.2%} at {y:+g} V, past the {CLAIM:.0%} this figure claims"
     )
 
 
 @needs_golden
-def test_mosfet_transfer_plot_is_generated ( curve,   golden )  -> None  :
-    r2  =   np.array( list (curve.voltage)  );  tmp3=np.abs(np.array(list(curve.current)))
-    u=np.abs(np.array(golden.drain_low))
+def test_mosfet_transfer_plot_is_generated(curve, golden) -> None:
+    r2 = np.array(list(curve.voltage)); tmp3 = np.abs(np.array(list(curve.current)))
+    u = np.abs(np.array(golden.drain_low))
 
 
-    b= np.interp(
-        np.array(golden.gate_voltage),r2,np.array(list(curve.current))
+    b = np.interp(
+        np.array(golden.gate_voltage), r2, np.array(list(curve.current))
     )
-    r =max(
-        abs(ret -  foo)/  abs(foo)
+    r = max(
+        abs(ret - foo) / abs(foo)
         for t, foo, ret in zip(
-            golden.gate_voltage, golden.drain_low, b, strict= True
+            golden.gate_voltage, golden.drain_low, b, strict=True
         )
         if t >= ABOVE_THRESHOLD
     )
-    m2, i = plt.subplots(figsize  = (7.6,
+    m2, i = plt.subplots(figsize=(7.6,
                   5.6))
 
 
-    i.semilogy(r2, tmp3, "-", color = 'tab:blue', linewidth = 2.0, label= 'ddsim', zorder =2,)
+    i.semilogy(r2, tmp3, "-", color='tab:blue', linewidth=2.0, label='ddsim', zorder=2,)
     i.semilogy(
         golden.gate_voltage,
         u,
         "o",
-        markerfacecolor =  'none',
-        markeredgecolor ='tab:red',
-        markeredgewidth =  1.6,
-        markersize  = 9.0,
-        linestyle=  "none",
-        label =  f"DEVSIM {golden.header.get('generator', '').split()[1]}",
-        zorder  = 3,
+        markerfacecolor='none',
+        markeredgecolor='tab:red',
+        markeredgewidth=1.6,
+        markersize=9.0,
+        linestyle="none",
+        label=f"DEVSIM {golden.header.get('generator', '').split()[1]}",
+        zorder=3,
     )
-    v  = np.log10(  tmp3.max(  )  /  tmp3.min (  ) )
+    v = np.log10(tmp3.max() / tmp3.min())
     i.axvspan(
         ABOVE_THRESHOLD,
         r2.max(),
         color="tab:blue",
         alpha=0.06,
-        zorder= 1,
+        zorder=1,
         label=f"agree to {r:.2%} here",
     )
 
-    i.set_xlabel ( "gate voltage [V]"  )
+    i.set_xlabel("gate voltage [V]")
 
-    i.set_ylabel (  "drain current [A/cm]")
+    i.set_ylabel("drain current [A/cm]")
     i.set_xlim(r2.min(), r2.max())
 
-    i.grid (  alpha =  0.25,  which  =  "both")
-    i.legend(fontsize=9.5,frameon=False,loc= "lower right")
-    i.set_title (
+    i.grid(alpha=0.25, which="both")
+    i.legend(fontsize=9.5, frameon=False, loc="lower right")
+    i.set_title(
         f"NMOS transfer curve, $L_g$ = {BENCHMARK.L_gate * 1e7:.0f} nm, "
-        f"$V_d$ = {DRAIN} V" ,
-        fontsize  =   12 ,
+        f"$V_d$ = {DRAIN} V",
+        fontsize=12,
     )
     m2.text(
         0.5,
         0.005,
         f"{v:.1f} decades of drain current across the sweep. "
         'Boltzmann statistics, constant mobility, both codes.',
-        fontsize  =9,
-        color  = "dimgrey",
-        ha = "center",
+        fontsize=9,
+        color="dimgrey",
+        ha="center",
     )
-    m2.tight_layout(  )
+    m2.tight_layout()
 
-    OUTPUT.mkdir(  parents  = True,  exist_ok  =   True)
-    obj  =   OUTPUT  / 'mosfet_transfer_1um.png'
-    m2.savefig(obj, dpi = 140, bbox_inches= 'tight')
+    OUTPUT.mkdir(parents=True, exist_ok=True)
+    obj = OUTPUT / 'mosfet_transfer_1um.png'
+    m2.savefig(obj, dpi=140, bbox_inches='tight')
     plt.close(m2)
     assert obj.exists()

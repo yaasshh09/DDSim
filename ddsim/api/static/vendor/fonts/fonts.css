@@ -1,14 +1,3 @@
-/* Poppins, subset to the characters this page draws.
-
-   Vendored from the release in fonts/ rather than fetched, because
-   phases/PHASE-7.md says the page works with no network. Regenerate with
-   tools/vendor_client_libs.py, which needs that folder present.
-
-   Poppins has no tabular figure feature and its digits are proportional: a
-   one is 350 units against a zero's 647. Every number the page shows sits in
-   a box of its own width and #state is pinned, so a value changing its digits
-   moves nothing around it. See docs/08-design.md. */
-
 @font-face {
   font-family: 'Poppins';
   font-style: normal;

@@ -3,69 +3,69 @@ import numpy as np, pytest
 from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
 
-UNITS= ['V',"cm^-3","cm","cm^2/s",'cm^2/(V s)',"s","A/cm^2",'cm^-3 s^-1',"1"]
+UNITS = ['V', "cm^-3", "cm", "cm^2/s", 'cm^2/(V s)', "s", "A/cm^2", 'cm^-3 s^-1', "1"]
 
 
 
 @pytest.fixture
 
-def scale()->ScaleFactors:
+def scale() -> ScaleFactors:
     return ScaleFactors.for_silicon()
 
 
-def test_psi_0_equals_thermal_voltage(scale:ScaleFactors) -> None  :
+def test_psi_0_equals_thermal_voltage(scale:ScaleFactors) -> None:
 
-    assert scale.psi_0==C.V_T(300.0)
+    assert scale.psi_0 == C.V_T(300.0)
 
-def test_c_0_defaults_to_n_i(scale :  ScaleFactors) -> None:
-    assert  scale.C_0 == C.n_i(300.0 )
+def test_c_0_defaults_to_n_i(scale: ScaleFactors) -> None:
+    assert scale.C_0 == C.n_i(300.0)
 
 
 
-def  test_c_0_is_a_constructor_parameter (  )   ->  None  :
-    thing = ScaleFactors.for_silicon(C_0= 1e18)
-    assert thing.C_0 ==  1e18
+def test_c_0_is_a_constructor_parameter() -> None:
+    thing = ScaleFactors.for_silicon(C_0=1e18)
+    assert thing.C_0 == 1e18
 
-def test_x_0_is_the_debye_length_at_c_0(scale : ScaleFactors) ->  None :
-    a  =  math.sqrt(  C.eps_Si( )   *  C.V_T( 300.0 )  /   (C.q *  C.n_i ( 300.0  ) )  )
-    assert scale.x_0  ==   pytest.approx( a, rel   =  1e-15  )
+def test_x_0_is_the_debye_length_at_c_0(scale: ScaleFactors) -> None:
+    a = math.sqrt(C.eps_Si() * C.V_T(300.0) / (C.q * C.n_i(300.0)))
+    assert scale.x_0 == pytest.approx(a, rel=1e-15)
 
 @pytest.mark.parametrize(
-    ( 'doping', "debye_nm"  ),
-    [  ( 1e15 ,   128.0 ), (1e16,  40.0  ),  ( 1e17 ,  13.0 ), (1e18 ,  4.1 ), (  1e20 ,  0.4 )  ] ,
+    ('doping', "debye_nm"),
+    [(1e15, 128.0), (1e16, 40.0), (1e17, 13.0), (1e18, 4.1), (1e20, 0.4)],
 )
 
 
-def test_debye_length_matches_doc_table( doping  :  float,   debye_nm   :  float ) ->  None   :
-    k  =  ScaleFactors.for_silicon(C_0 = doping)
+def test_debye_length_matches_doc_table(doping: float, debye_nm: float) -> None:
+    k = ScaleFactors.for_silicon(C_0=doping)
 
-    assert k.x_0*1e7 ==pytest.approx(debye_nm,rel=3e-2)
+    assert k.x_0*1e7 == pytest.approx(debye_nm, rel=3e-2)
 
-def  test_intrinsic_debye_length_follows_the_doc_formula(scale  :   ScaleFactors  )   ->  None  :
-    assert scale.x_0 * 1e4 == pytest.approx(40.885, rel =  1e-4)
-
-
-
-def test_d_0_is_the_larger_carrier_diffusivity(  scale  :   ScaleFactors)  ->  None  :
-
-    assert  scale.D_0   ==   max(  C.D_n(  300.0) ,   C.D_p(  300.0  )  )
-
-def test_mu_0_equals_d_0_over_psi_0(scale  :   ScaleFactors) ->  None   :
-
-    assert scale.mu_0  ==pytest.approx(scale.D_0 /  scale.psi_0, rel = 1e-15)
+def test_intrinsic_debye_length_follows_the_doc_formula(scale: ScaleFactors) -> None:
+    assert scale.x_0 * 1e4 == pytest.approx(40.885, rel=1e-4)
 
 
 
+def test_d_0_is_the_larger_carrier_diffusivity(scale: ScaleFactors) -> None:
 
-def test_t_0_equals_x_0_squared_over_d_0(scale : ScaleFactors) -> None :
-    assert scale.t_0 ==  pytest.approx(  scale.x_0  **   2   /  scale.D_0,   rel =  1e-15)
-def test_j_0_equals_q_d_0_c_0_over_x_0(scale: ScaleFactors)->None :
-    tmp3=  C.q * scale.D_0 * scale.C_0/  scale.x_0
-    assert scale.J_0 == pytest.approx(tmp3, rel =  1e-15)
+    assert scale.D_0 == max(C.D_n(300.0), C.D_p(300.0))
 
-def test_r_0_equals_d_0_c_0_over_x_0_squared(scale: ScaleFactors) -> None :
-    zz=scale.D_0* scale.C_0/ scale.x_0**2
-    assert scale.R_0 ==pytest.approx(zz,rel=1e-15)
+def test_mu_0_equals_d_0_over_psi_0(scale: ScaleFactors) -> None:
+
+    assert scale.mu_0 == pytest.approx(scale.D_0 / scale.psi_0, rel=1e-15)
+
+
+
+
+def test_t_0_equals_x_0_squared_over_d_0(scale: ScaleFactors) -> None:
+    assert scale.t_0 == pytest.approx(scale.x_0 ** 2 / scale.D_0, rel=1e-15)
+def test_j_0_equals_q_d_0_c_0_over_x_0(scale: ScaleFactors) -> None:
+    tmp3 = C.q * scale.D_0 * scale.C_0 / scale.x_0
+    assert scale.J_0 == pytest.approx(tmp3, rel=1e-15)
+
+def test_r_0_equals_d_0_c_0_over_x_0_squared(scale: ScaleFactors) -> None:
+    zz = scale.D_0 * scale.C_0 / scale.x_0**2
+    assert scale.R_0 == pytest.approx(zz, rel=1e-15)
 
 
 @pytest.mark.parametrize("doping",
@@ -77,114 +77,114 @@ def test_r_0_equals_d_0_c_0_over_x_0_squared(scale: ScaleFactors) -> None :
 
 
 
-def test_scaled_poisson_coefficient_is_unity(doping  : float)-> None :
-    rows = ScaleFactors.for_silicon(  C_0 =  doping )
-    z= rows.eps*rows.psi_0 / (C.q*rows.C_0*rows.x_0** 2)
-    assert z== pytest.approx(1.0,rel=1e-14)
-@pytest.mark.parametrize('doping',[1e10,1e16,1e20])
-def test_scaled_current_coefficient_is_unity(doping :float)-> None :
+def test_scaled_poisson_coefficient_is_unity(doping: float) -> None:
+    rows = ScaleFactors.for_silicon(C_0=doping)
+    z = rows.eps*rows.psi_0 / (C.q*rows.C_0*rows.x_0 ** 2)
+    assert z == pytest.approx(1.0, rel=1e-14)
+@pytest.mark.parametrize('doping', [1e10, 1e16, 1e20])
+def test_scaled_current_coefficient_is_unity(doping:float) -> None:
 
 
-    i= ScaleFactors.for_silicon(C_0= doping);  h =C.q* i.D_0* i.C_0/ (i.x_0*i.J_0)
-    assert h == pytest.approx(1.0,rel=1e-14)
+    i = ScaleFactors.for_silicon(C_0=doping); h = C.q * i.D_0 * i.C_0 / (i.x_0*i.J_0)
+    assert h == pytest.approx(1.0, rel=1e-14)
 
 
 
 
-def test_scaled_recombination_coefficient_is_unity(scale: ScaleFactors)->None:
-    u = scale.J_0/  (C.q* scale.x_0 *scale.R_0)
-    assert u ==  pytest.approx(1.0, rel =  1e-14)
-@pytest.mark.parametrize('unit' ,  UNITS)
-def test_round_trip_physical_to_scaled_to_physical (scale   : ScaleFactors ,   unit : str) ->   None  :
-    rr   =  np.array([  -  3.7e5 ,   -  1.0 ,  0.0 , 1e-12,  2.5,   8.1e13] )
-    val  = scale.to_physical(scale.to_scaled(rr, unit), unit) ; np.testing.assert_allclose(  val,   rr,   rtol  = 1e-14,   atol   =  0.0  )
+def test_scaled_recombination_coefficient_is_unity(scale: ScaleFactors) -> None:
+    u = scale.J_0 / (C.q * scale.x_0 * scale.R_0)
+    assert u == pytest.approx(1.0, rel=1e-14)
+@pytest.mark.parametrize('unit', UNITS)
+def test_round_trip_physical_to_scaled_to_physical(scale: ScaleFactors, unit: str) -> None:
+    rr = np.array([-3.7e5, -1.0, 0.0, 1e-12, 2.5, 8.1e13])
+    val = scale.to_physical(scale.to_scaled(rr, unit), unit); np.testing.assert_allclose(val, rr, rtol=1e-14, atol=0.0)
 
 
-@pytest.mark.parametrize("unit",UNITS)
+@pytest.mark.parametrize("unit", UNITS)
 
 
 def test_round_trip_scaled_to_physical_to_scaled(
-    scale   :   ScaleFactors, unit   : str
-) -> None :
-    obj = np.array([- 42.0, -1.0, 0.0, 1e-9, 1.0, 6.02e7])
+    scale: ScaleFactors, unit: str
+) -> None:
+    obj = np.array([-42.0, -1.0, 0.0, 1e-9, 1.0, 6.02e7])
 
-    v  =  scale.to_scaled( scale.to_physical(obj,   unit ) ,   unit)
-    np.testing.assert_allclose(v,obj,rtol=1e-14,atol=0.0)
-
-
-def test_to_scaled_divides_by_the_factor(scale:ScaleFactors)->None:
-    assert scale.to_scaled(1.0,"V")==pytest.approx(1.0/C.V_T(300.0),rel= 1e-15)
+    v = scale.to_scaled(scale.to_physical(obj, unit), unit)
+    np.testing.assert_allclose(v, obj, rtol=1e-14, atol=0.0)
 
 
-def test_to_physical_multiplies_by_the_factor(scale : ScaleFactors) ->None :
-
-    assert scale.to_physical(40.0,"V") == pytest.approx(40.0*C.V_T(300.0),rel= 1e-15)
-
-def test_dimensionless_unit_is_the_identity(scale :ScaleFactors)->None:
-    assert scale.factor('1')== 1.0
-    assert scale.to_scaled(7.0, "1") ==  7.0
+def test_to_scaled_divides_by_the_factor(scale:ScaleFactors) -> None:
+    assert scale.to_scaled(1.0, "V") == pytest.approx(1.0/C.V_T(300.0), rel=1e-15)
 
 
-def test_scalar_input_returns_a_scalar(scale: ScaleFactors)->None :
+def test_to_physical_multiplies_by_the_factor(scale: ScaleFactors) -> None:
+
+    assert scale.to_physical(40.0, "V") == pytest.approx(40.0*C.V_T(300.0), rel=1e-15)
+
+def test_dimensionless_unit_is_the_identity(scale:ScaleFactors) -> None:
+    assert scale.factor('1') == 1.0
+    assert scale.to_scaled(7.0, "1") == 7.0
+
+
+def test_scalar_input_returns_a_scalar(scale: ScaleFactors) -> None:
     assert isinstance(scale.to_scaled(1.0, "V"), float)
 
 
 
-def test_array_input_returns_an_array(scale : ScaleFactors) -> None:
-    u  =   scale.to_scaled(np.array( [  1.0,   2.0]),   "V")
-    assert isinstance (u , np.ndarray )
-def test_unknown_unit_raises(scale:ScaleFactors)-> None:
-    with pytest.raises(KeyError, match= "furlong") :
+def test_array_input_returns_an_array(scale: ScaleFactors) -> None:
+    u = scale.to_scaled(np.array([1.0, 2.0]), "V")
+    assert isinstance(u, np.ndarray)
+def test_unknown_unit_raises(scale:ScaleFactors) -> None:
+    with pytest.raises(KeyError, match="furlong"):
         scale.factor('furlong')
 
-def test_unknown_unit_raises_on_to_scaled (  scale  :  ScaleFactors )   ->  None   :
-    with pytest.raises(KeyError) :
+def test_unknown_unit_raises_on_to_scaled(scale: ScaleFactors) -> None:
+    with pytest.raises(KeyError):
         scale.to_scaled(1.0, "eV")
 
-def test_scale_factors_are_immutable(scale :  ScaleFactors) -> None  :
-    with pytest.raises((AttributeError,TypeError)):
-        scale.psi_0= 1.0
+def test_scale_factors_are_immutable(scale: ScaleFactors) -> None:
+    with pytest.raises((AttributeError, TypeError)):
+        scale.psi_0 = 1.0
 
 
-def test_negative_c_0_raises()->None:
+def test_negative_c_0_raises() -> None:
 
-    with pytest.raises(ValueError,match='C_0'):
-        ScaleFactors.for_silicon (C_0 =-   1.0)
+    with pytest.raises(ValueError, match='C_0'):
+        ScaleFactors.for_silicon(C_0=-1.0)
 
 
-def test_scale_factors_at_400k_differ_from_300k()->None:
-    f  = ScaleFactors.for_silicon(T =  400.0) ; e = ScaleFactors.for_silicon(T=300.0)
-    assert f.psi_0> e.psi_0
+def test_scale_factors_at_400k_differ_from_300k() -> None:
+    f = ScaleFactors.for_silicon(T=400.0); e = ScaleFactors.for_silicon(T=300.0)
+    assert f.psi_0 > e.psi_0
     assert f.C_0 > e.C_0
 
 
 
-def  test_poisson_coefficient_is_unity_at_400k ( )  ->   None :
+def test_poisson_coefficient_is_unity_at_400k() -> None:
 
-    w =  ScaleFactors.for_silicon(T  =   400.0 )
-    h   =   w.eps  *   w.psi_0  /   ( C.q   *  w.C_0  *  w.x_0 **   2  )
+    w = ScaleFactors.for_silicon(T=400.0)
+    h = w.eps * w.psi_0 / (C.q * w.C_0 * w.x_0 ** 2)
 
-    assert h == pytest.approx(1.0,rel= 1e-14)
-
-
+    assert h == pytest.approx(1.0, rel=1e-14)
 
 
-def test_non_positive_temperature_raises()-> None :
-    with pytest.raises(ValueError, match=  'T') :
-
-        ScaleFactors.for_silicon(T =0.0)
 
 
-def  test_non_positive_permittivity_raises (  )  -> None :
-    with pytest.raises(ValueError, match = 'eps'):
-        ScaleFactors.for_silicon(  eps   =-   1.0 )
-def test_non_positive_diffusivity_raises() ->None:
-    with pytest.raises(ValueError,match='D_0') :
-        ScaleFactors.for_silicon(D_0= 0.0)
+def test_non_positive_temperature_raises() -> None:
+    with pytest.raises(ValueError, match='T'):
+
+        ScaleFactors.for_silicon(T=0.0)
 
 
-def test_direct_construction_rejects_non_positive_temperature()->None:
+def test_non_positive_permittivity_raises() -> None:
+    with pytest.raises(ValueError, match='eps'):
+        ScaleFactors.for_silicon(eps=-1.0)
+def test_non_positive_diffusivity_raises() -> None:
+    with pytest.raises(ValueError, match='D_0'):
+        ScaleFactors.for_silicon(D_0=0.0)
 
 
-    with pytest.raises(ValueError,match= "T"):
-        ScaleFactors(T =- 1.0,   C_0  = 1e10, eps   =   1e-12 , D_0 =   30.0 )
+def test_direct_construction_rejects_non_positive_temperature() -> None:
+
+
+    with pytest.raises(ValueError, match="T"):
+        ScaleFactors(T=-1.0, C_0=1e10, eps=1e-12, D_0=30.0)
