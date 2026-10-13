@@ -67,9 +67,10 @@ function showRuns() {
   const span = runSpan(state.runs.concat(solved), el("curve-log").checked);
 
   if (solved.length) {
-    note.appendChild(runCard("this run", state.points, span, GREEN, true));
+    note.appendChild(runCard("this run", state.points, span, INK, true));
   }
-  for (const run of state.runs.slice().reverse()) {
-    note.appendChild(runCard(run.label, run.points, span, BLUE, false));
+  for (let k = state.runs.length - 1; k >= 0; k--) {
+    const run = state.runs[k];
+    note.appendChild(runCard(run.label, run.points, span, runColour(k), false));
   }
 }

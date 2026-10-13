@@ -64,15 +64,17 @@ function traceStreamlines(fields, seedsAcross, seedsDown) {
 function drawStreamlines(box, fields, lines) {
   const ny = fields.shape[0], nx = fields.shape[1];
   const pen = box.pen;
-  pen.strokeStyle = token("streamline");
-  pen.lineWidth = 1;
-  for (const points of lines) {
-    pen.beginPath();
-    points.forEach((point, index) => {
-      const px = (point.i / (nx - 1)) * box.width;
-      const py = (1 - point.j / (ny - 1)) * box.height;
-      if (index === 0) pen.moveTo(px, py); else pen.lineTo(px, py);
-    });
-    pen.stroke();
+  for (const [colour, width] of [[token("streamline-halo"), 2.6], [token("streamline"), 1.1]]) {
+    pen.strokeStyle = colour;
+    pen.lineWidth = width;
+    for (const points of lines) {
+      pen.beginPath();
+      points.forEach((point, index) => {
+        const px = (point.i / (nx - 1)) * box.width;
+        const py = (1 - point.j / (ny - 1)) * box.height;
+        if (index === 0) pen.moveTo(px, py); else pen.lineTo(px, py);
+      });
+      pen.stroke();
+    }
   }
 }

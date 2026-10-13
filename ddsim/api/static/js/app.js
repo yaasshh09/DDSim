@@ -3,7 +3,27 @@
 const tokens = getComputedStyle(document.documentElement);
 const token = (name) => tokens.getPropertyValue("--" + name).trim();
 
-const BLUE = token("signal"), PURPLE = token("violet"), GREEN = token("warn"), RED = token("hot");
+let BLUE, PURPLE, GREEN, RED, INK, RUN_COLOURS;
+
+function palette() {
+  BLUE = token("blue");
+  PURPLE = token("violet");
+  GREEN = token("warn");
+  RED = token("hot");
+  INK = token("ink");
+  RUN_COLOURS = [BLUE, RED, token("green"), PURPLE, GREEN];
+}
+palette();
+
+const runColour = (k) => RUN_COLOURS[k % RUN_COLOURS.length];
+
+function retheme() {
+  palette();
+  drawResidual();
+  drawCurve();
+  drawProfile();
+  if (!el("drawing").hidden) drawPreview();
+}
 
 const el = (id) => document.getElementById(id);
 
@@ -36,9 +56,14 @@ function fit(canvas) {
   const height = Number(canvas.dataset.height);
   canvas.width = Math.round(width * ratio);
   canvas.height = Math.round(height * ratio);
+  canvas._frame = null;
+  canvas._series = [];
+  canvas._image = null;
+  canvas._base = null;
   const pen = canvas.getContext("2d");
   pen.setTransform(ratio, 0, 0, ratio, 0, 0);
-  pen.clearRect(0, 0, width, height);
+  pen.fillStyle = token("panel");
+  pen.fillRect(0, 0, width, height);
   return { pen: pen, width: width, height: height };
 }
 
@@ -56,160 +81,73 @@ function format(v) {
   return String(Math.round(v * 1000) / 1000);
 }
 
-function axes(pen, box, xs, ys, options) {
-  const logY = Boolean(options && options.logY);
-  const twin = Boolean(options && options.twin);
-  const right = Boolean(options && options.right);
-  const pad = { left: 62, right: twin ? 62 : 12, top: 10, bottom: 22 };
-  const inner = {
-    x: pad.left,
-    y: pad.top,
-    width: Math.max(10, box.width - pad.left - pad.right),
-    height: Math.max(10, box.height - pad.top - pad.bottom),
-  };
-
-  let lo = Infinity, hi = -Infinity;
-  for (const y of ys) {
-    if (y === null || !isFinite(y)) continue;
-    if (logY && !(y > 0)) continue;
-    if (y < lo) lo = y;
-    if (y > hi) hi = y;
-  }
-  if (!isFinite(lo)) { lo = 0; hi = 1; }
-  if (lo === hi) { lo = logY ? lo / 10 : lo - 1; hi = logY ? hi * 10 : hi + 1; }
-
-  let xlo = Infinity, xhi = -Infinity;
-  for (const x of xs) {
-    if (x < xlo) xlo = x;
-    if (x > xhi) xhi = x;
-  }
-  if (!isFinite(xlo)) { xlo = 0; xhi = 1; }
-  if (xlo === xhi) xhi = xlo + 1;
-
-  const yOf = (y) => {
-    if (logY) {
-      const a = decades(lo), b = decades(hi);
-      return inner.y + inner.height - ((decades(y) - a) / (b - a)) * inner.height;
-    }
-    return inner.y + inner.height - ((y - lo) / (hi - lo)) * inner.height;
-  };
-  const xOf = (x) => inner.x + ((x - xlo) / (xhi - xlo)) * inner.width;
-
-  pen.strokeStyle = ink("--grid");
-  pen.lineWidth = 1;
-  pen.beginPath();
-  for (let i = 0; i <= 4; i++) {
-    const y = inner.y + (i / 4) * inner.height;
-    pen.moveTo(inner.x, y);
-    pen.lineTo(inner.x + inner.width, y);
-  }
-  pen.stroke();
-
-  pen.fillStyle = (options && options.ink) || ink("--muted");
-  pen.font = "500 10px Poppins, system-ui, sans-serif";
-  pen.textAlign = right ? "left" : "right";
-  const labelX = right ? inner.x + inner.width + 6 : inner.x - 6;
-  for (let i = 0; i <= 4; i++) {
-    const t = i / 4;
-    const value = logY
-      ? undecades(decades(hi) - t * (decades(hi) - decades(lo)))
-      : hi - t * (hi - lo);
-    pen.fillText(format(value), labelX, inner.y + t * inner.height + 4);
-  }
-  pen.fillStyle = ink("--muted");
-  pen.textAlign = "left";
-  pen.fillText(format(xlo), inner.x, box.height - 6);
-  pen.textAlign = "right";
-  pen.fillText(format(xhi), inner.x + inner.width, box.height - 6);
-
-  return { xOf: xOf, yOf: yOf, inner: inner, logY: logY };
-}
-
-function line(pen, frame, xs, ys, colour, options) {
-  const usable = (y) => y !== null && isFinite(y) && !(frame.logY && !(y > 0));
-  pen.strokeStyle = colour;
-  pen.lineWidth = 1.5;
-  pen.beginPath();
-  let down = false;
-  for (let i = 0; i < xs.length; i++) {
-    if (!usable(ys[i])) { down = false; continue; }
-    const px = frame.xOf(xs[i]), py = frame.yOf(ys[i]);
-    if (down) pen.lineTo(px, py); else pen.moveTo(px, py);
-    down = true;
-  }
-  pen.stroke();
-
-  if (options && options.dots) {
-    pen.fillStyle = colour;
-    for (let i = 0; i < xs.length; i++) {
-      if (!usable(ys[i])) continue;
-      pen.beginPath();
-      pen.arc(frame.xOf(xs[i]), frame.yOf(ys[i]), 2.5, 0, 6.2832);
-      pen.fill();
-    }
-  }
-}
+const microns = (xs) => Array.from(xs, (v) => v * 1e4);
 
 function drawResidual() {
   const box = fit(el("residual"));
   if (!state.residual.length) return;
   const logY = el("residual-log").checked;
   const xs = state.residual.map((_, i) => i);
-  const ys = state.residual.flatMap((r) =>
-    r.families ? Object.values(r.families).concat([r.value]) : [r.value]
-  );
-  const frame = axes(box.pen, box, xs, ys, { logY: logY });
-
-  const split = (family) => (r) => (r.families ? r.families[family] : null);
+  const family = (name) => (r) => (r.families ? r.families[name] : null);
   const series = [
-    [BLUE, (r) => (r.colour === BLUE ? (r.families ? r.families.psi : r.value) : null)],
-    [GREEN, split("n")],
-    [RED, split("p")],
-    [PURPLE, (r) => (r.colour === PURPLE ? r.value : null)],
-  ];
-  for (const [colour, pick] of series) {
-    line(box.pen, frame, xs, state.residual.map(pick), colour);
+    ["psi residual", BLUE,
+      (r) => (r.kind === "newton" ? (r.families ? r.families.psi : r.value) : null)],
+    ["n residual", GREEN, family("n")],
+    ["p residual", RED, family("p")],
+    ["gummel update", PURPLE, (r) => (r.kind === "gummel" ? r.value : null)],
+  ].map(([name, colour, pick]) => [name, colour, state.residual.map(pick)]);
+  const everything = series.flatMap((s) => s[2]).concat(state.residual.map((r) => r.value));
+  const frame = axes(box.pen, box, xs, everything, {
+    logY: logY, xTitle: "iteration", yTitle: "residual",
+  });
+  const dots = xs.length <= 80 ? 2 : 0;
+  for (const [name, colour, ys] of series) {
+    line(box.pen, frame, xs, ys, colour, { name: name, dots: dots });
   }
-  box.pen.fillStyle = ink("--ink");
   for (const at of state.rejected) {
     const r = state.residual[at];
     if (!r || !isFinite(r.value) || (logY && !(r.value > 0))) continue;
-    box.pen.beginPath();
-    box.pen.arc(frame.xOf(at), frame.yOf(r.value), 3.5, 0, 6.2832);
-    box.pen.fill();
+    ring(box.pen, frame, at, r.value, RED);
   }
+}
+
+function curveTitles(logY) {
+  const body = state.request;
+  if (!body) return { x: "voltage [V]", y: "" };
+  const x = body.sweep.contact + " voltage [V]";
+  if (body.sweep.kind === "cv") return { x: x, y: "capacitance [F/cm²]" };
+  const flat = state.schema.dimensions[body.device.kind] === 1;
+  const name = flat ? "current density" : "current per width";
+  const unit = flat ? " [A/cm²]" : " [A/cm]";
+  return { x: x, y: (logY ? "|" + name + "|" : name) + unit };
 }
 
 function drawCurve() {
   const box = fit(el("curve"));
   if (!state.points.length && !state.runs.length) return;
+  const logY = el("curve-log").checked;
+  const shown = (v) => (logY && v !== null ? Math.abs(v) : v);
 
   const xs = [], ys = [];
   for (const run of state.runs.concat([{ points: state.points }])) {
     for (const point of run.points) {
       xs.push(point.voltage);
-      ys.push(point.value);
+      ys.push(shown(point.value));
     }
   }
-  const frame = axes(box.pen, box, xs, ys, { logY: el("curve-log").checked });
+  const titles = curveTitles(logY);
+  const frame = axes(box.pen, box, xs, ys, {
+    logY: logY, xTitle: titles.x, yTitle: titles.y,
+  });
 
-  box.pen.globalAlpha = 0.4;
-  for (const run of state.runs) {
-    line(
-      box.pen, frame,
-      run.points.map((p) => p.voltage),
-      run.points.map((p) => p.value),
-      BLUE
-    );
-  }
-  box.pen.globalAlpha = 1;
-  line(
-    box.pen, frame,
-    state.points.map((p) => p.voltage),
-    state.points.map((p) => p.value),
-    GREEN,
-    { dots: true }
-  );
+  const draw = (points, colour, options) => {
+    const values = points.map((p) => p.value);
+    line(box.pen, frame, points.map((p) => p.voltage), values.map(shown), colour,
+      Object.assign({ raw: values }, options));
+  };
+  state.runs.forEach((run, k) =>
+    draw(run.points, runColour(k), { name: run.label, dots: 2, width: 1.3 }));
+  draw(state.points, INK, { name: "this run", dots: 3, width: 2 });
   showRuns();
 }
 
@@ -280,46 +218,55 @@ function drawProfile() {
   if (fields.shape.length === 2) {
     el("cutline-panel").hidden = false;
     el("legend-bands").hidden = true;
-    drawImage(box, fields);
-    let note = "at " + format(fields.voltage) + " V";
+    const range = drawImage(box, fields);
+    let note = "at " + format(fields.voltage) + " V, hover to read a node";
     if (el("streamlines").checked && fields.arrays.Jx) {
       const lines = traceStreamlines(fields, 12, 6);
       drawStreamlines(box, fields, lines);
       if (!lines.length) note += ", no current flows: every contact is at the same voltage";
     }
+    if (range) colourBar(box, range.lo, range.hi, "psi [V]");
+    box.pen.canvas._image = fields;
     el("profile-note").textContent = note;
     if (state.cutline) drawCutline(fields, state.cutline.from, state.cutline.to);
     return;
   }
   const banded = el("bands").checked;
   el("legend-bands").hidden = !banded;
+  const xs = microns(fields.arrays.x);
   if (banded) {
-    drawBands(box, fields.arrays.x, (name) => fields.arrays[name]);
+    drawBands(box, xs, (name) => fields.arrays[name], "x [µm]");
     return;
   }
-  const xs = fields.arrays.x;
   const potential = axes(box.pen, box, xs, fields.arrays.psi, {
-    logY: false, twin: true, ink: BLUE,
+    logY: false, twin: true, ink: BLUE, xTitle: "x [µm]", yTitle: "psi [V]",
   });
-  line(box.pen, potential, xs, fields.arrays.psi, BLUE);
+  line(box.pen, potential, xs, fields.arrays.psi, BLUE, { name: "psi [V]" });
 
   const both = Array.from(fields.arrays.n).concat(Array.from(fields.arrays.p));
   const carriers = axes(box.pen, box, xs, both, {
-    logY: true, twin: true, right: true, ink: GREEN,
+    logY: true, twin: true, right: true, ink: GREEN, yTitle: "n, p [cm⁻³]",
   });
-  line(box.pen, carriers, xs, fields.arrays.n, GREEN);
-  line(box.pen, carriers, xs, fields.arrays.p, RED);
+  line(box.pen, carriers, xs, fields.arrays.n, GREEN, { name: "n [cm⁻³]" });
+  line(box.pen, carriers, xs, fields.arrays.p, RED, { name: "p [cm⁻³]" });
 }
 
 const RAMP = [
-  [19, 34, 39],
-  [43, 111, 116],
-  [95, 212, 214],
+  [68, 1, 84],
+  [71, 44, 122],
+  [59, 81, 139],
+  [44, 113, 142],
+  [33, 144, 141],
+  [39, 173, 129],
+  [92, 200, 99],
+  [170, 220, 50],
+  [253, 231, 37],
 ];
 
 function ramp(t) {
-  const span = t < 0.5 ? 0 : 1;
-  const within = t * 2 - span;
+  const steps = RAMP.length - 1;
+  const span = Math.min(steps - 1, Math.floor(t * steps));
+  const within = t * steps - span;
   const low = RAMP[span], high = RAMP[span + 1];
   return [
     Math.round(low[0] + (high[0] - low[0]) * within),
@@ -337,7 +284,7 @@ function drawImage(box, fields) {
     if (v < lo) lo = v;
     if (v > hi) hi = v;
   }
-  if (!isFinite(lo)) return;
+  if (!isFinite(lo)) return null;
   if (lo === hi) hi = lo + 1;
 
   const clamp = (t) => Math.min(1, Math.max(0, t));
@@ -359,6 +306,7 @@ function drawImage(box, fields) {
   sheet.getContext("2d").putImageData(image, 0, 0);
   box.pen.imageSmoothingEnabled = true;
   box.pen.drawImage(sheet, 0.5, 0.5, nx - 1, ny - 1, 0, 0, box.width, box.height);
+  return { lo: lo, hi: hi };
 }
 
 function start(parameter) {
@@ -730,6 +678,7 @@ function clear() {
   state.fields = null;
   state.cutline = null;
   el("cutline-panel").hidden = true;
+  for (const id of ["residual", "curve", "profile", "cutline"]) el(id)._view = null;
   el("message").textContent = "";
   el("curve-note").textContent = "a point lands here as each voltage is solved";
   el("residual-note").textContent = "fills in while a solve is running";
@@ -812,7 +761,7 @@ function frame(body) {
   if (body.type === "newton") {
     state.residual.push({
       value: body.residual,
-      colour: BLUE,
+      kind: "newton",
       families: body.residual_by_family,
     });
     if (body.residual_by_family) {
@@ -825,7 +774,7 @@ function frame(body) {
       "iteration " + body.iteration + (body.limited ? ", step limited" : "");
     drawResidual();
   } else if (body.type === "gummel") {
-    state.residual.push({ value: body.update, colour: PURPLE });
+    state.residual.push({ value: body.update, kind: "gummel" });
     el("residual-note").textContent = "cycle " + body.iteration;
     drawResidual();
   } else if (body.type === "continuation") {
@@ -892,10 +841,11 @@ function readFields(buffer) {
     new TextDecoder().decode(new Uint8Array(buffer, 4, length))
   );
   const payload = new Float32Array(buffer, 4 + length);
-  const arrays = {};
+  const arrays = {}, units = {};
   let at = 0;
   for (const array of header.arrays) {
     arrays[array.name] = payload.subarray(at, at + array.length);
+    units[array.name] = array.unit;
     at += array.length;
   }
   return {
@@ -903,6 +853,7 @@ function readFields(buffer) {
     index: header.index,
     voltage: header.voltage,
     arrays: arrays,
+    units: units,
   };
 }
 

@@ -1,13 +1,15 @@
 "use strict";
 
-function drawBands(box, xs, pick) {
+function drawBands(box, xs, pick, xTitle) {
   const Ec = pick("Ec"), Ev = pick("Ev"), Efn = pick("Efn"), Efp = pick("Efp");
   const all = Array.from(Ec).concat(Array.from(Ev), Array.from(Efn), Array.from(Efp));
-  const frame = axes(box.pen, box, xs, all, { logY: false });
-  line(box.pen, frame, xs, Ec, BLUE);
-  line(box.pen, frame, xs, Ev, PURPLE);
-  line(box.pen, frame, xs, Efn, GREEN);
-  line(box.pen, frame, xs, Efp, RED);
+  const frame = axes(box.pen, box, xs, all, {
+    logY: false, xTitle: xTitle, yTitle: "energy [eV]",
+  });
+  line(box.pen, frame, xs, Ec, BLUE, { name: "Ec [eV]" });
+  line(box.pen, frame, xs, Ev, PURPLE, { name: "Ev [eV]" });
+  line(box.pen, frame, xs, Efn, GREEN, { name: "Efn [eV]", dash: [6, 4] });
+  line(box.pen, frame, xs, Efp, RED, { name: "Efp [eV]", dash: [6, 4] });
 }
 
 function interpolate(fields, name, i, j) {
@@ -47,8 +49,9 @@ function indexAt(box, fields, px, py) {
 function drawCutline(fields, from, to) {
   const box = fit(el("cutline"));
   const count = 200;
-  const s = sampleAlong(fields, "Ec", from, to, count).s;
-  drawBands(box, s, (name) => sampleAlong(fields, name, from, to, count).values);
+  const s = microns(sampleAlong(fields, "Ec", from, to, count).s);
+  drawBands(box, s, (name) => sampleAlong(fields, name, from, to, count).values,
+    "distance along the line [µm]");
 }
 
 function wireCutline() {

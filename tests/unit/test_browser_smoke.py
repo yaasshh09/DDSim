@@ -174,7 +174,7 @@ def test_streamlines_trace_through_a_mosfet(server) -> None:
             assert "no current" not in idx.inner_text('#profile-note')
             g = idx.evaluate("el('cutline').getBoundingClientRect().height")
 
-            assert g == pytest.approx(200, abs=1)
+            assert g == pytest.approx(260, abs=1)
             assert j == []
         finally:
             r.close()

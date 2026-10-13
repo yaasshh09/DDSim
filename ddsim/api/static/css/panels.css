@@ -35,18 +35,35 @@
 .panel .tools button { padding: 3px 9px; font: var(--note); background: transparent; }
 .panel .tools input[type="range"] { width: 96px; }
 
-canvas {
-  display: block;
-  width: 100%;
-  border-left: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-}
+canvas { display: block; width: 100%; }
 
-#residual,
-#cutline { height: 200px; }
+#residual { height: 240px; }
+#cutline { height: 260px; }
 
 #curve,
-#profile { height: 220px }
+#profile { height: 320px }
+
+#residual,
+#curve,
+#profile,
+#cutline { cursor: crosshair; }
+
+#plot-tip {
+  position: fixed;
+  z-index: 20;
+  max-width: 320px;
+  padding: 6px 8px;
+  font: 400 11px/1.5 var(--sans);
+  color: var(--ink);
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+}
+
+#plot-tip b { display: block; font-weight: 600; }
+#plot-tip span { display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; }
+#plot-tip i { flex: none; width: 10px; height: 2px; }
 
 #cutline-panel {
   margin-top: .75rem;
@@ -77,7 +94,7 @@ canvas {
 
 .swatch { display: block; flex: none; width: 10px; height: 2px; }
 
-.swatch.psi { background: var(--signal); }
+.swatch.psi { background: var(--blue); }
 .swatch.n { background: var(--warn); }
 .swatch.p { background: var(--hot); }
 .swatch.gummel { background: var(--violet); }
@@ -99,6 +116,9 @@ canvas {
 }
 
 #runs-note > span {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   padding: 8px 10px 6px;
   color: var(--ink-2);
   background: var(--panel);
@@ -106,7 +126,7 @@ canvas {
   border-radius: var(--r-md);
 }
 
-#runs-note > span.current { background: var(--raised); border-color: var(--signal); }
+#runs-note > span.current { background: var(--raised); border-color: var(--line-bright); }
 
 #runs-note > span > b { display: block; font-weight: 500; color: var(--ink-2); }
 #runs-note > span.current > b { color: var(--ink); }

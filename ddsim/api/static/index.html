@@ -6,7 +6,7 @@
 <title>DDSim</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <meta name="description" content="Build a diode, MOS capacitor or MOSFET from geometry and doping, press solve, and watch the drift-diffusion equations converge live. Short-channel effects emerge from the physics, with no fitting.">
-<link rel="stylesheet" href="/static/vendor/fonts/fonts.css">
+<script src="/static/js/theme.js"></script>
 <link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/static/css/tokens.css">
 <link rel="stylesheet" href="/static/css/base.css">
@@ -27,6 +27,7 @@
     <button id="mode-results" class="flat" type="button" role="tab" aria-selected="true">Results</button>
   </div>
   <button id="welcome-open" class="flat" type="button">what is this?</button>
+  <button id="theme" class="flat" type="button">dark mode</button>
   <span class="gap"></span>
   <span class="status-dot"></span>
   <span id="state">loading</span>
@@ -109,9 +110,11 @@
         <span class="of">how far the solver still is from the answer</span>
         <span class="tools">
           <label><span>log</span><input id="residual-log" type="checkbox" checked></label>
+          <button id="residual-png" class="flat" type="button">PNG</button>
+          <button id="residual-csv" class="flat" type="button">CSV</button>
         </span>
       </h2>
-      <canvas id="residual" height="200"></canvas>
+      <canvas id="residual" height="240" title="drag to zoom, double-click to reset"></canvas>
       <div class="legend">
         <span data-topic-id="legend-psi-residual"><i class="swatch psi"></i>psi residual</span>
         <span data-topic-id="legend-n-residual"><i class="swatch n"></i>n residual</span>
@@ -128,9 +131,11 @@
         <span class="tools">
           <button id="clear-runs" class="flat" type="button">clear runs</button>
           <label><span>log</span><input id="curve-log" type="checkbox"></label>
+          <button id="curve-png" class="flat" type="button">PNG</button>
+          <button id="curve-csv" class="flat" type="button">CSV</button>
         </span>
       </h2>
-      <canvas id="curve" height="220"></canvas>
+      <canvas id="curve" height="320" title="drag to zoom, double-click to reset"></canvas>
       <div class="legend">
         <span id="built-note" hidden>you built this device: the solver is validated, this structure isn't</span>
         <span id="curve-note">a point lands here as each voltage is solved</span>
@@ -147,9 +152,11 @@
             <input id="streamlines" type="checkbox" checked></label>
           <label><span>point</span>
             <input id="point" type="range" min="0" max="0" value="0" disabled></label>
+          <button id="profile-png" class="flat" type="button">PNG</button>
+          <button id="profile-csv" class="flat" type="button">CSV</button>
         </span>
       </h2>
-      <canvas id="profile" height="220"></canvas>
+      <canvas id="profile" height="320"></canvas>
       <div class="legend">
         <span data-topic-id="legend-psi"><i class="swatch psi"></i>psi [V]</span>
         <span data-topic-id="legend-n"><i class="swatch n"></i>n [cm^-3]</span>
@@ -162,7 +169,7 @@
         <span id="profile-note"></span>
       </div>
       <div id="cutline-panel" data-topic-id="cutline" hidden>
-        <canvas id="cutline" height="200"></canvas>
+        <canvas id="cutline" height="260" title="drag to zoom, double-click to reset"></canvas>
         <div class="legend"><span id="cutline-note">drag across the picture to draw a cutline</span></div>
       </div>
     </div>
@@ -247,6 +254,7 @@
 <script src="/static/vendor/katex/katex.min.js"></script>
 <script src="/static/vendor/katex/contrib/auto-render.min.js"></script>
 <script src="/static/js/app.js"></script>
+<script src="/static/js/plot.js"></script>
 <script src="/static/js/learn.js"></script>
 <script src="/static/js/bands.js"></script>
 <script src="/static/js/streamlines.js"></script>
