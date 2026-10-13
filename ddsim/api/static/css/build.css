@@ -93,7 +93,7 @@
 
 #modes button[aria-selected="true"]:hover { background: var(--signal-lift); }
 
-.swatch.rejected { background: var(--ink); }
+.swatch.rejected { width: 8px; height: 8px; background: transparent; border: 1.5px solid var(--hot); border-radius: 50%; }
 
 #build-scale .swatch { width: 10px; height: 10px; border-radius: var(--r-xs); }
 
@@ -106,8 +106,8 @@
 }
 
 #build-scale .dope-p {
-  background: var(--signal-wash);
-  border: 1px dashed var(--signal);
+  background: var(--blue-wash);
+  border: 1px dashed var(--blue);
 }
 
 #build-scale .gate { background: var(--violet); }

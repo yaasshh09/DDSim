@@ -2,32 +2,32 @@
 
 const CARD_ART = {
   pn_diode:
-    '<rect x="4" y="14" width="46" height="32" fill="' + token("fill-si") + '"></rect>' +
-    '<rect x="50" y="14" width="46" height="32" fill="' + token("line-bright") + '"></rect>' +
-    '<line x1="50" y1="10" x2="50" y2="50" stroke="' + token("warn") + '" stroke-dasharray="3 3"></line>' +
-    '<text x="18" y="34" fill="' + token("ink") + '" font-size="11">p</text>' +
-    '<text x="72" y="34" fill="' + token("ink") + '" font-size="11">n</text>',
+    '<rect x="4" y="14" width="46" height="32" style="fill:var(--fill-si)"></rect>' +
+    '<rect x="50" y="14" width="46" height="32" style="fill:var(--line-bright)"></rect>' +
+    '<line x1="50" y1="10" x2="50" y2="50" style="stroke:var(--warn)" stroke-dasharray="3 3"></line>' +
+    '<text x="18" y="34" style="fill:var(--ink)" font-size="11">p</text>' +
+    '<text x="72" y="34" style="fill:var(--ink)" font-size="11">n</text>',
   mos_cap:
-    '<rect x="8" y="12" width="84" height="7" fill="' + token("violet") + '"></rect>' +
-    '<rect x="8" y="19" width="84" height="8" fill="' + token("fill-ox") + '"></rect>' +
-    '<rect x="8" y="27" width="84" height="21" fill="' + token("fill-si") + '"></rect>' +
-    '<text x="38" y="18" fill="' + token("ground") + '" font-size="8">gate</text>' +
-    '<text x="34" y="42" fill="' + token("ink") + '" font-size="9">silicon</text>',
+    '<rect x="8" y="12" width="84" height="7" style="fill:var(--violet)"></rect>' +
+    '<rect x="8" y="19" width="84" height="8" style="fill:var(--fill-ox)"></rect>' +
+    '<rect x="8" y="27" width="84" height="21" style="fill:var(--fill-si)"></rect>' +
+    '<text x="38" y="18" style="fill:var(--ground)" font-size="8">gate</text>' +
+    '<text x="34" y="42" style="fill:var(--ink)" font-size="9">silicon</text>',
   nmos:
-    '<rect x="4" y="22" width="92" height="26" fill="' + token("fill-si") + '"></rect>' +
-    '<rect x="4" y="22" width="22" height="14" fill="' + token("signal") + '"></rect>' +
-    '<rect x="74" y="22" width="22" height="14" fill="' + token("signal") + '"></rect>' +
-    '<rect x="30" y="18" width="40" height="5" fill="' + token("fill-ox") + '"></rect>' +
-    '<rect x="30" y="12" width="40" height="6" fill="' + token("violet") + '"></rect>' +
-    '<text x="6" y="33" fill="' + token("ground") + '" font-size="8">src</text>' +
-    '<text x="76" y="33" fill="' + token("ground") + '" font-size="8">drn</text>',
+    '<rect x="4" y="22" width="92" height="26" style="fill:var(--fill-si)"></rect>' +
+    '<rect x="4" y="22" width="22" height="14" style="fill:var(--signal)"></rect>' +
+    '<rect x="74" y="22" width="22" height="14" style="fill:var(--signal)"></rect>' +
+    '<rect x="30" y="18" width="40" height="5" style="fill:var(--fill-ox)"></rect>' +
+    '<rect x="30" y="12" width="40" height="6" style="fill:var(--violet)"></rect>' +
+    '<text x="6" y="33" style="fill:var(--ground)" font-size="8">src</text>' +
+    '<text x="76" y="33" style="fill:var(--ground)" font-size="8">drn</text>',
   drawing:
-    '<rect x="6" y="12" width="88" height="36" fill="none" stroke="' + token("line-bright") + '" ' +
+    '<rect x="6" y="12" width="88" height="36" fill="none" style="stroke:var(--line-bright)" ' +
     'stroke-dasharray="4 3"></rect>' +
-    '<rect x="18" y="22" width="34" height="18" fill="' + token("fill-si") + '"></rect>' +
-    '<rect x="52" y="28" width="26" height="12" fill="' + token("fill-ox") + '"></rect>' +
+    '<rect x="18" y="22" width="34" height="18" style="fill:var(--fill-si)"></rect>' +
+    '<rect x="52" y="28" width="26" height="12" style="fill:var(--fill-ox)"></rect>' +
     '<path d="M62 18 l0 12 l3.5 -3.5 l2.5 5 l2.5 -1.2 l-2.5 -5 l4.5 -0.8 z" ' +
-    'fill="' + token("ink") + '"></path>',
+    'style="fill:var(--ink)"></path>',
 };
 
 const CARDS = [

@@ -45,8 +45,7 @@ body header span.gap { flex: 1; }
 }
 
 header:has(#cancel:not(:disabled)) .status-dot {
-background: var(--signal);
-box-shadow: 0 0 0 3px var(--signal-wash);
+background: var(--green);
 }
 
 main {
@@ -99,10 +98,8 @@ legend,
 .section {
   margin-bottom: 9px;
   padding: 0;
-  font: 600 11px var(--sans);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--dim);
+  font: 600 12px var(--sans);
+  color: var(--ink-2);
 }
 
 .section.voltages {margin: 10px 0 5px;}
