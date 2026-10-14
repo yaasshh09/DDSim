@@ -9,7 +9,8 @@
   "anode_voltage": "voltage on the p side contact [V]. Range -5 to 1. Much above 1.3 V forward, the solver can't find a starting guess for this device.",
   "cathode_voltage": "voltage on the n side contact [V]. Range -5 to 1. Same limits as the anode.",
   "material": "silicon. Set its temperature with T.",
-  "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values."
+  "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values.",
+  "incomplete_ionization": "count only the dopants that have actually let go of their carrier, the way real silicon behaves. At room temperature and moderate doping nearly all of them have, so this changes little. Cool the device toward 200 K or dope it heavily and a visible share hold on, which leaves fewer free carriers. It needs the simpler Boltzmann statistics. Above about 1e18 cm^-3 it overstates the effect."
  },
  "ddsim.device.mos_cap.mos_cap": {
   "substrate_doping": "net doping of the silicon [cm^-3]. Negative means p-type, so -1e16 is an ordinary NMOS body. Range -1e19 to -1e14, log. The page only offers p-type, because one log slider can't cross zero.",
@@ -25,6 +26,7 @@
   "work_function": "the gate metal's work function [eV]. Defaults to n+ polysilicon, the usual NMOS gate. Range 4 to 5.3, from n+ to past p+ poly.",
   "material": "silicon. Set its temperature with T.",
   "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values.",
+  "incomplete_ionization": "count only the dopants that have actually let go of their carrier, the way real silicon behaves. At room temperature and moderate doping nearly all of them have, so this changes little. Cool the device toward 200 K or dope it heavily and a visible share hold on, which leaves fewer free carriers. It needs the simpler Boltzmann statistics. Above about 1e18 cm^-3 it overstates the effect.",
   "Q_f": "fixed charge trapped in the oxide right at the silicon surface, counted as elementary charges per square centimetre [cm^-2]. Range -1e12 to 1e12. Positive is the usual sign. It slides the whole curve sideways by -q Q_f / C_ox without changing its shape; a clean thermal oxide sits near 1e10. Both ends were solved over the lesson sweep on both meshes on 2026-10-14."
  },
  "ddsim.device.mosfet.nmos": {
@@ -51,6 +53,7 @@
   "work_function": "the gate's work function [eV]. Defaults to n+ polysilicon, the usual NMOS gate. Range 4 to 5.3.",
   "material": "silicon. Set its temperature with T.",
   "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values.",
+  "incomplete_ionization": "count only the dopants that have actually let go of their carrier, the way real silicon behaves. At room temperature and moderate doping nearly all of them have, so this changes little. Cool the device toward 200 K or dope it heavily and a visible share hold on, which leaves fewer free carriers. It needs the simpler Boltzmann statistics, so turn degenerate off first. Above about 1e18 cm^-3 it overstates the effect.",
   "Q_f": "fixed charge trapped in the oxide right at the silicon surface, counted as elementary charges per square centimetre [cm^-2]. Range -1e12 to 1e12. Positive is the usual sign. It slides the whole curve sideways by -q Q_f / C_ox without changing its shape; a clean thermal oxide sits near 1e10. Both ends were solved over the lesson sweep on both meshes on 2026-10-14.",
   "degenerate": "use Fermi-Dirac statistics instead of the simpler Boltzmann ones. On by default, because the source and drain are doped to 1e20 cm^-3, and there Boltzmann puts the Fermi level 30.5 mV off."
  },
@@ -61,7 +64,8 @@
   "left_voltage": "voltage on the left contact [V]. Range -5 to 1, the same as the diode's contacts.",
   "right_voltage": "voltage on the right contact [V]. Range -5 to 1, the same as the left contact.",
   "material": "silicon. Set its temperature with T.",
-  "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values."
+  "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values.",
+  "incomplete_ionization": "count only the dopants that have actually let go of their carrier, the way real silicon behaves. At room temperature and moderate doping nearly all of them have, so this changes little. Cool the device toward 200 K or dope it heavily and a visible share hold on, which leaves fewer free carriers. It needs the simpler Boltzmann statistics. Above about 1e18 cm^-3 it overstates the effect."
  },
  "ddsim.device.drawing.drawing": {
   "blocks": "rectangles of silicon and oxide, painted in order. Together they cover a rectangle whose lower left corner is the origin.",
@@ -73,7 +77,8 @@
   "h_min_y": "the smallest row spacing, at every doping edge and every flat silicon to oxide interface [cm]. On a MOSFET the inversion layer is only a few nanometres thick, and this is what has to catch it. Range 1e-9 to 7.7e-7, log.",
   "degenerate": "use Fermi-Dirac statistics instead of the simpler Boltzmann ones. On by default, because the starting drawing is the benchmark nmos, doped to 1e20 cm^-3 in its source and drain. With it off, any doping above 1e19 gets turned down.",
   "material": "silicon. Set its temperature with T.",
-  "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values."
+  "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values.",
+  "incomplete_ionization": "count only the dopants that have actually let go of their carrier, the way real silicon behaves. At room temperature and moderate doping nearly all of them have, so this changes little. Cool the device toward 200 K or dope it heavily and a visible share hold on, which leaves fewer free carriers. It needs the simpler Boltzmann statistics, so turn degenerate off first. Above about 1e18 cm^-3 it overstates the effect."
  },
  "ddsim.extract.iv.iv_sweep": {
   "device": "the device. Its own contact biases are overridden by the sweep.",

@@ -137,11 +137,21 @@ and the Joyce-Dixon inversion above still holds.
 
 ## Incomplete ionization
 
-Ignored through Phase 4: Nd+ = Nd and Na- = Na. At 300 K and moderate doping
-that's accurate to under 1 percent. If it ever gets added:
+Off by default: Nd+ = Nd and Na- = Na. At 300 K and moderate doping that's
+accurate to under 1 percent. The `incomplete_ionization` flag, added in Phase
+9, turns on
 
     Nd+ = Nd / (1 + g_d * exp((E_F - E_d)/kT)),  g_d = 2
     Na- = Na / (1 + g_a * exp((E_a - E_F)/kT)),  g_a = 4
+
+written in the carrier densities, which is the same thing under Boltzmann
+statistics: Nd+ = Nd / (1 + g_d n / N1) with N1 = Nc exp(-Delta_E_d / kT),
+and Na- = Na / (1 + g_a p / P1) with P1 = Nv exp(-Delta_E_a / kT). The
+energies are in docs/06-constants.md. It enters the Poisson charge in every
+solve (equilibrium, Gummel, coupled Newton, C-V), and the ohmic contacts sit
+at the neutral point of the partly ionized charge. It needs Boltzmann
+statistics, and above about 1e18 cm^-3 it overstates freeze-out because it
+has no Mott transition (decisions.md).
 
 ## Recombination
 

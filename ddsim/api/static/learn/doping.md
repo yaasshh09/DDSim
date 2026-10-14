@@ -40,8 +40,12 @@ $$N_d^+ = \frac{N_d}{1 + g_d\,e^{(E_F - E_d)/kT}}, \qquad N_a^- = \frac{N_a}{1 +
 
 with $g_d = 2$ and $g_a = 4$. It shows where the assumption breaks down: the
 ionized fraction drops once the Fermi level gets near the dopant level, which
-happens at low temperature and in heavily doped material. The solver doesn't
-include it.
+happens at low temperature and in heavily doped material. The
+`incomplete_ionization` switch turns it on. A uniform 1e17 bar then freezes
+out to the textbook closed form within one part in 1e10 at 100, 200 and 300
+K, and the frozen density is what carries the current. It needs Boltzmann
+statistics, and above about 1e18 it overstates the effect, because real
+silicon turns metallic there and this model doesn't know that.
 
 I wrote the nMOSFET implant in closed form so its junctions land exactly
 where the knobs say. With depth it's a Gaussian centred on the silicon
