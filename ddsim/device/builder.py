@@ -11,7 +11,7 @@ from ddsim.discretize.boundary import Contact, GateContact, SemiconductorContact
 from ddsim.discretize.geometry import ScaledMesh
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.mesh.mesh2d import Mesh2D
-from ddsim.physics.statistics import Degeneracy
+from ddsim.physics.statistics import Degeneracy, Ionization
 
 AnyMesh = Mesh1D | Mesh2D
 
@@ -44,6 +44,8 @@ class Device:
     degenerate: bool = False
 
     Q_f: float = 0.0
+
+    incomplete_ionization: bool = False
 
     @cached_property
     def net_doping(self) -> Field:
@@ -144,6 +146,18 @@ class Device:
 
         return Degeneracy.for_silicon(self.scale.C_0, self.material.T)
 
+    @cached_property
+    def ionization(self) -> Ionization | None:
+        if not self.incomplete_ionization:
+            return None
+        return Ionization.for_silicon(self.scale.C_0, self.material.T)
+
+    @cached_property
+    def contact_doping_scaled(self) -> Field:
+        if self.ionization is None:
+            return self.net_doping_scaled
+        return Field(self.ionization.neutral_doping(self.net_doping_scaled.data), "cm^-3", ScalingState.SCALED, Location.NODE, name="contact_doping")
+
     def with_bias(self, **voltages:float) -> Device:
         ii = {u.name for u in self.contacts}
 
@@ -173,7 +187,7 @@ class Device:
             f"{el} contacts=({a})"
         )
 
-def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False, Q_f: float = 0.0,) -> Device:
+def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False, Q_f: float = 0.0, incomplete_ionization: bool = False,) -> Device:
     if material is None:
         material = Material.silicon()
 
@@ -208,6 +222,13 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
             "interface, and this device has no interface to put it on."
         )
 
+    if incomplete_ionization and degenerate:
+        raise ValueError(
+            "incomplete ionization is written for Boltzmann statistics, where "
+            "the donor occupancy is a function of n alone. Turn degenerate off "
+            "or ionization off."
+        )
+
     i = [item.name for item in contacts]
     if len(set(i)) != len(i):
         raise ValueError(f"contact names must be unique, got {i}")
@@ -223,4 +244,5 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
         regions=regions,
         degenerate=degenerate,
         Q_f=Q_f,
+        incomplete_ionization=incomplete_ionization,
     )

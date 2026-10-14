@@ -246,3 +246,46 @@ class Degeneracy:
             -np.log(p) - _joyce_dixon_correction(self._u(p, self.Nv)),
         )
         return np.asarray(psi.reshape(g.shape))
+
+
+@dataclass(frozen=True)
+class Ionization:
+    N1: float
+    P1: float
+    g_d: float = C.G_D
+    g_a: float = C.G_A
+
+    @classmethod
+    def for_silicon(cls, C_0: float, T: float = C.T_ROOM) -> Ionization:
+        return cls(N1=C.Nc(T) * np.exp(-C.E_D / C.V_T(T)) / C_0, P1=C.Nv(T) * np.exp(-C.E_A / C.V_T(T)) / C_0)
+
+    def Nd_plus(self, net_doping: Scalar, n: Scalar) -> npt.NDArray[np.float64]:
+        Nd = np.maximum(np.asarray(net_doping), 0.0)
+        return np.asarray(Nd / (1.0 + self.g_d * np.asarray(n) / self.N1))
+
+    def Na_minus(self, net_doping: Scalar, p: Scalar) -> npt.NDArray[np.float64]:
+        Na = np.maximum(-np.asarray(net_doping), 0.0)
+        return np.asarray(Na / (1.0 + self.g_a * np.asarray(p) / self.P1))
+
+    def dNd_plus_dn(self, net_doping: Scalar, n: Scalar) -> npt.NDArray[np.float64]:
+        Nd = np.maximum(np.asarray(net_doping), 0.0)
+        x = 1.0 + self.g_d * np.asarray(n) / self.N1
+        return np.asarray(-Nd * self.g_d / self.N1 / (x * x))
+
+    def dNa_minus_dp(self, net_doping: Scalar, p: Scalar) -> npt.NDArray[np.float64]:
+        Na = np.maximum(-np.asarray(net_doping), 0.0)
+        x = 1.0 + self.g_a * np.asarray(p) / self.P1
+        return np.asarray(-Na * self.g_a / self.P1 / (x * x))
+
+    def neutral_doping(self, net_doping: Scalar) -> npt.NDArray[np.float64]:
+        N = np.asarray(net_doping, dtype=np.float64)
+        lo = np.arcsinh(np.minimum(N, 0.0) / 2.0)
+        hi = np.arcsinh(np.maximum(N, 0.0) / 2.0)
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            n, p = np.exp(mid), np.exp(-mid)
+            f = p - n + self.Nd_plus(N, n) - self.Na_minus(N, p)
+            lo = np.where(f > 0.0, mid, lo)
+            hi = np.where(f > 0.0, hi, mid)
+        psi = 0.5 * (lo + hi)
+        return np.asarray(self.Nd_plus(N, np.exp(psi)) - self.Na_minus(N, np.exp(-psi)))

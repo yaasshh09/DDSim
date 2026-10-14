@@ -254,7 +254,17 @@ def _density_update(
     return float(np.max(np.abs(new-old) / (np.abs(old) + DENSITY_REFERENCE)))
 
 
+def _equilibrium_only_ionization(device: Device) -> None:
+    if device.ionization is not None:
+        raise NotImplementedError(
+            "incomplete ionization is wired into the equilibrium Poisson solve "
+            "only. The coupled and Gummel paths still pin contacts and charge "
+            "on full ionization, so they refuse rather than mix the two."
+        )
+
+
 def poisson_block(device:Device) -> BlockStep[DeviceState]:
+    _equilibrium_only_ionization(device)
     e = SparseLU()
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
@@ -511,6 +521,7 @@ def solve_bias_newton(
     surface_rtol:float = CONFIG.bias.surface_rtol,
     on_frame:Callable[[object], None]|None = None,
 ) -> DeviceState:
+    _equilibrium_only_ionization(device)
     if models is None:
         models = TransportModels.for_device(device)
     b = initial_state(device) if guess is None else guess

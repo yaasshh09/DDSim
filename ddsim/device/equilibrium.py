@@ -47,7 +47,7 @@ def insulator_guess(
         return psi
 
     xx = device.scale
-    f = device.net_doping_scaled
+    f = device.contact_doping_scaled
     w2 = Field(psi, "V", ScalingState.SCALED, Location.NODE, name='psi')
 
     tmp = assemble_poisson(
@@ -56,6 +56,7 @@ def insulator_guess(
         device.poisson_doping_scaled,
         charge_volume=device.charge_volume_scaled,
         degeneracy=device.degeneracy,
+        ionization=device.ionization,
     )
     tmp = apply_contacts(
         tmp,
@@ -85,11 +86,11 @@ def solve_poisson(device: Device, psi_initial: npt.NDArray[np.float64], phi_n: F
     f = device.charge_volume_scaled
     cur = device.poisson_doping_scaled
 
-    tmp2 = device.net_doping_scaled.data
+    tmp2 = device.contact_doping_scaled.data
     s = device.degeneracy
     def assemble(psi_values: npt.NDArray[np.float64]) -> SparseAssembly:
         psi = Field(psi_values, 'V', ScalingState.SCALED, Location.NODE, name="psi")
-        rows = assemble_poisson(hh, psi, cur, phi_n, phi_p, charge_volume=f, degeneracy=s,)
+        rows = assemble_poisson(hh, psi, cur, phi_n, phi_p, charge_volume=f, degeneracy=s, ionization=device.ionization,)
         return apply_contacts(
             rows,
             psi_values,
@@ -111,7 +112,7 @@ def solve_poisson(device: Device, psi_initial: npt.NDArray[np.float64], phi_n: F
 
 def solve_equilibrium(device: Device, quasi_fermi: tuple[Field, Field] | None = None, max_iterations: int = CONFIG.newton.max_iterations, residual_rtol: float = CONFIG.newton.residual_rtol, update_tol: float = CONFIG.newton.update_tol, on_frame:Callable[[object], None] | None = None,) -> DeviceState:
     phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
-    cc = device.net_doping_scaled.data
+    cc = device.contact_doping_scaled.data
 
     b2 = device.degeneracy
     if b2 is None:

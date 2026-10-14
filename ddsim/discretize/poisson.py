@@ -2,7 +2,7 @@ from __future__ import annotations
 import numpy as np; import numpy.typing as npt
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry, ScaledMesh; from ddsim.physics.statistics import Degeneracy
+from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry, ScaledMesh; from ddsim.physics.statistics import Degeneracy, Ionization
 CarrierDensities = tuple[
     npt.NDArray[np.float64],
     npt.NDArray[np.float64],
@@ -103,6 +103,7 @@ def assemble_poisson(
     phi_p:Field|None = None,
     charge_volume: npt.NDArray[np.float64]|None = None,
     degeneracy:Degeneracy | None = None,
+    ionization: Ionization | None = None,
 ) -> SparseAssembly:
     i = [('psi', psi), ('net_doping', net_doping)]
     if phi_n is not None:
@@ -138,9 +139,14 @@ def assemble_poisson(
 
     prev = None if phi_p is None else phi_p.data
     b = _carrier_densities(psi.data, x, prev, g > 0.0, degeneracy)
+    dop = net_doping.data
+    if ionization is not None:
+        n, p, dn, dp = b
+        dop = ionization.Nd_plus(dop, n) - ionization.Na_minus(dop, p)
+        b = (n, p, dn * (1.0 - ionization.dNd_plus_dn(net_doping.data, n)), dp * (1.0 - ionization.dNa_minus_dp(net_doping.data, p)))
 
     k = _poisson_residual(
-        mesh.h, g, psi.data, net_doping.data, b, mesh.geometry
+        mesh.h, g, psi.data, dop, b, mesh.geometry
     )
     v, m, v2 = _poisson_jacobian(
         mesh.h, g, mesh.n_nodes, b, mesh.geometry

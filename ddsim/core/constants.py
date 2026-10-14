@@ -75,6 +75,12 @@ def Nc(T: float = T_ROOM) -> float:
 def Nv(T: float = T_ROOM) -> float:
     return BAND_DENSITY.Nv(T)
 
+E_D: float = 0.045
+
+E_A: float = 0.045
+G_D: float = 2.0
+G_A: float = 4.0
+
 N_I_300: float = 1.0e10
 
 def n_i(T:float = T_ROOM) -> float:
