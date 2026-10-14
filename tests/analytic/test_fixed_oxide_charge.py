@@ -8,7 +8,7 @@ from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import solve_bias_newton
-from ddsim.extract.cv import terminal_charge
+from ddsim.extract.cv import Response, cv_sweep, terminal_charge
 
 QF = 5e11
 
@@ -54,3 +54,16 @@ def test_the_gate_carries_the_fixed_charge_s_image(qf: float) -> None:
     qa = terminal_charge(a, solve_equilibrium(a), 'gate')
     qb = terminal_charge(b, solve_equilibrium(b), 'gate')
     assert qa - qb == pytest.approx(C.q * qf, rel=1e-6)
+
+
+@pytest.mark.parametrize("response", list(Response))
+@pytest.mark.parametrize("qf", [QF, -QF])
+def test_the_cv_curve_shifts_by_minus_q_qf_over_c_ox(response: Response, qf: float) -> None:
+    shift = -C.q * qf * CONFIG.mos_cap.t_ox / C.eps_ox()
+    vg = [-1.5, -0.5, 0.0, 0.3, 0.6, 1.0, 1.5]
+    a = cv_sweep(mos_cap(), "gate", vg, response=response)
+    b = cv_sweep(mos_cap(Q_f=qf), "gate", [v + shift for v in vg], response=response)
+    assert a.complete and b.complete
+    ca = np.array([x.capacitance for x in a.points])
+    cb = np.array([x.capacitance for x in b.points])
+    np.testing.assert_allclose(cb, ca, rtol=1e-4)
