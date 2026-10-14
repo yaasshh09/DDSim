@@ -15,7 +15,6 @@ DEVICE_KINDS: dict[str, Callable[..., Device]] = {"pn_diode": pn_diode, "mos_cap
 
 _EXPRESSIBLE = ("float", 'int', 'bool', "str")
 
-_UNMEASURED = frozenset({"Q_f", "T"})
 
 @dataclass(frozen=True)
 class Preset:
@@ -151,7 +150,7 @@ def parameters_of(function: Callable[..., Any], choices:dict[str, tuple[str, ...
             **rest,
         )
     for i, m in inspect.signature(function).parameters.items():
-        if m.default is inspect.Parameter.empty or i in _UNMEASURED:
+        if m.default is inspect.Parameter.empty:
             continue
         if isinstance(m.default, Enum):
             s.append(

@@ -28,6 +28,12 @@ axis. `t_si` is how deep the silicon goes, and `width` is how wide the device
 is drawn. Nothing changes across the width, so capacitance is reported per
 unit area.
 
+`Q_f` is fixed charge stuck in the oxide right at the silicon surface, the
+kind every real oxide has some of. It doesn't move and it doesn't care about
+the gate, so all it does is slide the curve sideways. Positive charge
+already pulls electrons toward the surface, so the gate needs less voltage
+to do the same job and the curve moves left.
+
 ## In more depth
 
 The gate isn't a semiconductor node. The oxide carries Poisson's equation
@@ -40,8 +46,13 @@ At the silicon to oxide interface it's the normal component of the
 displacement $\varepsilon E$ that's continuous, not the field itself.
 
 Flatband is the gate voltage where the silicon bands stay flat all the way to
-the surface. With no fixed interface charge in this model it's just
-$\Phi_{MS}$, which for an n+ poly gate on 1e16 p type silicon is $-0.9192$ V.
+the surface. With `Q_f` at 0 it's just $\Phi_{MS}$, which for an n+ poly
+gate on 1e16 p type silicon is $-0.9192$ V. A fixed charge moves it to
+
+$$V_{FB} = \Phi_{MS} - \frac{q Q_f}{C_{ox}}$$
+
+and the solver lands on that shift to 1e-4 at every point of the curve,
+low and high frequency alike.
 A wrong $\Phi_{MS}$ slides the curve without changing its shape, so all three
 regimes would still look right.
 
@@ -56,7 +67,7 @@ finite silicon capacitance. decisions.md records the curve 1.7
 percent below $C_{ox}$ at 2.6 V below flatband, and within 1 percent only
 around 5 V below.
 
-This is the ideal capacitor, with no fixed interface charge and no poly
+By default this is the ideal capacitor: `Q_f` is 0 and there's no poly
 depletion. The body is a plate across the whole bottom edge, not a point,
 because a point would leave the rest of that edge reflecting, and that's a
 different device. The default mesh is 3 columns by 125 rows, graded hard
