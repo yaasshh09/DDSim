@@ -141,3 +141,35 @@ def test_a_gate_sweep_that_cannot_even_start_raises():
 def test_a_gate_sweep_rejects_a_terminal_the_device_does_not_have():
     with pytest.raises(KeyError, match="no contact named 'collector'"):
         gate_sweep(nmos(), voltages=[0.5], measure_at='collector')
+
+
+SUBTHRESHOLD_WINDOW = (1e-6, 1e-4)
+
+
+def solved_depletion_width(device, state) -> float:
+    p = state.p.to_physical(device.scale).data
+    x, y = device.mesh.node_x, device.mesh.node_y
+    xc = x[np.argmin(np.abs(x - 0.5 * (x.min() + x.max())))]
+    col = np.flatnonzero((np.abs(x - xc) < 1e-12) & (device.regions.semiconductor_volume > 0.0))
+    yi = y[np.intersect1d(col, device.regions.interface_nodes(device.mesh))[0]]
+    order = col[np.argsort(np.abs(y[col] - yi))]
+    pp, depth = p[order], np.abs(y[order] - yi)
+    k = int(np.argmax(pp > NA_SUBSTRATE / 2.0))
+    return float(np.interp(np.log(NA_SUBSTRATE / 2.0), np.log(pp[k - 1:k + 1]), depth[k - 1:k + 1]))
+
+
+@pytest.mark.parametrize("T", [250.0, 300.0, 350.0, 400.0])
+def test_the_minimum_swing_sits_on_the_solved_body_factor_at_every_T(T: float) -> None:
+    d = nmos(drain_voltage=V_DS_LINEAR, T=T)
+    c = gate_sweep(d, [round(0.025 * k, 3) for k in range(35)], models=TransportModels.for_device(d), step=0.05)
+    assert c.complete, c.message
+    v, i = c.voltage, c.current
+    lo, hi = SUBTHRESHOLD_WINDOW
+    seg = [k for k in range(len(v) - 1) if lo <= i[k] and i[k + 1] <= hi]
+    assert len(seg) >= 4, "the sweep barely touches the subthreshold window"
+    swing = {k: 1e3 * (v[k + 1] - v[k]) / np.log10(i[k + 1] / i[k]) for k in seg}
+    k = min(swing, key=swing.get)
+    W = 0.5 * (solved_depletion_width(d, c.points[k].state) + solved_depletion_width(d, c.points[k + 1].state))
+    limit = 1e3 * C.V_T(T) * np.log(10.0)
+    assert swing[k] >= limit
+    assert swing[k] == pytest.approx(limit * (1.0 + (C.eps_Si() / W) / (C.eps_ox() / T_OX)), rel=0.05)
