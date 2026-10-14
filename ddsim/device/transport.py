@@ -254,17 +254,7 @@ def _density_update(
     return float(np.max(np.abs(new-old) / (np.abs(old) + DENSITY_REFERENCE)))
 
 
-def _equilibrium_only_ionization(device: Device) -> None:
-    if device.ionization is not None:
-        raise NotImplementedError(
-            "incomplete ionization is wired into the equilibrium Poisson solve "
-            "only. The coupled and Gummel paths still pin contacts and charge "
-            "on full ionization, so they refuse rather than mix the two."
-        )
-
-
 def poisson_block(device:Device) -> BlockStep[DeviceState]:
-    _equilibrium_only_ionization(device)
     e = SparseLU()
 
     def step(state: DeviceState) -> tuple[DeviceState, float]:
@@ -310,7 +300,7 @@ def _lagged_effective_potential(
 def electron_block(
     device: Device, models: TransportModels
 ) -> BlockStep[DeviceState]:
-    tmp3 = device.net_doping_scaled.data
+    tmp3 = device.contact_doping_scaled.data
     c = device.degeneracy
     it = SparseLU()
     def step(state:DeviceState) -> tuple[DeviceState, float]:
@@ -334,7 +324,7 @@ def electron_block(
 
 
 def hole_block(device:Device, models:TransportModels) -> BlockStep[DeviceState]:
-    m = device.net_doping_scaled.data; e = device.degeneracy
+    m = device.contact_doping_scaled.data; e = device.degeneracy
     b = SparseLU()
     def step(state:DeviceState) -> tuple[DeviceState, float]:
         y = assemble_hole_continuity(
@@ -521,7 +511,6 @@ def solve_bias_newton(
     surface_rtol:float = CONFIG.bias.surface_rtol,
     on_frame:Callable[[object], None]|None = None,
 ) -> DeviceState:
-    _equilibrium_only_ionization(device)
     if models is None:
         models = TransportModels.for_device(device)
     b = initial_state(device) if guess is None else guess
@@ -534,6 +523,7 @@ def solve_bias_newton(
     i = res2.geometry
     g = device.net_doping_scaled.data
     gp = device.poisson_doping_scaled.data
+    gc = device.contact_doping_scaled.data
     t = device.carrier_free_nodes
 
     item = pack(b.psi.data, b.n.data, b.p.data)
@@ -552,8 +542,10 @@ def solve_bias_newton(
                 active.recombination,
                 i,
                 device.degeneracy,
+                device.ionization,
+                g,
             )
-            v = apply_contacts_coupled(v, x, g, device.contacts, vals, t, device.material.T, device.degeneracy,)
+            v = apply_contacts_coupled(v, x, gc, device.contacts, vals, t, device.material.T, device.degeneracy,)
             return scale_rows(v, row_weights(dat, res2.n_nodes))
         return assemble
 

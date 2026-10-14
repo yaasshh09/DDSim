@@ -7,7 +7,9 @@ from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Material, build_device
 from ddsim.device.doping import Uniform, abrupt_junction
 from ddsim.device.equilibrium import solve_equilibrium
-from ddsim.device.transport import solve_bias_newton
+from ddsim.device.transport import TransportModels, solve_bias, solve_bias_newton
+from ddsim.discretize.coupled import assemble_coupled_terms, pack
+from ddsim.extract.iv import terminal_currents
 from ddsim.discretize.boundary import OhmicContact
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.mesh.mesh1d import uniform_mesh_1d
@@ -80,6 +82,37 @@ def test_ionization_needs_boltzmann_statistics() -> None:
         bar(Uniform(1e17), 300.0, incomplete_ionization=True, degenerate=True)
 
 
-def test_the_coupled_solve_refuses_rather_than_ignores_ionization() -> None:
-    with pytest.raises(NotImplementedError, match="ionization"):
-        solve_bias_newton(bar(Uniform(1e17), 300.0, incomplete_ionization=True))
+@pytest.mark.parametrize("T", [100.0, 200.0])
+@pytest.mark.parametrize("solver", ["gummel", "newton"])
+def test_a_frozen_out_bar_obeys_ohms_law_with_the_frozen_density(T: float, solver: str) -> None:
+    Nd, V = 1e17, 1e-3
+    N1 = C.Nc(T) * math.exp(-C.E_D / C.V_T(T))
+    n = (N1 / 4.0) * (math.sqrt(1.0 + 8.0 * Nd / N1) - 1.0)
+    d = bar(Uniform(Nd), T, n_nodes=51, incomplete_ionization=True).with_bias(left=V)
+    st = solve_bias(d) if solver == "gummel" else solve_bias_newton(d)
+    assert terminal_currents(d, st)["left"] == pytest.approx(C.q * C.mu_n(T) * n * V / MICRON, rel=1e-7)
+
+
+def test_the_coupled_jacobian_carries_the_ionization_derivative() -> None:
+    m = uniform_mesh_1d(2 * MICRON, 21)
+    contacts = (OhmicContact("anode", 0, 0.0), OhmicContact("cathode", 20, 0.0))
+    d = build_device(m, abrupt_junction(Na=3e17, Nd=1e17, position=MICRON), contacts, material=Material.silicon(150.0), incomplete_ionization=True)
+    st = solve_equilibrium(d)
+    rng = np.random.default_rng(1)
+    x = pack(st.psi.data + 0.2 * rng.standard_normal(21), st.n.data * np.exp(0.3 * rng.standard_normal(21)), st.p.data * np.exp(0.3 * rng.standard_normal(21)))
+    mo = TransportModels.for_device(d)
+    sm = d.scaled_mesh
+
+    def assemble(y):
+        return assemble_coupled_terms(sm.h, d.charge_volume_scaled, y, d.poisson_doping_scaled.data, mo.Dn, mo.Dp, mo.recombination, sm.geometry, ionization=d.ionization, dopants=d.net_doping_scaled.data).assembly
+
+    a = assemble(x)
+    J = np.zeros(a.shape)
+    np.add.at(J, (a.rows, a.cols), a.values)
+    for k in range(3, x.size - 3):
+        h = 1e-7 * max(abs(x[k]), 1.0)
+        e = np.zeros(x.size)
+        e[k] = h
+        fd = (assemble(x + e).residual - assemble(x - e).residual) / (2.0 * h)
+        floor = 10.0 * np.finfo(float).eps * np.max(np.abs(a.residual[0::3])) / h
+        np.testing.assert_allclose(J[0::3, k], fd[0::3], rtol=1e-5, atol=1e-6 * np.max(np.abs(J[0::3, k])) + floor)

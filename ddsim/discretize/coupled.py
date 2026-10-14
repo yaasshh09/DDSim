@@ -25,7 +25,7 @@ from ddsim.physics.mobility import (
     diffusivity_tangent,
 )
 from ddsim.physics.recombination import Density, RecombinationModel
-from ddsim.physics.statistics import Degeneracy
+from ddsim.physics.statistics import Degeneracy, Ionization
 
 EPS = float(np.finfo(np.float64).eps)
 
@@ -389,6 +389,8 @@ def assemble_coupled_terms(
     recombination: RecombinationModel,
     geometry: EdgeGeometry = UNIFORM_1D,
     degeneracy: Degeneracy | None = None,
+    ionization: Ionization | None = None,
+    dopants: npt.NDArray[np.float64] | None = None,
 ) -> CoupledAssembly:
     psi, n, p = unpack(x)
     b, x2 = effective_potentials(psi, n, p, degeneracy)
@@ -423,6 +425,13 @@ def assemble_coupled_terms(
         g,
         geometry,
     )
+    if ionization is not None:
+        assert dopants is not None
+        s[Unknown.PSI::UNKNOWNS_PER_NODE] += (dopants - ionization.Nd_plus(dopants, n) + ionization.Na_minus(dopants, p)) * volume
+        at = np.arange(n.size, dtype=np.int64) * UNKNOWNS_PER_NODE
+        mm = np.concatenate([mm, at + Unknown.PSI, at + Unknown.PSI])
+        c = np.concatenate([c, at + Unknown.N, at + Unknown.P])
+        ss = np.concatenate([ss, -ionization.dNd_plus_dn(dopants, n) * volume, ionization.dNa_minus_dp(dopants, p) * volume])
     cc = x.size
     return CoupledAssembly(
         assembly=SparseAssembly(
