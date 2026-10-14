@@ -23,3 +23,15 @@ def test_a_400_K_device_hands_400_K_to_every_model() -> None:
 
 def test_saturation_velocity_is_unchanged_at_300_K() -> None:
     assert C.v_sat_n(300.0) == 1.07e7 and C.v_sat_p(300.0) == 8.3e6
+
+
+@pytest.mark.parametrize("kind", ["pn_diode", "mos_cap", "nmos", "stack", "drawing"])
+def test_every_builder_takes_T(kind: str) -> None:
+    from ddsim.api.devices import DEVICE_KINDS
+    d = DEVICE_KINDS[kind](T=350.0)
+    assert d.material.T == 350.0 and d.scale.T == 350.0
+
+
+def test_T_and_a_material_that_disagree_are_refused() -> None:
+    with pytest.raises(ValueError, match="both given"):
+        nmos(T=400.0, material=Material.silicon(350.0))

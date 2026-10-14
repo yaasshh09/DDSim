@@ -15,7 +15,7 @@ DEVICE_KINDS: dict[str, Callable[..., Device]] = {"pn_diode": pn_diode, "mos_cap
 
 _EXPRESSIBLE = ("float", 'int', 'bool', "str")
 
-_UNMEASURED = frozenset({"Q_f"})
+_UNMEASURED = frozenset({"Q_f", "T"})
 
 @dataclass(frozen=True)
 class Preset:

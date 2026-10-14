@@ -245,7 +245,7 @@ def _electrode_nodes(mesh: Mesh2D, electrode: Electrode) -> tuple[int, ...]:
     return tuple(int(out) for out in np.flatnonzero(r2))
 
 
-def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant, ...] = NMOS_DRAWING[1], electrodes: tuple[Electrode, ...] = NMOS_DRAWING[2], nx: int = CONFIG.drawing.nx, ny: int = CONFIG.drawing.ny, h_min_x: float = CONFIG.drawing.h_min_x, h_min_y: float = CONFIG.drawing.h_min_y, degenerate: bool = True, material: Material | None = None,) -> Device:
+def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant, ...] = NMOS_DRAWING[1], electrodes: tuple[Electrode, ...] = NMOS_DRAWING[2], nx: int = CONFIG.drawing.nx, ny: int = CONFIG.drawing.ny, h_min_x: float = CONFIG.drawing.h_min_x, h_min_y: float = CONFIG.drawing.h_min_y, degenerate: bool = True, material: Material | None = None, T: float = C.T_ROOM,) -> Device:
     _check_records(blocks, implants, electrodes, degenerate)
     if not blocks:
         raise ValueError("nothing is drawn: a device needs at least one block")
@@ -414,6 +414,7 @@ def drawing(blocks: tuple[Block, ...] = NMOS_DRAWING[0], implants: tuple[Implant
         doping=j,
         contacts=tuple(yy),
         material=material,
+        T=T,
         regions=xx,
         degenerate=degenerate,
     )

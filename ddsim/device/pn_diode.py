@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core import constants as C
 from ddsim.core.config import CONFIG
 from ddsim.device.builder import Device, Material, build_device
 from ddsim.device.doping import abrupt_junction
@@ -15,6 +16,7 @@ def pn_diode(
     anode_voltage: float = 0.0,
     cathode_voltage: float = 0.0,
     material: Material | None = None,
+    T: float = C.T_ROOM,
 ) -> Device:
     if not 0.0 < junction < length:
         raise ValueError(
@@ -33,4 +35,5 @@ def pn_diode(
         doping=abrupt_junction(Na=Na, Nd=Nd, position=junction),
         contacts=info,
         material=material,
+        T=T,
     )

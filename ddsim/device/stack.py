@@ -1,4 +1,5 @@
 from __future__ import annotations
+from ddsim.core import constants as C
 from ddsim.core.config import CONFIG
 from dataclasses import dataclass
 import numpy as np
@@ -75,6 +76,7 @@ def stack(
     left_voltage: float = 0.0,
     right_voltage: float = 0.0,
     material: Material | None = None,
+    T: float = C.T_ROOM,
 ) -> Device:
     _check_regions(regions)
     j = np.cumsum([lst.length for lst in regions])
@@ -109,4 +111,5 @@ def stack(
         ),
         contacts=v,
         material=material,
+        T=T,
     )

@@ -187,9 +187,14 @@ class Device:
             f"{el} contacts=({a})"
         )
 
-def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False, Q_f: float = 0.0, incomplete_ionization: bool = False,) -> Device:
+def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False, Q_f: float = 0.0, incomplete_ionization: bool = False, T: float = C.T_ROOM,) -> Device:
     if material is None:
-        material = Material.silicon()
+        material = Material.silicon(T)
+    elif T != C.T_ROOM and T != material.T:
+        raise ValueError(
+            f"T={T:g} K and a material at {material.T:g} K were both given. "
+            "Pass one of them."
+        )
 
     if not contacts:
         raise ValueError("a device needs at least one contact")
