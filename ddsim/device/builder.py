@@ -231,7 +231,7 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
         raise ValueError(
             "incomplete ionization is written for Boltzmann statistics, where "
             "the donor occupancy is a function of n alone. Turn degenerate off "
-            "or ionization off."
+            "or incomplete_ionization off."
         )
 
     i = [item.name for item in contacts]
