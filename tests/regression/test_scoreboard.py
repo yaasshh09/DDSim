@@ -334,6 +334,7 @@ BEST_CAPABILITIES = frozenset(
         'Guided lessons',
         "Gummel iteration",
         "High frequency C-V",
+        "Incomplete ionization",
         "Lombardi surface mobility",
         'Quasi-static C-V',
         "SRH recombination",
