@@ -6,7 +6,9 @@ from ddsim.core import constants as C
 from ddsim.core.field import Field, Location, ScalingState
 from ddsim.device.builder import Material, build_device
 from ddsim.device.doping import Uniform, abrupt_junction
-from ddsim.device.equilibrium import solve_equilibrium
+from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
+from ddsim.device.mos_cap import mos_cap
+from ddsim.extract.cv import small_signal_capacitance, terminal_charge
 from ddsim.device.transport import TransportModels, solve_bias, solve_bias_newton
 from ddsim.discretize.coupled import assemble_coupled_terms, pack
 from ddsim.extract.iv import terminal_currents
@@ -116,3 +118,16 @@ def test_the_coupled_jacobian_carries_the_ionization_derivative() -> None:
         fd = (assemble(x + e).residual - assemble(x - e).residual) / (2.0 * h)
         floor = 10.0 * np.finfo(float).eps * np.max(np.abs(a.residual[0::3])) / h
         np.testing.assert_allclose(J[0::3, k], fd[0::3], rtol=1e-5, atol=1e-6 * np.max(np.abs(J[0::3, k])) + floor)
+
+
+@pytest.mark.parametrize("vg", [-1.5, -0.5, 0.5])
+def test_the_small_signal_capacitance_is_the_slope_of_the_frozen_out_charge(vg: float) -> None:
+    def cap(v):
+        return mos_cap(gate_voltage=v, T=150.0, incomplete_ionization=True)
+
+    d = cap(vg)
+    st = solve_equilibrium(d, frozen_quasi_fermi(d))
+    c = small_signal_capacitance(d, st, "gate", quasi_fermi=frozen_quasi_fermi(d))
+    h = 1e-4
+    q = [terminal_charge(cap(v), solve_equilibrium(cap(v), frozen_quasi_fermi(cap(v))), "gate", quasi_fermi=frozen_quasi_fermi(cap(v))) for v in (vg - h, vg + h)]
+    assert c == pytest.approx((q[1] - q[0]) / (2.0 * h), rel=1e-5)

@@ -37,7 +37,7 @@ def implant_lengths(x_j: float, lateral_diffusion: float, sd_peak: float, Na: fl
     return d, c
 
 
-def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_length, contact_length: float = CONFIG.nmos.contact_length, substrate_doping:float = CONFIG.nmos.substrate_doping, sd_peak: float = CONFIG.nmos.sd_peak, x_j: float = CONFIG.nmos.x_j, lateral_diffusion:float = CONFIG.nmos.lateral_diffusion, t_ox:float = CONFIG.nmos.t_ox, t_si: float = CONFIG.nmos.t_si, n_contact: int = CONFIG.nmos.n_contact, n_sd: int = CONFIG.nmos.n_sd, n_channel: int = CONFIG.nmos.n_channel, n_silicon: int = CONFIG.nmos.n_silicon, n_oxide: int = CONFIG.nmos.n_oxide, h_min_x: float = CONFIG.nmos.h_min_x, h_min_y:float = CONFIG.nmos.h_min_y, gate_voltage: float = 0.0, drain_voltage: float = 0.0, source_voltage: float = 0.0, body_voltage: float = 0.0, work_function: float = C.PHI_M_N_POLY, material: Material | None = None, degenerate:bool = True, Q_f: float = 0.0, T: float = C.T_ROOM,) -> Device:
+def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_length, contact_length: float = CONFIG.nmos.contact_length, substrate_doping:float = CONFIG.nmos.substrate_doping, sd_peak: float = CONFIG.nmos.sd_peak, x_j: float = CONFIG.nmos.x_j, lateral_diffusion:float = CONFIG.nmos.lateral_diffusion, t_ox:float = CONFIG.nmos.t_ox, t_si: float = CONFIG.nmos.t_si, n_contact: int = CONFIG.nmos.n_contact, n_sd: int = CONFIG.nmos.n_sd, n_channel: int = CONFIG.nmos.n_channel, n_silicon: int = CONFIG.nmos.n_silicon, n_oxide: int = CONFIG.nmos.n_oxide, h_min_x: float = CONFIG.nmos.h_min_x, h_min_y:float = CONFIG.nmos.h_min_y, gate_voltage: float = 0.0, drain_voltage: float = 0.0, source_voltage: float = 0.0, body_voltage: float = 0.0, work_function: float = C.PHI_M_N_POLY, material: Material | None = None, degenerate:bool = True, Q_f: float = 0.0, T: float = C.T_ROOM, incomplete_ionization: bool = False,) -> Device:
     for k, d2 in (
         ("L_gate", L_gate),
         ("sd_length", sd_length),
@@ -124,4 +124,4 @@ def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_l
     m, xs = implant_lengths(x_j, lateral_diffusion, sd_peak, Na)
     y2 = (Along(Erfc(peak=0.5, position=sd_length, length=xs), "x") * Along(Gaussian(peak=1.0, centre=t_si, sigma=m), "y") * sd_peak)
     out2 = Uniform(substrate_doping) + y2 + Mirrored(y2, 0.5 * w)
-    return build_device(mesh=tmp, doping=out2, contacts=b, material=material, regions=j, degenerate=degenerate, Q_f=Q_f, T=T,)
+    return build_device(mesh=tmp, doping=out2, contacts=b, material=material, regions=j, degenerate=degenerate, Q_f=Q_f, T=T, incomplete_ionization=incomplete_ionization,)

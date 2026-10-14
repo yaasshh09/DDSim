@@ -13,7 +13,7 @@ GATE = 'gate'
 BODY = "body"
 
 
-def mos_cap(substrate_doping:float = CONFIG.mos_cap.substrate_doping, t_ox:float = CONFIG.mos_cap.t_ox, t_si: float = CONFIG.mos_cap.t_si, width:float = CONFIG.mos_cap.width, nx: int = CONFIG.mos_cap.nx, n_silicon: int = CONFIG.mos_cap.n_silicon, n_oxide:int = CONFIG.mos_cap.n_oxide, h_min:float = CONFIG.mos_cap.h_min, gate_voltage:float = 0.0, body_voltage: float = 0.0, work_function: float = C.PHI_M_N_POLY, material:Material | None = None, Q_f: float = 0.0, T: float = C.T_ROOM,) -> Device:
+def mos_cap(substrate_doping:float = CONFIG.mos_cap.substrate_doping, t_ox:float = CONFIG.mos_cap.t_ox, t_si: float = CONFIG.mos_cap.t_si, width:float = CONFIG.mos_cap.width, nx: int = CONFIG.mos_cap.nx, n_silicon: int = CONFIG.mos_cap.n_silicon, n_oxide:int = CONFIG.mos_cap.n_oxide, h_min:float = CONFIG.mos_cap.h_min, gate_voltage:float = 0.0, body_voltage: float = 0.0, work_function: float = C.PHI_M_N_POLY, material:Material | None = None, Q_f: float = 0.0, T: float = C.T_ROOM, incomplete_ionization: bool = False,) -> Device:
     if t_ox <= 0.0:
         raise ValueError(f"t_ox must be positive, got {t_ox}")
     if t_si <= 0.0:
@@ -43,4 +43,5 @@ def mos_cap(substrate_doping:float = CONFIG.mos_cap.substrate_doping, t_ox:float
         regions=c,
         Q_f=Q_f,
         T=T,
+        incomplete_ionization=incomplete_ionization,
     )

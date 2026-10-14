@@ -77,6 +77,7 @@ def stack(
     right_voltage: float = 0.0,
     material: Material | None = None,
     T: float = C.T_ROOM,
+    incomplete_ionization: bool = False,
 ) -> Device:
     _check_regions(regions)
     j = np.cumsum([lst.length for lst in regions])
@@ -112,4 +113,5 @@ def stack(
         contacts=v,
         material=material,
         T=T,
+        incomplete_ionization=incomplete_ionization,
     )
