@@ -7,8 +7,11 @@ from ddsim.device.builder import build_device
 from ddsim.device.equilibrium import solve_equilibrium
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.pn_diode import pn_diode
-from ddsim.device.transport import solve_bias_newton
+from ddsim.device.mosfet import nmos
+from ddsim.device.transport import TransportModels, solve_bias_newton
 from ddsim.extract.cv import Response, cv_sweep, terminal_charge
+from ddsim.extract.iv import gate_sweep
+from ddsim.extract.params import threshold_constant_current
 
 QF = 5e11
 
@@ -67,3 +70,17 @@ def test_the_cv_curve_shifts_by_minus_q_qf_over_c_ox(response: Response, qf: flo
     ca = np.array([x.capacitance for x in a.points])
     cb = np.array([x.capacitance for x in b.points])
     np.testing.assert_allclose(cb, ca, rtol=1e-4)
+
+
+@pytest.mark.parametrize("qf", [1e11, -1e11])
+def test_the_mosfet_threshold_shifts_by_minus_q_qf_over_c_ox(qf: float) -> None:
+    shift = -C.q * qf * CONFIG.nmos.t_ox / C.eps_ox()
+    vg = [0.2, 0.4, 0.6, 0.8, 1.0]
+    a, b = nmos(drain_voltage=0.05), nmos(drain_voltage=0.05, Q_f=qf)
+    ia = gate_sweep(a, vg, models=TransportModels.for_device(a), step=0.1)
+    ib = gate_sweep(b, [v + shift for v in vg], models=TransportModels.for_device(b), step=0.1, start=shift)
+    assert ia.complete and ib.complete
+    target = float(ia.current[2])
+    va = threshold_constant_current(ia.voltage, ia.current, target)
+    vb = threshold_constant_current(ib.voltage, ib.current, target)
+    assert abs((vb - va) - shift) < 1e-3
