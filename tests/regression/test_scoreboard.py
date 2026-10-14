@@ -330,6 +330,7 @@ BEST_CAPABILITIES = frozenset(
         'Device check before solving',
         'Draw a 2D device in the browser',
         "Fermi-Dirac statistics",
+        "Fixed oxide charge",
         'Guided lessons',
         "Gummel iteration",
         "High frequency C-V",
@@ -337,6 +338,7 @@ BEST_CAPABILITIES = frozenset(
         'Quasi-static C-V',
         "SRH recombination",
         'Velocity saturation',
+        "Temperature as a device input",
     }
 )
 
