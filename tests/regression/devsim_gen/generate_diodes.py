@@ -58,8 +58,9 @@ def build_mesh(benchmark: P.DiodeBenchmark, device: str, refine: float = 1.0) ->
     finalize_mesh(mesh=e); create_device(mesh=e, device=device)
 
 
-def set_silicon_parameters(device:str) -> None:
-    cur:dict[str, float] = {'Permittivity': P.EPS_R_SI * P.EPS_0, 'ElectronCharge':P.Q, "n_i": P.N_I, "T": P.T, "kT": P.K_B * P.T, 'V_t': P.V_T, 'mu_n':P.MU_N, "mu_p": P.MU_P, 'n1': P.N_I, "p1": P.N_I,}
+def set_silicon_parameters(device:str, T: float = P.T) -> None:
+    ni = P.n_i_at(T) if T != P.T else P.N_I
+    cur:dict[str, float] = {'Permittivity': P.EPS_R_SI * P.EPS_0, 'ElectronCharge':P.Q, "n_i": ni, "T": T, "kT": P.K_B * T, 'V_t': P.K_B * T / P.Q, 'mu_n':P.MU_N, "mu_p": P.MU_P, 'n1': ni, "p1": ni,}
     for info, tt in cur.items():
         set_parameter(device=device, region=REGION, name=info, value=tt)
 
@@ -139,7 +140,7 @@ def sweep(benchmark: P.DiodeBenchmark, refine: float = 1.0) -> list[dict[str, An
                   '_')
     build_mesh(benchmark, d, refine=refine)
     set_doping(benchmark, d)
-    set_silicon_parameters(d)
+    set_silicon_parameters(d, benchmark.T)
     build_physics(d)
 
     j = sorted((item for item in benchmark.voltages if item < 0.0), reverse=True)
@@ -198,6 +199,7 @@ def write_csv(
         f"{sys.version.split()[0]}",
         f"# generated on: {out}",
         f"# tolerance: {benchmark.tolerance}",
+        f"# T: {benchmark.T:g}",
         f"# Na: {benchmark.Na:.6e}",
         f"# Nd: {benchmark.Nd:.6e}",
         f"# length: {benchmark.length:.6e}",

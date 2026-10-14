@@ -51,6 +51,14 @@ PHI_M_MIDGAP: float = CHI_SI + EG / 2.0
 
 V_T = K_B * T / Q
 
+
+def eg_at(T: float) -> float:
+    return _EG_0 - _EG_ALPHA * T * T / (T + _EG_BETA)
+
+
+def n_i_at(T: float) -> float:
+    return float(N_I * (T / 300.0) ** 1.5 * math.exp(eg_at(300.0) / (2.0 * (K_B * 300.0 / Q)) - eg_at(T) / (2.0 * (K_B * T / Q))))
+
 ARORA_N: tuple[float, float, float, float] = (88.0, 1252.0, 1.432e17, 0.88)
 ARORA_P: tuple[float, float, float, float] = (54.3, 407.0, 2.67e17, 0.88)
 
@@ -129,6 +137,8 @@ class DiodeBenchmark:
 
     notes: str = ""
 
+    T: float = 300.0
+
 
 CURRENT_FLOOR = 1e-10
 
@@ -184,6 +194,22 @@ BENCHMARKS: tuple[DiodeBenchmark, ...] = (
             "actually measures is agreement at a doping where Boltzmann is "
             'already wrong, which is a code comparison and not a physics '
             "check. Fermi-Dirac is deferred with the rest of it."
+        ),
+    ),
+    DiodeBenchmark(
+        name="diode_1e16_1e16_400K",
+        number=1,
+        Na=1e16,
+        Nd=1e16,
+        length=1e-4,
+        junction=0.5e-4,
+        voltages=REVERSE + _forward(0.7),
+        tolerance=0.02,
+        T=400.0,
+        notes=(
+            "Benchmark 1 at 400 K, the Phase 9 temperature check. n_i, V_T and "
+            "the bandgap follow T; mobility and lifetimes stay at their 300 K "
+            "values, the same in both codes."
         ),
     ),
 )

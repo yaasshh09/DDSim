@@ -2,6 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import pytest
 from ddsim.core import constants as C
+from ddsim.device.builder import Material
 from ddsim.device.pn_diode import pn_diode
 from ddsim.extract.iv import IVCurve, iv_sweep
 from tests.regression.devsim_gen import parameters as P
@@ -19,6 +20,11 @@ def test_generator_constants_mirror_ddsim(
         "golden data was solved with the generator's value, so it is stale. "
         "Regenerate it, do not edit the mirror."
     )
+
+@pytest.mark.parametrize("T", [250.0, 300.0, 400.0])
+def test_generator_n_i_follows_ddsim_in_temperature(T: float) -> None:
+    assert P.n_i_at(T) == pytest.approx(C.n_i(T), rel=1e-14)
+
 
 def test_generator_lifetime_matches_ddsim() -> None:
     from ddsim.physics.recombination import scharfetter_lifetime
@@ -69,6 +75,7 @@ def test_golden_header_matches_the_benchmark(benchmark:P.DiodeBenchmark) -> None
             f"parameters.py now says {v}. The golden data is stale."
         )
 
+    assert float(x.header.get("T", "300")) == benchmark.T
     assert x.voltage == pytest.approx(list(benchmark.voltages)), (
         'the golden bias points are not the ones parameters.py asks for'
     )
@@ -85,6 +92,7 @@ def ddsim_curve(benchmark:P.DiodeBenchmark) -> IVCurve:
             junction=benchmark.junction,
             n_nodes=benchmark.n_nodes,
             h_min=benchmark.h_min,
+            material=Material.silicon(benchmark.T),
         )
         _SOLVED[benchmark.name] = iv_sweep(j, "anode", list(benchmark.voltages), step=0.05)
     return _SOLVED[benchmark.name]
