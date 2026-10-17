@@ -652,3 +652,128 @@ def read_mosfet_golden(path: str) -> MosfetGoldenCurve:
             x.source_high.append(float(rows[4]))
     x.name = x.header.get('device', '')
     return x
+
+
+@dataclass(frozen=True)
+class AcBenchmark:
+    name: str
+    number: int
+    biases: tuple[float, ...]
+    frequencies: tuple[float, ...]
+    tolerance: float
+    tau: float | None
+    devsim_refine: float = 1.0
+    devsim_runs: tuple[tuple[int, bool], ...] = ((1, False), (4, False))
+    notes: str = ""
+
+
+AC_DIODE_NA = 1e19
+AC_DIODE_ND = 1e18
+AC_DIODE_TAU = 1e-3
+AC_DIODE_LN = math.sqrt(MU_N * V_T * AC_DIODE_TAU)
+AC_DIODE_LP = math.sqrt(MU_P * V_T * AC_DIODE_TAU)
+AC_DIODE_LENGTH = 5 * AC_DIODE_LN + 5 * AC_DIODE_LP
+AC_DIODE_JUNCTION = 5 * AC_DIODE_LN
+
+BAR_DOPING = 1e16
+BAR_LENGTH = 1e-4
+BAR_DEVSIM_H = 1e-6
+
+AC_BENCHMARKS: tuple[AcBenchmark, ...] = (
+    AcBenchmark(
+        name="mos_cap_5nm_ac",
+        number=11,
+        biases=(-1.0, 0.5, 1.0),
+        frequencies=tuple(10 ** (k / 2) for k in range(4, 21)),
+        tolerance=0.03,
+        tau=1e-12,
+        devsim_refine=2.0,
+        devsim_runs=((1, True), (2, True), (4, True), (1, False), (4, False)),
+        notes=(
+            "Benchmark 4's capacitor solved on the coupled system at each frequency. "
+            "tau 1e-12 s puts the inversion layer's response near 10 kHz, so the sweep "
+            "runs from the quasi-static curve through the transition to the frozen one, "
+            "and up into the substrate RC rolloff past 100 MHz. On benchmark 4's own "
+            "mesh devsim's low frequency inversion C moves 0.6 percent when halved, so "
+            "this golden is solved on that mesh halved. In inversion devsim's answer from the "
+            "low frequency end through the transition is roundoff limited: the same state on "
+            "1, 2 and 4 MKL threads differs by up to 10 percent in double and about 3 in "
+            "extended precision, and double against extended by about 4. The stored values "
+            "are extended on one thread, and the spread column is the worst change over all "
+            "five runs."
+        ),
+    ),
+    AcBenchmark(
+        name="diode_long_ac",
+        number=12,
+        biases=(0.776,),
+        frequencies=tuple(10 ** (k / 2) / (2 * math.pi * AC_DIODE_TAU) for k in range(-4, 5)),
+        tolerance=0.03,
+        tau=AC_DIODE_TAU,
+        notes=(
+            "The long p+n diode of tests/analytic/test_ac_diode.py, both sides five "
+            "diffusion lengths long, at low injection. Frequencies run omega tau from "
+            "1e-2 to 1e2, across the bend in G0 sqrt(1 + i omega tau)."
+        ),
+    ),
+    AcBenchmark(
+        name="bar_noise",
+        number=13,
+        biases=(0.0,),
+        frequencies=tuple(10 ** (k / 2) for k in range(18, 29)),
+        tolerance=0.05,
+        tau=None,
+        devsim_refine=2.0,
+        notes=(
+            "A 1 um bar of 1e16 n type at equilibrium, through its dielectric "
+            "relaxation frequency near 3.5e11 Hz. devsim gives the impedance field and "
+            "the source 4 q^2 V_t mu n is integrated against its node gradient the way "
+            "devsim's testing/noise_res.py does. That recipe reads 4kT Re Z times "
+            "1 - h/L, so the golden uses the halved mesh."
+        ),
+    ),
+)
+AC_BY_NAME: dict[str, AcBenchmark] = {b.name: b for b in AC_BENCHMARKS}
+
+AC_MODEL_SUMMARY: tuple[str, ...] = (
+    "statistics:      Boltzmann",
+    "transport:       Scharfetter-Gummel, Einstein relation D = V_t * mu",
+    f"mobility:        constant, mu_n = {MU_N} and mu_p = {MU_P} cm^2/(V s)",
+    "recombination:   SRH only, midgap traps, tau uniform where the benchmark sets "
+    "one, Scharfetter otherwise",
+    "small signal:    (J + i omega M) dx = b, M on the continuity rows only, "
+    "displacement current through the contact D field",
+    "admittance:      Y = dI/dV at the driven contact, everything else held at its "
+    "DC bias",
+    "noise:           impedance field, diffusion sources 4 q^2 D n for both carriers, "
+    "S_V = S_I / |Y|^2",
+    f"constants:       q = {Q} C, k = {K_B} J/K, eps_0 = {EPS_0} F/cm, "
+    f"eps_r(Si) = {EPS_R_SI}, eps_r(ox) = {EPS_R_OX}, n_i = {N_I:.6e} cm^-3, "
+    f"T = {T} K",
+)
+
+
+@dataclass
+class AcGoldenCurve:
+    header: dict[str, str] = field(default_factory=dict)
+    rows: list[dict[str, float]] = field(default_factory=list)
+
+
+def read_ac_golden(path: str) -> AcGoldenCurve:
+    x = AcGoldenCurve()
+    names: list[str] = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if line.startswith("#"):
+                k, _, v = line[1:].strip().partition(":")
+                if v:
+                    x.header.setdefault(k.strip(), v.strip())
+                continue
+            if not line:
+                continue
+            if not names:
+                names = line.split(",")
+                continue
+            x.rows.append(dict(zip(names, map(float, line.split(",")), strict=True)))
+    return x

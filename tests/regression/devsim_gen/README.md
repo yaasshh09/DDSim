@@ -49,6 +49,15 @@ skip the second solve, `--out` to write somewhere other than `data/golden`.
 
 `generate_mos_cv.py` and `generate_mosfet.py` take the same arguments.
 
+## The small signal generator runs every solve in its own process
+
+`generate_ac.py` writes benchmarks 11 to 13: the MOS capacitor and the long diode through `solve(type="ac")`, and the resistor bar through `solve(type="noise")` with the diffusion source integrated against the impedance field. It starts one subprocess per solve, for two reasons.
+
+1. `delete_circuit()` in devsim 2.11 deletes the circuit and then raises an error with an empty message, so a second device can't be set up cleanly in the same process.
+2. `MKL_NUM_THREADS` only takes effect before MKL loads, and the thread count is one of the things the generator varies on purpose.
+
+Each benchmark lists its runs in `devsim_runs` as (threads, extended precision) pairs. The golden stores the first and a `spread` column with the worst relative change over the rest. On the diode and the bar the spread is 5e-5 and 0. On the capacitor in inversion it reaches 14.8 percent, because the inversion layer is tied to the body only through generation and devsim's unscaled matrix loses that link to roundoff. The test widens its tolerance to three times the spread where that's bigger, and the mesh convergence figure in the header skips points whose spread is above 1e-3, since there the mesh is not what moves the answer.
+
 ## The MOSFET generator decides convergence itself
 
 `generate_mosfet.py` does not trust what a devsim `solve` reports, and neither
