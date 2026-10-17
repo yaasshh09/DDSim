@@ -99,11 +99,11 @@ def test_n_i_default_argument_is_300k() -> None:
 
 
 def test_eps_si_is_11_7_times_eps_0() -> None:
-    assert C.eps_Si() == pytest.approx(11.7 * C.eps_0, rel=1e-15)
+    assert C.eps_Si() == pytest.approx(11.7 * C.eps_0, rel=1e-15, abs=0)
 
 
 def test_eps_ox_is_3_9_times_eps_0() -> None:
-    assert C.eps_ox() == pytest.approx(3.9 * C.eps_0, rel=1e-15)
+    assert C.eps_ox() == pytest.approx(3.9 * C.eps_0, rel=1e-15, abs=0)
 
 def test_mobility_constants_match_doc() -> None:
     assert C.mu_n(300.0) == pytest.approx(1417.0, rel=1e-15)

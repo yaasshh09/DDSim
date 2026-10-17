@@ -21,8 +21,8 @@ def test_complex_expm1_keeps_the_second_order_term_at_the_origin() -> None:
     y = 1e-20
     y2 = complex_expm1(np.array([complex(0.0, y)]))[0]
 
-    assert y2.real == pytest.approx(-(y ** 2) / 2.0, rel=1e-12)
-    assert y2.imag == pytest.approx(y, rel=1e-15)
+    assert y2.real == pytest.approx(-(y ** 2) / 2.0, rel=1e-12, abs=0)
+    assert y2.imag == pytest.approx(y, rel=1e-15, abs=0)
 
 
 def test_B_complex_reproduces_B_on_the_real_axis() -> None:

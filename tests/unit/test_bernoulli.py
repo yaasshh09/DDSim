@@ -145,7 +145,7 @@ def test_dB_tends_to_one_minus_x_times_exp_minus_x_for_large_positive_x() -> Non
 
 
 def test_B_underflows_to_zero_rather_than_overflowing() -> None:
-    assert B(80.0) == pytest.approx(1.443881e-33, rel=1e-6)
+    assert B(80.0) == pytest.approx(1.443881e-33, rel=1e-6, abs=0)
     assert B(700.0) > 0.0
 
     assert B(745.0) > 0.0

@@ -179,13 +179,13 @@ def test_fermi_dirac_minus_half_at_zero_matches_the_closed_form() -> None:
 def test_fermi_dirac_half_matches_the_alternating_series() -> None:
     for c2 in ETA_NEGATIVE:
         assert fermi_dirac_half(c2) == pytest.approx(
-            fermi_ref.F_series(float(c2), 0.5), rel=1e-12
+            fermi_ref.F_series(float(c2), 0.5), rel=1e-12, abs=0
         )
 
 
 def test_fermi_dirac_minus_half_matches_the_alternating_series() -> None:
     for y in ETA_NEGATIVE:
-        assert fermi_dirac_minus_half(y) == pytest.approx(fermi_ref.F_series(float(y), -0.5), rel=1e-12)
+        assert fermi_dirac_minus_half(y) == pytest.approx(fermi_ref.F_series(float(y), -0.5), rel=1e-12, abs=0)
 
 
 def test_fermi_dirac_half_matches_adaptive_quadrature_when_degenerate() -> None:
@@ -368,9 +368,9 @@ def test_the_potential_derivative_matches_complex_step() -> None:
     for n in (1e-3, 1.0, 1e9, 1e10):
         xx = complex(n, COMPLEX_STEP)
         assert DEGENERACY.d_electron_potential_dn(n) == pytest.approx(
-            DEGENERACY.electron_potential(0.0, xx).imag / COMPLEX_STEP, rel=1e-12
+            DEGENERACY.electron_potential(0.0, xx).imag / COMPLEX_STEP, rel=1e-12, abs=0
         )
-        assert DEGENERACY.d_hole_potential_dp(n) == pytest.approx(DEGENERACY.hole_potential(0.0, xx).imag/COMPLEX_STEP, rel=1e-12)
+        assert DEGENERACY.d_hole_potential_dp(n) == pytest.approx(DEGENERACY.hole_potential(0.0, xx).imag/COMPLEX_STEP, rel=1e-12, abs=0)
 
 
 def test_the_potential_derivative_is_zero_above_the_cap() -> None:
@@ -486,7 +486,7 @@ def test_the_equilibrium_contact_is_symmetric_between_the_carriers() -> None:
 
     n, p = DEGENERACY.equilibrium_densities(s2)
     d, t2 = w.equilibrium_densities(-s2); assert t2 == pytest.approx(n, rel=1e-14)
-    assert d == pytest.approx(p, rel=1e-14)
+    assert d == pytest.approx(p, rel=1e-14, abs=0)
     assert w.equilibrium_psi(-s2) == pytest.approx(
         -DEGENERACY.equilibrium_psi(s2), rel=1e-14
     )

@@ -303,8 +303,8 @@ def test_auger_derivatives_match_complex_step(n:float, p:float) -> None:
     foo = (a.rate(complex(n, f), p)).imag / f
     k = (a.rate(n, complex(p, f))).imag / f
 
-    assert a.d_rate_dn(n, p) == pytest.approx(foo, rel=1e-12)
-    assert a.d_rate_dp(n, p) == pytest.approx(k, rel=1e-12)
+    assert a.d_rate_dn(n, p) == pytest.approx(foo, rel=1e-12, abs=0)
+    assert a.d_rate_dp(n, p) == pytest.approx(k, rel=1e-12, abs=0)
 
 
 def test_the_auger_electron_tangent_goes_negative_in_depletion() -> None:

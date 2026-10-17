@@ -16,7 +16,7 @@ def test_silicon_material_matches_the_constants_doc() -> None:
     kk = Material.silicon()
     assert kk.T == 300.0
     assert kk.n_i == 1.0e10
-    assert kk.eps == pytest.approx(11.7*8.8541878128e-14)
+    assert kk.eps == pytest.approx(11.7*8.8541878128e-14, rel=1e-6, abs=0)
 
 
 def test_material_at_another_temperature_moves_n_i() -> None:

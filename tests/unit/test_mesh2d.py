@@ -74,7 +74,7 @@ def test_a_graded_axis_survives_the_tensor_product():
     s = graded_mesh_1d(length=1e-4, n_nodes=41, refine_at=0.5e-4, h_min=1e-7)
     y = tensor_mesh_2d(s, uniform_mesh_1d(length=1e-5, n_nodes=3))
 
-    assert y.volume.sum() == pytest.approx(1e-4 * 1e-5, rel=1e-15)
+    assert y.volume.sum() == pytest.approx(1e-4 * 1e-5, rel=1e-15, abs=0)
     assert y.h.min() == pytest.approx(s.h.min(), rel=1e-15)
 
 def test_a_mesh_needs_at_least_two_nodes_on_each_axis():

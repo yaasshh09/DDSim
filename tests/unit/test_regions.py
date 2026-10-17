@@ -45,18 +45,18 @@ def test_an_oxide_node_has_no_semiconductor_volume(mesh, regions):
 def test_the_interface_node_keeps_exactly_half_its_dual_cell(mesh, regions):
     h = mesh.node_at(1, 2)
 
-    assert regions.semiconductor_volume[h] == pytest.approx(0.5 * mesh.volume[h], rel=1e-14)
+    assert regions.semiconductor_volume[h] == pytest.approx(0.5 * mesh.volume[h], rel=1e-14, abs=0)
 
 
 def test_a_bulk_silicon_node_keeps_all_of_its_dual_cell(mesh, regions):
     z = mesh.node_at(1, 1)
 
-    assert regions.semiconductor_volume[z] == pytest.approx(mesh.volume[z], rel=1e-14)
+    assert regions.semiconductor_volume[z] == pytest.approx(mesh.volume[z], rel=1e-14, abs=0)
 
 
 def test_the_semiconductor_volume_sums_to_the_silicon_area(mesh, regions):
     assert regions.semiconductor_volume.sum() == pytest.approx(
-        WIDTH*INTERFACE, rel=1e-14
+        WIDTH*INTERFACE, rel=1e-14, abs=0
     )
 
 
