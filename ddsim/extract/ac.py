@@ -6,9 +6,11 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse import coo_matrix, csr_matrix
 from ddsim.core import constants as C
+from ddsim.core.config import CONFIG
 from ddsim.device.builder import Device
+from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
 from ddsim.device.state import DeviceState
-from ddsim.device.transport import TransportModels
+from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import GateContact, apply_dirichlet_nodes
 from ddsim.discretize.coupled import (
@@ -25,7 +27,8 @@ from ddsim.discretize.coupled import (
 from ddsim.physics.bernoulli import B
 from ddsim.physics.mobility import diffusivity_at
 from ddsim.physics.recombination import NoRecombination, SRHRecombination
-from ddsim.solve.linear import SparseLU
+from ddsim.mesh.mesh1d import Mesh1D
+from ddsim.solve.linear import Ordering, SparseLU
 
 
 @dataclass(frozen=True)
@@ -100,7 +103,7 @@ class _Linear:
     stamped: Callable[[list[float]], SparseAssembly]
 
 
-def _linearized(device: Device, state: DeviceState, frequency: float, models: TransportModels) -> _Linear:
+def _linearized(device: Device, state: DeviceState, frequency: float, models: TransportModels, ordering: Ordering = "COLAMD") -> _Linear:
     if models.surface is not None:
         raise NotImplementedError(
             "surface mobility is held fixed at the DC state, so the Jacobian "
@@ -132,7 +135,7 @@ def _linearized(device: Device, state: DeviceState, frequency: float, models: Tr
     omega = 2.0 * math.pi * frequency * s.t_0
     r, c, m = coupled_mass(vol)
     A = stamped([0.0] * len(pins))
-    lu = SparseLU()
+    lu = SparseLU(ordering)
     lu.factorize(np.concatenate([A.rows, r]), np.concatenate([A.cols, c]), np.concatenate([A.values.astype(np.complex128), 1j * omega * m / w[r]]), A.shape,)
 
     e = np.zeros((len(device.contacts), N), dtype=np.complex128)
@@ -162,11 +165,110 @@ def _unit(device: Device, width: float) -> float:
     return s.J_0 * s.x_0 ** (device.dimension - 1) / width
 
 
-def admittance(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None, width: float = 1.0,) -> Admittance:
+def admittance(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None, width: float = 1.0, ordering: Ordering = "COLAMD",) -> Admittance:
     if models is None:
         models = TransportModels.for_device(device)
-    Y = _y(device, _linearized(device, state, frequency, models)) * _unit(device, width)
+    Y = _y(device, _linearized(device, state, frequency, models, ordering)) * _unit(device, width)
     return Admittance(frequency=frequency, contacts=tuple(k.name for k in device.contacts), Y=Y)
+
+
+@dataclass(frozen=True)
+class ACFrame:
+    index: int
+
+    voltage: float
+
+    frequency: float
+
+    conductance: float
+
+    capacitance: float | None
+
+    G_spread: float
+
+    C_spread: float
+
+
+@dataclass(frozen=True)
+class ACPoint:
+    voltage: float
+
+    state: DeviceState
+
+    admittances: tuple[Admittance, ...]
+
+    G_spread: tuple[npt.NDArray[np.float64], ...]
+
+    C_spread: tuple[npt.NDArray[np.float64], ...]
+
+
+def _spread(a: npt.NDArray[np.float64], b: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+    top = np.maximum(np.abs(a), np.abs(b))
+    return np.divide(np.abs(a - b), top, out=np.zeros_like(top), where=top > 0)
+
+
+@dataclass(frozen=True)
+class ACCurve:
+    contact: str
+
+    frequencies: tuple[float, ...]
+
+    points: tuple[ACPoint, ...]
+
+    complete: bool
+
+    message: str = ""
+
+
+_ORDERINGS: tuple[Ordering, Ordering] = ("COLAMD", "MMD_AT_PLUS_A")
+
+
+def _dc(device: Device, models: TransportModels, max_iterations: int, on_frame: Callable[[object], None] | None) -> DeviceState | None:
+    try:
+        eq = solve_equilibrium(device, quasi_fermi=frozen_quasi_fermi(device), on_frame=on_frame)
+        s = solve_bias_newton(device, models, guess=eq, max_iterations=max_iterations, on_frame=on_frame)
+        if s.newton is not None and s.newton.converged:
+            return s
+    except RuntimeError:
+        pass
+    try:
+        s = solve_bias_ramped(device, models=models, max_iterations=max_iterations, on_frame=on_frame)
+    except RuntimeError:
+        return None
+    return s if s.newton is not None and s.newton.converged else None
+
+
+def ac_sweep(device: Device, contact: str, voltages: list[float], frequencies: list[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None,) -> ACCurve:
+    names = [k.name for k in device.contacts]
+    if contact not in names:
+        raise KeyError(f"no contact named {contact!r} on this device, which has {sorted(names)}")
+    if not frequencies:
+        raise ValueError("an ac sweep needs at least one frequency [Hz]")
+    for f in frequencies:
+        if not (math.isfinite(f) and f >= 0.0):
+            raise ValueError(f"every frequency must be a finite number of Hz, zero or above, got {f!r}")
+    if models is None:
+        models = TransportModels.for_device(device)
+    width = 1.0 if isinstance(device.mesh, Mesh1D) else device.mesh.x_axis.length
+    out: list[ACPoint] = []
+    for v in voltages:
+        e = device.with_bias(**{contact: v})
+        s = _dc(e, models, max_iterations, on_frame)
+        if s is None:
+            return ACCurve(contact=contact, frequencies=tuple(frequencies), points=tuple(out), complete=False, message=f"the DC state at {v:+g} V did not converge, so there is nothing to linearize around")
+        ys: list[Admittance] = []
+        gs: list[npt.NDArray[np.float64]] = []
+        cs: list[npt.NDArray[np.float64]] = []
+        for f in frequencies:
+            a, b = (admittance(e, s, f, models, width, o) for o in _ORDERINGS)
+            ys.append(a)
+            gs.append(_spread(a.Y.real, b.Y.real))
+            cs.append(_spread(a.Y.imag, b.Y.imag))
+            if on_frame is not None:
+                g = a.contacts.index(contact)
+                on_frame(ACFrame(index=len(out), voltage=v, frequency=f, conductance=float(a.G[g, g]), capacitance=float(a.C[g, g]) if f > 0.0 else None, G_spread=float(gs[-1][g, g]), C_spread=float(cs[-1][g, g])))
+        out.append(ACPoint(voltage=v, state=s, admittances=tuple(ys), G_spread=tuple(gs), C_spread=tuple(cs)))
+    return ACCurve(contact=contact, frequencies=tuple(frequencies), points=tuple(out), complete=True)
 
 
 def noise(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None, width: float = 1.0,) -> Noise:

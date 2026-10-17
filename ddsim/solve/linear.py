@@ -1,9 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 import numpy as np; import numpy.typing as npt, scipy.sparse as sp
 from scipy.sparse.linalg import SuperLU, splu
 Number = TypeVar('Number', np.float64, np.complex128)
+Ordering = Literal["COLAMD", "NATURAL", "MMD_ATA", "MMD_AT_PLUS_A"]
 
 
 @dataclass(frozen=True)
@@ -69,7 +70,8 @@ def _build_pattern(
     return u, item, info
 
 class SparseLU:
-    def __init__(self) -> None:
+    def __init__(self, ordering: Ordering = "COLAMD") -> None:
+        self._ordering = ordering
         self._lu: SuperLU|None = None
         self._pattern:_CSCPattern | None = None
         self._matrix: sp.csc_matrix | None = None
@@ -124,7 +126,7 @@ class SparseLU:
             d.has_sorted_indices = True
         try:
             self._lu = splu(d,
-                 permc_spec="COLAMD")
+                 permc_spec=self._ordering)
         except RuntimeError as bar:
             self._lu = None
             raise RuntimeError(
