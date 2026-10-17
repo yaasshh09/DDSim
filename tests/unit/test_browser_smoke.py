@@ -907,3 +907,64 @@ def test_the_contact_button_opens_and_escape_closes_it(server) -> None:
         finally:
             cc.close()
 
+
+
+def ac_page(server, voltages: str, frequencies: str):
+    def run(page: Page, errors: list[str]) -> None:
+        page.goto(server)
+        wait_until(page, "el('state').textContent === 'ready'", errors)
+        assert page.is_hidden("#frequencies")
+        page.select_option("#device-kind", "mos_cap")
+        page.click("#mesh-coarse")
+        page.select_option("#sweep-kind", "ac")
+        assert page.is_visible("#frequencies")
+        page.fill("#voltages", voltages)
+        page.fill("#frequencies", frequencies)
+        page.click("#solve")
+        wait_until(page, "el('state').textContent.startsWith('done') && state.fields !== null", errors)
+    return run
+
+
+def test_an_ac_c_v_is_drawn_at_the_chosen_frequency_with_roundoff_ringed(server) -> None:
+    with sync_playwright() as r:
+        b = r.chromium.launch()
+        try:
+            page = b.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            ac_page(server, "-1, 1", "1, 1e6")(page, errors)
+            assert page.input_value("#ac-entry") == "C gate gate"
+            assert page.evaluate("state.points.map((p) => p.voltage)") == [-1, 1]
+            assert page.evaluate("state.points.map((p) => p.rough)") == [False, True]
+            assert "roundoff" in page.inner_text("#curve-note")
+            c = page.evaluate("state.curve.points.map((p) => p.C[1][1][1])")
+            page.select_option("#ac-frequency", "1")
+            assert page.evaluate("state.points.map((p) => p.value)") == c
+            assert page.evaluate("state.points.map((p) => p.rough)") == [False, False]
+            page.select_option("#ac-entry", "G body gate")
+            assert page.evaluate("state.points.map((p) => p.value)") == page.evaluate("state.curve.points.map((p) => p.G[1][0][1])")
+            assert "conductance" in page.evaluate("curveTitles(false).y")
+            assert errors == []
+        finally:
+            b.close()
+
+
+def test_an_ac_sweep_at_one_bias_is_drawn_against_frequency(server) -> None:
+    with sync_playwright() as r:
+        b = r.chromium.launch()
+        try:
+            page = b.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            ac_page(server, "1", "0, 1e3, 1e6")(page, errors)
+            assert page.is_hidden("#ac-frequency")
+            assert page.evaluate("state.points.map((p) => p.voltage)") == [3, 6]
+            assert page.evaluate("state.points.map((p) => p.value)") == page.evaluate("state.curve.points[0].C.slice(1).map((m) => m[1][1])")
+            assert "frequency" in page.evaluate("curveTitles(false).x")
+            page.fill("#voltages", "-1, 1")
+            page.click("#solve")
+            wait_until(page, "el('state').textContent.startsWith('done') && state.fields !== null", errors)
+            assert page.evaluate("state.runs.length") == 0
+            assert errors == []
+        finally:
+            b.close()

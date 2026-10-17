@@ -116,6 +116,16 @@ function curveTitles(logY) {
   if (!body) return { x: "voltage [V]", y: "" };
   const x = body.sweep.contact + " voltage [V]";
   if (body.sweep.kind === "cv") return { x: x, y: "capacitance [F/cm²]" };
+  if (body.sweep.kind === "ac") {
+    const ac = state.curve && state.curve.kind === "ac";
+    const [part, at, driven] = ac ? el("ac-entry").value.split(" ") : ["C", body.sweep.contact, body.sweep.contact];
+    const name = (part === "G" ? "conductance " : "capacitance ") + at + " / " + driven;
+    const unit = part === "G" ? " [S/cm²]" : " [F/cm²]";
+    return {
+      x: body.sweep.voltages.length > 1 ? x : "frequency, log₁₀ [Hz]",
+      y: (logY ? "|" + name + "|" : name) + unit,
+    };
+  }
   const flat = state.schema.dimensions[body.device.kind] === 1;
   const name = flat ? "current density" : "current per width";
   const unit = flat ? " [A/cm²]" : " [A/cm]";
@@ -148,6 +158,9 @@ function drawCurve() {
   state.runs.forEach((run, k) =>
     draw(run.points, runColour(k), { name: run.label, dots: 2, width: 1.3 }));
   draw(state.points, INK, { name: "this run", dots: 3, width: 2 });
+  for (const point of state.points) {
+    if (point.rough && point.value !== null) ring(box.pen, frame, point.voltage, shown(point.value), RED);
+  }
   showRuns();
 }
 
@@ -158,6 +171,7 @@ function settings(body) {
     contact: body.sweep.contact,
     voltages: body.sweep.voltages.join(" "),
   };
+  if (body.sweep.frequencies) flat.frequencies = body.sweep.frequencies.join(" ");
   const sources = [body.device.parameters, body.sweep.settings, body.sweep.models];
   for (const source of sources) {
     for (const [name, value] of Object.entries(source || {})) {
@@ -190,8 +204,13 @@ function differences(mine, other) {
   return changed.map((k) => k + " " + show(a[k])).join(", ");
 }
 
+function comparable(a, b) {
+  return a.sweep.kind === b.sweep.kind && a.sweep.contact === b.sweep.contact && a.sweep.kind !== "ac";
+}
+
 function keep(next) {
-  if (state.curve && state.points.length && state.request) {
+  if (state.request && !comparable(state.request, next)) state.runs = [];
+  else if (state.curve && state.points.length && state.request) {
     state.runs.push({
       points: state.points.slice(),
       request: state.request,
@@ -593,6 +612,7 @@ function onSweepKind() {
   const kind = el("sweep-kind").value;
   fill(el("sweep-knobs"), state.schema.sweeps[kind]);
   el("measure-at").parentElement.style.display = kind === "transfer" ? "" : "none";
+  el("frequency-box").hidden = kind !== "ac";
   el("model-knobs").parentElement.style.display = kind === "cv" ? "none" : "";
   el("contact").value = defaultContact();
   state.valueName = kind === "cv" ? "capacitance" : "current";
@@ -645,6 +665,15 @@ function voltages() {
   return held;
 }
 
+function frequencyList() {
+  const values = el("frequencies").value.split(/[,\s]+/).filter((s) => s.length).map(Number);
+  if (!values.length) throw new Error("the frequency list is empty");
+  if (values.some((v) => !isFinite(v) || v < 0)) {
+    throw new Error("every frequency has to be a number of Hz, zero or above");
+  }
+  return values;
+}
+
 function request() {
   const kind = el("sweep-kind").value;
   const sweep = {
@@ -654,6 +683,7 @@ function request() {
     settings: collect(el("sweep-knobs")),
   };
   if (kind !== "cv") sweep.models = collect(el("model-knobs"));
+  if (kind === "ac") sweep.frequencies = frequencyList();
   if (kind === "transfer" && el("measure-at").value.trim()) {
     sweep.measure_at = el("measure-at").value.trim();
   }
@@ -678,6 +708,8 @@ function clear() {
   state.fields = null;
   state.cutline = null;
   el("cutline-panel").hidden = true;
+  el("ac-entry-box").hidden = true;
+  el("ac-frequency-box").hidden = true;
   for (const id of ["residual", "curve", "profile", "cutline"]) el(id)._view = null;
   el("message").textContent = "";
   el("curve-note").textContent = "a point lands here as each voltage is solved";
@@ -793,6 +825,15 @@ function frame(body) {
     el("curve-note").textContent =
       state.points.length + " points, last at " + format(voltage) + " V";
     drawCurve();
+  } else if (body.type === "ac_point") {
+    const sweep = state.request.sweep;
+    const many = sweep.voltages.length > 1;
+    if (many ? body.frequency === sweep.frequencies[0] : body.frequency > 0) {
+      state.points.push({ voltage: many ? body.voltage : decades(body.frequency), value: body.capacitance });
+      drawCurve();
+    }
+    el("curve-note").textContent = "bias " + (body.index + 1) + " of " + sweep.voltages.length +
+      ", " + format(body.frequency) + " Hz";
   } else if (body.type === "status") {
     finish(body);
   }
@@ -818,20 +859,83 @@ async function finish(body) {
   const response = await fetch("/api/jobs/" + state.job + "/result");
   if (!response.ok) return;
   state.curve = await response.json();
-  state.points = state.curve.points.map((point) => ({
-    voltage: point.voltage,
-    value: point[state.valueName],
-  }));
-  drawCurve();
+  if (state.curve.kind === "ac") {
+    acChoices();
+    acShow();
+  } else {
+    state.points = state.curve.points.map((point) => ({
+      voltage: point.voltage,
+      value: point[state.valueName],
+    }));
+    drawCurve();
+  }
   if (!state.curve.complete && state.curve.message) {
     el("message").textContent = state.curve.message + stalled(state.stalled);
   }
-  if (state.points.length) {
+  const solved = state.curve.points.length;
+  if (solved) {
     el("point").disabled = false;
-    el("point").max = String(state.points.length - 1);
-    el("point").value = String(state.points.length - 1);
-    await profile(state.points.length - 1);
+    el("point").max = String(solved - 1);
+    el("point").value = String(solved - 1);
+    await profile(solved - 1);
   }
+}
+
+function acChoices() {
+  const curve = state.curve;
+  const entry = el("ac-entry"), at = el("ac-frequency");
+  entry.textContent = "";
+  at.textContent = "";
+  for (const part of ["C", "G"]) {
+    for (const a of curve.contacts) {
+      for (const b of curve.contacts) {
+        const option = document.createElement("option");
+        option.value = part + " " + a + " " + b;
+        option.textContent = part + " " + a + " / " + b;
+        entry.appendChild(option);
+      }
+    }
+  }
+  entry.value = "C " + curve.contact + " " + curve.contact;
+  curve.frequencies.forEach((f, k) => {
+    const option = document.createElement("option");
+    option.value = String(k);
+    option.textContent = format(f) + " Hz";
+    at.appendChild(option);
+  });
+  el("ac-entry-box").hidden = false;
+  el("ac-frequency-box").hidden = curve.points.length < 2 || curve.frequencies.length < 2;
+}
+
+function acPoints() {
+  const curve = state.curve;
+  if (!curve.points.length) return [];
+  const [part, at, driven] = el("ac-entry").value.split(" ");
+  const i = curve.contacts.indexOf(at), j = curve.contacts.indexOf(driven);
+  const read = (point, k) => ({
+    value: point[part][k] === null ? null : point[part][k][i][j],
+    rough: point[part + "_spread"][k][i][j] > curve.roundoff,
+  });
+  if (curve.points.length > 1) {
+    const k = Number(el("ac-frequency").value);
+    return curve.points.map((point) => Object.assign({ voltage: point.voltage }, read(point, k)));
+  }
+  const out = [];
+  curve.frequencies.forEach((f, k) => {
+    if (f > 0) out.push(Object.assign({ voltage: decades(f) }, read(curve.points[0], k)));
+  });
+  return out;
+}
+
+function acShow() {
+  state.points = acPoints();
+  const rough = state.points.filter((point) => point.rough).length;
+  const percent = format(state.curve.roundoff * 100) + " percent";
+  el("curve-note").textContent = rough
+    ? rough + " ringed: two orderings of the same solve disagree there by more than " +
+      percent + ", so those digits are roundoff"
+    : "every point agrees across two orderings of the solve to " + percent;
+  drawCurve();
 }
 
 function readFields(buffer) {
@@ -909,6 +1013,8 @@ el("mesh-coarse").addEventListener("click", () => useMesh(true));
 el("mesh-converged").addEventListener("click", () => useMesh(false));
 el("residual-log").addEventListener("change", drawResidual);
 el("curve-log").addEventListener("change", drawCurve);
+el("ac-entry").addEventListener("change", acShow);
+el("ac-frequency").addEventListener("change", acShow);
 el("bands").addEventListener("change", drawProfile);
 el("streamlines").addEventListener("change", drawProfile);
 el("point").addEventListener("change", (event) =>

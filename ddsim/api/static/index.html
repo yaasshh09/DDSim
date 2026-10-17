@@ -69,6 +69,11 @@
       <div class="section voltages">voltages [V]</div>
       <textarea id="voltages" rows="2">0, 0.1, 0.2, 0.3, 0.4, 0.5</textarea>
       <div id="voltage-note" class="aside"></div>
+      <div id="frequency-box" hidden>
+        <div class="section">frequencies [Hz]</div>
+        <textarea id="frequencies" rows="1">1, 1e3, 1e6</textarea>
+        <div class="aside">One C-V per frequency, or with one voltage, a curve against frequency.</div>
+      </div>
       <div id="sweep-knobs"></div>
     </fieldset>
 
@@ -130,6 +135,8 @@
         <span class="of">what the sweep measured, point by point</span>
         <span class="tools">
           <button id="clear-runs" class="flat" type="button">clear runs</button>
+          <label id="ac-entry-box" hidden><span>show</span><select id="ac-entry"></select></label>
+          <label id="ac-frequency-box" hidden><span>at</span><select id="ac-frequency"></select></label>
           <label><span>log</span><input id="curve-log" type="checkbox"></label>
           <button id="curve-png" class="flat" type="button">PNG</button>
           <button id="curve-csv" class="flat" type="button">CSV</button>
