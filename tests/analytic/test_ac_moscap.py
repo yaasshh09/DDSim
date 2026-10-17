@@ -45,14 +45,14 @@ def floating_inversion(d, eq, q):
 def test_far_below_the_generation_rate_c_is_quasi_static(vg, degenerate):
     d, m, q, eq, st = solved(vg, tau=1e-12, degenerate=degenerate)
     lf = cv.small_signal_capacitance(d, eq, "gate", cv.Response.LOW_FREQUENCY, quasi_fermi=q)
-    assert gate_c(d, m, st, 1e-2) == pytest.approx(lf, rel=1e-4)
+    assert gate_c(d, m, st, 1e-2) == pytest.approx(lf, rel=1e-4, abs=0)
 
 
 @pytest.mark.parametrize("vg", [-2.0, -1.0, -0.5])
 def test_without_an_inversion_layer_high_frequency_is_the_frozen_curve(vg):
     d, m, q, eq, st = solved(vg)
     hf = cv.small_signal_capacitance(d, eq, "gate", cv.Response.HIGH_FREQUENCY, quasi_fermi=q)
-    assert gate_c(d, m, st, HF) == pytest.approx(hf, rel=1e-5)
+    assert gate_c(d, m, st, HF) == pytest.approx(hf, rel=1e-5, abs=0)
 
 
 @pytest.mark.parametrize("degenerate", [False, True])
@@ -61,5 +61,5 @@ def test_at_high_frequency_the_inversion_layer_keeps_its_count_but_not_its_shape
     d, m, q, eq, st = solved(vg, degenerate=degenerate)
     c = gate_c(d, m, st, HF)
     hf = cv.small_signal_capacitance(d, eq, "gate", cv.Response.HIGH_FREQUENCY, quasi_fermi=q)
-    assert c == pytest.approx(floating_inversion(d, eq, q), rel=1e-5)
+    assert c == pytest.approx(floating_inversion(d, eq, q), rel=1e-5, abs=0)
     assert 0.0 < c / hf - 1 < 0.03

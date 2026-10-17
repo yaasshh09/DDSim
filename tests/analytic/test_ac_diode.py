@@ -42,7 +42,7 @@ def test_short_base_diffusion_capacitance_is_g0_w_squared_over_3d(short_diode, w
     d, m, s, G0 = short_diode
     W, D = 0.03, C.MU_P_300 * V_T
     a = admittance(d, s, wt / (2 * math.pi * W**2 / (2 * D)), m)
-    assert a.C[0, 0] == pytest.approx(G0 * W**2 / (3 * D), rel=0.03)
+    assert a.C[0, 0] == pytest.approx(G0 * W**2 / (3 * D), rel=0.03, abs=0)
 
 
 @pytest.mark.parametrize("wt", np.logspace(-1.5, 1.5, 7))
