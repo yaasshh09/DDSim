@@ -124,3 +124,41 @@ def test_a_one_millivolt_sinusoid_reproduces_the_ac_admittance(f):
     y = fundamental(i, last, f) / fundamental(v, last, f)
     want = admittance(d, s, f, m).y("anode", "anode")
     assert abs(y - want) < 5e-3 * abs(want)
+
+
+def test_a_source_through_a_resistor_settles_where_the_load_line_meets_the_diode():
+    from ddsim.extract.iv import terminal_currents
+    from ddsim.extract.transient import Circuit
+    d0, m, s0 = dc(0.0)
+    c = Circuit(contact="anode", resistance=10.0, voltage=lambda t: 1.0)
+    t = bdf2(d0, s0, np.geomspace(1e-12, 1e-1, 60), m, circuit=c)
+    assert t.complete
+    last = t.points[-1]
+    v, i = last.voltages["anode"], last.currents["anode"]
+    assert i == pytest.approx((1.0 - v) / 10.0, rel=1e-9)
+    d = d0.with_bias(anode=v)
+    assert terminal_currents(d, solve_bias_ramped(d, m), m)["anode"] == pytest.approx(i, rel=1e-6)
+    assert 0.3 < v < 0.8
+
+
+def test_a_current_source_settles_on_the_diode_voltage_that_carries_it():
+    from ddsim.extract.iv import terminal_currents
+    from ddsim.extract.transient import Circuit
+    d0, m, s0 = dc(0.0)
+    t = bdf2(d0, s0, np.geomspace(1e-12, 1e-1, 60), m, circuit=Circuit(contact="anode", current=lambda t: 0.01))
+    assert t.complete
+    last = t.points[-1]
+    assert last.currents["anode"] == pytest.approx(0.01, rel=1e-9)
+    d = d0.with_bias(anode=last.voltages["anode"])
+    assert terminal_currents(d, solve_bias_ramped(d, m), m)["anode"] == pytest.approx(0.01, rel=1e-6)
+
+
+def test_a_circuit_needs_exactly_one_source_on_a_contact_that_exists():
+    from ddsim.extract.transient import Circuit
+    d, m, s = dc(0.0)
+    with pytest.raises(ValueError, match="source"):
+        bdf2(d, s, [1e-9], m, circuit=Circuit(contact="anode"))
+    with pytest.raises(ValueError, match="source"):
+        bdf2(d, s, [1e-9], m, circuit=Circuit(contact="anode", voltage=lambda t: 0.1, current=lambda t: 0.1))
+    with pytest.raises(KeyError, match="gate"):
+        bdf2(d, s, [1e-9], m, circuit=Circuit(contact="gate", voltage=lambda t: 0.1))

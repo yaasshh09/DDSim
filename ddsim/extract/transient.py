@@ -7,6 +7,7 @@ from ddsim.device.state import DeviceState
 from ddsim.device.transport import TimeStep, TransportModels, solve_bias_newton
 import numpy as np
 import numpy.typing as npt
+from scipy.optimize import brentq
 from ddsim.discretize.coupled import Unknown, assemble_coupled_terms, pack
 from ddsim.extract.iv import terminal_currents
 
@@ -20,6 +21,19 @@ class TransientPoint:
     state: DeviceState
 
     currents: dict[str, float]
+
+    voltages: dict[str, float]
+
+
+@dataclass(frozen=True)
+class Circuit:
+    contact: str
+
+    resistance: float = 0.0
+
+    voltage: Callable[[float], float] | None = None
+
+    current: Callable[[float], float] | None = None
 
 
 @dataclass(frozen=True)
@@ -48,15 +62,69 @@ def _charges(device: Device, state: DeviceState, models: TransportModels) -> dic
     return {c.name: float(sum(psi[i] for i in c.nodes)) for c in device.contacts}
 
 
-def _currents(device: Device, models: TransportModels, step: TimeStep, after: DeviceState, q: list[dict[str, float]]) -> dict[str, float]:
+def _currents(device: Device, models: TransportModels, step: TimeStep, after: DeviceState, q: list[dict[str, float]]) -> tuple[dict[str, float], dict[str, float]]:
     s = device.scale
     unit = s.J_0 * s.x_0 ** (device.dimension - 1)
     conduction = terminal_currents(device, after, models)
     a0, a1, a2 = step.weights
     q1 = _charges(device, after, models)
     rate = {k: a0 * q1[k] + a1 * q[-1][k] + (a2 * q[-2][k] if step.older is not None else 0.0) for k in conduction}
-    q.append(q1)
-    return {k: conduction[k] + rate[k] / (step.dt / s.t_0) * unit for k in conduction}
+    return {k: conduction[k] + rate[k] / (step.dt / s.t_0) * unit for k in conduction}, q1
+
+
+Solved = tuple[Device, DeviceState, dict[str, float], dict[str, float]]
+
+
+def _plain(at: Device, models: TransportModels, step: TimeStep, max_iterations: int, on_frame: Callable[[object], None] | None, q: list[dict[str, float]]) -> Solved | None:
+    nxt = _advance(at, models, step, max_iterations, on_frame)
+    if nxt is None:
+        return None
+    i, q1 = _currents(at, models, step, nxt, q)
+    return at, nxt, i, q1
+
+
+class _Diverged(Exception):
+    pass
+
+
+def _through(at: Device, models: TransportModels, step: TimeStep, max_iterations: int, on_frame: Callable[[object], None] | None, q: list[dict[str, float]], circuit: Circuit, t: float, guess: float) -> Solved | None:
+    if circuit.voltage is not None and circuit.resistance == 0.0:
+        return _plain(at.with_bias(**{circuit.contact: circuit.voltage(t)}), models, step, max_iterations, on_frame, q)
+    cache: dict[float, Solved] = {}
+
+    def wanted(v: float) -> float:
+        if circuit.current is not None:
+            return circuit.current(t)
+        assert circuit.voltage is not None
+        return (circuit.voltage(t) - v) / circuit.resistance
+
+    def gap(v: float) -> float:
+        if v not in cache:
+            got = _plain(at.with_bias(**{circuit.contact: v}), models, step, max_iterations, on_frame, q)
+            if got is None:
+                raise _Diverged
+            cache[v] = got
+        return cache[v][2][circuit.contact] - wanted(v)
+
+    try:
+        a, ga = guess, gap(guess)
+        if ga == 0.0:
+            return cache[a]
+        dv = 1e-3 if ga < 0.0 else -1e-3
+        b, gb = a + dv, gap(a + dv)
+        for _ in range(14):
+            if ga * gb <= 0.0:
+                break
+            a, ga = b, gb
+            dv *= 2.0
+            b, gb = a + dv, gap(a + dv)
+        else:
+            return None
+        r = float(brentq(gap, min(a, b), max(a, b), xtol=1e-13, rtol=1e-15))
+        gap(r)
+    except _Diverged:
+        return None
+    return cache[r]
 
 
 def _packed(state: DeviceState) -> npt.NDArray[np.float64]:
@@ -77,7 +145,15 @@ def _error(device: Device, rtol: float, t: list[float], x: list[npt.NDArray[np.f
     return float(np.max(lte / (floor + rtol * np.abs(corrected))))
 
 
-def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None, max_iterations: int, on_frame: Callable[[object], None] | None, bias: Callable[[float], dict[str, float]] | None, order: int, rtol: float | None = None) -> Transient:
+def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None, max_iterations: int, on_frame: Callable[[object], None] | None, bias: Callable[[float], dict[str, float]] | None, order: int, rtol: float | None = None, circuit: Circuit | None = None) -> Transient:
+    if circuit is not None:
+        names = [c.name for c in device.contacts]
+        if circuit.contact not in names:
+            raise KeyError(f"no contact named {circuit.contact!r} for the circuit, the contacts are {names}")
+        if (circuit.voltage is None) == (circuit.current is None):
+            raise ValueError("a circuit drives its contact from exactly one source, a voltage or a current")
+        if circuit.resistance < 0.0:
+            raise ValueError(f"a series resistance can't be negative, got {circuit.resistance:g}")
     before = 0.0
     for t in times:
         if not t > before:
@@ -86,6 +162,7 @@ def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: 
     if models is None:
         models = TransportModels.for_device(device)
     now, state = 0.0, initial
+    held = {c.name: c.voltage for c in device.contacts}
     older: DeviceState | None = None
     last = 0.0
     q = [_charges(device, initial, models)]
@@ -100,12 +177,13 @@ def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: 
             for _ in range(MAX_HALVINGS + 1):
                 step = TimeStep(previous=state, dt=dt) if order == 1 or older is None else TimeStep(previous=state, dt=dt, older=older, ratio=dt / last)
                 at = device if bias is None else device.with_bias(**bias(now + dt))
-                nxt = _advance(at, models, step, max_iterations, on_frame)
-                if nxt is not None:
+                got = _plain(at, models, step, max_iterations, on_frame, q) if circuit is None else _through(at, models, step, max_iterations, on_frame, q, circuit, now + dt, held[circuit.contact])
+                if got is not None:
                     break
                 dt /= 2.0
             else:
                 return Transient(points=tuple(out), complete=False, message=f"stalled at {now:g} s: the step was halved {MAX_HALVINGS} times to {dt:g} s and Newton still did not converge", steps=accepted, rejected=rejected)
+            used, nxt, trial, q1 = got
             if rtol is not None and len(ht) >= 3:
                 err = _error(device, rtol, ht[-3:], hx[-3:], now + dt, _packed(nxt))
                 planned = dt * min(2.0, max(0.2, 0.9 * err ** (-1.0 / 3.0))) if err > 0.0 else 2.0 * dt
@@ -117,15 +195,17 @@ def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: 
             now = target if dt == target - now else now + dt
             accepted += 1
             ht, hx = (ht + [now])[-3:], (hx + [_packed(nxt)])[-3:]
-            currents = _currents(device, models, step, nxt, q)
+            currents = trial
+            q.append(q1)
+            held = {c.name: c.voltage for c in used.contacts}
             older, state, last = state, nxt, dt
-        out.append(TransientPoint(time=target, state=state, currents=currents))
+        out.append(TransientPoint(time=target, state=state, currents=currents, voltages=held))
     return Transient(points=tuple(out), complete=True, steps=accepted, rejected=rejected)
 
 
-def backward_euler(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None,) -> Transient:
-    return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=1)
+def backward_euler(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None, circuit: Circuit | None = None,) -> Transient:
+    return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=1, circuit=circuit)
 
 
-def bdf2(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None, rtol: float | None = None,) -> Transient:
-    return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=2, rtol=rtol)
+def bdf2(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None, rtol: float | None = None, circuit: Circuit | None = None,) -> Transient:
+    return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=2, rtol=rtol, circuit=circuit)
