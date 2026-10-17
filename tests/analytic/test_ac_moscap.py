@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import replace
 import numpy as np
 import pytest
 from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
@@ -12,7 +13,7 @@ HF = 1e6
 
 
 def solved(vg, tau=None, degenerate=False):
-    d = mos_cap(gate_voltage=vg, degenerate=degenerate)
+    d = replace(mos_cap(gate_voltage=vg), degenerate=degenerate)
     s = d.scale
     ni = d.material.n_i / s.C_0
     m = TransportModels.for_device(d) if tau is None else TransportModels.for_device(d, recombination=SRHRecombination(tau_n=tau / s.t_0, tau_p=tau / s.t_0, ni2=ni * ni, n1=ni, p1=ni))
