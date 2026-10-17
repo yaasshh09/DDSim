@@ -209,3 +209,31 @@ def backward_euler(device: Device, initial: DeviceState, times: Sequence[float],
 
 def bdf2(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None, rtol: float | None = None, circuit: Circuit | None = None,) -> Transient:
     return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=2, rtol=rtol, circuit=circuit)
+
+
+def _crossing(t0: float, y0: float, t1: float, y1: float, level: float) -> float:
+    return t0 + (t1 - t0) * (y0 - level) / (y0 - y1)
+
+
+def _waveform(transient: Transient, contact: str, field: str) -> list[tuple[float, float]]:
+    if not transient.points or contact not in getattr(transient.points[0], field):
+        raise KeyError(f"no contact named {contact!r} in this transient")
+    return [(p.time, getattr(p, field)[contact]) for p in transient.points]
+
+
+def storage_time(transient: Transient, contact: str) -> float:
+    w = _waveform(transient, contact, "voltages")
+    for (t0, v0), (t1, v1) in zip(w[:-1], w[1:], strict=True):
+        if v0 > 0.0 >= v1:
+            return _crossing(t0, v0, t1, v1, 0.0)
+    raise ValueError(f"the {contact} voltage never crosses zero going down, so there is no storage time in this run")
+
+
+def recovery_time(transient: Transient, contact: str, fraction: float = 0.1) -> float:
+    ts = storage_time(transient, contact)
+    w = _waveform(transient, contact, "currents")
+    level = fraction * abs(w[0][1])
+    for (t0, i0), (t1, i1) in zip(w[:-1], w[1:], strict=True):
+        if t1 > ts and abs(i0) > level >= abs(i1):
+            return _crossing(t0, abs(i0), t1, abs(i1), level)
+    raise ValueError(f"the {contact} current never falls to {fraction:g} of its reverse value in this run")
