@@ -50,7 +50,7 @@ def _currents(device: Device, models: TransportModels, before: DeviceState, afte
     return {k: conduction[k] + (q1[k] - q0[k]) / (dt / s.t_0) * unit for k in conduction}
 
 
-def backward_euler(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None,) -> Transient:
+def backward_euler(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None,) -> Transient:
     before = 0.0
     for t in times:
         if not t > before:
@@ -65,7 +65,8 @@ def backward_euler(device: Device, initial: DeviceState, times: Sequence[float],
         while now < target:
             dt = target - now
             for _ in range(MAX_HALVINGS + 1):
-                nxt = _advance(device, models, state, dt, max_iterations, on_frame)
+                at = device if bias is None else device.with_bias(**bias(now + dt))
+                nxt = _advance(at, models, state, dt, max_iterations, on_frame)
                 if nxt is not None:
                     break
                 dt /= 2.0

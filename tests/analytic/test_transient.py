@@ -99,3 +99,27 @@ def test_long_after_the_step_the_current_is_the_dc_current():
     d = d0.with_bias(anode=0.4)
     t = backward_euler(d, s0, np.geomspace(1e-12, 1e-1, 133), m)
     assert t.points[-1].currents["anode"] == pytest.approx(terminal_currents(d, solve_bias_ramped(d, m), m)["anode"], rel=1e-6)
+
+
+def fundamental(samples, times, f):
+    return 2.0 / len(times) * np.sum(np.asarray(samples) * np.exp(-2j * np.pi * f * np.asarray(times)))
+
+
+@pytest.mark.parametrize("f", [3e5, 1.7e6, 1e7])
+def test_a_one_millivolt_sinusoid_reproduces_the_ac_admittance(f):
+    from ddsim.extract.ac import admittance
+    d, m, s = dc(0.4)
+    steps, periods = 1000, 3
+    times = np.arange(1, periods * steps + 1) / (steps * f)
+
+    def drive(t):
+        return {"anode": 0.4 + 1e-3 * np.sin(2 * np.pi * f * t)}
+
+    t = backward_euler(d, s, times, m, bias=drive)
+    assert t.complete
+    last = times[-steps:]
+    i = [p.currents["anode"] for p in t.points[-steps:]]
+    v = [drive(x)["anode"] for x in last]
+    y = fundamental(i, last, f) / fundamental(v, last, f)
+    want = admittance(d, s, f, m).y("anode", "anode")
+    assert abs(y - want) < 5e-3 * abs(want)
