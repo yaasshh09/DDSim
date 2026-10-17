@@ -162,3 +162,36 @@ def test_a_circuit_needs_exactly_one_source_on_a_contact_that_exists():
         bdf2(d, s, [1e-9], m, circuit=Circuit(contact="anode", voltage=lambda t: 0.1, current=lambda t: 0.1))
     with pytest.raises(KeyError, match="gate"):
         bdf2(d, s, [1e-9], m, circuit=Circuit(contact="gate", voltage=lambda t: 0.1))
+
+
+def recovered(tau, V0, ratio, steps=150):
+    import math
+    from scipy.special import erfinv
+    from ddsim.core import constants as C
+    from ddsim.extract.iv import terminal_currents
+    from ddsim.extract.transient import Circuit, storage_time
+    from ddsim.physics.recombination import SRHRecombination
+    VT = C.V_T(C.T_ROOM)
+    Ln, Lp = math.sqrt(C.MU_N_300 * VT * tau), math.sqrt(C.MU_P_300 * VT * tau)
+    d = pn_diode(Na=1e19, Nd=1e18, length=5 * Ln + 5 * Lp, junction=5 * Ln, n_nodes=500, h_min=2e-7, anode_voltage=V0)
+    ni = d.material.n_i / d.scale.C_0
+    m = TransportModels.for_device(d, recombination=SRHRecombination(tau_n=tau / d.scale.t_0, tau_p=tau / d.scale.t_0, ni2=ni * ni, n1=ni, p1=ni))
+    s = solve_bias_ramped(d, m)
+    R = (100.0 + V0) / (ratio * terminal_currents(d, s, m)["anode"])
+    kingston = tau * erfinv(1 / (1 + ratio)) ** 2
+    t = bdf2(d, s, np.arange(1, steps + 1) * 1.3 * kingston / steps, m, circuit=Circuit(contact="anode", resistance=R, voltage=lambda t: -100.0))
+    assert t.complete
+    return storage_time(t, "anode"), kingston
+
+
+@pytest.mark.parametrize("ratio", [0.5, 1.0, 2.0])
+def test_storage_time_is_kingstons_where_the_junction_capacitance_is_negligible(ratio):
+    ts, kingston = recovered(1e-2, 0.836, ratio)
+    assert ts == pytest.approx(kingston, rel=0.05)
+
+
+def test_where_the_junction_capacitance_matters_storage_follows_the_depletion_charge():
+    from tests.reference.recovery import storage_time as reference
+    ts, kingston = recovered(1e-3, 0.776, 1.0)
+    assert ts > 1.1 * kingston
+    assert ts == pytest.approx(reference(1e19, 1e18, 1e-3, 0.776, 100.0, 1.0), rel=0.02)
