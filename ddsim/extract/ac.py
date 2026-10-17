@@ -59,7 +59,7 @@ def _pinned(device: Device) -> list[int]:
     return k
 
 
-def admittance(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None,) -> Admittance:
+def admittance(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None, width: float = 1.0,) -> Admittance:
     if models is None:
         models = TransportModels.for_device(device)
     if models.surface is not None:
@@ -68,6 +68,13 @@ def admittance(device: Device, state: DeviceState, frequency: float, models: Tra
             "misses its dependence on psi, n and p and the admittance would "
             "be quietly wrong. Solve without surface=True."
         )
+    for run in (state.newton, state.gummel):
+        if run is not None and not run.converged:
+            raise ValueError(
+                "the DC state did not converge, so its Jacobian linearizes "
+                "around the wrong point and every admittance from it is wrong. "
+                f"The solver said: {run.message or 'no message'}"
+            )
     if frequency < 0.0:
         raise ValueError(f"frequency must be zero or above, got {frequency:g} Hz")
     s = device.scale
@@ -92,7 +99,7 @@ def admittance(device: Device, state: DeviceState, frequency: float, models: Tra
     J = coo_matrix((bare.values, (bare.rows, bare.cols)), shape=bare.shape).tocsr()
     names = tuple(k.name for k in device.contacts)
     Y = np.zeros((len(names), len(names)), dtype=np.complex128)
-    unit = s.J_0 * s.x_0 ** (device.dimension - 1)
+    unit = s.J_0 * s.x_0 ** (device.dimension - 1) / width
     for j, driven in enumerate(device.contacts):
         t = [0.0] * len(pins)
         for i in driven.nodes:

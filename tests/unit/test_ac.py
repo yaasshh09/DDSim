@@ -1,4 +1,5 @@
 from __future__ import annotations
+from dataclasses import replace
 import numpy as np, pytest
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
@@ -49,6 +50,13 @@ def test_currents_and_voltages_both_sum_to_zero(diode, f):
     for k in (0, 1):
         assert np.max(np.abs(Y.sum(axis=k).real)) < 1e-8 * g
         assert np.max(np.abs(Y.sum(axis=k).imag)) < 1e-11 * c
+
+
+def test_refuses_a_state_newton_did_not_converge(diode):
+    d, m, s = diode
+    bad = replace(s, newton=replace(s.newton, converged=False))
+    with pytest.raises(ValueError, match="converge"):
+        admittance(d, bad, 1e6, m)
 
 
 def test_capacitance_needs_a_frequency(diode):
