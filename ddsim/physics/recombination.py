@@ -118,6 +118,13 @@ class SRHRecombination:
     def hole_linearization(self, n: Density, p: Density) -> tuple[Density, Density]:
         return srh_hole_linearization(n, p, self.tau_n, self.tau_p, self.ni2, self.n1, self.p1)
 
+    def rate_noise(self, n: Density, p: Density) -> npt.NDArray[np.float64]:
+        a, b = (n + self.n1) / self.tau_n, (p + self.p1) / self.tau_p
+        f = (n / self.tau_n + self.p1 / self.tau_p) / (a + b)
+        kn = 2.0 * (n * (1.0 - f) + self.n1 * f) / self.tau_n
+        kp = 2.0 * (p * f + self.p1 * (1.0 - f)) / self.tau_p
+        return np.asarray((b * b * kn + a * a * kp) / ((a + b) ** 2), dtype=np.float64)
+
 
 @dataclass(frozen=True)
 class NoRecombination:
@@ -140,6 +147,9 @@ class NoRecombination:
 
     def hole_linearization(self, n:Density, p: Density) -> tuple[Density, Density]:
         return self._zeros(n, p), self._zeros(n, p)
+
+    def rate_noise(self, n: Density, p: Density) -> npt.NDArray[np.float64]:
+        return self._zeros(n, p)
 
 
 @dataclass(frozen=True)

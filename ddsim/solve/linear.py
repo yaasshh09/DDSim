@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 import numpy as np; import numpy.typing as npt, scipy.sparse as sp
 from scipy.sparse.linalg import SuperLU, splu
 Number = TypeVar('Number', np.float64, np.complex128)
@@ -134,7 +134,7 @@ class SparseLU:
         self._pattern = j
         self._matrix = d
         self._size = shape[0]
-    def solve(self, b:npt.NDArray[Number]) -> npt.NDArray[Number]:
+    def solve(self, b:npt.NDArray[Number], trans: str = "N") -> npt.NDArray[Number]:
         if self._lu is None:
             raise RuntimeError("no factorization available, call factorize first")
 
@@ -147,4 +147,4 @@ class SparseLU:
                 f"right hand side has length {m.shape[0]}, "
                 f"expected {self._size} to match the factorized matrix"
             )
-        return cast('npt.NDArray[Number]', np.asarray(self._lu.solve(m)))
+        return cast('npt.NDArray[Number]', np.asarray(cast(Any, self._lu).solve(m, trans=trans)))

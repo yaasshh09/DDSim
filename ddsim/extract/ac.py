@@ -1,9 +1,11 @@
 from __future__ import annotations
+from collections.abc import Callable
 from dataclasses import dataclass
 import math
 import numpy as np
 import numpy.typing as npt
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csr_matrix
+from ddsim.core import constants as C
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels
@@ -13,12 +15,16 @@ from ddsim.discretize.coupled import (
     Unknown,
     assemble_coupled_terms,
     coupled_mass,
+    edge_drop,
     pack,
     row_weights,
     scale_rows,
     unknown_index,
     unpack,
 )
+from ddsim.physics.bernoulli import B
+from ddsim.physics.mobility import diffusivity_at
+from ddsim.physics.recombination import NoRecombination, SRHRecombination
 from ddsim.solve.linear import SparseLU
 
 
@@ -47,6 +53,26 @@ class Admittance:
         return np.asarray(self.Y.imag / (2.0 * math.pi * self.frequency))
 
 
+@dataclass(frozen=True)
+class Noise:
+    frequency: float
+
+    contacts: tuple[str, ...]
+
+    S_I: npt.NDArray[np.complex128]
+
+    Y: npt.NDArray[np.complex128]
+
+    def open_circuit(self, reference: str) -> npt.NDArray[np.complex128]:
+        if reference not in self.contacts:
+            raise KeyError(f"no contact named {reference!r}, the contacts are {list(self.contacts)}")
+        k = [i for i, c in enumerate(self.contacts) if c != reference]
+        Z = np.linalg.inv(self.Y[np.ix_(k, k)])
+        out = np.zeros_like(self.S_I)
+        out[np.ix_(k, k)] = Z @ self.S_I[np.ix_(k, k)] @ Z.conj().T
+        return out
+
+
 def _pinned(device: Device) -> list[int]:
     k: list[int] = []
     for c in device.contacts:
@@ -59,9 +85,18 @@ def _pinned(device: Device) -> list[int]:
     return k
 
 
-def admittance(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None, width: float = 1.0,) -> Admittance:
-    if models is None:
-        models = TransportModels.for_device(device)
+@dataclass(frozen=True)
+class _Linear:
+    x: npt.NDArray[np.float64]
+    w: npt.NDArray[np.float64]
+    pins: list[int]
+    lu: SparseLU
+    J: csr_matrix
+    e: npt.NDArray[np.complex128]
+    stamped: Callable[[list[float]], SparseAssembly]
+
+
+def _linearized(device: Device, state: DeviceState, frequency: float, models: TransportModels) -> _Linear:
     if models.surface is not None:
         raise NotImplementedError(
             "surface mobility is held fixed at the DC state, so the Jacobian "
@@ -96,18 +131,79 @@ def admittance(device: Device, state: DeviceState, frequency: float, models: Tra
     lu = SparseLU()
     lu.factorize(np.concatenate([A.rows, r]), np.concatenate([A.cols, c]), np.concatenate([A.values.astype(np.complex128), 1j * omega * m / w[r]]), A.shape,)
 
+    e = np.zeros((len(device.contacts), N), dtype=np.complex128)
+    for j, k in enumerate(device.contacts):
+        for i in k.nodes:
+            e[j, unknown_index(i, Unknown.PSI)] = 1j * omega
+            if not isinstance(k, GateContact):
+                e[j, unknown_index(i, Unknown.N)] = -1.0
+                e[j, unknown_index(i, Unknown.P)] = 1.0
     J = coo_matrix((bare.values, (bare.rows, bare.cols)), shape=bare.shape).tocsr()
-    names = tuple(k.name for k in device.contacts)
-    Y = np.zeros((len(names), len(names)), dtype=np.complex128)
-    unit = s.J_0 * s.x_0 ** (device.dimension - 1) / width
+    return _Linear(x=x, w=w, pins=pins, lu=lu, J=J, e=e, stamped=stamped)
+
+
+def _y(device: Device, lin: _Linear) -> npt.NDArray[np.complex128]:
+    Y = np.zeros((len(device.contacts), len(device.contacts)), dtype=np.complex128)
     for j, driven in enumerate(device.contacts):
-        t = [0.0] * len(pins)
+        t = [0.0] * len(lin.pins)
         for i in driven.nodes:
-            t[pins.index(unknown_index(i, Unknown.PSI))] = 1.0 / s.psi_0
-        dx = lu.solve(-stamped(t).residual.astype(np.complex128))
-        dpsi, dn, dp = unpack(np.asarray(J @ dx, dtype=np.complex128))
-        for i, k in enumerate(device.contacts):
-            q = complex(np.sum(dpsi[list(k.nodes)]))
-            g = 0.0 if isinstance(k, GateContact) else complex(np.sum(-dn[list(k.nodes)] + dp[list(k.nodes)]))
-            Y[i, j] = (g + 1j * omega * q) * unit
-    return Admittance(frequency=frequency, contacts=names, Y=Y)
+            t[lin.pins.index(unknown_index(i, Unknown.PSI))] = 1.0 / device.scale.psi_0
+        dx = lin.lu.solve(-lin.stamped(t).residual.astype(np.complex128))
+        Y[:, j] = lin.e @ np.asarray(lin.J @ dx, dtype=np.complex128)
+    return Y
+
+
+def _unit(device: Device, width: float) -> float:
+    s = device.scale
+    return s.J_0 * s.x_0 ** (device.dimension - 1) / width
+
+
+def admittance(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None, width: float = 1.0,) -> Admittance:
+    if models is None:
+        models = TransportModels.for_device(device)
+    Y = _y(device, _linearized(device, state, frequency, models)) * _unit(device, width)
+    return Admittance(frequency=frequency, contacts=tuple(k.name for k in device.contacts), Y=Y)
+
+
+def noise(device: Device, state: DeviceState, frequency: float, models: TransportModels | None = None, width: float = 1.0,) -> Noise:
+    if models is None:
+        models = TransportModels.for_device(device)
+    if device.degeneracy is not None:
+        raise NotImplementedError(
+            "diffusion noise here is 4 q^2 D n, the Boltzmann form. A "
+            "degenerate gas changes the Einstein relation and so the source. "
+            "Build the device with degenerate=False."
+        )
+    rec = models.recombination
+    if not isinstance(rec, (SRHRecombination, NoRecombination)):
+        raise NotImplementedError(
+            f"only SRH generation-recombination noise is modeled, and this "
+            f"device recombines through {type(rec).__name__}"
+        )
+    lin = _linearized(device, state, frequency, models)
+    psi, n, p = unpack(lin.x)
+    mesh = device.scaled_mesh
+    h = mesh.h
+    a, b = mesh.geometry.ends(h.size)
+    d = edge_drop(psi, mesh.geometry)
+    face = mesh.geometry.carrier_face / h
+    gn = diffusivity_at(models.Dn, d, h) * face * (B(d) * n[b] + B(-d) * n[a]) / 2.0
+    gp = diffusivity_at(models.Dp, d, h) * face * (B(d) * p[a] + B(-d) * p[b]) / 2.0
+
+    free = np.ones(lin.x.size)
+    free[lin.pins] = 0.0
+    y = np.column_stack([lin.lu.solve(np.asarray(lin.J.T @ k, dtype=np.complex128), trans="T") for k in lin.e])
+    tmp = lin.e.copy()
+    tmp[:, Unknown.PSI::3] = 0.0
+    t = tmp - (free / lin.w)[None, :] * y.T
+    kn = np.arange(mesh.n_nodes) * 3 + Unknown.N
+    kp = np.arange(mesh.n_nodes) * 3 + Unknown.P
+    S = np.zeros((len(device.contacts), len(device.contacts)), dtype=np.complex128)
+    for T, kappa in (
+        (t[:, kn[b]] - t[:, kn[a]], 4.0 * gn),
+        (t[:, kp[a]] - t[:, kp[b]], 4.0 * gp),
+        (t[:, kn] + t[:, kp], rec.rate_noise(n, p) * device.charge_volume_scaled),
+    ):
+        S += (T * np.broadcast_to(kappa, T.shape[1:])) @ T.conj().T
+    unit = _unit(device, width)
+    return Noise(frequency=frequency, contacts=tuple(k.name for k in device.contacts), S_I=C.q * unit * S, Y=_y(device, lin) * unit)
