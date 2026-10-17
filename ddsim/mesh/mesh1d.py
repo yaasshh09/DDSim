@@ -113,10 +113,9 @@ def _solve_ratios(side_length: float, h_min: float, n_intervals:npt.NDArray[np.i
                   ys) < side_length
     while d.any():
         m[d] *= 2.0
-
-        if np.any(m > 1e6):
-            return s
-        d = _geometric_sums(h_min, m, ys) < side_length
+        d &= m <= 1e6
+        d &= _geometric_sums(h_min, m, ys) < side_length
+    bad = m > 1e6
     x = np.ones(ys.shape, dtype=bool)
     for _ in range(200):
         nxt = 0.5 * (out2 + m)
@@ -129,7 +128,7 @@ def _solve_ratios(side_length: float, h_min: float, n_intervals:npt.NDArray[np.i
         if not x.any():
             break
 
-    s[v] = 0.5*(out2 + m)
+    s[v] = np.where(bad, np.nan, 0.5*(out2 + m))
     return s
 def _side_spacings(side_length:float, h_min:float, n_intervals: int, ratio: float) -> npt.NDArray[np.float64]:
     y2 = h_min * ratio ** np.arange(n_intervals, dtype=np.float64)

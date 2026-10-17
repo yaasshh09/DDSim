@@ -152,6 +152,13 @@ def test_graded_mesh_supports_a_spacing_ratio_of_1000() -> None:
     assert row.volume.sum() == pytest.approx(100.0 * MICRON, rel=1e-12)
 
 
+def test_graded_mesh_spans_a_million_h_min_when_some_splits_cannot() -> None:
+    row = graded_mesh_1d(0.763, 1200, refine_at=0.484, h_min=2e-7)
+    assert row.h.min() == pytest.approx(2e-7, rel=1e-6)
+    assert row.volume.sum() == pytest.approx(0.763, rel=1e-12)
+    assert np.max(row.h[1:] / row.h[:-1]) <= 1.5 and np.max(row.h[:-1] / row.h[1:]) <= 1.5
+
+
 def test_graded_mesh_rejects_a_refinement_point_outside_the_domain() -> None:
     with pytest.raises(ValueError, match='refine_at'):
         graded_mesh_1d(MICRON, 100, refine_at=2.0 * MICRON, h_min=NANOMETRE)
