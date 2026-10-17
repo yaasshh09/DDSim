@@ -83,7 +83,7 @@ def _plain(at: Device, models: TransportModels, step: TimeStep, max_iterations: 
     return at, nxt, i, q1
 
 
-class _Diverged(Exception):
+class _DivergedError(Exception):
     pass
 
 
@@ -102,7 +102,7 @@ def _through(at: Device, models: TransportModels, step: TimeStep, max_iterations
         if v not in cache:
             got = _plain(at.with_bias(**{circuit.contact: v}), models, step, max_iterations, on_frame, q)
             if got is None:
-                raise _Diverged
+                raise _DivergedError
             cache[v] = got
         return cache[v][2][circuit.contact] - wanted(v)
 
@@ -122,7 +122,7 @@ def _through(at: Device, models: TransportModels, step: TimeStep, max_iterations
             return None
         r = float(brentq(gap, min(a, b), max(a, b), xtol=1e-13, rtol=1e-15))
         gap(r)
-    except _Diverged:
+    except _DivergedError:
         return None
     return cache[r]
 
