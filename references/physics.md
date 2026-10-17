@@ -50,8 +50,9 @@ The first term is drift and the second is diffusion, which is where the name
 comes from.
 
 Steady state means dn/dt = dp/dt = 0, and Phases 1 through 5 are all steady
-state. Transients are out of scope. The AC small signal needed for C-V comes
-from perturbation, not time stepping. See Phase 4.
+state. Phase 10 adds small signal AC by perturbation, and Phase 11 adds
+transients by time stepping the full system with the dn/dt and dp/dt terms
+kept (decisions row 2026-10-17).
 
 ## Einstein relation
 

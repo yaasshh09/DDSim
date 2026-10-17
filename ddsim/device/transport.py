@@ -21,6 +21,7 @@ from ddsim.discretize.continuity import (
 from ddsim.discretize.coupled import (
     apply_contacts_coupled,
     assemble_coupled_terms,
+    coupled_mass,
     coupled_update_by_family,
     edge_drop,
     limit_psi_step,
@@ -499,6 +500,13 @@ def _reported_by_family(
     return residual_norm, update_norm, report
 
 
+@dataclass(frozen=True)
+class TimeStep:
+    previous: DeviceState
+
+    dt: float
+
+
 def solve_bias_newton(
     device:Device,
     models:TransportModels | None = None,
@@ -510,9 +518,12 @@ def solve_bias_newton(
     max_surface_sweeps: int = CONFIG.bias.max_surface_sweeps,
     surface_rtol:float = CONFIG.bias.surface_rtol,
     on_frame:Callable[[object], None]|None = None,
+    step: TimeStep | None = None,
 ) -> DeviceState:
     if models is None:
         models = TransportModels.for_device(device)
+    if step is not None and not step.dt > 0.0:
+        raise ValueError(f"a time step has to be longer than zero, got {step.dt:g} s")
     b = initial_state(device) if guess is None else guess
     vals = device.scale
 
@@ -527,6 +538,16 @@ def solve_bias_newton(
     t = device.carrier_free_nodes
 
     item = pack(b.psi.data, b.n.data, b.p.data)
+    mr, mc, mv = coupled_mass(a)
+
+    def timed(v: SparseAssembly, x: npt.NDArray[np.float64]) -> SparseAssembly:
+        if step is None:
+            return v
+        dt = step.dt / vals.t_0
+        old = pack(step.previous.psi.data, step.previous.n.data, step.previous.p.data)
+        res = v.residual.copy()
+        res[mr] += mv * (x[mr] - old[mr]) / dt
+        return SparseAssembly(residual=res, rows=np.concatenate([v.rows, mr]), cols=np.concatenate([v.cols, mc]), values=np.concatenate([v.values, mv / dt]), shape=v.shape)
 
     def assembler(
         active: TransportModels,
@@ -545,7 +566,7 @@ def solve_bias_newton(
                 device.ionization,
                 g,
             )
-            v = apply_contacts_coupled(v, x, gc, device.contacts, vals, t, device.material.T, device.degeneracy,)
+            v = apply_contacts_coupled(timed(v, x), x, gc, device.contacts, vals, t, device.material.T, device.degeneracy,)
             return scale_rows(v, row_weights(dat, res2.n_nodes))
         return assemble
 
