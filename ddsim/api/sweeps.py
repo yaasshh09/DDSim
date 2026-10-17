@@ -3,16 +3,18 @@ from collections.abc import Callable, Sequence; from typing import Any
 from ddsim.api.devices import (Parameter, as_enum, checked_arguments, enum_arguments, parameters_of,)
 from ddsim.device.builder import Device
 from ddsim.device.transport import MOBILITY_MODELS, TransportModels
+from ddsim.extract.ac import ACCurve, ac_sweep, check_frequencies
 from ddsim.extract.cv import CVCurve, cv_sweep
 from ddsim.extract.iv import IVCurve, gate_sweep, iv_sweep
 SWEEP_KINDS: dict[str, Callable[..., Any]] = {
     "iv": iv_sweep,
     'transfer': gate_sweep,
     'cv': cv_sweep,
+    "ac": ac_sweep,
 }
 
 
-_TRANSPORT = ('iv', "transfer")
+_TRANSPORT = ('iv', "transfer", "ac")
 
 _MODEL_CHOICES:dict[str, tuple[str, ...]] = {"mobility": MOBILITY_MODELS}
 
@@ -48,7 +50,7 @@ def build_models(
     )
     return TransportModels.for_device(device, **z)
 
-def check_request(kind: str, device: Device, contact:str, settings: dict[str, Any] | None = None, models: dict[str, Any] | None = None, measure_at:str | None = None,) -> dict[str, Any]:
+def check_request(kind: str, device: Device, contact:str, settings: dict[str, Any] | None = None, models: dict[str, Any] | None = None, measure_at:str | None = None, frequencies: Sequence[float] = (),) -> dict[str, Any]:
     vals = _sweep(kind)
     prev = {p.name: p for p in sweep_parameters(kind)}
 
@@ -64,7 +66,18 @@ def check_request(kind: str, device: Device, contact:str, settings: dict[str, An
             f"{sorted(models)}. Every point is an equilibrium Poisson solve."
         )
     if models and kind in _TRANSPORT:
-        build_models(device, models)
+        if build_models(device, models).surface is not None and kind == "ac":
+            raise ValueError(
+                "the ac sweep holds surface mobility fixed at the DC state, so "
+                "its admittance would be quietly wrong. Turn surface off."
+            )
+    if kind == "ac":
+        check_frequencies(frequencies)
+    elif frequencies:
+        raise ValueError(
+            f"the {kind} sweep is a DC sweep, so it has no frequencies. "
+            "The ac sweep takes them."
+        )
     if measure_at is not None and kind != 'transfer':
         raise ValueError(
             f"the {kind} sweep measures the terminal it sweeps, so measure_at "
@@ -100,14 +113,17 @@ def run_sweep(
     models: dict[str, Any] | None = None,
     measure_at: str | None = None,
     on_frame: Callable[[object], None] | None = None,
-) -> tuple[IVCurve | CVCurve, TransportModels | None]:
-    row = check_request(kind, device, contact, settings, models, measure_at)
+    frequencies: Sequence[float] = (),
+) -> tuple[IVCurve | CVCurve | ACCurve, TransportModels | None]:
+    row = check_request(kind, device, contact, settings, models, measure_at, frequencies)
 
     if kind not in _TRANSPORT:
         mm = cv_sweep(device, contact, list(voltages), on_frame=on_frame, **row)
         return mm, None
 
     ys = build_models(device, models)
+    if kind == "ac":
+        return ac_sweep(device, contact, list(voltages), list(frequencies), models=ys, on_frame=on_frame, **row), ys
     if kind == "transfer":
         return (
             gate_sweep(

@@ -6,6 +6,7 @@ import numpy as np, numpy.typing as npt
 from ddsim.core.field import Field
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState; from ddsim.device.transport import TransportModels
+from ddsim.extract.ac import ROUNDOFF, ACCurve, ACFrame, ACPoint
 from ddsim.extract.bands import band_edges; from ddsim.extract.cv import CVCurve, CVFrame, CVPoint
 from ddsim.extract.iv import IVCurve, IVFrame, IVPoint, node_current_density
 from ddsim.solve.continuation import ContinuationEvent
@@ -71,6 +72,8 @@ def _body(frame: object) -> dict[str, Any]:
         return {"type": "point", "index": frame.index, "voltage": _finite(frame.voltage), "current": _finite(frame.current),}
     if isinstance(frame, CVFrame):
         return {'type': "cv_point", "index": frame.index, "gate_voltage":_finite(frame.gate_voltage), "capacitance": _finite(frame.capacitance), 'charge': _finite(frame.charge),}
+    if isinstance(frame, ACFrame):
+        return {"type": "ac_point", "index": frame.index, "voltage": _finite(frame.voltage), "frequency": _finite(frame.frequency), "conductance": _finite(frame.conductance), "capacitance": _finite(frame.capacitance), "G_spread": _finite(frame.G_spread), "C_spread": _finite(frame.C_spread),}
     if isinstance(frame, Status):
         return {'type': "status", "status": frame.status, "message": frame.message, "dropped": frame.dropped,}
     raise TypeError(
@@ -105,7 +108,28 @@ def decode_fields(message:bytes) -> dict[str, npt.NDArray[np.float64]]:
     return k
 
 
-def curve_body(curve:IVCurve | CVCurve) -> dict[str, Any]:
+def curve_body(curve:IVCurve | CVCurve | ACCurve) -> dict[str, Any]:
+    if isinstance(curve, ACCurve):
+        return {
+            "kind": "ac",
+            "contact": curve.contact,
+            "contacts": list(curve.points[0].admittances[0].contacts) if curve.points else [],
+            "frequencies": list(curve.frequencies),
+            "roundoff": ROUNDOFF,
+            "complete": curve.complete,
+            "message": curve.message,
+            "points": [
+                {
+                    "index": x,
+                    "voltage": f.voltage,
+                    "G": [a.G.tolist() for a in f.admittances],
+                    "C": [a.C.tolist() if a.frequency > 0.0 else None for a in f.admittances],
+                    "G_spread": [g.tolist() for g in f.G_spread],
+                    "C_spread": [c.tolist() for c in f.C_spread],
+                }
+                for x, f in enumerate(curve.points)
+            ],
+        }
     if isinstance(curve, CVCurve):
         return {
             "kind": "cv",
@@ -126,7 +150,7 @@ def curve_body(curve:IVCurve | CVCurve) -> dict[str, Any]:
     return {'kind':"iv", 'contact':curve.contact, 'measured_at':curve.measured_at, "complete":curve.complete, "message":curve.message, "points":[{'index': x, 'voltage': f.voltage, "current": f.current} for x, f in enumerate(curve.points)],}
 
 
-def point_voltage(point: IVPoint | CVPoint) -> float:
+def point_voltage(point: IVPoint | CVPoint | ACPoint) -> float:
     if isinstance(point, CVPoint):
         return point.gate_voltage
     return point.voltage

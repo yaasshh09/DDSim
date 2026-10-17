@@ -8,6 +8,7 @@ from ddsim.api.jobs import JobRegistry, JobStatus
 from ddsim.device.mos_cap import mos_cap; from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels
+from ddsim.extract.ac import ROUNDOFF, ac_sweep
 from ddsim.extract.cv import cv_sweep
 from ddsim.extract.iv import gate_sweep, iv_sweep
 
@@ -44,7 +45,7 @@ def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     f = client.get('/api/schema').json()
 
     assert set(f["devices"]) == {'pn_diode', "mos_cap", 'nmos', 'stack', "drawing"}
-    assert set(f['sweeps']) == {"iv", 'transfer', "cv"}
+    assert set(f['sweeps']) == {"iv", 'transfer', "cv", "ac"}
 
 
 def test_the_schema_carries_the_constructors_own_defaults(client) -> None:
@@ -395,3 +396,47 @@ def test_the_legal_pages_say_how_to_reach_me(client, path) -> None:
     for x in CONTACTS:
         assert x in u, (path, x)
 
+
+
+SMALL_CAP = {'n_silicon': 41, 'n_oxide': 3, 'h_min': 2e-7}
+
+
+def ac_request(voltages, frequencies) -> dict:
+    return {"device": {"kind": "mos_cap", "parameters": SMALL_CAP}, "sweep": {"kind": "ac", "contact": "gate", "voltages": voltages, "frequencies": frequencies}}
+
+
+def test_an_ac_sweep_streams_a_point_per_bias_and_frequency(client) -> None:
+    got = drain(client, submit(client, ac_request([-1.0, 1.0], [0.0, 1e6])))
+    assert got[-1]["status"] == "done"
+    assert [(f["index"], f["frequency"]) for f in got if f["type"] == "ac_point"] == [(0, 0.0), (0, 1e6), (1, 0.0), (1, 1e6)]
+
+
+def test_an_ac_result_carries_g_and_c_bit_for_bit_with_their_spreads(client) -> None:
+    j = submit(client, ac_request([1.0], [0.0, 1e6]))
+    drain(client, j)
+    body = client.get(f"/api/jobs/{j}/result").json()
+    want = ac_sweep(mos_cap(**SMALL_CAP), "gate", [1.0], [0.0, 1e6])
+    p, w = body["points"][0], want.points[0]
+    assert body["kind"] == "ac"
+    assert body["complete"] is True
+    assert body["contacts"] == list(w.admittances[0].contacts)
+    assert body["frequencies"] == [0.0, 1e6]
+    assert body["roundoff"] == ROUNDOFF
+    assert p["voltage"] == 1.0
+    assert p["G"] == [a.G.tolist() for a in w.admittances]
+    assert p["C"] == [None, w.admittances[1].C.tolist()]
+    assert p["G_spread"] == [x.tolist() for x in w.G_spread]
+    assert p["C_spread"] == [x.tolist() for x in w.C_spread]
+
+
+def test_the_fields_of_an_ac_point_carry_its_bias(client) -> None:
+    j = submit(client, ac_request([-1.0, 1.0], [1e6]))
+    drain(client, j)
+    xx = client.get(f"/api/jobs/{j}/fields/1")
+    assert json.loads(xx.content[4:4 + int.from_bytes(xx.content[:4], 'little')])["voltage"] == 1.0
+
+
+def test_frequencies_on_a_sweep_without_them_are_refused(client) -> None:
+    r = client.post('/api/jobs', json=diode_request(frequencies=[1e3]))
+    assert r.status_code == 400
+    assert "frequenc" in r.json()["detail"]

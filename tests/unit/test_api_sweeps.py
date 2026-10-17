@@ -6,12 +6,15 @@ from ddsim.api.sweeps import (SWEEP_KINDS, build_models, check_request, model_pa
 from ddsim.device.mos_cap import mos_cap
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import MOBILITY_MODELS, TransportModels
+from ddsim.extract.ac import ACCurve, ACFrame
 from ddsim.extract.cv import CVCurve, CVFrame, Response
 from ddsim.extract.iv import IVCurve, IVFrame
 DIODE = {'n_nodes': 61, 'h_min': 5e-7}
 
 
 CAP: dict[str, Any] = {}
+
+SMALL_CAP = {'n_silicon': 41, 'n_oxide': 3, 'h_min': 2e-7}
 
 FET = {
     'n_contact':4,
@@ -33,8 +36,8 @@ def named(parameters) -> dict[str, Any]:
     return {p.name: p for p in parameters}
 
 
-def test_the_three_sweeps_the_phase_names_are_the_ones_offered() -> None:
-    assert set(SWEEP_KINDS) == {'iv', 'transfer', "cv"}
+def test_the_sweeps_the_phases_name_are_the_ones_offered() -> None:
+    assert set(SWEEP_KINDS) == {'iv', 'transfer', "cv", "ac"}
 
 
 def test_an_unknown_sweep_is_refused_and_the_known_ones_are_listed() -> None:
@@ -61,7 +64,7 @@ def test_the_continuation_knobs_come_with_the_sweeps_own_defaults() -> None:
 def test_nothing_that_is_not_a_json_scalar_is_offered(kind) -> None:
     k = named(sweep_parameters(kind))
 
-    for y in ('device', "voltages", "contact", 'models', "on_frame"):
+    for y in ('device', "voltages", "frequencies", "contact", 'models', "on_frame"):
         assert y not in k
 
 def test_the_model_flags_carry_for_devices_own_defaults() -> None:
@@ -199,3 +202,34 @@ def test_every_sweep_reports_through_the_callback(kind, device, contact, voltage
     tmp2: list[Any] = []
     run_sweep(kind, device(), contact, voltages, settings=settings, on_frame=tmp2.append,)
     assert any(isinstance(i, frame) for i in tmp2)
+
+
+def test_an_ac_sweep_needs_its_frequencies() -> None:
+    with pytest.raises(ValueError, match="frequenc"):
+        check_request("ac", build_from_spec("mos_cap", SMALL_CAP), "gate")
+
+
+def test_frequencies_are_refused_on_a_sweep_that_has_none() -> None:
+    with pytest.raises(ValueError, match="frequenc"):
+        check_request("iv", diode(), "anode", frequencies=[1e3])
+
+
+@pytest.mark.parametrize("f", [-1.0, float("inf"), float("nan")])
+def test_a_frequency_that_is_not_one_is_refused_before_the_job(f) -> None:
+    with pytest.raises(ValueError, match="frequenc"):
+        check_request("ac", build_from_spec("mos_cap", SMALL_CAP), "gate", frequencies=[1e3, f])
+
+
+def test_an_ac_sweep_refuses_the_surface_model_it_cannot_linearize() -> None:
+    with pytest.raises(ValueError, match="surface"):
+        check_request("ac", build_from_spec("nmos", FET), "gate", models={"surface": True}, frequencies=[1e6])
+
+
+def test_an_ac_sweep_comes_back_as_an_ac_curve_with_its_models() -> None:
+    got: list[Any] = []
+    c, m = run_sweep("ac", build_from_spec("mos_cap", SMALL_CAP), "gate", [-1.0], frequencies=[1e6], on_frame=got.append)
+    assert isinstance(c, ACCurve)
+    assert c.complete
+    assert c.frequencies == (1e6,)
+    assert isinstance(m, TransportModels)
+    assert any(isinstance(i, ACFrame) for i in got)

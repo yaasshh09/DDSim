@@ -113,6 +113,15 @@
   "max_iterations": "how many Newton steps each point gets before it counts as failed [1].",
   "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per Poisson iteration and a CVFrame per point. There is no ContinuationEvent on this path: the points are independent solves rather than a ramp."
  },
+ "ddsim.extract.ac.ac_sweep": {
+  "device": "the device. Its own bias at the swept contact is overridden.",
+  "contact": "name of the terminal to sweep. Every terminal's current is read, so you get the whole admittance matrix.",
+  "voltages": "the DC biases wanted [V]. Each one is solved on its own, not ramped from the last.",
+  "frequencies": "the small-signal frequencies wanted at every bias [Hz]. Zero gives the DC slope.",
+  "models": "transport models, built from the device if None.",
+  "max_iterations": "how many Newton steps each DC point gets before it counts as failed [1].",
+  "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per iteration and an ACFrame per bias and frequency."
+ },
  "ddsim.device.transport.TransportModels.for_device": {
   "device": "the device, for its doping, temperature and scaling.",
   "recombination": "an explicit model, which overrides both the SRH default and the auger flag.",

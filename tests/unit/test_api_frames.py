@@ -7,6 +7,7 @@ from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels, solve_bias_ramped
+from ddsim.extract.ac import ACFrame
 from ddsim.extract.bands import band_edges
 from ddsim.extract.cv import CVFrame
 from ddsim.extract.iv import IVFrame
@@ -95,6 +96,23 @@ def test_a_finished_capacitance_point_crosses_as_its_own_kind() -> None:
 
     assert b["type"] == "cv_point"
     assert b["capacitance"] == 3.4e-8
+
+
+def test_an_ac_point_crosses_as_its_own_kind() -> None:
+    assert as_json(ACFrame(index=1, voltage=0.5, frequency=1e6, conductance=2e-6, capacitance=3e-8, G_spread=1e-3, C_spread=1e-9)) == {
+        "type": "ac_point",
+        "index": 1,
+        "voltage": 0.5,
+        "frequency": 1e6,
+        "conductance": 2e-6,
+        "capacitance": 3e-8,
+        "G_spread": 1e-3,
+        "C_spread": 1e-9,
+    }
+
+
+def test_an_ac_point_at_zero_frequency_has_no_capacitance() -> None:
+    assert as_json(ACFrame(index=0, voltage=0.0, frequency=0.0, conductance=2e-6, capacitance=None, G_spread=0.0, C_spread=0.0))["capacitance"] is None
 
 
 def test_something_that_is_not_a_frame_is_refused() -> None:

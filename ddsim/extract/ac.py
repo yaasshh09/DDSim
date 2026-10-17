@@ -1,5 +1,5 @@
 from __future__ import annotations
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 import math
 import numpy as np
@@ -222,6 +222,16 @@ class ACCurve:
 
 _ORDERINGS: tuple[Ordering, Ordering] = ("COLAMD", "MMD_AT_PLUS_A")
 
+ROUNDOFF = 1e-3
+
+
+def check_frequencies(frequencies: Sequence[float]) -> None:
+    if not frequencies:
+        raise ValueError("an ac sweep needs at least one frequency [Hz]")
+    for f in frequencies:
+        if not (math.isfinite(f) and f >= 0.0):
+            raise ValueError(f"every frequency must be a finite number of Hz, zero or above, got {f!r}")
+
 
 def _dc(device: Device, models: TransportModels, max_iterations: int, on_frame: Callable[[object], None] | None) -> DeviceState | None:
     try:
@@ -242,11 +252,7 @@ def ac_sweep(device: Device, contact: str, voltages: list[float], frequencies: l
     names = [k.name for k in device.contacts]
     if contact not in names:
         raise KeyError(f"no contact named {contact!r} on this device, which has {sorted(names)}")
-    if not frequencies:
-        raise ValueError("an ac sweep needs at least one frequency [Hz]")
-    for f in frequencies:
-        if not (math.isfinite(f) and f >= 0.0):
-            raise ValueError(f"every frequency must be a finite number of Hz, zero or above, got {f!r}")
+    check_frequencies(frequencies)
     if models is None:
         models = TransportModels.for_device(device)
     width = 1.0 if isinstance(device.mesh, Mesh1D) else device.mesh.x_axis.length

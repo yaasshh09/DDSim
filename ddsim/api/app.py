@@ -29,6 +29,7 @@ from ddsim.api.sweeps import (
 from ddsim.device.builder import Device
 from ddsim.device.drawing import NODE_BUDGET
 from ddsim.device.transport import TransportModels; from ddsim.extract.cv import CVCurve
+from ddsim.extract.ac import ACCurve
 from ddsim.extract.iv import IVCurve
 
 
@@ -63,6 +64,7 @@ class SweepSpec(BaseModel):
     settings:dict[str, Any] = Field(default_factory=dict)
     models: dict[str, Any] = Field(default_factory=dict)
     measure_at:str | None = None
+    frequencies: list[float] = Field(default_factory=list)
 
 class JobRequest(BaseModel):
     device:DeviceSpec
@@ -72,7 +74,7 @@ class JobRequest(BaseModel):
 class Finished:
     device: Device
 
-    curve:IVCurve | CVCurve
+    curve:IVCurve | CVCurve | ACCurve
     models: TransportModels | None
 def create_app(registry:JobRegistry|None = None) -> FastAPI:
     c = registry if registry is not None else JobRegistry()
@@ -135,10 +137,10 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
             lambda: build_from_spec(request.device.kind, request.device.parameters)
         )
         nxt = request.sweep
-        _checked(lambda: check_request(nxt.kind, z2, nxt.contact, nxt.settings, nxt.models, nxt.measure_at,))
+        _checked(lambda: check_request(nxt.kind, z2, nxt.contact, nxt.settings, nxt.models, nxt.measure_at, nxt.frequencies,))
 
         def work(send: Send) -> Finished:
-            jj, v2 = run_sweep(nxt.kind, z2, nxt.contact, nxt.voltages, settings=nxt.settings, models=nxt.models or None, measure_at=nxt.measure_at, on_frame=send,)
+            jj, v2 = run_sweep(nxt.kind, z2, nxt.contact, nxt.voltages, settings=nxt.settings, models=nxt.models or None, measure_at=nxt.measure_at, on_frame=send, frequencies=nxt.frequencies,)
             return Finished(device=z2, curve=jj, models=v2)
         try:
             return {'id': c.submit(work).id}
