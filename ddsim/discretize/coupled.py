@@ -237,6 +237,12 @@ def coupled_jacobian(
     return _jacobian_from(h, volume, x, _diffusivity_at(Dn, psi, h, geometry), _diffusivity_at(Dp, psi, h, geometry), _bernoulli_pair(u, geometry), _bernoulli_pair(arr, geometry), _bernoulli_derivative_pair(u, geometry), _bernoulli_derivative_pair(arr, geometry), np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64), np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64), geometry, _diffusivity_tangent(Dn, psi, h, geometry), _diffusivity_tangent(Dp, psi, h, geometry), *_potential_tangents(n, p, degeneracy),)
 
 
+def coupled_mass(volume: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
+    k = np.arange(volume.size, dtype=np.int64) * UNKNOWNS_PER_NODE
+    r = np.concatenate([k + Unknown.N, k + Unknown.P])
+    return r, r.copy(), np.concatenate([volume, volume]).astype(np.float64)
+
+
 def _potential_tangents(n:npt.NDArray[np.float64], p: npt.NDArray[np.float64], degeneracy: Degeneracy | None,) -> tuple[npt.NDArray[np.float64]|None, npt.NDArray[np.float64] | None]:
     if degeneracy is None:
         return None, None
