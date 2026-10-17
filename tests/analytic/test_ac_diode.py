@@ -29,6 +29,22 @@ def long_diode():
     return d, m, s, terminal_currents(d, s, m)["anode"] / V_T
 
 
+@pytest.fixture(scope="module")
+def short_diode():
+    d = pn_diode(Na=1e20, Nd=1e17, length=0.06, junction=0.03, n_nodes=1500, h_min=2e-7, anode_voltage=0.715)
+    m = uniform_lifetime(d, 1.0)
+    s = solve_bias_ramped(d, m)
+    return d, m, s, terminal_currents(d, s, m)["anode"] / V_T
+
+
+@pytest.mark.parametrize("wt", [1e-4, 1e-2])
+def test_short_base_diffusion_capacitance_is_g0_w_squared_over_3d(short_diode, wt):
+    d, m, s, G0 = short_diode
+    W, D = 0.03, C.MU_P_300 * V_T
+    a = admittance(d, s, wt / (2 * math.pi * W**2 / (2 * D)), m)
+    assert a.C[0, 0] == pytest.approx(G0 * W**2 / (3 * D), rel=0.03)
+
+
 @pytest.mark.parametrize("wt", np.logspace(-1.5, 1.5, 7))
 def test_long_diode_admittance_is_g0_root_one_plus_i_omega_tau(long_diode, wt):
     d, m, s, G0 = long_diode
