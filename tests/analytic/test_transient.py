@@ -2,7 +2,7 @@ from __future__ import annotations
 import numpy as np, pytest
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels, solve_bias_ramped
-from ddsim.extract.transient import backward_euler
+from ddsim.extract.transient import backward_euler, bdf2
 
 SMALL = {"n_nodes": 61, "h_min": 5e-7}
 
@@ -73,9 +73,10 @@ def kirchhoff(t):
     return max(abs(sum(p.currents.values())) for p in t.points) / big
 
 
-def test_the_diode_currents_sum_to_zero_at_every_step():
+@pytest.mark.parametrize("method", [backward_euler, bdf2])
+def test_the_diode_currents_sum_to_zero_at_every_step(method):
     d0, m, s0 = dc(0.0)
-    t = backward_euler(d0.with_bias(anode=0.4), s0, np.geomspace(1e-13, 1e-6, 30), m)
+    t = method(d0.with_bias(anode=0.4), s0, np.geomspace(1e-13, 1e-6, 30), m)
     assert kirchhoff(t) < 1e-10
 
 

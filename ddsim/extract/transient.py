@@ -29,8 +29,8 @@ class Transient:
     message: str = ""
 
 
-def _advance(device: Device, models: TransportModels, state: DeviceState, dt: float, max_iterations: int, on_frame: Callable[[object], None] | None) -> DeviceState | None:
-    s = solve_bias_newton(device, models, guess=state, max_iterations=max_iterations, on_frame=on_frame, step=TimeStep(previous=state, dt=dt))
+def _advance(device: Device, models: TransportModels, step: TimeStep, max_iterations: int, on_frame: Callable[[object], None] | None) -> DeviceState | None:
+    s = solve_bias_newton(device, models, guess=step.previous, max_iterations=max_iterations, on_frame=on_frame, step=step)
     return s if s.newton is not None and s.newton.converged else None
 
 
@@ -42,15 +42,18 @@ def _charges(device: Device, state: DeviceState, models: TransportModels) -> dic
     return {c.name: float(sum(psi[i] for i in c.nodes)) for c in device.contacts}
 
 
-def _currents(device: Device, models: TransportModels, before: DeviceState, after: DeviceState, dt: float) -> dict[str, float]:
+def _currents(device: Device, models: TransportModels, step: TimeStep, after: DeviceState, q: list[dict[str, float]]) -> dict[str, float]:
     s = device.scale
     unit = s.J_0 * s.x_0 ** (device.dimension - 1)
     conduction = terminal_currents(device, after, models)
-    q0, q1 = _charges(device, before, models), _charges(device, after, models)
-    return {k: conduction[k] + (q1[k] - q0[k]) / (dt / s.t_0) * unit for k in conduction}
+    a0, a1, a2 = step.weights
+    q1 = _charges(device, after, models)
+    rate = {k: a0 * q1[k] + a1 * q[-1][k] + (a2 * q[-2][k] if step.older is not None else 0.0) for k in conduction}
+    q.append(q1)
+    return {k: conduction[k] + rate[k] / (step.dt / s.t_0) * unit for k in conduction}
 
 
-def backward_euler(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None,) -> Transient:
+def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None, max_iterations: int, on_frame: Callable[[object], None] | None, bias: Callable[[float], dict[str, float]] | None, order: int) -> Transient:
     before = 0.0
     for t in times:
         if not t > before:
@@ -59,21 +62,33 @@ def backward_euler(device: Device, initial: DeviceState, times: Sequence[float],
     if models is None:
         models = TransportModels.for_device(device)
     now, state = 0.0, initial
+    older: DeviceState | None = None
+    last = 0.0
+    q = [_charges(device, initial, models)]
     currents: dict[str, float] = {}
     out: list[TransientPoint] = []
     for target in times:
         while now < target:
             dt = target - now
             for _ in range(MAX_HALVINGS + 1):
+                step = TimeStep(previous=state, dt=dt) if order == 1 or older is None else TimeStep(previous=state, dt=dt, older=older, ratio=dt / last)
                 at = device if bias is None else device.with_bias(**bias(now + dt))
-                nxt = _advance(at, models, state, dt, max_iterations, on_frame)
+                nxt = _advance(at, models, step, max_iterations, on_frame)
                 if nxt is not None:
                     break
                 dt /= 2.0
             else:
                 return Transient(points=tuple(out), complete=False, message=f"stalled at {now:g} s: the step was halved {MAX_HALVINGS} times to {dt:g} s and Newton still did not converge")
             now = target if dt == target - now else now + dt
-            currents = _currents(device, models, state, nxt, dt)
-            state = nxt
+            currents = _currents(device, models, step, nxt, q)
+            older, state, last = state, nxt, dt
         out.append(TransientPoint(time=target, state=state, currents=currents))
     return Transient(points=tuple(out), complete=True)
+
+
+def backward_euler(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None,) -> Transient:
+    return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=1)
+
+
+def bdf2(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None,) -> Transient:
+    return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=2)

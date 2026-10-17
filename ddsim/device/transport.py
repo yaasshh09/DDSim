@@ -506,6 +506,17 @@ class TimeStep:
 
     dt: float
 
+    older: DeviceState | None = None
+
+    ratio: float = 1.0
+
+    @property
+    def weights(self) -> tuple[float, float, float]:
+        if self.older is None:
+            return 1.0, -1.0, 0.0
+        w = self.ratio
+        return (1.0 + 2.0 * w) / (1.0 + w), -(1.0 + w), w * w / (1.0 + w)
+
 
 def solve_bias_newton(
     device:Device,
@@ -544,10 +555,14 @@ def solve_bias_newton(
         if step is None:
             return v
         dt = step.dt / vals.t_0
+        a0, a1, a2 = step.weights
         old = pack(step.previous.psi.data, step.previous.n.data, step.previous.p.data)
+        rate = a0 * x[mr] + a1 * old[mr]
+        if step.older is not None:
+            rate = rate + a2 * pack(step.older.psi.data, step.older.n.data, step.older.p.data)[mr]
         res = v.residual.copy()
-        res[mr] += mv * (x[mr] - old[mr]) / dt
-        return SparseAssembly(residual=res, rows=np.concatenate([v.rows, mr]), cols=np.concatenate([v.cols, mc]), values=np.concatenate([v.values, mv / dt]), shape=v.shape)
+        res[mr] += mv * rate / dt
+        return SparseAssembly(residual=res, rows=np.concatenate([v.rows, mr]), cols=np.concatenate([v.cols, mc]), values=np.concatenate([v.values, a0 * mv / dt]), shape=v.shape)
 
     def assembler(
         active: TransportModels,
