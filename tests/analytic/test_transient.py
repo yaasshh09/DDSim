@@ -66,3 +66,36 @@ def test_the_stored_holes_rise_to_their_dc_value_without_overshoot():
     assert stored[0] < 0.5 * final
     assert np.all(np.diff(stored) >= -1e-9 * final)
     assert stored[-1] == pytest.approx(final, rel=1e-6)
+
+
+def kirchhoff(t):
+    big = max(abs(v) for p in t.points for v in p.currents.values())
+    return max(abs(sum(p.currents.values())) for p in t.points) / big
+
+
+def test_the_diode_currents_sum_to_zero_at_every_step():
+    d0, m, s0 = dc(0.0)
+    t = backward_euler(d0.with_bias(anode=0.4), s0, np.geomspace(1e-13, 1e-6, 30), m)
+    assert kirchhoff(t) < 1e-10
+
+
+def test_a_gate_carries_only_displacement_current_and_it_balances_the_body():
+    from ddsim.api.devices import COARSE
+    from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
+    from ddsim.device.mos_cap import mos_cap
+    from ddsim.device.transport import solve_bias_newton
+    d0 = mos_cap(**COARSE["mos_cap"].parameters)
+    m = TransportModels.for_device(d0)
+    s0 = solve_bias_newton(d0, m, guess=solve_equilibrium(d0, quasi_fermi=frozen_quasi_fermi(d0)))
+    t = backward_euler(d0.with_bias(gate=-0.5), s0, np.geomspace(1e-15, 1e-9, 20), m)
+    assert t.complete
+    assert abs(t.points[0].currents["gate"]) > 0.0
+    assert kirchhoff(t) < 1e-10
+
+
+def test_long_after_the_step_the_current_is_the_dc_current():
+    from ddsim.extract.iv import terminal_currents
+    d0, m, s0 = dc(0.0)
+    d = d0.with_bias(anode=0.4)
+    t = backward_euler(d, s0, np.geomspace(1e-12, 1e-1, 133), m)
+    assert t.points[-1].currents["anode"] == pytest.approx(terminal_currents(d, solve_bias_ramped(d, m), m)["anode"], rel=1e-6)
