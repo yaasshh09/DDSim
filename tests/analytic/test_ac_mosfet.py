@@ -39,3 +39,15 @@ def test_at_zero_drain_bias_cgg_is_the_quasi_static_gate_capacitance(vg):
     g = a.contacts.index(GATE)
     assert a.C[g, g] == pytest.approx(cv.small_signal_capacitance(d, eq, GATE, cv.Response.LOW_FREQUENCY, quasi_fermi=q, width=1.0), rel=1e-7, abs=0)
     assert a.C[g, a.contacts.index(SOURCE)] == pytest.approx(a.C[g, a.contacts.index(DRAIN)], rel=1e-6, abs=0)
+
+
+@pytest.mark.parametrize("vd", [0.05, 1.0])
+def test_f_t_is_where_the_current_gain_extrapolates_to_one(vd):
+    d = nmos(gate_voltage=VG, drain_voltage=vd)
+    m = TransportModels.for_device(d, field_dependent=True)
+    s = solve_bias_ramped(d, m)
+    assert s.newton.converged
+    ft = admittance(d, s, 1e3, m).f_T(GATE, DRAIN)
+    f = ft / 300
+    a = admittance(d, s, f, m)
+    assert ft == pytest.approx(f * abs(a.y(DRAIN, GATE) / a.y(GATE, GATE)), rel=1e-5, abs=0)

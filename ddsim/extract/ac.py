@@ -52,6 +52,10 @@ class Admittance:
             )
         return np.asarray(self.Y.imag / (2.0 * math.pi * self.frequency))
 
+    def f_T(self, gate: str, drain: str) -> float:
+        g = self.contacts.index(gate)
+        return float(self.G[self.contacts.index(drain), g] / (2.0 * math.pi * self.C[g, g]))
+
 
 @dataclass(frozen=True)
 class Noise:
