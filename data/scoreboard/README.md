@@ -25,7 +25,7 @@ it and fails if this file is stale. The rules are the 2026-09-25,
 | ddsim_fine | 186 |
 | devsim_stock | 130 |
 | devsim_expert | 175 |
-| devsim_fine | 169 |
+| devsim_fine | 170 |
 
 Dropped cases, which count for nobody:
 

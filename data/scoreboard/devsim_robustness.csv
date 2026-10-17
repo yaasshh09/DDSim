@@ -604,3 +604,4 @@ m099,devsim_fine,True,0.10048465444415092,8.066925339795406e-12,0.10048465444415
 m100,devsim_stock,False,nan,nan,nan,690.512,"DEVSIM FATAL: while evaluating node model USRH on Device: m100_devsim_stock on Region: bulk There was a Overflow floating point exception while evaluating (Electrons * Holes) while evaluating model US"
 m100,devsim_expert,True,-0.7149277252116069,2.5509258885276176e-10,0.7149277254434834,517.314,""
 m100,devsim_fine,True,-0.7149277254115843,5.5811219668520274e-11,0.7149277254441795,2110.873,""
+m060,devsim_fine,True,1.668632947099203e-09,1.2040650661927534e-10,1.668632947099203e-09,21516.182,""
