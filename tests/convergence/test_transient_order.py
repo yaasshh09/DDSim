@@ -59,3 +59,30 @@ def test_bdf2_stays_second_order_on_steps_that_grow(diode, reference):
         t = bdf2(d, s, T * (np.arange(1, n + 1) / n) ** 2, m, bias=drive)
         errors.append(abs(t.points[-1].currents["anode"] / reference[0] - 1))
     assert 1.8 < -np.polyfit(np.log(np.array(STEPS, dtype=float)), np.log(errors), 1)[0] < 2.2
+
+
+def test_adaptive_bdf2_stays_inside_its_tolerance_on_a_smooth_drive(diode, reference):
+    d, m, s = diode
+    errors = []
+    for rtol in (1e-2, 1e-3, 1e-4):
+        t = bdf2(d, s, [T], m, bias=drive, rtol=rtol)
+        assert t.complete
+        errors.append(abs(t.points[-1].currents["anode"] / reference[0] - 1))
+        assert errors[-1] < rtol
+    assert errors[0] > errors[1] > errors[2]
+
+
+def test_adaptive_bdf2_tightens_with_its_tolerance_across_a_bias_step():
+    d0 = pn_diode(n_nodes=61, h_min=5e-7)
+    m = TransportModels.for_device(d0)
+    s0 = solve_bias_ramped(d0, m)
+    d = d0.with_bias(anode=0.4)
+    outs = np.geomspace(1e-12, 1e-6, 7)
+    fine = {round(float(np.log10(p.time)), 6): p.currents["anode"] for p in bdf2(d, s0, np.union1d(np.geomspace(1e-15, 1e-6, 3000), outs), m).points}
+    worst = []
+    for rtol in (1e-2, 1e-3):
+        t = bdf2(d, s0, outs, m, rtol=rtol)
+        assert t.complete
+        assert t.steps < 250
+        worst.append(max(abs(p.currents["anode"] / fine[round(float(np.log10(p.time)), 6)] - 1) for p in t.points))
+    assert worst[1] < worst[0] / 3
