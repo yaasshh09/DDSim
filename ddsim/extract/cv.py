@@ -48,7 +48,7 @@ def _bare_poisson(device:Device, state:DeviceState, quasi_fermi:QuasiFermi = Non
         state.psi.data, "V", ScalingState.SCALED, Location.NODE, name='psi'
     )
     phi_n, phi_p = (None, None) if quasi_fermi is None else quasi_fermi
-    return assemble_poisson(device.scaled_mesh, psi, device.poisson_doping_scaled, phi_n, phi_p, charge_volume=device.charge_volume_scaled, ionization=device.ionization,)
+    return assemble_poisson(device.scaled_mesh, psi, device.poisson_doping_scaled, phi_n, phi_p, charge_volume=device.charge_volume_scaled, degeneracy=device.degeneracy, ionization=device.ionization,)
 
 
 def terminal_charge(
@@ -66,7 +66,9 @@ def terminal_charge(
 def _frozen_diagonal(
     device:Device, state:DeviceState
 ) -> npt.NDArray[np.float64]:
-    x = device.net_doping_scaled.data; r = np.where(x < 0.0, state.n.data, state.p.data)
+    x = device.net_doping_scaled.data; g = device.degeneracy
+    n, p = (state.n.data, state.p.data) if g is None else (g.dn_dpsi(state.n.data), g.dp_dpsi(state.p.data))
+    r = np.where(x < 0.0, n, p)
     return np.asarray(r * device.charge_volume_scaled)
 def small_signal_capacitance(
     device:Device,

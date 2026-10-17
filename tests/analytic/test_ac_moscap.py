@@ -11,8 +11,8 @@ from ddsim.physics.recombination import SRHRecombination
 HF = 1e6
 
 
-def solved(vg, tau=None):
-    d = mos_cap(gate_voltage=vg)
+def solved(vg, tau=None, degenerate=False):
+    d = mos_cap(gate_voltage=vg, degenerate=degenerate)
     s = d.scale
     ni = d.material.n_i / s.C_0
     m = TransportModels.for_device(d) if tau is None else TransportModels.for_device(d, recombination=SRHRecombination(tau_n=tau / s.t_0, tau_p=tau / s.t_0, ni2=ni * ni, n1=ni, p1=ni))
@@ -40,9 +40,10 @@ def floating_inversion(d, eq, q):
     return float(np.sum(tmp[list(cv._contact_nodes(d, "gate"))])) * cv._charge_unit(d, None)
 
 
+@pytest.mark.parametrize("degenerate", [False, True])
 @pytest.mark.parametrize("vg", [-2.0, -0.5, 0.0, 0.5, 2.0])
-def test_far_below_the_generation_rate_c_is_quasi_static(vg):
-    d, m, q, eq, st = solved(vg, tau=1e-12)
+def test_far_below_the_generation_rate_c_is_quasi_static(vg, degenerate):
+    d, m, q, eq, st = solved(vg, tau=1e-12, degenerate=degenerate)
     lf = cv.small_signal_capacitance(d, eq, "gate", cv.Response.LOW_FREQUENCY, quasi_fermi=q)
     assert gate_c(d, m, st, 1e-2) == pytest.approx(lf, rel=1e-4)
 
@@ -54,9 +55,10 @@ def test_without_an_inversion_layer_high_frequency_is_the_frozen_curve(vg):
     assert gate_c(d, m, st, HF) == pytest.approx(hf, rel=1e-5)
 
 
+@pytest.mark.parametrize("degenerate", [False, True])
 @pytest.mark.parametrize("vg", [0.0, 0.5, 1.0, 2.0])
-def test_at_high_frequency_the_inversion_layer_keeps_its_count_but_not_its_shape(vg):
-    d, m, q, eq, st = solved(vg)
+def test_at_high_frequency_the_inversion_layer_keeps_its_count_but_not_its_shape(vg, degenerate):
+    d, m, q, eq, st = solved(vg, degenerate=degenerate)
     c = gate_c(d, m, st, HF)
     hf = cv.small_signal_capacitance(d, eq, "gate", cv.Response.HIGH_FREQUENCY, quasi_fermi=q)
     assert c == pytest.approx(floating_inversion(d, eq, q), rel=1e-5)
