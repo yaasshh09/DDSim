@@ -267,3 +267,21 @@ def test_the_band_edges_cross_in_ev() -> None:
     tmp3 = decode_fields(encode(field_frame(h, z, index=0, voltage=0.0)))
 
     np.testing.assert_allclose(tmp3["Ec"], band_edges(h, z).Ec, rtol=1e-6)
+
+
+def test_an_accepted_time_step_crosses_as_a_step() -> None:
+    from ddsim.extract.transient import TransientFrame
+    assert as_json(TransientFrame(step=3, time=2e-9, dt=1e-9, voltages={"anode": 0.3, "cathode": 0.0}, currents={"anode": 1.5, "cathode": -1.5})) == {
+        "type": "step",
+        "step": 3,
+        "time": 2e-9,
+        "dt": 1e-9,
+        "voltages": {"anode": 0.3, "cathode": 0.0},
+        "currents": {"anode": 1.5, "cathode": -1.5},
+    }
+
+
+def test_a_field_frame_of_a_transient_says_when_it_is() -> None:
+    ok = diode()
+    assert header_of(encode(field_frame(ok, solve_equilibrium(ok), index=2, voltage=0.0, time=1e-9)))["time"] == 1e-9
+    assert header_of(encode(field_frame(ok, solve_equilibrium(ok), index=2, voltage=0.0)))["time"] is None

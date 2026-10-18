@@ -113,6 +113,17 @@
   "max_iterations": "how many Newton steps each point gets before it counts as failed [1].",
   "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per Poisson iteration and a CVFrame per point. There is no ContinuationEvent on this path: the points are independent solves rather than a ramp."
  },
+ "ddsim.extract.transient.transient_sweep": {
+  "device": "the device. Its own bias at the stepped contact is overridden.",
+  "contact": "name of the terminal the step drives.",
+  "voltages": "two voltages, the source before the step and after it [V]. The device starts at the DC state of the first.",
+  "times": "the moments to keep a snapshot at, counted from the step [s]. The solver takes as many steps as it needs in between.",
+  "models": "transport models, built from the device if None.",
+  "resistance": "a resistor between the source and the contact [ohm cm^2]. Zero puts the source right on the contact. A 2D device carries current per width, so there it's in ohm cm. Range 0 to 1000.",
+  "rtol": "how much error each time step may make, relative to the solution [1]. Smaller is more accurate and takes more steps. Range 1e-5 to 1e-1, log.",
+  "max_iterations": "how many Newton steps each time step gets before it's halved [1].",
+  "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per iteration and a TransientFrame per accepted time step."
+ },
  "ddsim.extract.ac.ac_sweep": {
   "device": "the device. Its own bias at the swept contact is overridden.",
   "contact": "name of the terminal to sweep. Every terminal's current is read, so you get the whole admittance matrix.",

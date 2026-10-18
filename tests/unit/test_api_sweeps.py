@@ -37,7 +37,7 @@ def named(parameters) -> dict[str, Any]:
 
 
 def test_the_sweeps_the_phases_name_are_the_ones_offered() -> None:
-    assert set(SWEEP_KINDS) == {'iv', 'transfer', "cv", "ac"}
+    assert set(SWEEP_KINDS) == {'iv', 'transfer', "cv", "ac", "transient"}
 
 
 def test_an_unknown_sweep_is_refused_and_the_known_ones_are_listed() -> None:
@@ -64,7 +64,7 @@ def test_the_continuation_knobs_come_with_the_sweeps_own_defaults() -> None:
 def test_nothing_that_is_not_a_json_scalar_is_offered(kind) -> None:
     k = named(sweep_parameters(kind))
 
-    for y in ('device', "voltages", "frequencies", "contact", 'models', "on_frame"):
+    for y in ('device', "voltages", "frequencies", "times", "contact", 'models', "on_frame"):
         assert y not in k
 
 def test_the_model_flags_carry_for_devices_own_defaults() -> None:
@@ -233,3 +233,51 @@ def test_an_ac_sweep_comes_back_as_an_ac_curve_with_its_models() -> None:
     assert c.frequencies == (1e6,)
     assert isinstance(m, TransportModels)
     assert any(isinstance(i, ACFrame) for i in got)
+
+
+def test_a_step_offers_its_resistor_and_its_tolerance() -> None:
+    k = named(sweep_parameters("transient"))
+    assert k["resistance"].default == 0.0
+    assert k["rtol"].default == 1e-3
+
+
+def test_a_transient_needs_its_sample_times() -> None:
+    with pytest.raises(ValueError, match="time"):
+        check_request("transient", diode(), "anode", voltages=[0.0, 0.3])
+
+
+def test_sample_times_are_refused_on_a_sweep_that_has_none() -> None:
+    with pytest.raises(ValueError, match="time"):
+        check_request("iv", diode(), "anode", times=[1e-9])
+
+
+def test_frequencies_are_refused_on_a_transient() -> None:
+    with pytest.raises(ValueError, match="frequenc"):
+        check_request("transient", diode(), "anode", voltages=[0.0, 0.3], times=[1e-9], frequencies=[1e3])
+
+
+@pytest.mark.parametrize("voltages", [[0.3], [0.0, 0.1, 0.3]])
+def test_a_transient_with_other_than_two_voltages_is_refused_before_the_job(voltages) -> None:
+    with pytest.raises(ValueError, match="two voltages"):
+        check_request("transient", diode(), "anode", voltages=voltages, times=[1e-9])
+
+
+def test_a_falling_sample_time_is_refused_before_the_job() -> None:
+    with pytest.raises(ValueError, match="time"):
+        check_request("transient", diode(), "anode", voltages=[0.0, 0.3], times=[1e-9, 1e-10])
+
+
+def test_a_transient_refuses_the_surface_model_no_transient_test_covers() -> None:
+    with pytest.raises(ValueError, match="surface"):
+        check_request("transient", build_from_spec("nmos", FET), "gate", models={"surface": True}, voltages=[0.0, 0.5], times=[1e-9])
+
+
+def test_a_transient_comes_back_as_a_transient_curve_with_its_models() -> None:
+    from ddsim.extract.transient import TransientCurve, TransientFrame
+    got: list[Any] = []
+    c, m = run_sweep("transient", diode(), "anode", [0.0, 0.3], times=[1e-12, 1e-9], on_frame=got.append)
+    assert isinstance(c, TransientCurve)
+    assert c.complete
+    assert [p.time for p in c.points] == [1e-12, 1e-9]
+    assert isinstance(m, TransportModels)
+    assert sum(isinstance(i, TransientFrame) for i in got) == c.steps

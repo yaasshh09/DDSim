@@ -9,6 +9,7 @@ from ddsim.device.state import DeviceState; from ddsim.device.transport import T
 from ddsim.extract.ac import ROUNDOFF, ACCurve, ACFrame, ACPoint
 from ddsim.extract.bands import band_edges; from ddsim.extract.cv import CVCurve, CVFrame, CVPoint
 from ddsim.extract.iv import IVCurve, IVFrame, IVPoint, node_current_density
+from ddsim.extract.transient import TransientCurve, TransientFrame
 from ddsim.solve.continuation import ContinuationEvent
 from ddsim.solve.gummel import GummelIteration
 from ddsim.solve.newton import NewtonIteration
@@ -26,6 +27,8 @@ class FieldFrame:
     shape: tuple[int, ...]
 
     arrays: tuple[tuple[str, str, npt.NDArray[np.float64]], ...]
+
+    time: float | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +77,8 @@ def _body(frame: object) -> dict[str, Any]:
         return {'type': "cv_point", "index": frame.index, "gate_voltage":_finite(frame.gate_voltage), "capacitance": _finite(frame.capacitance), 'charge': _finite(frame.charge),}
     if isinstance(frame, ACFrame):
         return {"type": "ac_point", "index": frame.index, "voltage": _finite(frame.voltage), "frequency": _finite(frame.frequency), "conductance": _finite(frame.conductance), "capacitance": _finite(frame.capacitance), "G_spread": _finite(frame.G_spread), "C_spread": _finite(frame.C_spread),}
+    if isinstance(frame, TransientFrame):
+        return {"type": "step", "step": frame.step, "time": _finite(frame.time), "dt": _finite(frame.dt), "voltages": _finite_by_family(frame.voltages), "currents": _finite_by_family(frame.currents),}
     if isinstance(frame, Status):
         return {'type': "status", "status": frame.status, "message": frame.message, "dropped": frame.dropped,}
     raise TypeError(
@@ -85,7 +90,7 @@ def _body(frame: object) -> dict[str, Any]:
 
 def encode(frame: object) -> str | bytes:
     if isinstance(frame, FieldFrame):
-        i = json.dumps({"type": "fields", 'index':frame.index, 'voltage':_finite(frame.voltage), "shape": list(frame.shape), "arrays": [{"name": tmp, "unit": s, 'length': int(k.size)} for tmp, s, k in frame.arrays],}).encode('utf-8')
+        i = json.dumps({"type": "fields", 'index':frame.index, 'voltage':_finite(frame.voltage), "time": _finite(frame.time), "shape": list(frame.shape), "arrays": [{"name": tmp, "unit": s, 'length': int(k.size)} for tmp, s, k in frame.arrays],}).encode('utf-8')
         i += b" " * (-(4+len(i)) % 4)
 
         h = b''.join(np.ascontiguousarray(tmp2, dtype=WIRE_DTYPE).tobytes() for _, _, tmp2 in frame.arrays)
@@ -108,7 +113,25 @@ def decode_fields(message:bytes) -> dict[str, npt.NDArray[np.float64]]:
     return k
 
 
-def curve_body(curve:IVCurve | CVCurve | ACCurve) -> dict[str, Any]:
+def curve_body(curve:IVCurve | CVCurve | ACCurve | TransientCurve) -> dict[str, Any]:
+    if isinstance(curve, TransientCurve):
+        return {
+            "kind": "transient",
+            "contact": curve.contact,
+            "complete": curve.complete,
+            "message": curve.message,
+            "steps": curve.steps,
+            "rejected": curve.rejected,
+            "points": [
+                {
+                    "index": x,
+                    "time": f.time,
+                    "voltage": f.voltages[curve.contact],
+                    "current": f.currents[curve.contact],
+                }
+                for x, f in enumerate(curve.points)
+            ],
+        }
     if isinstance(curve, ACCurve):
         return {
             "kind": "ac",
@@ -165,6 +188,7 @@ def field_frame(
     index: int,
     voltage:float,
     models:TransportModels|None = None,
+    time: float | None = None,
 ) -> FieldFrame:
     f:Any = device.mesh
     e: tuple[tuple[str,
@@ -199,4 +223,4 @@ def field_frame(
             h, t = np.zeros_like(h), np.zeros_like(t)
         z += [("Jx", "A/cm^2", h), ('Jy', "A/cm^2", t)]
 
-    return FieldFrame(index=index, voltage=voltage, shape=vals, arrays=tuple(z))
+    return FieldFrame(index=index, voltage=voltage, shape=vals, arrays=tuple(z), time=time)

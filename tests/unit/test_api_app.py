@@ -45,7 +45,7 @@ def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     f = client.get('/api/schema').json()
 
     assert set(f["devices"]) == {'pn_diode', "mos_cap", 'nmos', 'stack', "drawing"}
-    assert set(f['sweeps']) == {"iv", 'transfer', "cv", "ac"}
+    assert set(f['sweeps']) == {"iv", 'transfer', "cv", "ac", "transient"}
 
 
 def test_the_schema_carries_the_constructors_own_defaults(client) -> None:
@@ -440,3 +440,60 @@ def test_frequencies_on_a_sweep_without_them_are_refused(client) -> None:
     r = client.post('/api/jobs', json=diode_request(frequencies=[1e3]))
     assert r.status_code == 400
     assert "frequenc" in r.json()["detail"]
+
+
+STEP_TIMES = [1e-12, 1e-11, 1e-10, 1e-9]
+
+
+def step_request(voltages=(0.0, 0.3), times=STEP_TIMES, **sweep: Any) -> dict:
+    return {"device": {"kind": "pn_diode", "parameters": DIODE}, "sweep": {"kind": "transient", "contact": "anode", "voltages": list(voltages), "times": list(times), **sweep}}
+
+
+def test_a_transient_streams_a_step_per_accepted_time_step(client) -> None:
+    j = submit(client, step_request())
+    got = drain(client, j)
+    assert got[-1]["status"] == "done"
+    steps = [f for f in got if f["type"] == "step"]
+    body = client.get(f"/api/jobs/{j}/result").json()
+    assert [f["step"] for f in steps] == list(range(1, body["steps"] + 1))
+    assert set(STEP_TIMES) <= {f["time"] for f in steps}
+    assert steps[-1]["currents"]["anode"] == body["points"][-1]["current"]
+
+
+def test_a_transient_result_carries_each_sample_at_the_stepped_contact(client) -> None:
+    from ddsim.extract.transient import transient_sweep
+    j = submit(client, step_request())
+    drain(client, j)
+    body = client.get(f"/api/jobs/{j}/result").json()
+    want = transient_sweep(pn_diode(**DIODE), "anode", [0.0, 0.3], STEP_TIMES)
+    assert body["kind"] == "transient"
+    assert body["contact"] == "anode"
+    assert body["complete"] is True
+    assert body["steps"] == want.steps
+    assert body["rejected"] == want.rejected
+    assert [p["time"] for p in body["points"]] == STEP_TIMES
+    assert [p["current"] for p in body["points"]] == [p.currents["anode"] for p in want.points]
+    assert [p["voltage"] for p in body["points"]] == [p.voltages["anode"] for p in want.points]
+
+
+def test_the_fields_of_a_transient_sample_carry_its_time_and_its_bias(client) -> None:
+    j = submit(client, step_request(voltages=(0.0, 1.0), settings={"resistance": 10.0, "rtol": 1e-2}))
+    drain(client, j)
+    body = client.get(f"/api/jobs/{j}/result").json()
+    xx = client.get(f"/api/jobs/{j}/fields/2")
+    head = json.loads(xx.content[4:4 + int.from_bytes(xx.content[:4], 'little')])
+    assert head["time"] == STEP_TIMES[2]
+    assert head["voltage"] == body["points"][2]["voltage"]
+    assert 0.0 < head["voltage"] < 1.0
+
+
+def test_times_on_a_sweep_without_them_are_refused(client) -> None:
+    r = client.post('/api/jobs', json=diode_request(times=[1e-9]))
+    assert r.status_code == 400
+    assert "time" in r.json()["detail"]
+
+
+def test_a_transient_with_one_voltage_is_refused_before_the_job(client) -> None:
+    r = client.post('/api/jobs', json=step_request(voltages=(0.3,)))
+    assert r.status_code == 400
+    assert "two voltages" in r.json()["detail"]

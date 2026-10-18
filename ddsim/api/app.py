@@ -31,6 +31,7 @@ from ddsim.device.drawing import NODE_BUDGET
 from ddsim.device.transport import TransportModels; from ddsim.extract.cv import CVCurve
 from ddsim.extract.ac import ACCurve
 from ddsim.extract.iv import IVCurve
+from ddsim.extract.transient import TransientCurve, TransientPoint
 
 
 SHUTDOWN_TIMEOUT = CONFIG.server.shutdown_timeout
@@ -65,6 +66,7 @@ class SweepSpec(BaseModel):
     models: dict[str, Any] = Field(default_factory=dict)
     measure_at:str | None = None
     frequencies: list[float] = Field(default_factory=list)
+    times: list[float] = Field(default_factory=list)
 
 class JobRequest(BaseModel):
     device:DeviceSpec
@@ -74,7 +76,7 @@ class JobRequest(BaseModel):
 class Finished:
     device: Device
 
-    curve:IVCurve | CVCurve | ACCurve
+    curve:IVCurve | CVCurve | ACCurve | TransientCurve
     models: TransportModels | None
 def create_app(registry:JobRegistry|None = None) -> FastAPI:
     c = registry if registry is not None else JobRegistry()
@@ -137,10 +139,10 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
             lambda: build_from_spec(request.device.kind, request.device.parameters)
         )
         nxt = request.sweep
-        _checked(lambda: check_request(nxt.kind, z2, nxt.contact, nxt.settings, nxt.models, nxt.measure_at, nxt.frequencies,))
+        _checked(lambda: check_request(nxt.kind, z2, nxt.contact, nxt.settings, nxt.models, nxt.measure_at, nxt.frequencies, nxt.times, nxt.voltages,))
 
         def work(send: Send) -> Finished:
-            jj, v2 = run_sweep(nxt.kind, z2, nxt.contact, nxt.voltages, settings=nxt.settings, models=nxt.models or None, measure_at=nxt.measure_at, on_frame=send, frequencies=nxt.frequencies,)
+            jj, v2 = run_sweep(nxt.kind, z2, nxt.contact, nxt.voltages, settings=nxt.settings, models=nxt.models or None, measure_at=nxt.measure_at, on_frame=send, frequencies=nxt.frequencies, times=nxt.times,)
             return Finished(device=z2, curve=jj, models=v2)
         try:
             return {'id': c.submit(work).id}
@@ -175,8 +177,11 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
                 ),
             )
         out2 = res[index]
-        s2 = point_voltage(out2)
-        zz = encode(field_frame(w2.device.with_bias(**{w2.curve.contact: s2}), out2.state, index=index, voltage=s2, models=w2.models,))
+        if isinstance(out2, TransientPoint):
+            zz = encode(field_frame(w2.device.with_bias(**out2.voltages), out2.state, index=index, voltage=out2.voltages[w2.curve.contact], models=w2.models, time=out2.time,))
+        else:
+            s2 = point_voltage(out2)
+            zz = encode(field_frame(w2.device.with_bias(**{w2.curve.contact: s2}), out2.state, index=index, voltage=s2, models=w2.models,))
         assert isinstance(zz, bytes)
 
         return Response(content=zz, media_type='application/octet-stream')
