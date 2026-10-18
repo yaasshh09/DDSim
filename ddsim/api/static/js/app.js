@@ -47,6 +47,8 @@ const state = {
   request: null,
   pending: null,
   turn: 0,
+  streamed: 0,
+  playing: false,
 };
 
 function fit(canvas) {
@@ -114,7 +116,7 @@ function drawResidual() {
 function curveTitles(logY) {
   const body = state.request;
   if (!body) return { x: "voltage [V]", y: "" };
-  const x = body.sweep.contact + " voltage [V]";
+  const x = body.sweep.kind === "transient" ? "time, log₁₀ [s]" : body.sweep.contact + " voltage [V]";
   if (body.sweep.kind === "cv") return { x: x, y: "capacitance [F/cm²]" };
   if (body.sweep.kind === "ac") {
     const ac = state.curve && state.curve.kind === "ac";
@@ -238,7 +240,7 @@ function drawProfile() {
     el("cutline-panel").hidden = false;
     el("legend-bands").hidden = true;
     const range = drawImage(box, fields);
-    let note = "at " + format(fields.voltage) + " V, hover to read a node";
+    let note = when(fields) + ", hover to read a node";
     if (el("streamlines").checked && fields.arrays.Jx) {
       const lines = traceStreamlines(fields, 12, 6);
       drawStreamlines(box, fields, lines);
@@ -613,6 +615,7 @@ function onSweepKind() {
   fill(el("sweep-knobs"), state.schema.sweeps[kind]);
   el("measure-at").parentElement.style.display = kind === "transfer" ? "" : "none";
   el("frequency-box").hidden = kind !== "ac";
+  el("time-box").hidden = kind !== "transient";
   el("model-knobs").parentElement.style.display = kind === "cv" ? "none" : "";
   el("contact").value = defaultContact();
   state.valueName = kind === "cv" ? "capacitance" : "current";
@@ -674,6 +677,15 @@ function frequencyList() {
   return values;
 }
 
+function timeList() {
+  const values = el("times").value.split(/[,\s]+/).filter((s) => s.length).map(Number);
+  if (!values.length) throw new Error("the time list is empty");
+  if (values.some((v) => !isFinite(v) || v <= 0)) {
+    throw new Error("every time has to be a number of seconds after the step, above zero");
+  }
+  return values;
+}
+
 function request() {
   const kind = el("sweep-kind").value;
   const sweep = {
@@ -684,6 +696,7 @@ function request() {
   };
   if (kind !== "cv") sweep.models = collect(el("model-knobs"));
   if (kind === "ac") sweep.frequencies = frequencyList();
+  if (kind === "transient") sweep.times = timeList();
   if (kind === "transfer" && el("measure-at").value.trim()) {
     sweep.measure_at = el("measure-at").value.trim();
   }
@@ -707,6 +720,8 @@ function clear() {
   state.curve = null;
   state.fields = null;
   state.cutline = null;
+  state.streamed = 0;
+  state.playing = false;
   el("cutline-panel").hidden = true;
   el("ac-entry-box").hidden = true;
   el("ac-frequency-box").hidden = true;
@@ -716,6 +731,7 @@ function clear() {
   el("residual-note").textContent = "fills in while a solve is running";
   el("profile-note").textContent = "the inside of the device, once it's solved";
   el("point").disabled = true;
+  el("play").disabled = true;
   el("point").max = "0";
   drawResidual();
   drawCurve();
@@ -834,6 +850,13 @@ function frame(body) {
     }
     el("curve-note").textContent = "bias " + (body.index + 1) + " of " + sweep.voltages.length +
       ", " + format(body.frequency) + " Hz";
+  } else if (body.type === "step") {
+    const contact = state.request.sweep.contact;
+    state.streamed = body.step;
+    state.points.push({ voltage: decades(body.time), value: body.currents[contact] });
+    el("curve-note").textContent = "step " + body.step + ", " + format(body.time) + " s, " +
+      contact + " at " + format(body.voltages[contact]) + " V";
+    drawCurve();
   } else if (body.type === "status") {
     finish(body);
   }
@@ -863,10 +886,15 @@ async function finish(body) {
     acChoices();
     acShow();
   } else {
+    const transient = state.curve.kind === "transient";
     state.points = state.curve.points.map((point) => ({
-      voltage: point.voltage,
+      voltage: transient ? decades(point.time) : point.voltage,
       value: point[state.valueName],
     }));
+    if (transient) {
+      el("curve-note").textContent = state.curve.points.length + " snapshots from " +
+        state.curve.steps + " time steps, " + state.curve.rejected + " redone for accuracy";
+    }
     drawCurve();
   }
   if (!state.curve.complete && state.curve.message) {
@@ -875,6 +903,7 @@ async function finish(body) {
   const solved = state.curve.points.length;
   if (solved) {
     el("point").disabled = false;
+    el("play").disabled = solved < 2;
     el("point").max = String(solved - 1);
     el("point").value = String(solved - 1);
     await profile(solved - 1);
@@ -956,6 +985,7 @@ function readFields(buffer) {
     shape: header.shape,
     index: header.index,
     voltage: header.voltage,
+    time: header.time === undefined ? null : header.time,
     arrays: arrays,
     units: units,
   };
@@ -965,8 +995,30 @@ async function profile(index) {
   const response = await fetch("/api/jobs/" + state.job + "/fields/" + index);
   if (!response.ok) return;
   state.fields = readFields(await response.arrayBuffer());
-  el("profile-note").textContent = "at " + format(state.fields.voltage) + " V";
+  el("profile-note").textContent = when(state.fields);
   drawProfile();
+}
+
+function when(fields) {
+  const at = "at " + format(fields.voltage) + " V";
+  return fields.time === null ? at : "at " + format(fields.time) + " s, " + format(fields.voltage) + " V";
+}
+
+async function play() {
+  if (state.playing) {
+    state.playing = false;
+    return;
+  }
+  const job = state.job, last = Number(el("point").max);
+  state.playing = true;
+  el("play").textContent = "stop";
+  for (let i = 0; i <= last && state.playing && state.job === job; i++) {
+    el("point").value = String(i);
+    await profile(i);
+    await new Promise((done) => setTimeout(done, 150));
+  }
+  state.playing = false;
+  el("play").textContent = "play";
 }
 
 async function cancel() {
@@ -1017,6 +1069,7 @@ el("ac-entry").addEventListener("change", acShow);
 el("ac-frequency").addEventListener("change", acShow);
 el("bands").addEventListener("change", drawProfile);
 el("streamlines").addEventListener("change", drawProfile);
+el("play").addEventListener("click", play);
 el("point").addEventListener("change", (event) =>
   profile(Number(event.target.value))
 );

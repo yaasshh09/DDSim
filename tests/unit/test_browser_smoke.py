@@ -985,3 +985,37 @@ def test_an_ac_sweep_at_one_bias_is_drawn_against_frequency(server) -> None:
             assert errors == []
         finally:
             b.close()
+
+
+def test_a_diode_step_is_drawn_against_time_and_its_profile_plays_through_the_samples(server) -> None:
+    with sync_playwright() as r:
+        b = r.chromium.launch()
+        try:
+            page = b.new_page()
+            errors: list[str] = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.goto(server)
+            wait_until(page, "el('state').textContent === 'ready'", errors)
+            assert page.is_hidden("#times")
+            page.select_option("#sweep-kind", "transient")
+            assert page.is_visible("#times")
+            assert page.is_hidden("#frequencies")
+            page.fill("#voltages", "0, 0.6")
+            page.fill("#times", "1e-12, 1e-11, 1e-10, 1e-9")
+            page.click("#solve")
+            wait_until(page, "el('state').textContent.startsWith('done') && state.fields !== null", errors)
+            steps = page.evaluate("state.curve.steps")
+            assert page.evaluate("state.streamed") == steps > 4
+            assert page.evaluate("state.points.map((p) => p.voltage)") == pytest.approx([-12, -11, -10, -9])
+            assert page.evaluate("state.points.map((p) => p.value)") == page.evaluate("state.curve.points.map((p) => p.current)")
+            assert "time" in page.evaluate("curveTitles(false).x")
+            assert str(steps) in page.inner_text("#curve-note")
+            assert page.inner_text("#profile-note") == "at 1.0e-9 s, 0.6 V"
+            assert page.evaluate("state.fields.index") == 3
+            page.click("#play")
+            until(page, lambda: page.evaluate("state.fields.index") == 0, "the first sample")
+            until(page, lambda: page.evaluate("state.fields.index === 3 && !state.playing"), "the last sample")
+            assert page.inner_text("#play") == "play"
+            assert errors == []
+        finally:
+            b.close()

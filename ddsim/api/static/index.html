@@ -74,6 +74,11 @@
         <textarea id="frequencies" rows="1">1, 1e3, 1e6</textarea>
         <div class="aside">One C-V per frequency, or with one voltage, a curve against frequency.</div>
       </div>
+      <div id="time-box" hidden>
+        <div class="section">times [s]</div>
+        <textarea id="times" rows="1">1e-12, 1e-11, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6</textarea>
+        <div class="aside">The contact sits at the first voltage, then jumps to the second at time zero. A snapshot is kept at each time.</div>
+      </div>
       <div id="sweep-knobs"></div>
     </fieldset>
 
@@ -159,6 +164,7 @@
             <input id="streamlines" type="checkbox" checked></label>
           <label><span>point</span>
             <input id="point" type="range" min="0" max="0" value="0" disabled></label>
+          <button id="play" class="flat" type="button" disabled>play</button>
           <button id="profile-png" class="flat" type="button">PNG</button>
           <button id="profile-csv" class="flat" type="button">CSV</button>
         </span>

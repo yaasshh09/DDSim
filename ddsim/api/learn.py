@@ -197,6 +197,8 @@ KNOB_LABELS:dict[str, str] = {
     "T": "Temperature",
     "Q_f": "Fixed oxide charge",
     "incomplete_ionization": "Incomplete ionization",
+    "resistance": "Series resistor",
+    "rtol": "Time step accuracy",
 }
 
 PLOT_TOPICS: dict[str, str] = {
