@@ -43,6 +43,7 @@ class Sweeps:
     drain_high: float = 1.0
     slope_decades: float = 2.0
     reference_current: float = 1e-07
+    transient_rtol: float = 1e-03
 
 
 @dataclass(frozen=True)

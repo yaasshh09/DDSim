@@ -9,7 +9,9 @@ import numpy as np
 import numpy.typing as npt
 from scipy.optimize import brentq
 from ddsim.discretize.coupled import Unknown, assemble_coupled_terms, pack
+from ddsim.extract.ac import _dc
 from ddsim.extract.iv import terminal_currents
+import math
 
 MAX_HALVINGS = 10
 
@@ -34,6 +36,19 @@ class Circuit:
     voltage: Callable[[float], float] | None = None
 
     current: Callable[[float], float] | None = None
+
+
+@dataclass(frozen=True)
+class TransientFrame:
+    step: int
+
+    time: float
+
+    dt: float
+
+    voltages: dict[str, float]
+
+    currents: dict[str, float]
 
 
 @dataclass(frozen=True)
@@ -145,15 +160,19 @@ def _error(device: Device, rtol: float, t: list[float], x: list[npt.NDArray[np.f
     return float(np.max(lte / (floor + rtol * np.abs(corrected))))
 
 
+def _check_circuit(device: Device, circuit: Circuit) -> None:
+    names = [c.name for c in device.contacts]
+    if circuit.contact not in names:
+        raise KeyError(f"no contact named {circuit.contact!r} for the circuit, the contacts are {names}")
+    if (circuit.voltage is None) == (circuit.current is None):
+        raise ValueError("a circuit drives its contact from exactly one source, a voltage or a current")
+    if not circuit.resistance >= 0.0:
+        raise ValueError(f"a series resistance can't be negative, got {circuit.resistance:g}")
+
+
 def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None, max_iterations: int, on_frame: Callable[[object], None] | None, bias: Callable[[float], dict[str, float]] | None, order: int, rtol: float | None = None, circuit: Circuit | None = None) -> Transient:
     if circuit is not None:
-        names = [c.name for c in device.contacts]
-        if circuit.contact not in names:
-            raise KeyError(f"no contact named {circuit.contact!r} for the circuit, the contacts are {names}")
-        if (circuit.voltage is None) == (circuit.current is None):
-            raise ValueError("a circuit drives its contact from exactly one source, a voltage or a current")
-        if circuit.resistance < 0.0:
-            raise ValueError(f"a series resistance can't be negative, got {circuit.resistance:g}")
+        _check_circuit(device, circuit)
     before = 0.0
     for t in times:
         if not t > before:
@@ -199,6 +218,8 @@ def _walk(device: Device, initial: DeviceState, times: Sequence[float], models: 
             q.append(q1)
             held = {c.name: c.voltage for c in used.contacts}
             older, state, last = state, nxt, dt
+            if on_frame is not None:
+                on_frame(TransientFrame(step=accepted, time=now, dt=dt, voltages=held, currents=currents))
         out.append(TransientPoint(time=target, state=state, currents=currents, voltages=held))
     return Transient(points=tuple(out), complete=True, steps=accepted, rejected=rejected)
 
@@ -209,6 +230,50 @@ def backward_euler(device: Device, initial: DeviceState, times: Sequence[float],
 
 def bdf2(device: Device, initial: DeviceState, times: Sequence[float], models: TransportModels | None = None, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None, bias: Callable[[float], dict[str, float]] | None = None, rtol: float | None = None, circuit: Circuit | None = None,) -> Transient:
     return _walk(device, initial, times, models, max_iterations, on_frame, bias, order=2, rtol=rtol, circuit=circuit)
+
+
+def check_times(times: Sequence[float]) -> None:
+    if not times:
+        raise ValueError("a transient needs at least one sample time [s]")
+    before = 0.0
+    for t in times:
+        if not (math.isfinite(t) and t > before):
+            raise ValueError(f"sample times have to be finite and rise from zero, and {t!r} s comes after {before:g} s")
+        before = t
+
+
+@dataclass(frozen=True)
+class TransientCurve:
+    contact: str
+
+    points: tuple[TransientPoint, ...]
+
+    complete: bool
+
+    message: str = ""
+
+    steps: int = 0
+
+    rejected: int = 0
+
+
+def transient_sweep(device: Device, contact: str, voltages: list[float], times: list[float], models: TransportModels | None = None, resistance: float = 0.0, rtol: float = CONFIG.sweeps.transient_rtol, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None] | None = None,) -> TransientCurve:
+    if len(voltages) != 2:
+        raise ValueError(f"a step takes two voltages, the one before and the one after, and got {len(voltages)}")
+    before, after = voltages
+    circuit = Circuit(contact=contact, resistance=resistance, voltage=lambda t: after)
+    _check_circuit(device, circuit)
+    check_times(times)
+    if not (math.isfinite(rtol) and rtol > 0.0):
+        raise ValueError(f"rtol has to be a positive number, got {rtol!r}")
+    if models is None:
+        models = TransportModels.for_device(device)
+    start = device.with_bias(**{contact: before})
+    s = _dc(start, models, max_iterations, on_frame)
+    if s is None:
+        return TransientCurve(contact=contact, points=(), complete=False, message=f"the DC state at {before:+g} V did not converge, so there is nothing to step from")
+    t = bdf2(start, s, times, models, max_iterations, on_frame, rtol=rtol, circuit=circuit)
+    return TransientCurve(contact=contact, points=t.points, complete=t.complete, message=t.message, steps=t.steps, rejected=t.rejected)
 
 
 def _crossing(t0: float, y0: float, t1: float, y1: float, level: float) -> float:
