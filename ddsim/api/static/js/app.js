@@ -1026,7 +1026,7 @@ window.addEventListener("resize", () => {
   drawProfile();
 });
 
-schema().catch((problem) => {
+document.addEventListener("DOMContentLoaded", () => schema().catch((problem) => {
   el("state").textContent = "couldn't load the device list";
   el("message").textContent = String(problem.message || problem);
-});
+}));

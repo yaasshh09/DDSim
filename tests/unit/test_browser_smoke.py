@@ -118,6 +118,23 @@ def test_a_knob_explains_itself_with_rendered_maths(server) -> None:
             e.close()
 
 
+def test_the_page_boots_when_a_later_script_is_slow_to_arrive(server) -> None:
+    with sync_playwright() as tt:
+        e = tt.chromium.launch()
+        try:
+            u = e.new_page()
+            s: list[str] = []
+            u.on('pageerror', lambda error:s.append(str(error)))
+            u.route("**/static/js/plot.js", lambda r: (u.wait_for_timeout(1000), r.continue_()))
+
+            u.goto(server)
+            wait_until(u, "el('state').textContent !== 'loading'", s)
+            assert u.inner_text('#state') == 'ready', u.inner_text('#message')
+            assert s == []
+        finally:
+            e.close()
+
+
 def test_the_band_view_draws_after_a_diode_solve(server) -> None:
     with sync_playwright() as aa:
         i = aa.chromium.launch()
