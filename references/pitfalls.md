@@ -79,7 +79,7 @@ region at 1e-10 cm^-3, with lengths in cm and a permittivity around
 Scale first.
 
 **`exp(x) - 1` instead of `expm1(x)`.** Catastrophic cancellation near zero,
-giving quietly wrong results in exactly the low field regions where you expect
+giving wrong results, with no warning, in the low field regions where you expect
 central differencing behaviour.
 
 **The Bernoulli asymmetry.** Electrons: `B(X)*n_right - B(-X)*n_left`. Holes:

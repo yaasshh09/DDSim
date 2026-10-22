@@ -72,7 +72,7 @@ them apart.
 
 Phase 2 uses the simple form. Phase 5 should use the generalized form in the
 source and drain, or record the error explicitly in `docs/07-decisions.md`.
-Don't quietly keep Boltzmann and claim degenerate accuracy.
+Don't keep Boltzmann and claim degenerate accuracy.
 
 ## Carrier statistics
 
@@ -216,7 +216,7 @@ off the oxide interface. Without this, the inversion layer mobility is two to
 three times too high and Id is off by the same factor. Lombardi combines bulk,
 acoustic phonon and surface roughness terms by Matthiessen's rule.
 
-Mobility is where a device simulator earns or loses its quantitative accuracy.
+Mobility decides most of a device simulator's quantitative accuracy.
 The PDE solve can be perfect and the answer still three times off if the
 mobility is wrong. Treat these models as first class code.
 

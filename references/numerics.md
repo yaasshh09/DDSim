@@ -51,7 +51,7 @@ The scaled SG current on an edge of scaled length h:
     Jn = (Dn / h) * (B(dpsi) * n_right - B(-dpsi) * n_left)
 
 V_T has dropped out of the Bernoulli argument because psi is already scaled
-by V_T. That's the whole point.
+by V_T. That's why the scaling is done this way.
 
 **Choice of C_0.** Using n_i keeps Poisson in its cleanest form. Using
 max|net_doping| conditions better when the doping spans many decades. Start

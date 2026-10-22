@@ -24,7 +24,7 @@ py -3.14 -m venv .venv-devsim
 .venv-devsim/Scripts/python.exe -m pip install devsim "mkl==2024.2.2"
 ```
 
-The MKL pin matters. DEVSIM loads `mkl_rt.2.dll` and says so when it cannot:
+DEVSIM needs a pinned MKL. It loads `mkl_rt.2.dll` and says so when it cannot:
 "Could not find Intel MKL. The maximum tested version is mkl_rt.2.dll". MKL
 2026.1 ships `mkl_rt.3.dll` and DEVSIM will not start against it. 2024.2.2 is
 the newest release that still ships version 2 of the runtime.

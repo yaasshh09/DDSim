@@ -243,7 +243,7 @@ with N = n_i. An earlier version of this file said 24 um. That number is
 
 Built-in potential of a 1e16 / 1e16 abrupt junction: **0.7143 V**, from
 `V_T * ln(Na*Nd/n_i^2)`. An earlier version said 0.695 V, which is the same
-formula at n_i = 1.45e10. This one matters. It's an acceptance target in
+formula at n_i = 1.45e10. It's an acceptance target in
 phases/PHASE-1.md, and a 19 mV offset in V_bi looks exactly like a boundary
 condition sign error.
 
