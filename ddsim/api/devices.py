@@ -242,7 +242,7 @@ def records_from_json(name:str, sent: Any) -> tuple[Any, ...]:
     for yy, d in enumerate(sent, start=1):
         if not isinstance(d, dict):
             raise TypeError(
-                f"{c} {yy} is {type(d).__name__}, not an object with "
+                f"{c} {yy} is {type(d).__name__}, but it needs to be an object with "
                 f"{', '.join(x)}"
             )
         w = [m for m in x if m not in d]
@@ -250,7 +250,7 @@ def records_from_json(name:str, sent: Any) -> tuple[Any, ...]:
         if w or row:
             raise ValueError(
                 f"{c} {yy} has the fields {', '.join(x)}; "
-                f"missing {w}, not a field {row}"
+                f"missing {w}, unknown {row}"
             )
         for m, dd in x.items():
             vals = d[m]

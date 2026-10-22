@@ -679,7 +679,7 @@ def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server) -> None:
             m = c.evaluate(
                 """() => {
                   const view = el('drawing-view');
-                  // The css height, not the attribute: fit() writes the
+                  // Read the css height. fit() writes the
                   // attribute, so reading it back here would be asking the
                   // code under test what it should have done. The stylesheet
                   // is an independent declaration of the same number, and

@@ -109,7 +109,7 @@ def test_the_current_densities_mirror_with_a_sign_change() -> None:
         assert buf < c, (
             f"{dat} disagrees with its reflection by {buf:.3e}, above the "
             f"cancellation floor of {c:.3e}. A difference above the floor "
-            'is a left-right bias in the flux, not arithmetic.'
+            'is a left-right bias in the flux.'
         )
 
 

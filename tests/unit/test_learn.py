@@ -22,7 +22,7 @@ def test_every_topic_has_both_layers(name) -> None:
     m = load_topic(name)
 
     assert m.title and m.summary
-    assert len(m.plain.split()) >= 40, "the plain layer is a paragraph, not a line"
+    assert len(m.plain.split()) >= 40, "the plain layer should be a whole paragraph"
     assert m.depth.strip()
 
 

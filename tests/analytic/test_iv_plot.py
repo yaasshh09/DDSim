@@ -101,7 +101,7 @@ def test_iv_plot_is_generated() -> None:
     )
     tmp[1].set_ylim(0.75, 2.15)
     tmp[1].annotate(
-        'the -1 term, not a second mechanism',
+        'just the -1 term',
         xy=(-0.15, 0.82),
         fontsize=7,
         color="grey",

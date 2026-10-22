@@ -221,7 +221,7 @@ def test_the_drawing_lists_are_not_knobs() -> None:
     ('change', "complaint"),
     [
         (lambda e: e.pop('voltage'), r"electrode 2 .*missing \['voltage'\]"),
-        (lambda e: e.update(colour="red"), r"electrode 2 .*not a field \['colour'\]"),
+        (lambda e: e.update(colour="red"), r"electrode 2 .*unknown \['colour'\]"),
         (lambda e: e.update(x0='left'), 'electrode 2: x0 is a number'),
         (lambda e: e.update(name=3.0), "electrode 2: name is a name"),
     ],

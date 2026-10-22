@@ -243,8 +243,8 @@ def test_a_thick_oxide_still_reports_a_charge_at_twenty_volts():
         x = (kk[j]-kk[j - 1]) / m2
         assert x == pytest.approx(i, rel=0.01), (
             f"between {z[j - 1]:+g} and {z[j]:+g} V the gate "
-            f"charge grows at {x:.6e} F/cm^2, not the {i:.6e} a "
-            "parallel plate gives"
+            f"charge grows at {x:.6e} F/cm^2 where {i:.6e} was expected from a "
+            "parallel plate"
         )
 
 
