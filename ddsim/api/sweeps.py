@@ -71,7 +71,7 @@ def check_request(kind: str, device: Device, contact:str, settings: dict[str, An
         if build_models(device, models).surface is not None and kind == "ac":
             raise ValueError(
                 "the ac sweep holds surface mobility fixed at the DC state, so "
-                "its admittance would be quietly wrong. Turn surface off."
+                "its admittance would be wrong. Turn surface off."
             )
         if build_models(device, models).surface is not None and kind == "transient":
             raise ValueError(

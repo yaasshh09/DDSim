@@ -108,7 +108,7 @@ def _linearized(device: Device, state: DeviceState, frequency: float, models: Tr
         raise NotImplementedError(
             "surface mobility is held fixed at the DC state, so the Jacobian "
             "misses its dependence on psi, n and p and the admittance would "
-            "be quietly wrong. Solve without surface=True."
+            "be wrong. Solve without surface=True."
         )
     for run in (state.newton, state.gummel):
         if run is not None and not run.converged:

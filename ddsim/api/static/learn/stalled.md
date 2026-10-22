@@ -53,7 +53,7 @@ A Newton attempt fails when either its residual or its update misses its
 threshold. The page doesn't know the thresholds, so the note names the
 largest of both. The update on n and p is relative, $|\Delta n|/(n + n_i)$ in
 scaled terms, so a carrier far below the intrinsic density carries little
-weight. Naming both matters. On one stalled MOSFET every residual family sat
+weight. That's why the note names both. On one stalled MOSFET every residual family sat
 at $10^{-14}$ while the n update was $1.8 \times 10^{-10}$, so pointing at the
 largest residual alone would have named the wrong test.
 

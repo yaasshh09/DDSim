@@ -52,7 +52,7 @@ const BUILD_HINT =
   "two axes differently so a thin oxide stays visible.";
 
 const BUILD_EMPTY =
-  "This is where you draw your own device. Choose \"drawing\" as the device " +
+  "Draw your own device here. Choose \"drawing\" as the device " +
   "kind on the left, or pick \"Draw your own\" on the start screen, and the " +
   "editor opens here.";
 

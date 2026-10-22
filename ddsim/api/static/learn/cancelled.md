@@ -34,7 +34,7 @@ unwinds the whole continuation ladder at once. The job is marked cancelled
 and its result is left empty on purpose: the sweep stopped somewhere nobody
 chose, and its partial state is only what the page had already been sent.
 
-The catch is the gaps between reports. A solve that isn't reporting can't be
+The problem is the gap between reports. A solve that isn't reporting can't be
 cancelled until it reports again. The sparse factorization inside a Newton
 iteration, the extra linear solve that gives a C-V point its capacitance, and
 the equilibrium Poisson solve that builds the first guess for an `iv` or

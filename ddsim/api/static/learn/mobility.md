@@ -20,8 +20,7 @@ electron keeps only about a fifteenth of its undoped mobility. Two more
 switches, `field_dependent` and `surface`, correct the chosen value for high
 fields and for the oxide interface.
 
-Mobility sets how much current a given field produces, so it's where a device
-simulator earns or loses its accuracy. You can solve the equations perfectly
+Mobility sets how much current a given field produces, so it decides most of a device simulator's accuracy. You can solve the equations perfectly
 and still be off by a factor of three if the mobility is wrong.
 
 ## In more depth

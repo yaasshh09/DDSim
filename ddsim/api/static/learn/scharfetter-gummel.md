@@ -41,7 +41,7 @@ $$J_{n,\,i+1/2} = \frac{q D_n}{h}\left(B(X)\,n_{i+1} - B(-X)\,n_i\right), \qquad
 
 with the Bernoulli function $B(x) = x / (e^x - 1)$. In scaled units $V_T$ and
 $q$ drop out and $X$ is just the difference of the two scaled potentials.
-The asymmetry matters: $B(X)$ multiplies the right node for electrons and the
+Watch the order: $B(X)$ multiplies the right node for electrons and the
 left node for holes. Swap them and the solver converges cleanly to a current
 of the wrong sign.
 

@@ -37,7 +37,7 @@ That pair fixes $n$ and $p$, and then
 $$\psi_{contact} = V_{applied} + V_T\,\mathrm{asinh}\left(\frac{N}{2 n_i}\right)$$
 
 with both quasi-Fermi potentials equal to the applied voltage,
-$\phi_n = \phi_p = V_{applied}$. The asinh form matters. The log form
+$\phi_n = \phi_p = V_{applied}$. I use the asinh form. The log form
 $V_T \ln(N/n_i)$ breaks where the net doping is near zero or negative.
 
 Those are the Boltzmann limit forms. On a device solved with Fermi-Dirac

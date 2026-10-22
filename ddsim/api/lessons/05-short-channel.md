@@ -89,7 +89,7 @@ two junctions are close together. That's all there is to it. Against the
 converged mesh, this lesson's coarse mesh moves each threshold by 2 to 3 mV
 and the DIBL at every length by under 1 mV/V.
 
-**What this solver leaves out at 50 nm**, and it matters:
+**What this solver leaves out at 50 nm**:
 
 - **Quantum confinement.** In a real inversion layer the electrons sit in
   discrete energy levels in a well a few nanometres wide, with their charge
