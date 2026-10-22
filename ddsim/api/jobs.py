@@ -56,7 +56,6 @@ class JobRegistry:
         self._clock = clock
 
     def submit(self, work:Work) -> Job:
-        print("job submitted...")
         v = Job(id=uuid.uuid4().hex, started_at=self._clock(), frames=queue.Queue(maxsize=self._queue_size + 1),)
         with self._lock:
             self._forget_old(v.started_at)

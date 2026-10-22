@@ -270,7 +270,6 @@ def regions_from_json(sent: Any) -> tuple[Region, ...]:
 
 
 def build_from_spec(kind:str, parameters:dict[str, Any]) -> Device:
-    print('building', kind)
     t2 = {p.name:p for p in device_parameters(kind)}
     u = dict(parameters)
     w2: dict[str, Any] = {}

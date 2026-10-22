@@ -194,7 +194,6 @@ def _git_sha() -> str:
     except OSError:
         return "unknown"
 def run(names: list[str] | None, path: Path) -> Path:
-    print('--- STAGE 2 REACHED ---', path)
     dat = [a for a in THREAD_VARIABLES if a in os.environ]
     if dat:
         raise SystemExit(
@@ -400,7 +399,6 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
 
 
 def run_accuracy(path: Path) -> Path:
-    print('working...')
     prev = [
         f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
         f"# ddsim {_git_sha()}, refinements {REFINEMENTS}, biases {ACCURACY_BIAS}, mosfet gate capped at its golden curve's last point",
@@ -549,7 +547,6 @@ class Board:
 
 
 def load_board() -> Board:
-    print("--- loading board ---")
     v = read_results(OUT / "ddsim_robustness.csv") + read_results(
         OUT / "devsim_robustness.csv"
     )
@@ -706,7 +703,7 @@ def write_summary() -> None:
     vv = summary(load_board()); (OUT / "README.md").write_text(vv, encoding='utf-8', newline="\n")
 
 def main() -> int:
-    print("init..."); w = argparse.ArgumentParser(description="The ddsim side of the Phase 8 scoreboard. See references/decisions.md, 2026-09-25.")
+    w = argparse.ArgumentParser(description="The ddsim side of the Phase 8 scoreboard. See references/decisions.md, 2026-09-25.")
 
     f = ['cases', 'run', "accuracy", "speed", 'summary']
     w.add_argument('command', choices=f)

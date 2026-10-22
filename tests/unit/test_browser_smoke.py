@@ -679,11 +679,6 @@ def test_a_redrawn_canvas_keeps_its_height_on_a_scaled_screen(server) -> None:
             m = c.evaluate(
                 """() => {
                   const view = el('drawing-view');
-                  // Read the css height. fit() writes the
-                  // attribute, so reading it back here would be asking the
-                  // code under test what it should have done. The stylesheet
-                  // is an independent declaration of the same number, and
-                  // the two being equal is itself part of the contract.
                   const declared = parseFloat(getComputedStyle(view).height);
                   const ratio = window.devicePixelRatio || 1;
                   const drawn = [1, 2, 3].map(() => {

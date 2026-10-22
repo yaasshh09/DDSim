@@ -257,7 +257,7 @@ def _done(path: str) -> set[tuple[str, str]]:
 
 
 def run(names:list[str] | None, path:str, resume: bool = False) -> str:
-    print("resume??", resume, len(names or [])); arr = [e for e in THREAD_VARIABLES if e in os.environ]
+    arr = [e for e in THREAD_VARIABLES if e in os.environ]
     if arr:
         raise SystemExit(f"unset {', '.join(arr)} first, robustness runs at each tool's default threading, see references/decisions.md 2026-09-26")
     y = [c for c in read_cases() if names is None or c["case"] in names]
@@ -369,7 +369,6 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
 
 
 def run_accuracy(path: str) -> str:
-    print("working...")
 
     ys = datetime.date.today().isoformat()
 
