@@ -121,7 +121,7 @@ The top end is where Boltzmann stops being close. I measured it on 2026-09-18
 against Fermi-Dirac with Nc = 2.86e19: at 1e19 the Fermi level is 3.2 mV off
 and the Einstein ratio D/(mu V_T) reads 1.122 instead of 1. At 3e19 it's
 9.5 mV and 1.361, and it only gets worse from there. A degenerate region needs
-the Fermi-Dirac path the MOSFET uses, not a wider range here. Complete
+the Fermi-Dirac path the MOSFET uses. Widening the range here won't help. Complete
 ionization, assumed below, is also at its weakest at the top end.
 
 The bottom end isn't a model breaking. Mobility and lifetime have both
@@ -218,7 +218,7 @@ acoustic phonon and surface roughness terms by Matthiessen's rule.
 
 Mobility is where a device simulator earns or loses its quantitative accuracy.
 The PDE solve can be perfect and the answer still three times off if the
-mobility is wrong. Treat these models as first class code, not fudge factors.
+mobility is wrong. Treat these models as first class code.
 
 ## Boundary conditions
 
@@ -252,7 +252,7 @@ function difference folded in:
     psi_gate = V_gate - Phi_MS
 
 At the Si/SiO2 interface, enforce continuity of the normal component of D
-(the displacement), not of E. Add a fixed interface charge Q_f if you want to
+(the displacement). E itself jumps. Add a fixed interface charge Q_f if you want to
 model one.
 
 ### Reflecting / symmetry boundaries
@@ -262,8 +262,8 @@ field. Every boundary that isn't a contact is reflecting.
 
 ## What emerges, and must not be hardcoded
 
-These are outputs, never inputs. If any of them shows up as a fitted
-parameter anywhere in the code, that's a bug in the project, not a shortcut.
+These are all outputs of the solve. If any of them shows up as a fitted
+parameter anywhere in the code, that's a bug in the project.
 
 - Built-in potential of a junction
 - Depletion width and its bias dependence
@@ -275,7 +275,7 @@ parameter anywhere in the code, that's a bug in the project, not a shortcut.
 
 ## Where drift-diffusion breaks down
 
-Know these. They're the honest limits of the model, and being able to state
+Know these. They're the real limits of the model, and being able to state
 them is most of the value of having written it.
 
 - **Below about 50 nm of channel**, carriers go quasi-ballistic and the local

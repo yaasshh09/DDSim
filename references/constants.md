@@ -24,8 +24,8 @@ literature. Don't switch to SI lengths.
 | kT | 0.0258520 | eV | |
 | SS_min | 0.059526 | V/decade | V_T * ln(10), thermodynamic floor |
 
-Make T a parameter, not a constant. Every temperature dependent value should
-be a function of T. Room temperature is the default, not the only case.
+Make T a parameter. Every temperature dependent value should
+be a function of T. Room temperature is only the default.
 
 ## Silicon
 
@@ -78,8 +78,7 @@ supplies the temperature dependence,
 
 where the power law carries the Nc*Nv scaling and the exponential carries the
 gap. The ratio n_i^2 / (Nc Nv exp(-Eg/V_T)) is then exactly independent of
-temperature, and that's tested. Eg comes from the Varshni formula, not the
-rounded 1.1242 in the table; the two differ by 8.1e-5 eV and the formula is
+temperature, and that's tested. Eg comes from the Varshni formula instead of the rounded 1.1242 in the table; the two differ by 8.1e-5 eV and the formula is
 the definition.
 
 That's fine as long as nothing computes an absolute band edge or a Fermi
@@ -116,7 +115,7 @@ The semiconductor side is
 
     Phi_S = chi + Eg/2 - phi_F,     phi_F = V_T * asinh(N / (2*n_i))
 
-**asinh, not `V_T * ln(N/n_i)`.** Same reason as the contact potential in
+**Use asinh instead of `V_T * ln(N/n_i)`.** Same reason as the contact potential in
 docs/05-pitfalls.md: the log form is -inf at zero doping and nan for the other
 sign, and both happen in a real substrate. asinh is smooth through zero and
 antisymmetric, so intrinsic silicon lands exactly at midgap and equal n and p

@@ -71,8 +71,7 @@ the 1 um device at zero gate and 50 mV, the halved mesh settles to a largest
 potential move of 1.1e-16 V and holds its drain current to ten figures over
 120 more passes, and still leaves drain and source 0.99 percent apart, while
 the shipping mesh balances to 1.65e-4. The two meshes differ by 0.53 percent
-there, a quarter of what the finer one knows about itself. That isn't a mesh
-error, and counting it as one asks for a refinement that can't help.
+there, a quarter of what the finer one knows about itself. Counting that as mesh error asks for a refinement that can't help.
 
 **Working in unscaled units.** Silicon at 1e20 cm^-3 next to a depletion
 region at 1e-10 cm^-3, with lengths in cm and a permittivity around
@@ -163,7 +162,7 @@ Solver first, validated, then the UI.
 | Depletion region smeared | Mesh under-resolves the local Debye length |
 | Results differ from DEVSIM by 2x | Model settings not matched between the tools |
 | devsim: `Contact "x" does not exist` after a mesh built fine | A requested mesh line got merged into a neighbouring node, so everything defined on it is empty. Check the boundary row landed |
-| Mesh refinement moves the off state and nothing else | Rows too coarse for the implant sigma, not the surface spacing |
+| Mesh refinement moves the off state and nothing else | Rows too coarse for the implant sigma, with the surface spacing fine |
 | Halving the mesh moves less than the terminals fail to cancel | Not a mesh error. The off state current is a flux cancellation, and the finer mesh cancels worse |
 
 ## When genuinely stuck

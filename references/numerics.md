@@ -122,8 +122,7 @@ boundary to sit near 1e-15. The obvious thing to write, a three term series
 cut off at 1e-4, leaves a 1e-8 step at the branch boundary.
 
 Complex step differentiation is worth having as a check, but it isn't exact
-here, and near the origin it'll lie to you. It removes the cancellation from
-the differencing, not the cancellation inside B's own algebra, and B has
+here, and near the origin it'll lie to you. It removes the cancellation from the differencing but leaves the cancellation inside B's own algebra, and B has
 plenty of the latter near zero. It loses roughly eps/\|x\|: I measured
 9.3e-11 at x = 1e-6 against 3.3e-15 at x = 0.1. Use it as the criterion for
 0.1 <= \|x\| <= 300, where it really is exact, and use a high precision
@@ -218,7 +217,7 @@ converges reliably. The initial guess comes from charge neutrality:
 
     psi_init = V_T * asinh(N / (2*n_i))
 
-Use asinh, not log. See `docs/01-physics.md`, ohmic contacts.
+Use asinh instead of log. See `docs/01-physics.md`, ohmic contacts.
 
 ### Gummel iteration (Phase 2)
 
@@ -287,8 +286,7 @@ Never jump to the target bias. Ramp.
             if dV < dV_min: fail loudly
 
 Structurally this is the same as source stepping in SPICE. Write it as a
-generic continuation driver that takes a solve callback, not baked into the
-device code. It'll get reused as is in the SPICE project.
+generic continuation driver that takes a solve callback, kept out of the device code. It'll get reused as is in the SPICE project.
 
 Reuse the previous converged solution as the initial guess. That's the entire
 reason continuation works.
@@ -353,7 +351,7 @@ numeric split, can deliver the rest.
 
 ## Convergence criteria
 
-Check all three, not just one:
+Check all three:
 
 1. Update norm: max |dpsi| < 1e-10 (scaled), and carrier change under 1e-8
 2. Residual norm: ||F|| below a threshold built from the size of the terms F
@@ -363,7 +361,7 @@ Check all three, not just one:
 
 Criterion 3 is physical rather than algebraic, and it catches failures the
 other two miss. Report all three at every step in verbose mode, and report
-the threshold next to the residual, not just the residual. A residual sitting
+the threshold next to the residual. A residual sitting
 above its threshold looks like a slow solve when it's really an unreachable
 threshold, and those need different fixes.
 
@@ -452,7 +450,7 @@ halved, the same way a continuation step is.
 BDF2 with variable steps uses the standard variable coefficient form. The
 local truncation error is estimated from the gap between the explicit
 predictor and the converged corrector, and that estimate controls step
-acceptance and the next dt. Order is measured, not assumed: halving dt on a
+acceptance and the next dt. Order is measured: halving dt on a
 smooth problem must cut the error by 2 for backward Euler and by 4 for BDF2.
 
 The terminal current in a transient includes the displacement current, the
