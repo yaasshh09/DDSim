@@ -85,9 +85,9 @@ drain is several $V_T$ up, and that alone reads as about 5 mV/V.
 
 Neither effect is written anywhere in the solver. It solves Poisson in two
 dimensions on the real geometry, and the answer comes out different when the
-two junctions are close together. That's all there is to it. Against the
-converged mesh, this lesson's coarse mesh moves each threshold by 2 to 3 mV
-and the DIBL at every length by under 1 mV/V.
+two junctions are close together. Against the converged mesh, this lesson's
+coarse mesh moves each threshold by 2 to 3 mV and the DIBL at every length by
+under 1 mV/V.
 
 **What this solver leaves out at 50 nm**:
 
@@ -108,8 +108,7 @@ and the DIBL at every length by under 1 mV/V.
   the next. Here the doping is a smooth profile, so every device is the
   average one.
 
-The trends are real physics, and they come straight out of the equations. The
-last few tens of millivolts at 50 nm aren't something to trust from this
-solver.
+The trends come straight out of the equations. I wouldn't trust the last few
+tens of millivolts at 50 nm from this solver.
 
 Checked by tests/analytic/test_lesson_claims.py on this lesson's own device.

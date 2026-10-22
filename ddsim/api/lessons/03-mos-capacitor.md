@@ -37,7 +37,7 @@ faded line to compare against.
 
 The gate and the silicon are two plates with the oxide between them.
 Capacitance is how much charge moves in the silicon when the gate moves a
-little, and where that charge sits decides everything.
+little, and the answer depends on where that charge sits.
 
 **Accumulation**, on the left. A negative gate pulls holes up against the
 oxide. The charge that responds sits right at the interface, so the device is
@@ -65,9 +65,10 @@ The formula stops the surface bending at exactly $2\phi_F$, but a real
 inversion layer only forms a few $V_T$ past that, with the depletion edge a
 bit deeper.
 
-One thing about the high frequency curve here: it's a model of high frequency. The solver doesn't run at a frequency at all. It
-computes the capacitance at zero frequency with the minority carrier either
-allowed to respond or held fixed. Real measurements land somewhere between
-the two, depending on how fast the silicon can generate electrons.
+The high frequency curve is only a model of high frequency, since the solver
+doesn't run at a frequency at all. It computes the capacitance at zero
+frequency with the minority carrier either allowed to respond or held fixed.
+Real measurements land somewhere between the two, depending on how fast the
+silicon can generate electrons.
 
 Checked by tests/analytic/test_lesson_claims.py on this lesson's own device.

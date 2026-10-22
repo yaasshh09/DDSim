@@ -49,10 +49,10 @@ The ideality factor $n$ is how many times 60 mV each factor of ten costs.
 There's no diode equation in the solver. The current comes out of the
 continuity equations, and read off this curve $n$ sits between 1.01 and 1.04
 from 0.1 V to 0.6 V. It's close to 1 because the default carrier lifetimes are
-long enough that very little recombines inside the depletion region. That's
-the mechanism that would push $n$ toward 2 at low bias. The small rise at the
-top is high injection kicking in: the injected carriers aren't small next to
-the doping anymore.
+long enough that very little recombines inside the depletion region, and that
+recombination is what would push $n$ toward 2 at low bias. The small rise at
+the top is high injection kicking in: the injected carriers aren't small next
+to the doping anymore.
 
 Reverse bias raises the barrier instead. A bigger step in potential needs
 more uncovered ions to hold it, so the depletion region widens, and the

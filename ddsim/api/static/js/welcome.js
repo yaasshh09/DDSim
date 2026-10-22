@@ -74,13 +74,13 @@ const CARDS = [
 
 const LEDE =
   "This solves the equations that describe how electrons and holes move " +
-  "through a piece of silicon, then draws what it found. Nothing here is " +
-  "fitted or faked: shapes and doping go in, current comes out. Pick a " +
-  "device to start with, or draw one yourself.";
+  "through a piece of silicon, then draws what it found. You give it shapes " +
+  "and doping, and the current comes out of the equations with nothing " +
+  "fitted. Pick a device to start with, or draw one yourself.";
 
 const MORE =
-  "Rather be walked through it? Pick a guided lesson from the top of the " +
-  "left column. Every number, plot and switch on this page has an " +
+  "If you'd rather be walked through it, pick a guided lesson from the top " +
+  "of the left column. Every number, plot and switch on this page has an " +
   "<b>i</b> beside it that explains what it is.";
 
 const SEEN = "ddsim.welcome.seen";
