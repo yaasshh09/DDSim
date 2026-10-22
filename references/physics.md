@@ -24,7 +24,7 @@ Sign convention: psi increases toward n-type, and E = -grad(psi).
 
 ## The Van Roosbroeck system
 
-Three coupled nonlinear PDEs. That's the whole model.
+The whole model is three coupled nonlinear PDEs.
 
 Poisson:
 
@@ -81,7 +81,7 @@ Boltzmann (the default through Phase 4):
     n = n_i * exp((psi - phi_n) / V_T)
     p = n_i * exp((phi_p - psi) / V_T)
 
-Equilibrium check: phi_n = phi_p = 0 gives n*p = n_i^2. That's a unit test.
+Equilibrium check: phi_n = phi_p = 0 gives n*p = n_i^2, and a unit test checks it.
 
 Fermi-Dirac (needed in degenerate regions, Phase 5):
 
@@ -184,7 +184,8 @@ term. Don't add it before Phase 5 is stable.
 
 ### Generation
 
-G = 0 everywhere. No optical generation. This isn't a photodiode simulator.
+G = 0 everywhere. There's no optical generation, since this isn't a
+photodiode simulator.
 
 ## Mobility models
 
@@ -218,7 +219,7 @@ acoustic phonon and surface roughness terms by Matthiessen's rule.
 
 Mobility decides most of a device simulator's quantitative accuracy.
 The PDE solve can be perfect and the answer still three times off if the
-mobility is wrong. Treat these models as first class code.
+mobility is wrong, so the mobility models get the same care as the solver.
 
 ## Boundary conditions
 
@@ -235,7 +236,7 @@ Solve the pair for n and p, then
 
 The asinh form is numerically stable. The naive `V_T * ln(N/n_i)` breaks in
 lightly doped or compensated regions, where N can be near zero or negative.
-Use asinh. This one bites often.
+Use asinh.
 
 The quasi-Fermi levels at an ohmic contact are phi_n = phi_p = V_applied.
 
@@ -252,8 +253,8 @@ function difference folded in:
     psi_gate = V_gate - Phi_MS
 
 At the Si/SiO2 interface, enforce continuity of the normal component of D
-(the displacement). E itself jumps. Add a fixed interface charge Q_f if you want to
-model one.
+(the displacement), so E itself jumps. Add a fixed interface charge Q_f if
+you want to model one.
 
 ### Reflecting / symmetry boundaries
 
@@ -275,8 +276,8 @@ parameter anywhere in the code, that's a bug in the project.
 
 ## Where drift-diffusion breaks down
 
-Know these. They're the real limits of the model, and being able to state
-them is most of the value of having written it.
+These are the limits of the model. Being able to state them is most of the
+value of having written it.
 
 - **Below about 50 nm of channel**, carriers go quasi-ballistic and the local
   field no longer sets the local velocity. That needs energy balance
@@ -358,7 +359,7 @@ in the same form as the Schottky contact.
 
 ## Derivation chain, for the writeup
 
-Drift-diffusion isn't fundamental. It's the first two moments of the
+Drift-diffusion is an approximation: the first two moments of the
 Boltzmann transport equation under the relaxation time approximation.
 
     Schrodinger in periodic potential

@@ -255,5 +255,5 @@ Nc and Nv are hardcoded for now. They come from the effective masses:
     Nv = 2 * (2*pi * m_h* * k * T / h^2)^(3/2)
 
 If the band structure layer ever gets built, these become computed values.
-Keep `constants.py` structured so that swap means touching one function, not
-grepping the whole codebase.
+Keep `constants.py` structured so that swap touches one function and nobody
+has to grep the whole codebase.

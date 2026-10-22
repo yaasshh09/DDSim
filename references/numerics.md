@@ -228,7 +228,7 @@ Decouple the three equations and cycle through them:
 3. Solve hole continuity for p
 4. Check the update norm and repeat
 
-Convergence is linear. Very robust at low bias, and it degrades badly at high
+Convergence is linear. It's reliable at low bias and degrades badly at high
 injection where psi, n and p are strongly coupled. That degradation is
 expected, and it's the reason Phase 3 exists. Don't fight it in Phase 2.
 
