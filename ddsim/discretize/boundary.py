@@ -72,7 +72,7 @@ class GateContact:
                 f"gate {self.name!r} has a work function of "
                 f"{self.work_function:g} eV. Gate metals and doped polysilicon "
                 f"lie between about 2 and 6 eV, so values outside {idx:g} to "
-                f"{x:g} eV are refused as a slip rather than solved."
+                f"{x:g} eV are taken for a typo and refused."
             )
 
 SemiconductorContact = OhmicContact | OhmicPlate

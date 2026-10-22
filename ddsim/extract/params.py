@@ -29,8 +29,8 @@ def _rising(J: npt.NDArray[np.float64], what:str) -> None:
     if np.any(np.diff(J) <= 0.0):
         raise ValueError(
             f"{what} needs a current that rises with the gate bias, and this "
-            "one does not everywhere. A non monotonic Id-Vg is worth looking "
-            "at rather than extracting from."
+            "one does not everywhere. Look at a non monotonic Id-Vg before "
+            "extracting anything from it."
         )
 def ideality_factor(voltage: npt.NDArray[np.float64], current: npt.NDArray[np.float64], T: float = C.T_ROOM,) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     i, a2 = _checked(voltage, current)

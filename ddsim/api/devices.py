@@ -28,8 +28,8 @@ COARSE:dict[str, Preset] = {
             'A coarse mesh: 129 nodes against the converged 375. Measured '
             "2026-09-17 over a -2 V to 2 V C-V, the capacitance reads 0.556 "
             'percent high in accumulation and 0.714 percent high in '
-            "depletion, and the sweep solves 1.8 times faster. The shape of "
-            'the curve is the same; the numbers on it are not the validated '
+            "depletion, and the sweep solves 1.8 times faster. The curve "
+            'keeps its shape, with numbers a little off the validated '
             "ones."
         ),
     ),
@@ -49,7 +49,7 @@ COARSE:dict[str, Preset] = {
             "drain current at 1.2 V reads 0.621 percent high and the "
             "extrapolated threshold moves 0.7 mV, for a sweep that takes "
             "5.1 s instead of 20.4 s. Good enough to watch a MOSFET switch, "
-            'not the mesh any number in the README was taken on.'
+            'though no number in the README was taken on it.'
         ),
     ),
     "drawing": Preset(

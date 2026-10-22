@@ -85,7 +85,7 @@ def newton_solve(
     on_iteration:Callable[[NewtonIteration], None] | None = None,
 ) -> NewtonResult:
     if max_step is not None and limit is not None:
-        raise ValueError('max_step and limit are two damping rules for one update. Pass ' 'one. Letting either win silently makes the other look ineffective.')
+        raise ValueError('max_step and limit are two damping rules for one update. Pass ' 'one. With both set, one overrides the other and makes it look ineffective.')
     i = np.array(x0, dtype=np.float64, copy=True)
 
     if solver is None:

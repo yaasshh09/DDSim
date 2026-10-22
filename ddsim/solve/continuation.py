@@ -113,7 +113,7 @@ def continue_to(
             a = (
                 f"stalled at {d2:+.6g} on the way to {target:+.6g}: the step "
                 f"fell below the minimum step of {min_step:.4g}. Reducing it "
-                'further will not help, the solver has left its basin of '
+                "further won't help, because the solver has left its basin of "
                 "attraction."
             )
             break

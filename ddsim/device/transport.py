@@ -455,8 +455,8 @@ def _surface_fixed_point(
         converged=False,
         message=(
             f"the surface mobility was still moving after {max_sweeps} "
-            f"sweeps. The last Newton solve converged; what did not is the "
-            f"fixed point between the mobility and the state it is read from."
+            f"sweeps. The last Newton solve converged, but the fixed point "
+            f"between the mobility and the state it's read from didn't."
         ),
     )
 
