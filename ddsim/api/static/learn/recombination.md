@@ -35,7 +35,7 @@ $$R_{SRH} = \frac{n p - n_i^2}{\tau_p\,(n + n_1) + \tau_n\,(p + p_1)}, \qquad n_
 
 positive for net recombination and negative for net generation. The numerator
 vanishes exactly at equilibrium, which keeps a device at zero bias from
-carrying current for no reason. Note that $\tau_p$ pairs with $n$: in strongly
+carrying current for no reason. $\tau_p$ pairs with $n$: in strongly
 n type material the rate reduces to the excess hole density over $\tau_p$,
 the minority carrier lifetime.
 

@@ -30,7 +30,7 @@ If the residual plot shows solves running out of iterations while still
 falling, raise `max_iterations`. If it's flat or climbing, more iterations
 won't help.
 
-Here's what the named family usually means. Treat it as a first thing to try. It won't diagnose the problem for you. **psi** stuck usually means the potential had to move
+Treat the named family as a first thing to try. **psi** stuck usually means the potential had to move
 further than the solver allows in one iteration, so try a smaller `step`
 first. **n** or **p** stuck usually means that carrier's density changes by
 many powers of ten across a few mesh cells, at a junction or an inversion
