@@ -32,7 +32,7 @@ zigzags.
 Every finished run stays on the plot as a faded blue line until you press
 `clear runs`. Each one is labelled with the settings that differ from the run
 after it. So `Na 2e+17` means that curve was solved with Na at 2e17 and the
-next one wasn't. The label compares what the page sent, not the physics, and
+next one wasn't. The label only compares what the page sent, and
 a faded line is exactly the numbers that run gave. Nothing gets solved again,
 so an old curve never shifts when you move a knob. A run you cancelled, or
 one a moving slider replaced, never finished, so it isn't kept.

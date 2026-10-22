@@ -51,5 +51,4 @@ Nothing in this model knows about the device. $\beta$ and $v_{sat}$ are
 silicon parameters, identical for a 1 um and a 50 nm transistor, and neither
 is tuned to any curve. The short channel behaviour comes out of solving
 Poisson and continuity on the geometry with this mobility in place. I check
-that by solving the same device with Caughey-Thomas on and off, not by
-eyeballing the shape of a curve.
+that by solving the same device with Caughey-Thomas on and off instead of eyeballing the shape of a curve.

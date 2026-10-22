@@ -60,8 +60,7 @@ too busy. Every run is labelled with what changed.
   the 50 mV one. The drain is helping to switch the device on.
 - Each shorter device leaving the bottom of the plot at a lower gate voltage.
   A shorter channel also carries more current per unit width for the same
-  charge (ten times more for a tenfold shorter gate), so read the shift
-  sideways, not up.
+  charge (ten times more for a tenfold shorter gate), so read the shift sideways.
 
 ## What you saw
 

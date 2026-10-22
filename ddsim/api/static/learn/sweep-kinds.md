@@ -36,8 +36,7 @@ that solver.
 continuity, cycled until the update drops below `update_tol` (1e-8 by
 default) within `max_iterations` (200 cycles by default). Every requested
 voltage is reached by continuation from the one before, in steps of at most
-`step`, 0.05 V by default. The first point, at `start`, is a Gummel solve from
-the equilibrium guess, not a ramp. The residual plot shows each cycle's
+`step`, 0.05 V by default. The first point, at `start`, is a Gummel solve straight from the equilibrium guess with no ramp. The residual plot shows each cycle's
 update in purple.
 
 **transfer** runs full Newton on the coupled system, all three equations at

@@ -59,5 +59,4 @@ normal field on a channel edge lives on the vertical edges next to it, which
 the edge based assembly can't reach. So the surface mobility is frozen during
 each Newton solve and refreshed between solves until it stops moving. At that
 fixed point the frozen mobility is the one the answer implies, so the
-converged state solves the full equations. Freezing costs convergence speed,
-not accuracy.
+converged state solves the full equations. Freezing costs convergence speed and leaves accuracy alone.

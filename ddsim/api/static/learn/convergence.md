@@ -8,7 +8,7 @@ docs: numerics.md#Convergence criteria; numerics.md#Current conservation; decisi
 
 An iterative solver never lands exactly on the answer. It creeps closer with
 every step, and at some point it has to decide it's close enough. Making that
-call honestly is harder than it sounds, because there are two ways to get
+call correctly is harder than it sounds, because there are two ways to get
 fooled. A solver can stop changing because it's arrived, or because it's
 stuck. And the equations can look fine overall while one corner of the
 device is still way off.
@@ -27,7 +27,7 @@ defaults are 200 Gummel cycles on the diode sweep, 30 Newton iterations on
 the transfer curve and 50 on the C-V sweep. `update_tol` is only on the diode
 sweep. It's how small the change over a whole Gummel cycle has to be, one
 part in a hundred million by default, in scaled units. The tolerances inside
-Newton are fixed, not offered as knobs. A job can finish as done with a curve
+Newton are fixed, and you can't change them from the page. A job can finish as done with a curve
 that stopped short, and then the message tells you where it stalled. Every
 point the curve does have passed these tests.
 

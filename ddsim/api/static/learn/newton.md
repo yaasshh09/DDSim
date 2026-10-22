@@ -11,8 +11,7 @@ At the current guess it checks every equation at every node and measures how
 far off it is. That's the residual. It also works out how each residual would
 shift if each unknown got nudged a little. Then it pretends everything is a
 straight line and jumps to the spot where every residual would hit zero at
-once. The equations aren't straight lines, so the jump lands near the answer,
-not on it, and the method goes again from there.
+once. The equations aren't straight lines, so the jump lands near the answer but misses it a little, and the method goes again from there.
 
 Far from the answer that jump can go wild, which is why the step gets limited
 and the bias gets walked up gradually. Close to the answer it's amazing. Each
@@ -33,7 +32,7 @@ $$J\,\Delta x = -F, \qquad J = \frac{\partial F}{\partial x}$$
 and moves to $x + \Delta x$ once the damping rule has had its say. There are
 three unknowns per node, $\psi$, $n$ and $p$, so a mesh of $N$ nodes gives a
 $3N \times 3N$ system. The unknowns are interleaved by node,
-$(\psi_0, n_0, p_0, \psi_1, \dots)$, not blocked by variable, which keeps
+$(\psi_0, n_0, p_0, \psi_1, \dots)$ instead of blocked by variable, which keeps
 coupled entries close together and cuts fill in the factorization. At each
 node the Jacobian has a $3 \times 3$ block,
 

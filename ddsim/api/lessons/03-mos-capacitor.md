@@ -65,8 +65,7 @@ The formula stops the surface bending at exactly $2\phi_F$, but a real
 inversion layer only forms a few $V_T$ past that, with the depletion edge a
 bit deeper.
 
-I want to be upfront about one thing: the high frequency curve here is a
-model, not a frequency. The solver doesn't run at a frequency at all. It
+One thing about the high frequency curve here: it's a model of high frequency. The solver doesn't run at a frequency at all. It
 computes the capacitance at zero frequency with the minority carrier either
 allowed to respond or held fixed. Real measurements land somewhere between
 the two, depending on how fast the silicon can generate electrons.

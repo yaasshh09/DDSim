@@ -34,7 +34,7 @@ depletion width, the diode ideality factor and its crossover from 2 to 1, the
 threshold voltage and body effect, the subthreshold slope, DIBL, threshold
 roll-off with gate length, and velocity saturation are all outputs. None of
 them is typed in anywhere. If one ever showed up as a fitted parameter, that
-would be a bug in the project, not a shortcut.
+would count as a bug in the project.
 
 The MOSFET builder sticks to this in how it's drawn. The metallurgical
 channel is shorter than `L_gate` because the source and drain implants spread

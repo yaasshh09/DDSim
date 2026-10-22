@@ -37,7 +37,7 @@ code can do source stepping in the SPICE layer.
 
 The last step is clipped so it lands exactly on the target. A failed step is
 halved from the size actually attempted, so a clipped attempt still retries
-at a different point. Growth is 1.5, not 2, because doubling overshoots into
+at a different point. Growth is 1.5 because doubling overshoots into
 failure often enough to cost more than it saves. The floor defaults to a
 thousandth of the first step, about ten halvings, and a ramp gives up after
 200 attempts.

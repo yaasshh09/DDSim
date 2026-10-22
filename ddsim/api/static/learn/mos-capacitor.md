@@ -43,7 +43,7 @@ folded in:
 $$\psi_{gate} = V_{gate} - \Phi_{MS}$$
 
 At the silicon to oxide interface it's the normal component of the
-displacement $\varepsilon E$ that's continuous, not the field itself.
+displacement $\varepsilon E$ that's continuous. The field itself jumps.
 
 Flatband is the gate voltage where the silicon bands stay flat all the way to
 the surface. With `Q_f` at 0 it's just $\Phi_{MS}$, which for an n+ poly
@@ -68,7 +68,7 @@ percent below $C_{ox}$ at 2.6 V below flatband, and within 1 percent only
 around 5 V below.
 
 By default this is the ideal capacitor: `Q_f` is 0 and there's no poly
-depletion. The body is a plate across the whole bottom edge, not a point,
+depletion. The body is a plate across the whole bottom edge instead of a point,
 because a point would leave the rest of that edge reflecting, and that's a
 different device. The default mesh is 3 columns by 125 rows, graded hard
 toward the surface in the silicon and uniform in the oxide, where the

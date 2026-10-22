@@ -40,8 +40,8 @@ What each mark is:
 - **Blue alone**, on a C-V sweep, is the equilibrium Poisson residual
   $\max|F|$. It isn't split and isn't divided by row terms, so it's judged
   against $10^{-12} + 10^{-10}\,Q$, with $Q$ the doping charge in the largest
-  dual cell, not against $10^{-10}$.
-- **Purple** is the Gummel cycle update, not a residual: the largest of
+  dual cell, instead of plain $10^{-10}$.
+- **Purple** is a different quantity, the Gummel cycle update: the largest of
   $\max|\Delta\psi|$ and the relative density changes over the cycle, judged
   against `update_tol`.
 - **Dark dots** are rejected continuation attempts. Each one sits on the last
@@ -60,7 +60,7 @@ it draws a straight line whose slope flattens as injection rises. Newton's is
 quadratic, with the exponent roughly doubling each step, so it draws a curve
 bending steeply down until it hits the roundoff floor.
 
-The plot draws Newton's residuals, not its updates, and convergence needs
+The plot draws Newton's residuals and leaves out its updates, and convergence needs
 both, measured per family. That's why the note on a rejected attempt names
 the family with the largest residual and the family with the largest update
 separately. The page doesn't know the tolerances, and naming only the

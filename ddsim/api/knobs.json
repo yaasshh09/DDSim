@@ -87,7 +87,7 @@
   "models": "transport models, built from the device if None.",
   "step": "the biggest voltage step the solver takes on its way from one point on your list to the next [V].",
   "min_step": "give up once the continuation step falls below this [V]. None leaves it at the continuation default of a thousandth of step, which is about ten halvings. That is the right default for a sweep that is expected to succeed, and expensive for one that is expected to stall: every one of those ten halvings is a full failed solve at the Gummel budget. A caller who already knows the sweep may stall, or who only wants to know roughly where, should raise this.",
-  "start": "the voltage the sweep starts from [V]. It's solved directly, not ramped up to.",
+  "start": "the voltage the sweep starts from [V]. The solver goes straight to it in one solve.",
   "max_iterations": "how many Gummel cycles each point gets before it counts as failed [1].",
   "update_tol": "how small a whole Gummel cycle's change has to be before a point counts as solved [1].",
   "on_frame": "telemetry, or None to report nothing. Carries a GummelIteration per cycle, a ContinuationEvent per attempt and an IVFrame per point that lands."
@@ -100,7 +100,7 @@
   "models": "transport models, built from the device if None.",
   "step": "the biggest voltage step the solver takes on its way from one point on your list to the next [V].",
   "min_step": "give up once the step falls below this [V].",
-  "start": "the gate voltage the sweep starts from [V]. It's solved directly, not ramped up to. The default is zero, which leaves an NMOS switched off.",
+  "start": "the gate voltage the sweep starts from [V]. The solver goes straight to it in one solve. The default is zero, which leaves an NMOS switched off.",
   "max_iterations": "how many Newton steps each point gets before it counts as failed [1].",
   "on_frame": "telemetry, or None to report nothing. Carries a NewtonIteration per iteration, a ContinuationEvent per attempt and an IVFrame per point that lands. No GummelIteration ever reaches it, because this path does not run Gummel at all."
  },
@@ -127,7 +127,7 @@
  "ddsim.extract.ac.ac_sweep": {
   "device": "the device. Its own bias at the swept contact is overridden.",
   "contact": "name of the terminal to sweep. Every terminal's current is read, so you get the whole admittance matrix.",
-  "voltages": "the DC biases wanted [V]. Each one is solved on its own, not ramped from the last.",
+  "voltages": "the DC biases wanted [V]. Each one is solved on its own.",
   "frequencies": "the small-signal frequencies wanted at every bias [Hz]. Zero gives the DC slope.",
   "models": "transport models, built from the device if None.",
   "max_iterations": "how many Newton steps each DC point gets before it counts as failed [1].",

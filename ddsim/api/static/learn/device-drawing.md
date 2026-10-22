@@ -32,7 +32,7 @@ sweep's contact box uses.
 You can type numbers into the rows, or drag on the picture to add a rectangle
 of whatever the box next to it says. A drag that ends near an edge you've
 already drawn snaps onto it. The picture stretches the two axes separately so
-a thin oxide stays visible. The numbers are the drawing, not the picture.
+a thin oxide stays visible. The numbers define the device. The picture is only a view of them.
 
 Only rectangles are allowed. The mesh is a grid of lines that each run the
 whole width or height of the device, so a slanted or curved edge would cut
@@ -84,4 +84,4 @@ to the last bit on the source side.
 The benchmark MOS capacitor and MOSFET drawn this way reproduce the
 constructors: the C-V to 2e-4 and the drain current to 1.5 percent above
 1e-7 A/cm, which is the size of the change each device shows when its own
-mesh is refined. The difference comes from the mesh, not the physics.
+mesh is refined. The difference comes from the mesh, and the physics is the same in both.

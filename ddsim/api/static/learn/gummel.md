@@ -39,7 +39,7 @@ One cycle is three block solves, in order.
 2. Electron continuity, linear in $n$ once $\psi$ and $p$ are held. That's one
    sparse linear solve, with the contact densities imposed afterwards. The
    matrix is an M-matrix, so a non-positive density can only mean a bug, and
-   one gets refused, not clamped.
+   one gets refused outright.
 3. Hole continuity for $p$, the same way.
 
 Each block reports its own update size in scaled units: $\max|\Delta\psi|$ in
@@ -61,5 +61,5 @@ cycle budget, Gummel takes 3 cycles at 0.1 V, 6 at 0.6 V, 46 at 1.0 V, 101 at
 same range. So Gummel doesn't fail at high bias. It just gets slower without
 limit. The 224 cycles at 1.5 V are already past the default budget of 200.
 An earlier reading that Gummel stalled at 1.63 V turned out to be that budget
-running out, not a divergence. The Gummel path here is 1D only and can't
+running out. It never diverged. The Gummel path here is 1D only and can't
 handle a gate, which is why the MOSFET transfer curve runs Newton instead.

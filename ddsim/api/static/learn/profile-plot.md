@@ -23,7 +23,7 @@ band edges in blue and quasi-Fermi levels in green and red, all in eV.
 On a 2D device (the MOS capacitor or the MOSFET) the plot turns into a
 picture of psi alone, low potential in blue through to high in yellow, with
 the gate at the top and the body at the bottom. It has no axes and no colour
-scale, so it shows the shape of the potential, not values. n and p get sent
+scale, so it shows the shape of the potential without its values. n and p get sent
 for a 2D device but aren't drawn as a picture. Drag across the picture to
 draw a cutline, and the band diagram along it appears underneath.
 
@@ -37,8 +37,7 @@ squashed.
 
 The 2D image doesn't. Each node becomes one pixel of a small picture, one
 column per mesh column and one row per mesh row, and that picture gets
-stretched to fill the canvas. So rows and columns are evenly spaced by index,
-not by position. That's just how the picture is built: nothing in the drawing
+stretched to fill the canvas. So rows and columns are evenly spaced by index instead of by position. That's just how the picture is built: nothing in the drawing
 code looks at the mesh coordinates, so nothing puts a row at its true height.
 
 This matters because the mesh is graded on purpose. On the default MOSFET,
