@@ -51,10 +51,9 @@ gate on 1e16 p type silicon is $-0.9192$ V. A fixed charge moves it to
 
 $$V_{FB} = \Phi_{MS} - \frac{q Q_f}{C_{ox}}$$
 
-and the solver lands on that shift to 1e-4 at every point of the curve,
-low and high frequency alike.
-A wrong $\Phi_{MS}$ slides the curve without changing its shape, so all three
-regimes would still look right.
+and the solver lands on that shift to 1e-4 at every point of the curve, low
+and high frequency alike. A wrong $\Phi_{MS}$ would slide the curve without
+changing its shape, so all three regimes would still look right.
 
 In accumulation the capacitance approaches the oxide capacitance
 
@@ -68,10 +67,9 @@ percent below $C_{ox}$ at 2.6 V below flatband, and within 1 percent only
 around 5 V below.
 
 By default this is the ideal capacitor: `Q_f` is 0 and there's no poly
-depletion. The body is a plate across the whole bottom edge instead of a point,
-because a point would leave the rest of that edge reflecting, and that's a
-different device. The default mesh is 3 columns by 125 rows, graded hard
-toward the surface in the silicon and uniform in the oxide, where the
-potential is a straight line. The two MOS capacitor benchmarks agree with
-DEVSIM on charge to 0.440 percent with a 5 nm oxide and 0.053 percent with a
-20 nm one.
+depletion. The body is a plate across the whole bottom edge. A point contact
+would leave the rest of that edge reflecting, and that's a different device.
+The default mesh is 3 columns by 125 rows, graded hard toward the surface in
+the silicon and uniform in the oxide, where the potential is a straight line.
+The two MOS capacitor benchmarks agree with DEVSIM on charge to 0.440 percent
+with a 5 nm oxide and 0.053 percent with a 20 nm one.

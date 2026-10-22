@@ -15,8 +15,8 @@ ten between two neighbouring nodes. The simple average gives nonsense. The
 densities start zigzagging from node to node or even go negative, which no
 real device ever does.
 
-The Scharfetter-Gummel scheme gets around this by not assuming the density
-changes in a straight line between the nodes. It only assumes the current and
+The Scharfetter-Gummel scheme drops the assumption that the density changes
+in a straight line between the nodes. It assumes only that the current and
 the field are constant along that short edge, then solves the drift diffusion
 equation along it exactly. The density between the nodes comes out
 exponential, which is how carriers really behave in a field. The current ends

@@ -14,10 +14,10 @@ stuck. And the equations can look fine overall while one corner of the
 device is still way off.
 
 So here a Newton solve only counts as converged when two things are true at
-the same step. The unknowns have stopped moving. And every equation at every
+the same step: the unknowns have stopped moving, and every equation at every
 node is satisfied to a tight tolerance, measured against the size of its own
-terms. Pass one test and fail the other, and it's a failure, reported as one.
-A Gummel solve gets judged on how much a whole cycle changes things.
+terms. A solve that passes one test and fails the other is reported as a
+failure. A Gummel solve gets judged on how much a whole cycle changes things.
 
 Two knobs control this. `max_iterations` is the budget: how many Newton
 iterations (or Gummel cycles, on the diode sweep) one bias point gets before
@@ -27,16 +27,16 @@ defaults are 200 Gummel cycles on the diode sweep, 30 Newton iterations on
 the transfer curve and 50 on the C-V sweep. `update_tol` is only on the diode
 sweep. It's how small the change over a whole Gummel cycle has to be, one
 part in a hundred million by default, in scaled units. The tolerances inside
-Newton are fixed, and you can't change them from the page. A job can finish as done with a curve
-that stopped short, and then the message tells you where it stalled. Every
-point the curve does have passed these tests.
+Newton are fixed, and you can't change them from the page. A job can finish
+as done with a curve that stopped short, and then the message tells you where
+it stalled. Every point the curve does have passed these tests.
 
 ## In more depth
 
 A coupled Newton solve, like the transfer curve's, needs both of these in the
 same iteration.
 
-**The update.** Measured per equation family on the damped step actually
+The update is measured per equation family on the damped step actually
 taken, in scaled units,
 
 $$\max\left(\max|\Delta\psi|,\ \max\frac{|\Delta n|}{n + n_i},\ \max\frac{|\Delta p|}{p + n_i}\right) < 10^{-10}$$
@@ -51,13 +51,13 @@ $n$ at $10^6$ in scaled units its last bit is $10^{-10}$, and on a $10^{16}$
 diode every solve above 0.2 V reported failure while sitting right on the
 exact answer.
 
-**The residual.** Measured row by row against that row's own terms. Each
+The residual is measured row by row against that row's own terms. Each
 row's residual is divided by the largest single term it was built from, a
 charge for Poisson and a flux for continuity, re-measured at every iterate.
 The largest result in each family has to be below $10^{-12} + 10^{-10}$. A
 row whose terms have dropped below machine epsilon times the largest in its
 family gets skipped, since dividing roundoff by something that small makes up
-a number instead of measuring one. Per row matters because terms span
+a number instead of measuring one. It has to be per row because terms span
 decades within one family. On a $10^{17}$ / $10^{20}$ junction the electron
 flux terms span 11.5 decades. A measure using one number per family called a
 cold solve at 0.4 V converged after zero Newton steps, still sitting on the

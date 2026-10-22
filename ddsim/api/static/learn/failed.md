@@ -28,8 +28,8 @@ and check the mesh is fine enough for the doping.
 ## In more depth
 
 Every later point in a sweep is reached by continuation, which halves a step
-that fails and keeps the points it has, so trouble there ends as a stall, not
-a failure. The first point has nothing to continue from.
+that fails and keeps the points it has, so trouble there ends as a stall. The
+first point has nothing to continue from.
 
 - On `iv`, the point at `start` is a Gummel solve from the equilibrium guess.
   That guess is itself a Poisson solve, and on a 1e16 diode it can't be built
@@ -42,8 +42,7 @@ a failure. The first point has nothing to continue from.
   fraction nobody asked for.
 
 So the bias step that causes a failure is the jump to the first point, which
-`step` doesn't control. A large `step` later in the sweep costs retries, not
-the job.
+`step` doesn't control. A large `step` later in the sweep only costs retries.
 
 A solve only counts as converged when both its update and its residual are
 inside their thresholds: the Gummel update below `update_tol`, or for Newton

@@ -7,9 +7,9 @@ docs: physics.md#Mobility models; constants.md#Lombardi surface mobility, enhanc
 ## In plain words
 
 A MOSFET's channel is a very thin sheet of electrons that the gate holds
-against the boundary between silicon and oxide. That boundary isn't a perfect
-mirror. It's rough at the scale of atoms, and the crystal vibrates
-differently there than it does deep inside. So carriers in the channel bump
+against the boundary between silicon and oxide. That boundary is rough at the
+scale of atoms, and the crystal vibrates differently there than it does deep
+inside. So carriers in the channel bump
 into things more often than they would in the bulk. The harder the gate
 presses them against the interface, the more they feel it.
 
@@ -59,4 +59,5 @@ normal field on a channel edge lives on the vertical edges next to it, which
 the edge based assembly can't reach. So the surface mobility is frozen during
 each Newton solve and refreshed between solves until it stops moving. At that
 fixed point the frozen mobility is the one the answer implies, so the
-converged state solves the full equations. Freezing costs convergence speed and leaves accuracy alone.
+converged state solves the full equations and the freeze costs only
+convergence speed.

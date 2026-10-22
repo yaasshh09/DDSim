@@ -57,11 +57,11 @@ with $C_n = 2.8 \times 10^{-31}$ and $C_p = 9.9 \times 10^{-32}$ cm$^6$/s.
 It's cubic in the densities where SRH is roughly linear, which is why it only
 takes over at high injection and in heavily doped regions.
 
-One approximation worth knowing: SRH takes its equilibrium product from
-$n_i^2$. Under the Fermi-Dirac statistics the nMOSFET uses, the true
-equilibrium product is $n_i^2\,\gamma_n \gamma_p$, which is smaller than
-$n_i^2$ in material doped near $10^{20}$ cm$^{-3}$. So the model generates a
-small spurious rate there at rest. The decisions log sizes it, and it sits
+SRH also approximates its equilibrium product as $n_i^2$. Under the
+Fermi-Dirac statistics the nMOSFET uses, the true equilibrium product is
+$n_i^2\,\gamma_n \gamma_p$, which is smaller than $n_i^2$ in material doped
+near $10^{20}$ cm$^{-3}$. So the model generates a small spurious rate there
+at rest. The decisions log sizes it, and it sits
 about six decades below anything this project claims.
 
 Light isn't modelled, so $G = 0$ everywhere.

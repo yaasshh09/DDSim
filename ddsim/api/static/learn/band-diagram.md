@@ -45,7 +45,7 @@ The drawn gap is
 $$E_c - E_v = kT\ln\!\left(\frac{N_c N_v}{n_i^2}\right) = 1.1279\ \text{eV}$$
 
 about 3.8 meV wider than the $E_g = 1.1241$ eV the Varshni formula gives at
-300 K. That's not a drawing error. $n_i$ is anchored at $10^{10}$ cm$^{-3}$,
+300 K. The difference comes from $n_i$: it's anchored at $10^{10}$ cm$^{-3}$,
 while $N_c$, $N_v$ and $E_g$ would imply $1.0757 \times 10^{10}$, and the band
 edges have to be placed from one or the other. I place them from the
 anchored $n_i$, the same number every density in the solve uses. That way the

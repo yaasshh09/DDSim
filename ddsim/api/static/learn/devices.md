@@ -44,9 +44,9 @@ There's no halo implant, no lightly doped drain and no fixed interface
 charge. Each of those exists to move a threshold or soften a field, which
 would mean tuning the very answer the device is supposed to produce.
 
-One warning. The models panel starts with constant mobility, and with field
-dependent mobility and surface scattering both off. Those are the defaults of
-the function that builds the models, and every result recorded before Phase 5
-was taken that way. A MOSFET solved on those defaults has no velocity
-saturation in it. To watch short channel behaviour come out of the physics,
-switch on `field_dependent` and `surface` and pick `arora` mobility.
+The models panel starts with constant mobility, and with field dependent
+mobility and surface scattering both off. Those are the defaults of the
+function that builds the models, and every result recorded before Phase 5 was
+taken that way. A MOSFET solved on those defaults has no velocity saturation
+in it. To watch short channel behaviour come out of the physics, switch on
+`field_dependent` and `surface` and pick `arora` mobility.

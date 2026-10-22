@@ -14,11 +14,11 @@ side. The vertical axis is logarithmic by default, because the interesting
 part spans many powers of ten. All the numbers are scaled and have no units.
 
 A healthy sweep looks like a row of steep slides. Each bias point starts well
-above where it'll finish and drops a few powers of ten per step over a
-handful of steps, with the drops getting bigger as it closes in. Then the
-next point starts again higher up. On the diode sweep the purple line isn't a
-residual. It's how much each Gummel cycle changed things, and it falls more
-gently, in a straight line, because Gummel converges more slowly.
+above where it'll finish and drops a few powers of ten per step over a handful
+of steps, with the drops getting bigger as it closes in. Then the next point
+starts again higher up. On the diode sweep the purple line is the Gummel
+update, how much each cycle changed things. It falls more gently, in a
+straight line, because Gummel converges more slowly.
 
 A stall looks different: a line that goes flat and stays flat, a note that
 keeps saying "step limited", or dark dots piling up, each one a bias step
@@ -60,11 +60,11 @@ it draws a straight line whose slope flattens as injection rises. Newton's is
 quadratic, with the exponent roughly doubling each step, so it draws a curve
 bending steeply down until it hits the roundoff floor.
 
-The plot draws Newton's residuals and leaves out its updates, and convergence needs
-both, measured per family. That's why the note on a rejected attempt names
-the family with the largest residual and the family with the largest update
-separately. The page doesn't know the tolerances, and naming only the
-residual can point at the wrong test. On one stalled MOSFET every residual
+The plot draws Newton's residuals and leaves out its updates, and
+convergence needs both, measured per family. So the note on a rejected
+attempt names the family with the largest residual and the family with the
+largest update separately. The page doesn't know the tolerances, and naming
+only the residual can point at the wrong test. On one stalled MOSFET every residual
 sat near $10^{-14}$, comfortably converged on the plot, while the electron
 update was stuck at $1.8 \times 10^{-10}$, just above its $10^{-10}$
 threshold. A line frozen flat while the update is already inside tolerance is

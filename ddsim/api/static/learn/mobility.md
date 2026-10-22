@@ -50,9 +50,11 @@ off: $\mu_{min} + \mu_d$ with no doping, $\mu_{min} + \mu_d/2$ at
 $N = N_{ref}$, and $\mu_{min}$ at very heavy doping. $N$ here is the doping
 magnitude $|N_d - N_a|$, the only doping a device stores.
 
-Arora's undoped limit is 1340 for electrons and 461.3 for holes, where the constant model uses 1417 and 470. Both sets are measured, from different fits,
-so switching a lightly doped device from `constant` to `arora` shifts its
-current by about five percent even where doping isn't doing anything. That's expected.
+Arora's undoped limit is 1340 for electrons and 461.3 for holes, where the
+constant model uses 1417 and 470. Both sets are measured, from different
+fits, so switching a lightly doped device from `constant` to `arora` shifts
+its current by about five percent even where doping isn't doing anything.
+That's expected.
 
 Mobility is evaluated at the nodes. The diffusivity on each mesh edge is the
 average of its two ends, which is the one value per edge the

@@ -13,7 +13,7 @@ ceiling called the saturation velocity. For electrons in silicon that's about
 a hundred kilometres per second. Double the field after that and the speed
 barely moves.
 
-This matters most in short MOSFETs. Put a volt across a channel a hundred
+Short MOSFETs feel this most. Put a volt across a channel a hundred
 nanometres long and the field is far past the point where carriers saturate.
 In a long transistor the drain current grows roughly with the square of the
 gate overdrive. Once the carriers are stuck at their ceiling it only grows
@@ -51,4 +51,5 @@ Nothing in this model knows about the device. $\beta$ and $v_{sat}$ are
 silicon parameters, identical for a 1 um and a 50 nm transistor, and neither
 is tuned to any curve. The short channel behaviour comes out of solving
 Poisson and continuity on the geometry with this mobility in place. I check
-that by solving the same device with Caughey-Thomas on and off instead of eyeballing the shape of a curve.
+that by solving the same device with Caughey-Thomas on and off instead of
+eyeballing the shape of a curve.

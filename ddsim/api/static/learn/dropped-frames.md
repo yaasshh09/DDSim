@@ -39,6 +39,6 @@ travels in the final status message.
 
 The finished curve never goes through the queue. It's held on the job and
 fetched over HTTP once the job reports done, and the profile arrays are
-fetched the same way, one point at a time. A dropped frame can only cost
-telemetry, a few lines of the residual plot and a few convergence notes,
-never a solved number.
+fetched the same way, one point at a time. So a dropped frame only ever
+costs telemetry: a few lines of the residual plot and a few convergence
+notes. The solved numbers don't go through the queue at all.

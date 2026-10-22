@@ -11,12 +11,11 @@ temperature, about 27 degrees Celsius. The range runs from 200 K, colder
 than any freezer, to 500 K, hotter than a chip is ever allowed to run.
 
 Heat shakes electrons loose from the bonds that hold them, so hotter silicon
-has many more free carriers of both kinds. That matters most where there
-should be almost none: a reverse biased diode leaks far more current, and a
-transistor that's meant to be off lets more through. The switch also gets
-softer. At room temperature a transistor can't turn off faster than about 60
-mV of gate per tenfold drop in current, and that limit grows in step with
-the temperature.
+has many more free carriers of both kinds. It shows most where there should be
+almost none: a reverse biased diode leaks far more current, and a transistor
+that's meant to be off lets more through. The switch also gets softer. At room
+temperature a transistor can't turn off faster than about 60 mV of gate per
+tenfold drop in current, and that limit grows in step with the temperature.
 
 ## In more depth
 

@@ -43,7 +43,6 @@ $$\nabla \cdot (\varepsilon \nabla \psi) = -q\,(p - n + N_d - N_a)$$
 
 together with the two continuity equations, with the real carrier densities
 in the charge. The depletion edges come out smooth instead of sharp, with
-carrier tails reaching a few Debye lengths into the region. Both the built in
-potential and the width both come out of the solve. The formula
-above is something the tests check the solution against. The solver never
-evaluates it.
+carrier tails reaching a few Debye lengths into the region. The built in
+potential and the width both come out of the solve. The tests check the
+solution against the formula above, and the solver never evaluates it.

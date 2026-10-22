@@ -19,11 +19,11 @@ simplest way. If a step would move the potential anywhere in the device by
 more than a fixed amount, the potential change gets shrunk until it doesn't.
 The electron and hole changes are taken in full. When that happens, the note
 beside the residual plot says "step limited". A few limited steps at the
-start of a solve are normal. A solve that's limited step after step isn't
-converging, it's crawling, and the fix is usually a smaller bias step, not
-more damping. Damping can make a solve slower or steadier. It can't turn a
-wrong equation into a right one. If damping tames a sign error, you still get
-a wrong answer.
+start of a solve are normal. A solve that's limited step after step is only
+crawling, and the usual fix is a smaller bias step instead of more damping.
+Damping can make a solve slower or steadier, but it can't turn a wrong
+equation into a right one. If damping tames a sign error, the answer is still
+wrong.
 
 ## In more depth
 
@@ -50,9 +50,9 @@ asked to move. A full step reads 1.0. It's measured per component because a
 ratio of the two maxima would be set by the density update and read exactly
 1.0 on every limited step of a MOSFET solve. The page only shows the flag.
 
-Why not just damp harder? On a $10^{15}$ cm$^{-3}$ diode at 1.2 V on 41
-nodes, Newton from the Poisson guess diverges: thirty steps, twenty eight of
-them limited. Capping at $2 V_T$ instead of 5 does converge, in forty seven
+I compared caps on a $10^{15}$ cm$^{-3}$ diode at 1.2 V on 41 nodes. At the
+default, Newton from the Poisson guess diverges: thirty steps, twenty eight
+of them limited. Capping at $2 V_T$ instead of 5 does converge, in forty seven
 steps with forty limited. Capping at $1 V_T$ or $0.5 V_T$ doesn't converge
 within sixty. The same device reaches 1.2 V in seven solves through
 continuation, or in eight Newton steps after two Gummel cycles. When a solve

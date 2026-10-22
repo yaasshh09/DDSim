@@ -33,7 +33,7 @@ $\phi_n = \phi_p = V_{applied}$. Multiplying the two densities gives
 $$n\,p = n_i^2\,e^{(\phi_p - \phi_n)/V_T}$$
 
 so the split between the levels measures how far the product is from
-equilibrium. It's exactly what the SRH rate responds to.
+equilibrium, which is what the SRH rate responds to.
 
 Put the Boltzmann relations and $D_n = \mu_n V_T$ into the drift diffusion
 currents and the drift and diffusion terms merge into one:

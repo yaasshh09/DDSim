@@ -30,13 +30,13 @@ If the residual plot shows solves running out of iterations while still
 falling, raise `max_iterations`. If it's flat or climbing, more iterations
 won't help.
 
-Treat the named family as a first thing to try. **psi** stuck usually means the potential had to move
-further than the solver allows in one iteration, so try a smaller `step`
-first. **n** or **p** stuck usually means that carrier's density changes by
-many powers of ten across a few mesh cells, at a junction or an inversion
-layer the mesh doesn't resolve, so try a smaller `h_min` there or more nodes.
-On a device you drew, also check that every doping edge and electrode is
-where you meant it.
+The named family hints at what to try first. **psi** stuck usually means the
+potential had to move further than the solver allows in one iteration, so try
+a smaller `step` first. **n** or **p** stuck usually means that carrier's
+density changes by many powers of ten across a few mesh cells, at a junction
+or an inversion layer the mesh doesn't resolve, so try a smaller `h_min` there
+or more nodes. On a device you drew, also check that every doping edge and
+electrode is where you meant it.
 
 ## In more depth
 
@@ -53,12 +53,12 @@ A Newton attempt fails when either its residual or its update misses its
 threshold. The page doesn't know the thresholds, so the note names the
 largest of both. The update on n and p is relative, $|\Delta n|/(n + n_i)$ in
 scaled terms, so a carrier far below the intrinsic density carries little
-weight. That's why the note names both. On one stalled MOSFET every residual family sat
-at $10^{-14}$ while the n update was $1.8 \times 10^{-10}$, so pointing at the
-largest residual alone would have named the wrong test.
+weight. On one stalled MOSFET every residual family sat at $10^{-14}$ while
+the n update was $1.8 \times 10^{-10}$, so pointing at the largest residual
+alone would have named the wrong test.
 
 A rejected note reads rejected at a value in V. During the cold ramp that
-starts a transfer curve, that value isn't a voltage. It's the fraction of
-the applied biases being attempted, between 0 and 1, even though the note
-labels it in volts. A cold ramp that never arrives doesn't stall the sweep:
-its final solve happens at the full bias, and if that fails the job fails.
+starts a transfer curve, that value is the fraction of the applied biases
+being attempted, between 0 and 1, even though the note labels it in volts. A
+cold ramp that never arrives doesn't stall the sweep: its final solve happens
+at the full bias, and if that fails the job fails.

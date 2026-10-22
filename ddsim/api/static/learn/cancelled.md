@@ -34,12 +34,11 @@ unwinds the whole continuation ladder at once. The job is marked cancelled
 and its result is left empty on purpose: the sweep stopped somewhere nobody
 chose, and its partial state is only what the page had already been sent.
 
-The problem is the gap between reports. A solve that isn't reporting can't be
-cancelled until it reports again. The sparse factorization inside a Newton
-iteration, the extra linear solve that gives a C-V point its capacitance, and
-the equilibrium Poisson solve that builds the first guess for an `iv` or
-`transfer` sweep all run without reporting. A click during one of them waits
-for it to end.
+A solve can't be cancelled between reports, only when it reports again. The
+sparse factorization inside a Newton iteration, the extra linear solve that
+gives a C-V point its capacitance, and the equilibrium Poisson solve that
+builds the first guess for an `iv` or `transfer` sweep all run without
+reporting. A click during one of them waits for it to end.
 
 Shutting the server down cancels every running job the same way, and waits
 up to 30 seconds for them to reach their next report.

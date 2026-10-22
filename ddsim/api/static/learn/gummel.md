@@ -54,7 +54,7 @@ the densities.
 
 Convergence is linear: the update shrinks by roughly a constant factor per
 cycle, which is a straight line on a log plot. At high injection that factor
-is the whole story. Measured along 0.05 V continuation steps it climbs from
+sets the cycle count. Measured along 0.05 V continuation steps it climbs from
 0.51 at 0.9 V to 0.95 at 1.8 V. On the $10^{16}$ cm$^{-3}$ diode with a 2000
 cycle budget, Gummel takes 3 cycles at 0.1 V, 6 at 0.6 V, 46 at 1.0 V, 101 at
 1.2 V, 224 at 1.5 V and 466 at 2.0 V. Full Newton takes 4 to 6 steps over the

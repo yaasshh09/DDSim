@@ -55,8 +55,8 @@ $\nabla \cdot J_p = -R$. The Scharfetter-Gummel flux on an edge of scaled
 length $h$ loses $V_T$ from its Bernoulli argument, because $\psi$ is already
 measured in thermal voltages.
 
-Scaling doesn't remove the stiffness. It just stops the units from making it
-worse. One volt is 38.7 in scaled potential, and $e^{38.7}$ is about
+Scaling stops the units from making the stiffness worse, and the stiffness
+itself stays. One volt is 38.7 in scaled potential, and $e^{38.7}$ is about
 $6 \times 10^{16}$, so the densities still span some twenty five decades
 across a device. A $10^{16}$ cm$^{-3}$ doping is $10^6$ in scaled units. That
 spread is why the convergence tests measure a density change relative to the

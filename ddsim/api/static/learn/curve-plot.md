@@ -32,8 +32,8 @@ zigzags.
 Every finished run stays on the plot as a faded blue line until you press
 `clear runs`. Each one is labelled with the settings that differ from the run
 after it. So `Na 2e+17` means that curve was solved with Na at 2e17 and the
-next one wasn't. The label only compares what the page sent, and
-a faded line is exactly the numbers that run gave. Nothing gets solved again,
+next one wasn't. The label only compares what the page sent, and a faded
+line is exactly the numbers that run gave. Nothing gets solved again,
 so an old curve never shifts when you move a knob. A run you cancelled, or
 one a moving slider replaced, never finished, so it isn't kept.
 
@@ -51,8 +51,8 @@ there's no walk: each point is an independent solve.
 
 A current is positive when conventional current flows from the contact into
 the device, so a forward biased anode and an on NMOS drain both read
-positive. It's read from the continuity residual at the contact nodes, not
-from the edge flux next to them, which is why the terminal currents add up to
+positive. It's read from the continuity residual at the contact nodes instead
+of the edge flux next to them, which is why the terminal currents add up to
 zero. Near zero current that residual is a difference of large flux terms. So
 a current far below the flux sizes, like a MOSFET drain deep in its off
 state, carries a floor of arithmetic noise. decisions.md records one

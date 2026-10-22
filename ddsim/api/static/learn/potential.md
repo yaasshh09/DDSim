@@ -11,7 +11,7 @@ where the silicon is doped with donors, lower where it's doped with acceptors,
 and it steps from one to the other across a junction. That voltage, point by
 point, is psi.
 
-Why care? Electrons drift toward higher psi and holes drift toward lower psi.
+Electrons drift toward higher psi and holes drift toward lower psi.
 So once you know the shape of psi, you know where carriers pile up, where
 they get pushed out, and which way current wants to flow. The blue line on
 the profile plot is psi across the device you just solved.

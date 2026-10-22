@@ -20,10 +20,10 @@ shared between all the junctions, so a stack with lots of them wants more
 nodes.
 
 Some stacks get refused before anything is solved, and the refusal tells you
-why. A region shorter than the mesh can put points inside. A doping outside
-1e14 to 1e19 cm^-3, the range this device's models are meant for. A stack
-where the doping never changes, which has no junction and so nothing to see.
-There's no intrinsic dopant, so draw the i of a pin as a 1e14 region.
+why: a region too short for the mesh to put points inside, a doping outside
+1e14 to 1e19 cm^-3 (the range this device's models are meant for), or a
+stack where the doping never changes, which has no junction and so nothing to
+see. There's no intrinsic dopant, so draw the i of a pin as a 1e14 region.
 
 `save device` writes what's on the form to a file, and `load device` reads
 one back, so you can hand a device to someone else. The file is the device

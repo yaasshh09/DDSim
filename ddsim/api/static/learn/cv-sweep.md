@@ -35,22 +35,23 @@ For this equilibrium device the mass matrix $M$ is empty. The carriers are
 functions of $\psi$ inside Poisson, so there are no $dQ/dt$ terms to put in
 it. What's left is the $\omega \to 0$ limit, which here is exact.
 
-It's still a derivative. Nothing here subtracts two DC solves. Differentiate the
-converged system $F(\psi; V) = 0$ with respect to the gate bias and you get
+It's still a derivative, and nothing here subtracts two DC solves.
+Differentiate the converged system $F(\psi; V) = 0$ with respect to the gate
+bias and you get
 
 $$J\,\frac{d\psi}{dV} = -\frac{\partial F}{\partial V}$$
 
 where $J$ is the Jacobian the DC solve ended on. The right hand side is
 nonzero only on the gate's Dirichlet rows. One sparse linear solve gives
 $d\psi/dV$, and pushing it back through the unpinned rows at the gate gives
-$dQ/dV$. No step size, no truncation error.
+$dQ/dV$, with no step size and no truncation error.
 
 `high_frequency` removes one term from that Jacobian before the derivative
 solve: the minority carrier's contribution to the diagonal. Minority is read
-from the doping instead of the local densities, so at an inverted p type surface
-the electrons still count as the minority carrier. The DC solution isn't
-touched. This is the standard approximation, a model of the high frequency
-limit, and I label it as one.
+from the doping instead of the local densities, so at an inverted p type
+surface the electrons still count as the minority carrier. The DC solution
+isn't touched. This is the standard approximation, a model of the high
+frequency limit, and I label it as one.
 
 Each point also reports the gate charge in C/cm^2, read from the Poisson
 residual at the gate nodes before their rows get pinned.

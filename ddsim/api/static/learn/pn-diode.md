@@ -51,9 +51,10 @@ dominates and 2 when recombination inside the depletion region does. A
 simulated curve departs from a single exponential wherever both mechanisms
 matter at once. With the documented lifetimes the 1e16 diode is diffusion
 limited, with an ideality of 1 above about 50 mV. The crossover shows up on a
-1e18 device, where the measured peak ideality is 1.79 at 0.16 V, short of 2. The
-depletion region narrows under forward bias and some diffusion current is
-still mixed in. A solver reporting exactly 2 would be reporting the formula instead of the device.
+1e18 device, where the measured peak ideality is 1.79 at 0.16 V, short of 2.
+The depletion region narrows under forward bias and some diffusion current is
+still mixed in. A solver reporting exactly 2 would be reporting the formula
+instead of the device.
 
 Under reverse bias the ideal law flattens at $-J_s$. The simulated current
 also carries SRH generation in the depletion region, which grows as the

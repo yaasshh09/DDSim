@@ -54,10 +54,10 @@ drain already at its bias, so the solve that begins the ramp is exactly the
 jump the rule forbids. Measured on the 2835 node 1 um NMOS, cold from the
 equilibrium guess: at 0 V applied, one Newton step with nothing clipped; at
 0.25 V, ten steps with nothing clipped; at 0.5 V, twelve with two clipped;
-at 1 V, twenty two with twelve clipped. Spending half a budget against the
-step limit isn't a solve inside its basin. It's a solve that happens to
-arrive, and rounding decides which side of that line a machine lands on. On
-CI it landed on the wrong side and reported a residual of
+at 1 V, twenty two with twelve clipped. A solve that spends half its budget
+against the step limit is outside its basin and only happens to arrive, so
+rounding decides whether it arrives on a given machine. On CI it didn't, and
+reported a residual of
 $9.889 \times 10^{3}$ for the solve that converges locally. So the transfer
 curve's cold first point gets ramped as well, on a fraction of every applied
 bias at once, from the all zero device to the one asked for: first step 0.25
