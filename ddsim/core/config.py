@@ -62,6 +62,7 @@ class Errors:
     refinement: int = 4
     mark_fraction: float = 0.5
     max_rounds: int = 40
+    voltage_step: float = 0.01
 
 
 @dataclass(frozen=True)

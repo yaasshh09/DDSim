@@ -11,7 +11,8 @@ from ddsim.device.pn_diode import pn_diode
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import solve_bias_newton, solve_bias_ramped
 from ddsim.discretize.boundary import OhmicContact
-from ddsim.extract.error import ErrorEstimate, adapt, current_error, prolonged_state, refined, split_cells
+from ddsim.device.mos_cap import mos_cap
+from ddsim.extract.error import ErrorEstimate, adapt, capacitance_error, current_error, prolonged_state, refined, split_cells
 from ddsim.extract.iv import terminal_currents
 from ddsim.mesh.mesh1d import uniform_mesh_1d
 from tests.regression.devsim_gen import parameters as P
@@ -157,3 +158,23 @@ def test_the_adaptive_loop_says_when_it_runs_out_of_nodes() -> None:
     assert r.device.mesh.n_nodes <= 40
     assert "budget" in r.message
     assert abs(r.estimate.estimate) > 1e-9 * abs(r.estimate.value)
+
+
+MOS = ((4, "mos_cap_5nm"), (5, 'mos_cap_20nm'))
+
+
+@cache
+def capacitor(name: str) -> ErrorEstimate:
+    z = {x.name: x for x in P.MOS_BENCHMARKS}[name]
+    d = mos_cap(substrate_doping=z.substrate_doping, t_ox=z.t_ox, t_si=z.t_si, n_silicon=z.n_silicon, n_oxide=z.n_oxide, h_min=z.h_min, work_function=z.work_function)
+    return capacitance_error(d, "gate")
+
+
+@pytest.mark.parametrize("number,name", MOS, ids=[n for _, n in MOS])
+def test_capacitance_effectivity_against_richardson(number: int, name: str) -> None:
+    a, limit, _ = richardson(name)
+    e = capacitor(name)
+    assert e.value == pytest.approx(a, rel=1e-9, abs=0)
+    k = e.estimate / (limit - a)
+    assert EFFECTIVITY[0] <= k <= EFFECTIVITY[1], f"benchmark {number}: estimated {e.estimate:.4e}, Richardson says {limit - a:.4e}, effectivity {k:.3f}"
+    assert float(np.sum(e.indicator)) == pytest.approx(e.estimate, rel=1e-9, abs=0)

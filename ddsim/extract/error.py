@@ -11,7 +11,10 @@ from ddsim.device.regions import region_map
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import Contact, OhmicContact, apply_dirichlet_nodes
+from ddsim.discretize.boundary import Contact, OhmicContact, apply_contacts, apply_dirichlet_nodes
+from ddsim.discretize.poisson import assemble_poisson
+from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
+from ddsim.extract.cv import _charge_unit, _contact_nodes, small_signal_capacitance
 from ddsim.discretize.coupled import Unknown, apply_contacts_coupled, assemble_coupled_terms, effective_potentials, pack, unknown_index, unpack
 from ddsim.mesh.mesh1d import Mesh1D, _assemble
 from ddsim.mesh.mesh2d import tensor_mesh_2d
@@ -227,41 +230,96 @@ def _to_cells(old: Array, new: Array) -> Array:
     return M
 
 
-def _cells(coarse: Device, at: Device, contribution: Array) -> Array:
+def _cells(coarse: Device, at: Device, contribution: Array, per_node: int) -> Array:
     xo, yo = _axes(coarse)
     xn, yn = _axes(at)
-    g = contribution.reshape(-1, 3).sum(axis=1).reshape(-1, xn.size)
+    g = contribution.reshape(-1, per_node).sum(axis=1).reshape(-1, xn.size)
     out = g @ _to_cells(xo, xn).T
     if yo is not None and yn is not None:
         out = _to_cells(yo, yn) @ out
     return np.asarray(out.ravel())
 
 
-def current_error(device: Device, state: DeviceState, contact: str, models_for: Models = TransportModels.for_device, k: int = CONFIG.errors.refinement) -> ErrorEstimate:
-    x = pack(state.psi.data, state.n.data, state.p.data)
-    A = _raw(device, models_for(device), x)
-    c = _current_weights(device, contact)
-    pins, targets = _pins(device, x)
+Raw = Callable[[Device, Array], SparseAssembly]
+
+Pins = Callable[[Device, Array], tuple[npt.NDArray[np.int64], Array]]
+
+
+def _estimate(coarse: Device, fine: Device, x: Array, y: Array, raw: Raw, pins: Pins, weights: Callable[[Device], Array], per_node: int, k: int) -> ErrorEstimate:
+    A = raw(coarse, x)
+    c = weights(coarse)
+    p, t = pins(coarse, x)
     value = float(c @ A.residual)
     g = np.zeros(x.size)
     np.add.at(g, A.cols, A.values * c[A.rows])
-    g[pins] = 0.0
-    S = apply_dirichlet_nodes(A, x, pins.tolist(), targets.tolist())
+    g[p] = 0.0
+    S = apply_dirichlet_nodes(A, x, p.tolist(), t.tolist())
     lu = SparseLU()
     lu.factorize(S.rows, S.cols, S.values, S.shape)
     w = lu.solve(-g, trans="T")
-    w[pins] = c[pins]
-    fine = refined(device, k)
-    s = prolonged_state(device, fine, state)
-    y = pack(s.psi.data, s.n.data, s.p.data)
-    F = _raw(fine, models_for(fine), y).residual
-    a, b, e = unpack(w)
-    z = pack(_prolong(device, fine, a), _prolong(device, fine, b), _prolong(device, fine, e))
-    i, _ = _pins(fine, y)
-    z[i] = _current_weights(fine, contact)[i]
+    w[p] = c[p]
+    F = raw(fine, y).residual
+    z = np.column_stack([_prolong(coarse, fine, w[j::per_node]) for j in range(per_node)]).ravel()
+    i, _ = pins(fine, y)
+    z[i] = weights(fine)[i]
     there = z * F
     here = c * A.residual
-    return ErrorEstimate(value=value, estimate=float(np.sum(there)) - value, indicator=_cells(device, fine, there) - _cells(device, device, here), refinement=k)
+    return ErrorEstimate(value=value, estimate=float(np.sum(there)) - value, indicator=_cells(coarse, fine, there, per_node) - _cells(coarse, coarse, here, per_node), refinement=k)
+
+
+def current_error(device: Device, state: DeviceState, contact: str, models_for: Models = TransportModels.for_device, k: int = CONFIG.errors.refinement) -> ErrorEstimate:
+    fine = refined(device, k)
+    s = prolonged_state(device, fine, state)
+
+    def raw(d: Device, v: Array) -> SparseAssembly:
+        return _raw(d, models_for(d), v)
+
+    return _estimate(device, fine, pack(state.psi.data, state.n.data, state.p.data), pack(s.psi.data, s.n.data, s.p.data), raw, _pins, lambda d: _current_weights(d, contact), 3, k)
+
+
+def _poisson_raw(device: Device, v: Array) -> SparseAssembly:
+    phi_n, phi_p = frozen_quasi_fermi(device)
+    return assemble_poisson(device.scaled_mesh, Field(v, "V", ScalingState.SCALED, Location.NODE, name="psi"), device.poisson_doping_scaled, phi_n, phi_p, charge_volume=device.charge_volume_scaled, degeneracy=device.degeneracy, ionization=device.ionization)
+
+
+def _poisson_pins(device: Device, v: Array) -> tuple[npt.NDArray[np.int64], Array]:
+    N = v.size
+    e = SparseAssembly(residual=np.zeros(N), rows=np.zeros(0, dtype=np.int64), cols=np.zeros(0, dtype=np.int64), values=np.zeros(0), shape=(N, N))
+    a = apply_contacts(e, v, device.contact_doping_scaled.data, device.contacts, device.scale, device.material.T, device.degeneracy)
+    return a.rows, v[a.rows] - a.residual[a.rows]
+
+
+def _charge_weights(device: Device, contact: str) -> Array:
+    c = np.zeros(device.mesh.n_nodes)
+    c[list(_contact_nodes(device, contact))] = _charge_unit(device, None)
+    return c
+
+
+def charge_error(device: Device, state: DeviceState, contact: str, k: int = CONFIG.errors.refinement) -> ErrorEstimate:
+    fine = refined(device, k)
+    y = _prolong(device, fine, state.psi.data)
+    i, t = _poisson_pins(fine, y)
+    y[i] = t
+    return _estimate(device, fine, state.psi.data, y, _poisson_raw, _poisson_pins, lambda d: _charge_weights(d, contact), 1, k)
+
+
+def capacitance_error(device: Device, contact: str, delta: float = CONFIG.errors.voltage_step, k: int = CONFIG.errors.refinement) -> ErrorEstimate:
+    v = next(c.voltage for c in device.contacts if c.name == _contact_name(device, contact))
+
+    def at(u: float) -> tuple[Device, DeviceState]:
+        d = device.with_bias(**{contact: u})
+        return d, solve_equilibrium(d, quasi_fermi=frozen_quasi_fermi(d))
+
+    d, s = at(v)
+    value = small_signal_capacitance(d, s, contact, quasi_fermi=frozen_quasi_fermi(d))
+    a = charge_error(*at(v - delta), contact, k)
+    b = charge_error(*at(v + delta), contact, k)
+    return ErrorEstimate(value=value, estimate=(b.estimate - a.estimate) / (2.0 * delta), indicator=(b.indicator - a.indicator) / (2.0 * delta), refinement=k)
+
+
+def _contact_name(device: Device, contact: str) -> str:
+    _contact_nodes(device, contact)
+    return contact
 
 
 def _marked(score: Array, fraction: float) -> list[int]:
