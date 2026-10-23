@@ -735,6 +735,55 @@ AC_BENCHMARKS: tuple[AcBenchmark, ...] = (
 )
 AC_BY_NAME: dict[str, AcBenchmark] = {b.name: b for b in AC_BENCHMARKS}
 
+
+@dataclass(frozen=True)
+class TransientBenchmark:
+    name: str
+    number: int
+    forward: float
+    reverse: float
+    ratio: float
+    steps: int
+    span: float
+    tolerance: float
+    tau: float = AC_DIODE_TAU
+    devsim_runs: tuple[tuple[int, bool], ...] = ((1, False), (4, False))
+    notes: str = ""
+
+    @property
+    def kingston(self) -> float:
+        lo, hi = 0.0, 6.0
+        for _ in range(200):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (mid, hi) if math.erf(mid) < 1.0 / (1.0 + self.ratio) else (lo, mid)
+        return self.tau * lo * lo
+
+    @property
+    def times(self) -> tuple[float, ...]:
+        return tuple(k * self.span * self.kingston / self.steps for k in range(1, self.steps + 1))
+
+
+TRANSIENT_BENCHMARKS: tuple[TransientBenchmark, ...] = (
+    TransientBenchmark(
+        name="diode_recovery",
+        number=14,
+        forward=0.776,
+        reverse=-100.0,
+        ratio=1.0,
+        steps=200,
+        span=2.0,
+        tolerance=0.05,
+        notes=(
+            "Benchmark 12's long p+n diode, tau 1e-3 s, held at its DC state at 0.776 V and "
+            "switched at t = 0 to -100 V through a series resistor sized so the first "
+            "reverse current equals the forward one. Fixed steps, BDF1 for the first and "
+            "BDF2 after, out to twice Kingston's storage time. Junction capacitance puts "
+            "the storage time near 1.19 times Kingston on this device, see the 2026-10-18 rows."
+        ),
+    ),
+)
+TRANSIENT_BY_NAME: dict[str, TransientBenchmark] = {b.name: b for b in TRANSIENT_BENCHMARKS}
+
 AC_MODEL_SUMMARY: tuple[str, ...] = (
     "statistics:      Boltzmann",
     "transport:       Scharfetter-Gummel, Einstein relation D = V_t * mu",

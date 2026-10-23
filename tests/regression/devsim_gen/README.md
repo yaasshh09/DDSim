@@ -58,6 +58,12 @@ skip the second solve, `--out` to write somewhere other than `data/golden`.
 
 Each benchmark lists its runs in `devsim_runs` as (threads, extended precision) pairs. The golden stores the first and a `spread` column with the worst relative change over the rest. On the diode and the bar the spread is 5e-5 and 0. On the capacitor in inversion it reaches 14.8 percent, because the inversion layer is tied to the body only through generation and devsim's unscaled matrix loses that link to roundoff. The test widens its tolerance to three times the spread where that's bigger, and the mesh convergence figure in the header skips points whose spread is above 1e-3, since there the mesh is not what moves the answer.
 
+## The transient generator calls BDF2 as TR-BDF2's second stage
+
+`generate_transient.py` writes benchmark 14, reverse recovery on benchmark 12's diode. A voltage source drives the anode through a series resistor, and the run takes fixed steps from the DC state at the forward bias. devsim's `transient_bdf2` is the second stage of TR-BDF2, so it takes a `gamma` that defaults to 1, and at 1 the step's dt coefficient is zero and the first solve comes back nan. Uniform BDF2 with step h is that second stage at `gamma=0.5` over `tdelta=2h`. I checked this on a bare RC circuit, where it matches BDF2 worked by hand to ten digits. The first step is `transient_bdf1`, the same as ddsim's.
+
+Two more things. The steps use relative error 1e-8, because at 1e-10 devsim's update cycles around 5e-9 in its own roundoff once the junction starts to discharge, and the solve gives up at step 108. And the DC state is reached with a 1e-6 ohm cm^2 resistor in place, then the resistor is raised to its real value and the source corrected until the anode sits at the forward bias again. The golden header records that resistance, and ddsim reads it from there, so both tools drive the same circuit.
+
 ## The MOSFET generator decides convergence itself
 
 `generate_mosfet.py` does not trust what a devsim `solve` reports, and neither
