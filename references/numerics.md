@@ -436,7 +436,7 @@ matrices, so the same linear solver wrapper carries over.
 
 ## Time integration (Phase 11)
 
-Planned. Backward Euler first, then variable step BDF2.
+Backward Euler first, then variable step BDF2, both in `extract/transient.py`.
 
 Backward Euler solves, per step,
 
