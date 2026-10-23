@@ -58,6 +58,13 @@ class Mesh:
 
 
 @dataclass(frozen=True)
+class Errors:
+    refinement: int = 4
+    mark_fraction: float = 0.5
+    max_rounds: int = 40
+
+
+@dataclass(frozen=True)
 class PnDiode:
     Na: float = 1e+16
     Nd: float = 1e+16
@@ -148,6 +155,7 @@ class Config:
     continuation: Continuation = field(default_factory=Continuation)
     sweeps: Sweeps = field(default_factory=Sweeps)
     mesh: Mesh = field(default_factory=Mesh)
+    errors: Errors = field(default_factory=Errors)
     pn_diode: PnDiode = field(default_factory=PnDiode)
     stack: Stack = field(default_factory=Stack)
     mos_cap: MosCap = field(default_factory=MosCap)
