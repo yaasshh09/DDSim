@@ -340,6 +340,10 @@ BEST_CAPABILITIES = frozenset(
         "SRH recombination",
         'Velocity saturation',
         "Temperature as a device input",
+        "Small-signal AC at any frequency",
+        "Noise",
+        "Transient",
+        "Circuit elements on contacts",
     }
 )
 

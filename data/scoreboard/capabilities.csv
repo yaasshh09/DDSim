@@ -5,10 +5,10 @@ Bias ramp that ships with the tool,yes,tests/convergence/test_newton_convergence
 Gummel iteration,yes,tests/analytic/test_shockley_diode.py::test_gummel_converges_at_half_a_volt,no,,
 Quasi-static C-V,yes,tests/analytic/test_mos_cv.py::test_the_low_frequency_curve_comes_back_up_in_inversion,yes,solve:ac + get_contact_charge,
 High frequency C-V,yes,tests/analytic/test_mos_cv.py::test_the_high_frequency_curve_stays_down_in_inversion,yes,solve:ac,ddsim freezes the minority carriers by hand. DEVSIM solves at a frequency. Phase 10 closes this
-Small-signal AC at any frequency,no,,yes,solve:ac,Phase 10
-Noise,no,,yes,solve:noise,Phase 10
-Transient,no,,yes,solve:transient_bdf1 + solve:transient_bdf2 + solve:transient_tr,Phase 11
-Circuit elements on contacts,no,,yes,circuit_element,Phase 11 adds a series resistor and a source
+Small-signal AC at any frequency,yes,tests/analytic/test_ac_diode.py::test_long_diode_admittance_is_g0_root_one_plus_i_omega_tau + tests/regression/test_devsim_ac.py::test_ddsim_matches_devsim,yes,solve:ac,Benchmarks 11 and 12 agree with DEVSIM within 3 percent
+Noise,yes,tests/analytic/test_noise.py::test_a_bar_at_equilibrium_has_nyquist_voltage_noise + tests/analytic/test_noise.py::test_a_forward_diode_has_van_der_ziel_shot_noise + tests/regression/test_devsim_ac.py::test_ddsim_matches_devsim,yes,solve:noise,Benchmark 13 agrees within 5 percent. DEVSIM's own recipe reads short by h/L there
+Transient,yes,tests/analytic/test_transient.py::test_storage_time_is_kingstons_where_the_junction_capacitance_is_negligible + tests/regression/test_devsim_transient.py::test_storage_time_matches_devsim,yes,solve:transient_bdf1 + solve:transient_bdf2 + solve:transient_tr,Backward Euler and adaptive BDF2. Benchmark 14 agrees with DEVSIM to 3e-4 on storage time
+Circuit elements on contacts,yes,tests/analytic/test_transient.py::test_a_source_through_a_resistor_settles_where_the_load_line_meets_the_diode + tests/analytic/test_transient.py::test_a_current_source_settles_on_the_diode_voltage_that_carries_it,yes,circuit_element,"A series resistor and a voltage or current source on one contact, not a netlist. Nodal analysis belongs to SPICE"
 Fermi-Dirac statistics,yes,tests/unit/test_statistics.py::test_joyce_dixon_inverts_the_integral_to_under_one_percent,scripted,tests/regression/devsim_gen/generate_mosfet.py::joyce_dixon,DEVSIM's fermi_physics.py is comments only
 SRH recombination,yes,tests/unit/test_recombination.py::test_srh_model_matches_the_free_function,yes,python_packages.simple_physics.CreateSRH,
 Auger recombination,yes,tests/unit/test_coupled_transport.py::test_auger_raises_the_recombination_rate,scripted,node_model + equation,
