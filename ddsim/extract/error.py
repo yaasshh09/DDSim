@@ -245,11 +245,9 @@ Raw = Callable[[Device, Array], SparseAssembly]
 Pins = Callable[[Device, Array], tuple[npt.NDArray[np.int64], Array]]
 
 
-def _estimate(coarse: Device, fine: Device, x: Array, y: Array, raw: Raw, pins: Pins, weights: Callable[[Device], Array], per_node: int, k: int) -> ErrorEstimate:
-    A = raw(coarse, x)
-    c = weights(coarse)
-    p, t = pins(coarse, x)
-    value = float(c @ A.residual)
+def _adjoint(device: Device, x: Array, raw: Raw, pins: Pins, c: Array) -> tuple[SparseAssembly, Array]:
+    A = raw(device, x)
+    p, t = pins(device, x)
     g = np.zeros(x.size)
     np.add.at(g, A.cols, A.values * c[A.rows])
     g[p] = 0.0
@@ -258,13 +256,17 @@ def _estimate(coarse: Device, fine: Device, x: Array, y: Array, raw: Raw, pins: 
     lu.factorize(S.rows, S.cols, S.values, S.shape)
     w = lu.solve(-g, trans="T")
     w[p] = c[p]
-    F = raw(fine, y).residual
-    z = np.column_stack([_prolong(coarse, fine, w[j::per_node]) for j in range(per_node)]).ravel()
-    i, _ = pins(fine, y)
-    z[i] = weights(fine)[i]
-    there = z * F
-    here = c * A.residual
-    return ErrorEstimate(value=value, estimate=float(np.sum(there)) - value, indicator=_cells(coarse, fine, there, per_node) - _cells(coarse, coarse, here, per_node), refinement=k)
+    return A, w
+
+
+def _estimate(coarse: Device, fine: Device, x: Array, y: Array, raw: Raw, pins: Pins, weights: Callable[[Device], Array], per_node: int, k: int) -> ErrorEstimate:
+    c = weights(coarse)
+    here = c * raw(coarse, x).residual
+    value = float(np.sum(here))
+    F, z = _adjoint(fine, y, raw, pins, weights(fine))
+    there = z * F.residual
+    f = 1.0 / (1.0 - float(k) ** -CONFIG.errors.assumed_order)
+    return ErrorEstimate(value=value, estimate=f * (float(np.sum(there)) - value), indicator=f * (_cells(coarse, fine, there, per_node) - _cells(coarse, coarse, here, per_node)), refinement=k)
 
 
 def current_error(device: Device, state: DeviceState, contact: str, models_for: Models = TransportModels.for_device, k: int = CONFIG.errors.refinement) -> ErrorEstimate:

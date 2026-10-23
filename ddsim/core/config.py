@@ -59,7 +59,8 @@ class Mesh:
 
 @dataclass(frozen=True)
 class Errors:
-    refinement: int = 4
+    refinement: int = 2
+    assumed_order: float = 1.0
     mark_fraction: float = 0.5
     max_rounds: int = 40
     voltage_step: float = 0.01
