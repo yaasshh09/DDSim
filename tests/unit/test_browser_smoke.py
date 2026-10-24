@@ -1014,3 +1014,23 @@ def test_a_diode_step_is_drawn_against_time_and_its_profile_plays_through_the_sa
             assert errors == []
         finally:
             b.close()
+
+
+def test_a_diode_solve_draws_its_error_bars_and_says_how_big(server) -> None:
+    with sync_playwright() as r:
+        cc = r.chromium.launch()
+        try:
+            p = cc.new_page()
+            m: list[str] = []
+            p.on('pageerror', lambda error: m.append(str(error)))
+            p.goto(server)
+            wait_until(p, "el('state').textContent === 'ready'", m)
+            p.fill("#voltages", '0.2, 0.4, 0.6')
+            p.click("#solve")
+            wait_until(p, "el('state').textContent.startsWith('done') && state.fields !== null", m)
+            assert p.evaluate("state.points.every((q) => q.error !== null && isFinite(q.error))")
+            assert "mesh error" in p.inner_text("#curve-note")
+            assert p.evaluate("el('curve')._series.some((s) => s.errors && s.errors.some((e) => e !== null))")
+            assert m == []
+        finally:
+            cc.close()
