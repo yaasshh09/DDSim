@@ -159,7 +159,11 @@ function drawCurve() {
   };
   state.runs.forEach((run, k) =>
     draw(run.points, runColour(k), { name: run.label, dots: 2, width: 1.3 }));
-  draw(state.points, INK, { name: "this run", dots: 3, width: 2 });
+  const errors = state.points.map((p) => (p.error === undefined ? null : p.error));
+  draw(state.points, INK, { name: "this run", dots: 3, width: 2, errors: errors });
+  if (errors.some((e) => e !== null)) {
+    whiskers(box.pen, frame, state.points.map((p) => p.voltage), state.points.map((p) => shown(p.value)), errors, INK);
+  }
   for (const point of state.points) {
     if (point.rough && point.value !== null) ring(box.pen, frame, point.voltage, shown(point.value), RED);
   }
@@ -841,6 +845,15 @@ function frame(body) {
     el("curve-note").textContent =
       state.points.length + " points, last at " + format(voltage) + " V";
     drawCurve();
+  } else if (body.type === "error_point") {
+    const point = state.points[body.index];
+    if (point) {
+      point.error = body.estimate;
+      point.linear = body.linear;
+    }
+    el("curve-note").textContent = "estimating the mesh error, point " + (body.index + 1) +
+      " of " + state.points.length;
+    drawCurve();
   } else if (body.type === "ac_point") {
     const sweep = state.request.sweep;
     const many = sweep.voltages.length > 1;
@@ -890,7 +903,11 @@ async function finish(body) {
     state.points = state.curve.points.map((point) => ({
       voltage: transient ? decades(point.time) : point.voltage,
       value: point[state.valueName],
+      error: point.error === undefined ? null : point.error,
+      linear: point.error_linear,
     }));
+    const note = errorNote(state.points);
+    if (note) el("curve-note").textContent = note;
     if (transient) {
       el("curve-note").textContent = state.curve.points.length + " snapshots from " +
         state.curve.steps + " time steps, " + state.curve.rejected + " redone for accuracy";
@@ -908,6 +925,16 @@ async function finish(body) {
     el("point").value = String(solved - 1);
     await profile(solved - 1);
   }
+}
+
+function errorNote(points) {
+  const sizes = points
+    .filter((p) => p.error !== null && p.error !== undefined && p.value)
+    .map((p) => Math.abs(p.error / p.value));
+  if (!sizes.length) return "";
+  const rough = points.filter((p) => p.linear === false).length;
+  return "The bars are my estimate of the mesh error, at most " + format(100 * Math.max(...sizes)) + "%." +
+    (rough ? " " + rough + " of them are rough, because the mesh misses a junction there." : "");
 }
 
 function acChoices() {

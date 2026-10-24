@@ -248,8 +248,35 @@ function line(pen, frame, xs, ys, colour, options) {
   pen.restore();
   pen.canvas._series.push({
     frame: frame, xs: xs, ys: ys, raw: options.raw || ys,
-    colour: colour, name: options.name || "",
+    colour: colour, name: options.name || "", errors: options.errors || null,
   });
+}
+
+function whiskers(pen, frame, xs, ys, errors, colour) {
+  const inner = frame.inner;
+  pen.save();
+  pen.beginPath();
+  pen.rect(inner.x, inner.y, inner.width, inner.height);
+  pen.clip();
+  pen.strokeStyle = colour;
+  pen.lineWidth = 1.2;
+  for (let i = 0; i < xs.length; i++) {
+    const e = errors[i], y = ys[i];
+    if (e === null || e === undefined || !isFinite(e) || y === null || !isFinite(y)) continue;
+    const top = y + Math.abs(e), low = y - Math.abs(e);
+    if (frame.logY && !(top > 0)) continue;
+    const px = frame.xOf(xs[i]), a = frame.yOf(top);
+    const b = frame.yOf(frame.logY && !(low > 0) ? y : low);
+    pen.beginPath();
+    pen.moveTo(px, a);
+    pen.lineTo(px, b);
+    pen.moveTo(px - 3, a);
+    pen.lineTo(px + 3, a);
+    pen.moveTo(px - 3, b);
+    pen.lineTo(px + 3, b);
+    pen.stroke();
+  }
+  pen.restore();
 }
 
 function ring(pen, frame, x, y, colour) {
@@ -410,6 +437,8 @@ function hover(canvas, event) {
     rows.push({
       colour: series.colour,
       text: shorten(series.name) + ": " + precise(series.raw[k]) +
+        (series.errors && series.errors[k] !== null && series.errors[k] !== undefined
+          ? " ± " + precise(Math.abs(series.errors[k])) : "") +
         (series.xs[k] !== snap.x ? " at " + precise(series.xs[k]) : ""),
     });
   }
