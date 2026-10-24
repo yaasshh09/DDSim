@@ -1,15 +1,17 @@
 from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+import math
 import numpy as np
 import numpy.typing as npt
+from scipy.optimize import brentq
 from ddsim.core.config import CONFIG
 from ddsim.device.bjt import BASE, COLLECTOR, EMITTER
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState
-from ddsim.device.transport import TransportModels
+from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
 from ddsim.extract.ac import admittance
-from ddsim.extract.iv import gate_sweep, terminal_currents
+from ddsim.extract.iv import IVFrame, gate_sweep, terminal_currents
 from ddsim.extract.params import saturation_current
 
 Array = npt.NDArray[np.float64]
@@ -95,3 +97,84 @@ def early_voltage(device: Device, v_be: float, v_ce: Sequence[float], models: Tr
         raise RuntimeError(f"the output curve stopped early: {c.message}")
     slope, cut = np.polyfit(c.voltage, c.current, 1)
     return float(cut / slope)
+
+
+@dataclass(frozen=True)
+class OutputPoint:
+    v_ce: float
+
+    v_be: float
+
+    collector: float
+
+    base: float
+
+    state: DeviceState
+
+
+@dataclass(frozen=True)
+class OutputCurve:
+    i_b: float
+
+    points: tuple[OutputPoint, ...]
+
+    complete: bool
+
+    message: str = ""
+
+    @property
+    def v_ce(self) -> Array:
+        return np.array([p.v_ce for p in self.points])
+
+    @property
+    def v_be(self) -> Array:
+        return np.array([p.v_be for p in self.points])
+
+    @property
+    def collector(self) -> Array:
+        return np.array([p.collector for p in self.points])
+
+    @property
+    def base(self) -> Array:
+        return np.array([p.base for p in self.points])
+
+
+V_BE_BRACKET = (0.1, 1.3)
+
+
+def output_curve(device: Device, i_b: float, v_ce: Sequence[float], models: TransportModels | None = None, rtol: float = 1e-9, on_frame: Callable[[object], None] | None = None) -> OutputCurve:
+    if not i_b > 0.0:
+        raise ValueError(f"the base current has to be above zero, got {i_b:g} A/cm^2")
+    if models is None:
+        models = TransportModels.for_device(device)
+    m = models
+    known: list[tuple[float, float, DeviceState]] = []
+
+    def at(v: float, u: float) -> tuple[DeviceState, dict[str, float]]:
+        d = device.with_bias(**{BASE: v, COLLECTOR: u})
+        s = None
+        if known:
+            g = min(known, key=lambda k: abs(k[0] - u) + abs(k[1] - v))[2]
+            s = solve_bias_newton(d, m, guess=g)
+        if s is None or s.newton is None or not s.newton.converged:
+            s = solve_bias_ramped(d, m)
+        if s.newton is None or not s.newton.converged:
+            raise RuntimeError(f"no solve at V_BE {v:g} V and V_CE {u:g} V")
+        known.append((u, v, s))
+        return s, terminal_currents(d, s, m)
+
+    out: list[OutputPoint] = []
+    for u in v_ce:
+        try:
+            def miss(x: float, u: float = u) -> float:
+                j = at(x, u)[1][BASE]
+                return math.log(j / i_b) if j > 0.0 else -50.0
+
+            v = brentq(miss, *V_BE_BRACKET, xtol=1e-12, rtol=rtol)
+            s, i = at(v, u)
+        except (RuntimeError, ValueError) as e:
+            return OutputCurve(i_b=i_b, points=tuple(out), complete=False, message=f"stopped at V_CE {u:g} V: {e}")
+        out.append(OutputPoint(v_ce=u, v_be=v, collector=i[COLLECTOR], base=i[BASE], state=s))
+        if on_frame is not None:
+            on_frame(IVFrame(index=len(out) - 1, voltage=u, current=i[COLLECTOR]))
+    return OutputCurve(i_b=i_b, points=tuple(out), complete=True)

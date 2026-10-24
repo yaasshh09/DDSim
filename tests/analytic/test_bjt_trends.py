@@ -52,3 +52,31 @@ def test_the_early_voltage_is_positive_and_finite() -> None:
     d = npn_1d()
     v = early_voltage(d, 0.6, [1.0, 1.5, 2.0])
     assert 1.0 < v < 1e3
+
+
+@cache
+def output() -> tuple[list[float], object]:
+    from ddsim.extract.bjt import output_curve
+    d = npn_1d()
+    v = [0.05, 0.1, 0.2, 0.4, 0.8, 1.5, 2.5]
+    return v, output_curve(d, 1e-3, v, models=TransportModels.for_device(d, field_dependent=True))
+
+
+def test_an_output_curve_holds_the_base_current_it_was_given() -> None:
+    _, c = output()
+    assert c.complete, c.message
+    assert np.allclose(c.base, 1e-3, rtol=1e-6, atol=0)
+
+
+def test_in_the_active_region_the_collector_current_is_beta_times_the_base() -> None:
+    _, c = output()
+    g = plot()
+    k = int(np.argmin(abs(c.v_ce - 1.5)))
+    want = float(np.interp(np.log(c.collector[k]), np.log(g.collector), g.beta))
+    assert c.collector[k] / c.base[k] == pytest.approx(want, rel=0.05)
+
+
+def test_the_collector_current_collapses_in_saturation() -> None:
+    _, c = output()
+    assert c.collector[0] < 0.5 * c.collector[-1]
+    assert np.all(np.diff(c.collector) > 0.0)
