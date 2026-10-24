@@ -826,3 +826,63 @@ def read_ac_golden(path: str) -> AcGoldenCurve:
                 continue
             x.rows.append(dict(zip(names, map(float, line.split(",")), strict=True)))
     return x
+
+
+NPN_2D: dict[str, float] = {
+    "width": 3e-4,
+    "depth": 2e-4,
+    "emitter_window": 1e-4,
+    "emitter_contact": 8e-5,
+    "base_contact": 2e-4,
+    "epi_doping": 1e16,
+    "buried_peak": 5e18,
+    "buried_sigma": 3e-5,
+    "base_peak": 1e17,
+    "base_sigma": 2.33e-5,
+    "emitter_peak": 1e20,
+    "emitter_sigma": 3.97e-6,
+    "lateral_length": 5e-6,
+}
+
+
+@dataclass(frozen=True)
+class BjtBenchmark:
+    name: str
+
+    number: int
+
+    v_be: tuple[float, ...]
+
+    i_b: float
+
+    v_ce: tuple[float, ...]
+
+    tolerance: float
+
+    devsim_h: float = 2e-6
+
+    devsim_h_junction: float = 5e-7
+
+    notes: str = ""
+
+
+BJT_BENCHMARKS: tuple[BjtBenchmark, ...] = (
+    BjtBenchmark(
+        name="npn_2d",
+        number=15,
+        v_be=tuple(round(0.4 + 0.05 * k, 2) for k in range(9)),
+        i_b=1e-5,
+        v_ce=(0.1, 0.2, 0.5, 1.0, 2.0, 3.0),
+        tolerance=0.05,
+        notes=(
+            "A 2D npn with an n+ emitter windowed on the left of the top surface, a p "
+            "base implanted across the whole top, and n epi over a buried n+ layer. "
+            "The emitter and base plates sit on top and the collector on the bottom. "
+            "The Gummel plot drives the emitter down with base and collector at "
+            "zero, and the output curve holds the base current while the "
+            "collector walks up."
+        ),
+    ),
+)
+
+BJT_BY_NAME: dict[str, BjtBenchmark] = {b.name: b for b in BJT_BENCHMARKS}
