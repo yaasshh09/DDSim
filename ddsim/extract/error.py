@@ -11,7 +11,7 @@ from ddsim.device.regions import region_map
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import Contact, OhmicContact, apply_contacts, apply_dirichlet_nodes
+from ddsim.discretize.boundary import Carrier, Contact, OhmicContact, apply_contacts, apply_dirichlet_nodes, pins_carrier
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
 from ddsim.extract.cv import CVCurve, Response, _charge_unit, _contact_nodes, small_signal_capacitance
@@ -216,8 +216,11 @@ def _current_weights(device: Device, contact: str) -> Array:
     if not k:
         raise KeyError(f"no contact named {contact!r} that carries current, the device has {sorted(z.name for z in device.semiconductor_contacts)}")
     for i in k[0].nodes:
-        c[unknown_index(i, Unknown.N)] = -f
-        c[unknown_index(i, Unknown.P)] = f
+        z = float(device.contact_doping_scaled.data[i])
+        if pins_carrier(k[0], z, Carrier.ELECTRON):
+            c[unknown_index(i, Unknown.N)] = -f
+        if pins_carrier(k[0], z, Carrier.HOLE):
+            c[unknown_index(i, Unknown.P)] = f
     return c
 
 

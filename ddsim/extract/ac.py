@@ -12,7 +12,7 @@ from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import GateContact, apply_dirichlet_nodes
+from ddsim.discretize.boundary import Carrier, GateContact, apply_dirichlet_nodes, pins_carrier
 from ddsim.discretize.coupled import (
     Unknown,
     assemble_coupled_terms,
@@ -86,7 +86,8 @@ def _pinned(device: Device) -> list[int]:
         for i in c.nodes:
             k.append(unknown_index(i, Unknown.PSI))
             if not isinstance(c, GateContact):
-                k += [unknown_index(i, Unknown.N), unknown_index(i, Unknown.P)]
+                z = float(device.contact_doping_scaled.data[i])
+                k += [unknown_index(i, u) for u, w in ((Unknown.N, Carrier.ELECTRON), (Unknown.P, Carrier.HOLE)) if pins_carrier(c, z, w)]
     for i in device.carrier_free_nodes:
         k += [unknown_index(i, Unknown.N), unknown_index(i, Unknown.P)]
     return k
@@ -143,8 +144,11 @@ def _linearized(device: Device, state: DeviceState, frequency: float, models: Tr
         for i in k.nodes:
             e[j, unknown_index(i, Unknown.PSI)] = 1j * omega
             if not isinstance(k, GateContact):
-                e[j, unknown_index(i, Unknown.N)] = -1.0
-                e[j, unknown_index(i, Unknown.P)] = 1.0
+                z = float(device.contact_doping_scaled.data[i])
+                if pins_carrier(k, z, Carrier.ELECTRON):
+                    e[j, unknown_index(i, Unknown.N)] = -1.0
+                if pins_carrier(k, z, Carrier.HOLE):
+                    e[j, unknown_index(i, Unknown.P)] = 1.0
     J = coo_matrix((bare.values, (bare.rows, bare.cols)), shape=bare.shape).tocsr()
     return _Linear(x=x, w=w, pins=pins, lu=lu, J=J, e=e, stamped=stamped)
 

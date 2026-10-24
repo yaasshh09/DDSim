@@ -78,6 +78,18 @@ class PnDiode:
 
 
 @dataclass(frozen=True)
+class Npn:
+    emitter_doping: float = 1e+18
+    base_doping: float = 1e+17
+    collector_doping: float = 1e+16
+    emitter_length: float = 5e-05
+    base_width: float = 5e-05
+    collector_length: float = 0.0002
+    n_nodes: int = 301
+    h_min: float = 1e-07
+
+
+@dataclass(frozen=True)
 class Stack:
     n_nodes: int = 201
     h_min: float = 1e-07
@@ -160,6 +172,7 @@ class Config:
     mesh: Mesh = field(default_factory=Mesh)
     errors: Errors = field(default_factory=Errors)
     pn_diode: PnDiode = field(default_factory=PnDiode)
+    npn: Npn = field(default_factory=Npn)
     stack: Stack = field(default_factory=Stack)
     mos_cap: MosCap = field(default_factory=MosCap)
     nmos: Nmos = field(default_factory=Nmos)

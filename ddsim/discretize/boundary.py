@@ -18,6 +18,8 @@ class OhmicContact:
     node:int
 
     voltage: float
+
+    majority_only: bool = False
     @property
     def nodes(self) -> tuple[int, ...]:
         return (self.node,)
@@ -30,6 +32,8 @@ class OhmicPlate:
     nodes: tuple[int, ...]
 
     voltage:float
+
+    majority_only: bool = False
 
     def __post_init__(self) -> None:
         if not self.nodes:
@@ -167,10 +171,18 @@ def ohmic_density_scaled(net_doping:float, carrier:Carrier, degeneracy:Degenerac
     else:
         y, k = degeneracy.equilibrium_densities(net_doping)
     return float(y if carrier is Carrier.ELECTRON else k)
+def pins_carrier(contact: SemiconductorContact, net_doping: float, carrier: Carrier) -> bool:
+    if not contact.majority_only:
+        return True
+    return (carrier is Carrier.HOLE) == (net_doping < 0.0)
+
+
 def impose_ohmic_densities(density:npt.NDArray[np.float64], net_doping:npt.NDArray[np.float64], contacts:Sequence[SemiconductorContact], carrier:Carrier, degeneracy:Degeneracy | None = None,) -> npt.NDArray[np.float64]:
     e = density.copy()
     for m in contacts:
         for w in m.nodes:
+            if not pins_carrier(m, float(net_doping[w]), carrier):
+                continue
             e[w] = ohmic_density_scaled(
                 float(net_doping[w]), carrier, degeneracy
             )
@@ -178,7 +190,7 @@ def impose_ohmic_densities(density:npt.NDArray[np.float64], net_doping:npt.NDArr
 
 
 def apply_ohmic_densities(assembly: SparseAssembly, density: npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[SemiconductorContact], carrier: Carrier, degeneracy: Degeneracy | None = None,) -> SparseAssembly:
-    cur = [t for m2 in contacts for t in m2.nodes]
+    cur = [t for m2 in contacts for t in m2.nodes if pins_carrier(m2, float(net_doping[t]), carrier)]
     return apply_dirichlet_nodes(assembly, density, cur, [ohmic_density_scaled(float(net_doping[t]), carrier, degeneracy) for t in cur],)
 def apply_ohmic_contacts(assembly: SparseAssembly, psi: npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[SemiconductorContact], scale: ScaleFactors, degeneracy: Degeneracy | None = None,) -> SparseAssembly:
     k = [t2.name for t2 in contacts]

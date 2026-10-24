@@ -15,6 +15,7 @@ from ddsim.discretize.boundary import (
     gate_psi_scaled,
     ohmic_density_scaled,
     ohmic_psi_scaled,
+    pins_carrier,
 )
 from ddsim.discretize.continuity import Diffusivity
 from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
@@ -482,12 +483,12 @@ def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], 
 
             h.append(unknown_index(w,
                        Unknown.PSI)); u.append(ohmic_psi_scaled(xs, y, degeneracy))
-            h.append(unknown_index(w,
-                          Unknown.N))
-            u.append(ohmic_density_scaled(xs, Carrier.ELECTRON, degeneracy))
-
-            h.append(unknown_index(w, Unknown.P))
-            u.append(ohmic_density_scaled(xs, Carrier.HOLE, degeneracy))
+            if pins_carrier(e, xs, Carrier.ELECTRON):
+                h.append(unknown_index(w, Unknown.N))
+                u.append(ohmic_density_scaled(xs, Carrier.ELECTRON, degeneracy))
+            if pins_carrier(e, xs, Carrier.HOLE):
+                h.append(unknown_index(w, Unknown.P))
+                u.append(ohmic_density_scaled(xs, Carrier.HOLE, degeneracy))
 
     for w in carrier_free_nodes:
         h.append(unknown_index(w, Unknown.N))
