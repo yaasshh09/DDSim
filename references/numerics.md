@@ -492,6 +492,11 @@ indicator (Dorfler), splits them, and repeats until the relative estimate is
 under the tolerance or the next mesh would go over the node budget. It says
 which one stopped it.
 
+On a tensor mesh a new line runs across the whole device, so refining one
+hot cell costs a full row and a full column of nodes. That's the ceiling of
+this loop, and the reason the 1 um MOSFET runs out of nodes refining its
+drain contact corner. Unstructured refinement in Phase 15 lifts it.
+
 The check that matters is the effectivity index, estimate over true error,
 where true error comes from Richardson extrapolation. It sits in [0.5, 2] on
 benchmarks 1 to 7, 9 and 10. Benchmark 8 has no Richardson limit that holds,
