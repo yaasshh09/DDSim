@@ -254,8 +254,9 @@ def test_an_equation_wider_than_the_drawer_can_be_reached(server) -> None:
             xx.close()
 
 def solved(page: Page, errors: list[str]) -> None:
+    c = page.evaluate("state.job")
     page.click("#solve")
-    wait_until(page, "el('state').textContent.startsWith('done')", errors)
+    wait_until(page, f"state.job !== {json.dumps(c)} && el('state').textContent.startsWith('done')", errors)
 
 
 def until(page: Page, ready, what:str, seconds: float = 30.0) -> None:
