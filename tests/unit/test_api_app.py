@@ -497,3 +497,36 @@ def test_a_transient_with_one_voltage_is_refused_before_the_job(client) -> None:
     r = client.post('/api/jobs', json=step_request(voltages=(0.3,)))
     assert r.status_code == 400
     assert "two voltages" in r.json()["detail"]
+
+
+def test_every_point_of_an_iv_result_carries_its_error_estimate(client) -> None:
+    from ddsim.extract.error import current_error
+    v = submit(client, diode_request(voltages=(0.2, 0.4)))
+    frames = drain(client, v)
+    w = client.get(f"/api/jobs/{v}/result").json()
+    d = pn_diode(**DIODE)
+    c = iv_sweep(d, "anode", [0.2, 0.4], models=TransportModels.for_device(d))
+    for got, p in zip(w["points"], c.points, strict=True):
+        e = current_error(d.with_bias(anode=p.voltage), p.state, "anode")
+        assert got["error"] == e.estimate
+        assert got["error_linear"] is e.linear
+    streamed = [f for f in frames if f["type"] == "error_point"]
+    assert [f["index"] for f in streamed] == [0, 1]
+    assert [f["estimate"] for f in streamed] == [z["error"] for z in w["points"]]
+    assert frames[-1]["type"] == "status"
+
+
+def test_a_cv_result_carries_the_capacitance_error_estimate(client) -> None:
+    from ddsim.extract.error import capacitance_error
+    v = submit(client, {"device": {"kind": "mos_cap", "parameters": {}}, "sweep": {"kind": "cv", "contact": "gate", "voltages": [0.0]}})
+    drain(client, v)
+    w = client.get(f"/api/jobs/{v}/result").json()
+    assert w["points"][0]["error"] == capacitance_error(mos_cap().with_bias(gate=0.0), "gate").estimate
+
+
+def test_ac_and_transient_results_carry_no_error_estimate_yet(client) -> None:
+    v = submit(client, diode_request(voltages=(0.2,), kind="ac", frequencies=[1e3]))
+    drain(client, v)
+    w = client.get(f"/api/jobs/{v}/result").json()
+    assert "error" not in w["points"][0]
+

@@ -14,7 +14,8 @@ from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import Contact, OhmicContact, apply_contacts, apply_dirichlet_nodes
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
-from ddsim.extract.cv import _charge_unit, _contact_nodes, small_signal_capacitance
+from ddsim.extract.cv import CVCurve, Response, _charge_unit, _contact_nodes, small_signal_capacitance
+from ddsim.extract.iv import IVCurve
 from ddsim.discretize.coupled import Unknown, apply_contacts_coupled, assemble_coupled_terms, effective_potentials, pack, unknown_index, unpack
 from ddsim.mesh.mesh1d import Mesh1D, _assemble
 from ddsim.mesh.mesh2d import tensor_mesh_2d
@@ -423,3 +424,36 @@ def adapt(device: Device, contact: str, rtol: float, goal: str = "current", budg
         d, s = f, t
     e, _ = _directional(d, s, measure)
     return Adapted(d, s, e, e.linear and abs(e.estimate) <= rtol * abs(e.value), f"stopped after {max_rounds} rounds at {e.relative:.2e}", tuple(log))
+
+
+@dataclass(frozen=True)
+class ErrorFrame:
+    index: int
+
+    voltage: float
+
+    value: float
+
+    estimate: float
+
+    linear: bool
+
+
+def curve_errors(device: Device, curve: IVCurve | CVCurve, models_for: Models = TransportModels.for_device, on_frame: Callable[[object], None] | None = None) -> tuple[ErrorEstimate | None, ...]:
+    out: list[ErrorEstimate | None] = []
+    for i, p in enumerate(curve.points):
+        e: ErrorEstimate | None = None
+        if isinstance(curve, CVCurve):
+            v = p.gate_voltage
+            if curve.response is Response.LOW_FREQUENCY:
+                e = capacitance_error(device.with_bias(**{curve.contact: v}), curve.contact)
+                if e.value != 0.0:
+                    r = p.capacitance / e.value
+                    e = replace(e, value=p.capacitance, estimate=r * e.estimate, indicator=r * e.indicator)
+        else:
+            v = p.voltage
+            e = current_error(device.with_bias(**{curve.contact: v}), p.state, curve.measured_at or curve.contact, models_for)
+        out.append(e)
+        if e is not None and on_frame is not None:
+            on_frame(ErrorFrame(index=i, voltage=v, value=e.value, estimate=e.estimate, linear=e.linear))
+    return tuple(out)

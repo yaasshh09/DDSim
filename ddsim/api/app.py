@@ -23,9 +23,11 @@ from ddsim.api.sweeps import (
     SWEEP_KINDS,
     check_request,
     model_parameters,
+    build_models,
     run_sweep,
     sweep_parameters,
 )
+from ddsim.extract.error import ErrorEstimate, curve_errors
 from ddsim.device.builder import Device
 from ddsim.device.drawing import NODE_BUDGET
 from ddsim.device.transport import TransportModels; from ddsim.extract.cv import CVCurve
@@ -78,6 +80,8 @@ class Finished:
 
     curve:IVCurve | CVCurve | ACCurve | TransientCurve
     models: TransportModels | None
+
+    errors: tuple[ErrorEstimate | None, ...] = ()
 def create_app(registry:JobRegistry|None = None) -> FastAPI:
     c = registry if registry is not None else JobRegistry()
 
@@ -143,7 +147,10 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
 
         def work(send: Send) -> Finished:
             jj, v2 = run_sweep(nxt.kind, z2, nxt.contact, nxt.voltages, settings=nxt.settings, models=nxt.models or None, measure_at=nxt.measure_at, on_frame=send, frequencies=nxt.frequencies, times=nxt.times,)
-            return Finished(device=z2, curve=jj, models=v2)
+            e: tuple[ErrorEstimate | None, ...] = ()
+            if isinstance(jj, IVCurve | CVCurve):
+                e = curve_errors(z2, jj, lambda d: build_models(d, nxt.models or None), on_frame=send)
+            return Finished(device=z2, curve=jj, models=v2, errors=e)
         try:
             return {'id': c.submit(work).id}
         except BusyError as d2:
@@ -163,7 +170,8 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
 
     @j.get('/api/jobs/{job_id}/result')
     def result(job_id: str) -> dict[str, Any]:
-        return curve_body(_finished(c, job_id).curve)
+        f = _finished(c, job_id)
+        return curve_body(f.curve, f.errors)
     @j.get("/api/jobs/{job_id}/fields/{index}")
     def fields(job_id:str, index:int) -> Response:
         w2 = _finished(c, job_id)

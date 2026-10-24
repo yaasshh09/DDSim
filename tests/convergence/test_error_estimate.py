@@ -221,3 +221,14 @@ def test_splitting_an_oxide_row_moves_nothing_and_its_indicator_says_so() -> Non
         assert d.mesh.y_axis.x[w] >= P.MOS_BENCHMARKS[0].t_si
         assert abs(e.indicator[w]) <= 1e-9 * abs(e.value)
         assert capacitance_error(split(d, [], [w]), "gate", k=1, ky=2).value == pytest.approx(e.value, rel=1e-12, abs=0)
+
+
+def test_a_cv_error_estimate_follows_the_width_the_capacitance_is_per() -> None:
+    from ddsim.extract.cv import cv_sweep
+    from ddsim.extract.error import curve_errors
+    d = mos_cap()
+    a, b = cv_sweep(d, "gate", [0.0]), cv_sweep(d, "gate", [0.0], width=2e-4)
+    ea, eb = curve_errors(d, a)[0], curve_errors(d, b)[0]
+    assert ea is not None and eb is not None
+    assert eb.value == b.points[0].capacitance
+    assert eb.estimate / eb.value == pytest.approx(ea.estimate / ea.value, rel=1e-12)

@@ -285,3 +285,14 @@ def test_a_field_frame_of_a_transient_says_when_it_is() -> None:
     ok = diode()
     assert header_of(encode(field_frame(ok, solve_equilibrium(ok), index=2, voltage=0.0, time=1e-9)))["time"] == 1e-9
     assert header_of(encode(field_frame(ok, solve_equilibrium(ok), index=2, voltage=0.0)))["time"] is None
+
+
+def test_an_error_estimate_crosses_as_its_own_kind() -> None:
+    from ddsim.extract.error import ErrorFrame
+    k = as_json(ErrorFrame(index=2, voltage=0.4, value=1.5e-3, estimate=-2.0e-6, linear=True))
+    assert k == {"type": "error_point", "index": 2, "voltage": 0.4, "value": 1.5e-3, "estimate": -2.0e-6, "linear": True}
+
+
+def test_an_error_estimate_that_is_not_finite_crosses_as_null() -> None:
+    from ddsim.extract.error import ErrorFrame
+    assert as_json(ErrorFrame(index=0, voltage=0.0, value=0.0, estimate=math.nan, linear=False))["estimate"] is None

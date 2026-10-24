@@ -8,6 +8,7 @@ from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState; from ddsim.device.transport import TransportModels
 from ddsim.extract.ac import ROUNDOFF, ACCurve, ACFrame, ACPoint
 from ddsim.extract.bands import band_edges; from ddsim.extract.cv import CVCurve, CVFrame, CVPoint
+from ddsim.extract.error import ErrorEstimate, ErrorFrame
 from ddsim.extract.iv import IVCurve, IVFrame, IVPoint, node_current_density
 from ddsim.extract.transient import TransientCurve, TransientFrame
 from ddsim.solve.continuation import ContinuationEvent
@@ -79,6 +80,8 @@ def _body(frame: object) -> dict[str, Any]:
         return {"type": "ac_point", "index": frame.index, "voltage": _finite(frame.voltage), "frequency": _finite(frame.frequency), "conductance": _finite(frame.conductance), "capacitance": _finite(frame.capacitance), "G_spread": _finite(frame.G_spread), "C_spread": _finite(frame.C_spread),}
     if isinstance(frame, TransientFrame):
         return {"type": "step", "step": frame.step, "time": _finite(frame.time), "dt": _finite(frame.dt), "voltages": _finite_by_family(frame.voltages), "currents": _finite_by_family(frame.currents),}
+    if isinstance(frame, ErrorFrame):
+        return {"type": "error_point", "index": frame.index, "voltage": _finite(frame.voltage), "value": _finite(frame.value), "estimate": _finite(frame.estimate), "linear": frame.linear,}
     if isinstance(frame, Status):
         return {'type': "status", "status": frame.status, "message": frame.message, "dropped": frame.dropped,}
     raise TypeError(
@@ -113,7 +116,16 @@ def decode_fields(message:bytes) -> dict[str, npt.NDArray[np.float64]]:
     return k
 
 
-def curve_body(curve:IVCurve | CVCurve | ACCurve | TransientCurve) -> dict[str, Any]:
+def curve_body(curve:IVCurve | CVCurve | ACCurve | TransientCurve, errors: tuple[ErrorEstimate | None, ...] = ()) -> dict[str, Any]:
+    body = _curve_body(curve)
+    for point, e in zip(body["points"], errors, strict=False):
+        if e is not None:
+            point["error"] = _finite(e.estimate)
+            point["error_linear"] = e.linear
+    return body
+
+
+def _curve_body(curve:IVCurve | CVCurve | ACCurve | TransientCurve) -> dict[str, Any]:
     if isinstance(curve, TransientCurve):
         return {
             "kind": "transient",
