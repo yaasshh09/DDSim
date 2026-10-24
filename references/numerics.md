@@ -494,8 +494,10 @@ which one stopped it.
 
 The check that matters is the effectivity index, estimate over true error,
 where true error comes from Richardson extrapolation. It sits in [0.5, 2] on
-benchmarks 1 to 7. Benchmark 8 has no Richardson limit that holds, so it's
-scored against the mesh halved everywhere.
+benchmarks 1 to 7, 9 and 10. Benchmark 8 has no Richardson limit that holds,
+so it's scored against the mesh halved everywhere. An estimate is only called
+linear when the fine Newton step stays under 1 V_T on the semiconductor
+nodes. The adaptive loop won't stop on one that isn't.
 
 ## Iterative linear solves (Phase 16)
 
