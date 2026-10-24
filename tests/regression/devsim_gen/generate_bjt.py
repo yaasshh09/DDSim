@@ -37,7 +37,7 @@ from devsim.python_packages.simple_physics import (
     ece_name,
     hce_name,
 )
-from generate_mosfet import quiet, set_material_parameters
+from generate_mosfet import quiet
 
 BULK = "bulk"
 
@@ -106,6 +106,11 @@ def build(b: P.BjtBenchmark, dev: str, refine: float) -> None:
     got = set(get_contact_list(device=dev))
     if got != {EMITTER, BASE, COLLECTOR}:
         raise RuntimeError(f"{dev}: devsim made contacts {sorted(got)}")
+
+
+def set_material_parameters(dev: str) -> None:
+    for k, v in {"Permittivity": P.EPS_R_SI * P.EPS_0, "ElectronCharge": P.Q, "n_i": P.N_I, "T": P.T, "kT": P.K_B * P.T, "V_t": P.V_T, "mu_n": P.MU_N, "mu_p": P.MU_P, "n1": P.N_I, "p1": P.N_I}.items():
+        set_parameter(device=dev, region=BULK, name=k, value=v)
 
 
 def lifetimes(dev: str) -> None:
