@@ -390,3 +390,14 @@ def test_the_error_row_says_what_share_of_sweeps_carries_an_estimate() -> None:
     row = [r for r in tool.headline(tool.load_board()).splitlines() if r.startswith("| Error estimates")][0]
     assert f"{len(ESTIMATED_SWEEPS)} of {len(SWEEP_KINDS)} sweep kinds" in row.split("|")[2]
     assert row.split("|")[3].strip() == "none"
+
+
+def test_every_ddsim_accuracy_number_sits_next_to_its_error_estimate() -> None:
+    est = tool.read_estimates(SCOREBOARD / "ddsim_estimates.csv")
+    assert {n for _, n in tool.ACCURACY} <= set(est), "run tools/scoreboard.py estimates"
+    lines = tool.details(tool.load_board()).splitlines()
+    head = [r for r in lines if r.startswith("| # | Device")][0].split("|")
+    assert "DDSim estimate" in head[head.index(" DDSim error ") + 1]
+    acc = {n: tool.read_accuracy(SCOREBOARD / "ddsim_accuracy.csv")[n] for _, n in tool.ACCURACY}
+    for _, n in tool.ACCURACY:
+        assert est[n][0] == pytest.approx(min(acc[n])[2], rel=1e-9), f"{n}: the estimate is of a different value than the accuracy study scored"

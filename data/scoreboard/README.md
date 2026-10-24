@@ -49,19 +49,22 @@ Dropped cases, which count for nobody:
 Relative error of each tool's reference mesh against its own Richardson
 limit, the observed order, and the silicon nodes its error model needs
 for 1 percent. The last column is how far apart the two limits are.
+DDSim estimate is the error DDSim reports for itself on that mesh, from
+ddsim_estimates.csv, and the column after it is that over the Richardson
+error. A star marks an estimate whose linearization didn't hold.
 
-| # | Device | DDSim nodes | DDSim error | DDSim order | DDSim nodes for 1% | DEVSIM nodes | DEVSIM error | DEVSIM order | DEVSIM nodes for 1% | Limits differ by |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | diode_1e16_1e16 | 201 | 0.000582 | 1.06 | 13.6 | 129 | 0.000707 | 1.1 | 11.6 | 3.47e-05 |
-| 2 | diode_1e18_1e16 | 201 | 0.00129 | 0.931 | 22.2 | 129 | 0.00151 | 0.676 | 7.85 | 0.000311 |
-| 3 | diode_1e20_1e15 | 201 | 0.00175 | 1.08 | 39.7 | 129 | 0.00157 | 1.06 | 22.4 | 0.00015 |
-| 4 | mos_cap_5nm | 121 | 0.00101 | 1.95 | 37.5 | 1065 | 1.08e-05 | 1.99 | 34.2 | 0.000222 |
-| 5 | mos_cap_20nm | 121 | 0.000115 | 1.98 | 12.7 | 1065 | 1.35e-06 | 2 | 12.3 | 0.000275 |
-| 6 | nmos_1um | 6363 | 0.0011 | 1.45 | 305 | 8514 | 0.000515 | 2.81 | 1.03e+03 | 0.000147 |
-| 7 | nmos_180nm | 6363 | 0.0032 | 0.552 | 102 | 6402 | 0.0014 | 2.19 | 1.06e+03 | 0.00108 |
-| 8 | nmos_65nm | 6363 | n/a | n/a | n/a | 6930 | 0.00823 | 0.506 | 3.21e+03 | n/a |
-| 9 | rolloff_100nm | 6363 | 0.00276 | 0.778 | 233 | 6666 | n/a | n/a | n/a | n/a |
-| 10 | fullstack_100nm | 6363 | 0.0257 | 0.701 | 9.36e+04 | 6666 | n/a | n/a | n/a | n/a |
+| # | Device | DDSim nodes | DDSim error | DDSim estimate | Estimate over error | DDSim order | DDSim nodes for 1% | DEVSIM nodes | DEVSIM error | DEVSIM order | DEVSIM nodes for 1% | Limits differ by |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | diode_1e16_1e16 | 201 | 0.000582 | 0.000603 | 1.04 | 1.06 | 13.6 | 129 | 0.000707 | 1.1 | 11.6 | 3.47e-05 |
+| 2 | diode_1e18_1e16 | 201 | 0.00129 | 0.00126 | 0.974 | 0.931 | 22.2 | 129 | 0.00151 | 0.676 | 7.85 | 0.000311 |
+| 3 | diode_1e20_1e15 | 201 | 0.00175 | 0.00254 | 1.45 | 1.08 | 39.7 | 129 | 0.00157 | 1.06 | 22.4 | 0.00015 |
+| 4 | mos_cap_5nm | 121 | 0.00101 | 0.00151 | 1.49 | 1.95 | 37.5 | 1065 | 1.08e-05 | 1.99 | 34.2 | 0.000222 |
+| 5 | mos_cap_20nm | 121 | 0.000115 | 0.000173 | 1.5 | 1.98 | 12.7 | 1065 | 1.35e-06 | 2 | 12.3 | 0.000275 |
+| 6 | nmos_1um | 6363 | 0.0011 | 0.00141 | 1.28 | 1.45 | 305 | 8514 | 0.000515 | 2.81 | 1.03e+03 | 0.000147 |
+| 7 | nmos_180nm | 6363 | 0.0032 | 0.00205 | 0.644 | 0.552 | 102 | 6402 | 0.0014 | 2.19 | 1.06e+03 | 0.00108 |
+| 8 | nmos_65nm | 6363 | n/a | 0.00293 | n/a | n/a | n/a | 6930 | 0.00823 | 0.506 | 3.21e+03 | n/a |
+| 9 | rolloff_100nm | 6363 | 0.00276 | 0.00231 | 0.84 | 0.778 | 233 | 6666 | n/a | n/a | n/a | n/a |
+| 10 | fullstack_100nm | 6363 | 0.0257 | 0.0218 | 0.829 | 0.701 | 9.36e+04 | 6666 | n/a | n/a | n/a | n/a |
 
 ## Speed
 

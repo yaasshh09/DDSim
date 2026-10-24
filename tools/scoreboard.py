@@ -347,12 +347,13 @@ def silicon_nodes(device: Device) -> int:
         return int(device.mesh.n_nodes)
     return int(np.count_nonzero(device.regions.semiconductor_volume > 0.0))
 
-def accuracy_point(name: str, r: float) -> tuple[int, float]:
+def _benchmark(name: str, r: float) -> tuple[Device, float, Any]:
     sys.path.insert(0, str(ROOT))
     import inspect
     from ddsim.device.mos_cap import mos_cap
     from ddsim.device.mosfet import nmos
     from ddsim.device.pn_diode import pn_diode
+    from ddsim.extract.error import capacitance_error, current_error
     from ddsim.extract.rolloff import SHORT_CHANNEL_PROCESS
     from tests.regression.devsim_gen import parameters as P
 
@@ -367,7 +368,8 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
             h_min=x.h_min / r,
         )
         i = iv_sweep(b, "anode", [ACCURACY_BIAS['diode']])
-        return silicon_nodes(b), float(i.current[-1])
+        q = b.with_bias(anode=i.points[-1].voltage)
+        return b, float(i.current[-1]), lambda: current_error(q, i.points[-1].state, "anode")
     if name.startswith('mos_cap'):
         z = {x.name: x for x in P.MOS_BENCHMARKS}[name]
         b = mos_cap(
@@ -380,10 +382,8 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
             work_function=z.work_function,
         )
         c = cv_sweep(b, 'gate', [ACCURACY_BIAS["mos_cap"]])
-
-        assert isinstance(b.mesh, Mesh2D)
-        res2 = b.mesh.nx
-        return silicon_nodes(b)//res2, float(c.points[-1].capacitance)
+        q = b.with_bias(gate=ACCURACY_BIAS["mos_cap"])
+        return b, float(c.points[-1].capacitance), lambda: capacitance_error(q, "gate")
     u = P.MOSFET_BY_NAME[name]
     tmp = u.models == P.FULL_MODELS
     t = inspect.signature(nmos).parameters
@@ -393,9 +393,45 @@ def accuracy_point(name: str, r: float) -> tuple[int, float]:
     k, h = ACCURACY_BIAS['mosfet']; k = min(k, max(u.gate_voltages))
 
     b = nmos(L_gate=u.L_gate, drain_voltage=h, degenerate=tmp, **SHORT_CHANNEL_PROCESS, **v,)
-    j = (TransportModels.for_device(b, mobility='arora', field_dependent=True, surface=True) if tmp else TransportModels.for_device(b, mobility="constant"))
-    i = gate_sweep(b, [k], models=j)
-    return silicon_nodes(b), float(i.current[-1])
+
+    def models(d: Device) -> TransportModels:
+        return TransportModels.for_device(d, mobility='arora', field_dependent=True, surface=True) if tmp else TransportModels.for_device(d, mobility="constant")
+
+    i = gate_sweep(b, [k], models=models(b))
+    q = b.with_bias(gate=i.points[-1].voltage)
+    return b, float(i.current[-1]), lambda: current_error(q, i.points[-1].state, "drain", models_for=models)
+
+
+def accuracy_point(name: str, r: float) -> tuple[int, float]:
+    b, value, _ = _benchmark(name, r)
+    if name.startswith('mos_cap'):
+        assert isinstance(b.mesh, Mesh2D)
+        return silicon_nodes(b) // b.mesh.nx, value
+    return silicon_nodes(b), value
+
+
+def run_estimates(path: Path) -> Path:
+    head = [
+        f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py",
+        f"# ddsim {_git_sha()}, the reference mesh of each accuracy benchmark at the same bias, see the 2026-10-24 rows of references/decisions.md",
+        "benchmark,name,value,estimate,linear,seconds",
+    ]
+    with path.open("w", encoding='utf-8', newline="\n") as k:
+        k.write("\n".join(head) + "\n")
+        for y2, v in ACCURACY:
+            h = time.perf_counter()
+            _, value, estimate = _benchmark(v, 1.0)
+            e = estimate()
+            t = time.perf_counter() - h
+            k.write(f"{y2},{v},{value!r},{e.estimate!r},{e.linear},{t:.3f}\n")
+            k.flush(); print(f"{v} {value:.8g} estimate {e.estimate:.3e} linear {e.linear} {t:.1f}s")
+    return path
+
+
+def read_estimates(path: Path) -> dict[str, tuple[float, float, bool]]:
+    if not path.exists():
+        return {}
+    return {r["name"]: (float(r["value"]), float(r["estimate"]), r["linear"] == "True") for r in _rows(path)}
 
 
 def run_accuracy(path: Path) -> Path:
@@ -665,20 +701,30 @@ def details(board: Board) -> str:
         "Relative error of each tool's reference mesh against its own Richardson",
         'limit, the observed order, and the silicon nodes its error model needs',
         "for 1 percent. The last column is how far apart the two limits are.",
+        "DDSim estimate is the error DDSim reports for itself on that mesh, from",
+        "ddsim_estimates.csv, and the column after it is that over the Richardson",
+        "error. A star marks an estimate whose linearization didn't hold.",
         "",
-        "| # | Device | DDSim nodes | DDSim error | DDSim order | DDSim nodes "
+        "| # | Device | DDSim nodes | DDSim error | DDSim estimate | Estimate over error | DDSim order | DDSim nodes "
         'for 1% | DEVSIM nodes | DEVSIM error | DEVSIM order | DEVSIM nodes '
         'for 1% | Limits differ by |',
-        '|---|---|---|---|---|---|---|---|---|---|---|',
+        '|---|---|---|---|---|---|---|---|---|---|---|---|---|',
     ]
+    est = read_estimates(OUT / "ddsim_estimates.csv")
     b = read_accuracy(OUT/"ddsim_accuracy.csv")
     foo = read_accuracy(OUT / "devsim_accuracy.csv")
     for u, x in ACCURACY:
         k, r = board.ddsim_fit[x], board.devsim_fit[x]
         a = (None if k.limit is None or r.limit is None else abs(k.limit - r.limit) / abs(r.limit))
+        rel = eff = "n/a"
+        if x in est:
+            q, e, lin = est[x]
+            rel = _number(abs(e) / abs(q)) + ("" if lin else "*")
+            if k.limit is not None:
+                eff = _number(e / (k.limit - q))
         v.append(
             f"| {u} | {x} | {min(b[x])[1]} | "
-            f"{_number(k.error)} | {_number(k.order)} | "
+            f"{_number(k.error)} | {rel} | {eff} | {_number(k.order)} | "
             f"{_number(k.nodes_for_one_percent)} | {min(foo[x])[1]} | "
             f"{_number(r.error)} | {_number(r.order)} | "
             f"{_number(r.nodes_for_one_percent)} | {_number(a)} |"
@@ -708,7 +754,7 @@ def write_summary() -> None:
 def main() -> int:
     w = argparse.ArgumentParser(description="The ddsim side of the Phase 8 scoreboard. See references/decisions.md, 2026-09-25.")
 
-    f = ['cases', 'run', "accuracy", "speed", 'summary']
+    f = ['cases', 'run', "accuracy", "speed", "estimates", 'summary']
     w.add_argument('command', choices=f)
     w.add_argument('names', nargs="*", help='run only these cases')
     w.add_argument("--out", type=Path, default=OUT / "ddsim_robustness.csv")
@@ -718,6 +764,8 @@ def main() -> int:
         print(write_cases())
     elif k2.command == 'accuracy':
         print(run_accuracy(OUT / "ddsim_accuracy.csv"))
+    elif k2.command == "estimates":
+        print(run_estimates(OUT / "ddsim_estimates.csv"))
     elif k2.command == "speed":
         print(run_speed(OUT/"ddsim_speed.csv"))
 
