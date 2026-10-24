@@ -12,7 +12,7 @@ from ddsim.device.state import DeviceState
 from ddsim.device.transport import solve_bias_newton, solve_bias_ramped
 from ddsim.discretize.boundary import OhmicContact
 from ddsim.device.mos_cap import mos_cap
-from ddsim.extract.error import ErrorEstimate, adapt, capacitance_error, current_error, prolonged_state, refined, split_cells
+from ddsim.extract.error import ErrorEstimate, adapt, capacitance_error, current_error, prolonged_state, refined, split, split_cells
 from ddsim.extract.iv import terminal_currents
 from ddsim.mesh.mesh1d import uniform_mesh_1d
 from tests.regression.devsim_gen import parameters as P
@@ -178,3 +178,30 @@ def test_capacitance_effectivity_against_richardson(number: int, name: str) -> N
     k = e.estimate / (limit - a)
     assert EFFECTIVITY[0] <= k <= EFFECTIVITY[1], f"benchmark {number}: estimated {e.estimate:.4e}, Richardson says {limit - a:.4e}, effectivity {k:.3f}"
     assert float(np.sum(e.indicator)) == pytest.approx(e.estimate, rel=1e-9, abs=0)
+
+
+def coarse_capacitor() -> Device:
+    z = {x.name: x for x in P.MOS_BENCHMARKS}[MOS[0][1]]
+    return mos_cap(substrate_doping=z.substrate_doping, t_ox=z.t_ox, t_si=z.t_si, nx=2, n_silicon=11, n_oxide=3, h_min=1e-5, work_function=z.work_function)
+
+
+def test_on_the_capacitor_splitting_the_flagged_row_moves_the_capacitance() -> None:
+    d = coarse_capacitor()
+    e = capacitance_error(d, "gate", k=1, ky=2)
+    for _ in range(5):
+        w = int(np.argmax(np.abs(e.indicator)))
+        assert d.mesh.y_axis.x[w + 1] <= P.MOS_BENCHMARKS[0].t_si, "the flagged row is oxide, where the potential is already a straight line"
+        d = split(d, [], [w])
+        after = capacitance_error(d, "gate", k=1, ky=2)
+        assert after.value != e.value, "splitting the row the indicator flags most left the capacitance exactly where it was"
+        assert np.sign(after.value - e.value) == np.sign(e.indicator[w])
+        e = after
+
+
+def test_splitting_an_oxide_row_moves_nothing_and_its_indicator_says_so() -> None:
+    d = coarse_capacitor()
+    e = capacitance_error(d, "gate", k=1, ky=2)
+    for w in range(10, d.mesh.y_axis.x.size - 1):
+        assert d.mesh.y_axis.x[w] >= P.MOS_BENCHMARKS[0].t_si
+        assert abs(e.indicator[w]) <= 1e-9 * abs(e.value)
+        assert capacitance_error(split(d, [], [w]), "gate", k=1, ky=2).value == pytest.approx(e.value, rel=1e-12, abs=0)

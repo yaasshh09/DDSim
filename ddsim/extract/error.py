@@ -113,11 +113,12 @@ def _rebuilt(device: Device, x: Array, y: Array | None) -> Device:
     return replace(device, mesh=m, contacts=cs, regions=r)
 
 
-def refined(device: Device, k: int = CONFIG.errors.refinement) -> Device:
-    if k < 2:
-        raise ValueError(f"refining means at least 2 cells for every old one, got {k}")
+def refined(device: Device, k: int = CONFIG.errors.refinement, ky: int | None = None) -> Device:
     x, y = _axes(device)
-    return _rebuilt(device, _subdivided(x, k), None if y is None else _subdivided(y, k))
+    j = k if ky is None or y is None else ky
+    if min(k, j) < 1 or max(k, j) < 2:
+        raise ValueError(f"refining means at least 2 cells for every old one along some direction, got {k} along x and {j} along y")
+    return _rebuilt(device, _subdivided(x, k), None if y is None else _subdivided(y, j))
 
 
 def split(device: Device, columns: Sequence[int] = (), rows: Sequence[int] = ()) -> Device:
@@ -211,32 +212,40 @@ def _current_weights(device: Device, contact: str) -> Array:
     return c
 
 
-def _to_cells(old: Array, new: Array) -> Array:
+def _attributed(old: Array, new: Array, G: Array) -> Array:
     i, t = _weights(old, new)
     n = old.size - 1
-    M = np.zeros((n, new.size))
-    j = np.arange(new.size)
     inside = (t > 0.0) & (t < 1.0)
-    M[i[inside], j[inside]] = 1.0
+    out = np.zeros((G.shape[0], n))
+    size = np.zeros((G.shape[0], n))
+    for a in np.flatnonzero(inside):
+        out[:, i[a]] += G[:, a]
+        size[:, i[a]] += np.abs(G[:, a])
     k = np.where(t >= 1.0, i + 1, i)
     for a in np.flatnonzero(~inside):
         left, right = k[a] - 1, k[a]
         if left < 0:
-            M[right, a] = 1.0
+            out[:, right] += G[:, a]
         elif right >= n:
-            M[left, a] = 1.0
+            out[:, left] += G[:, a]
         else:
-            M[left, a] = M[right, a] = 0.5
-    return M
+            tot = size[:, left] + size[:, right]
+            w = np.where(tot > 0.0, size[:, left] / np.where(tot > 0.0, tot, 1.0), 0.5)
+            out[:, left] += w * G[:, a]
+            out[:, right] += (1.0 - w) * G[:, a]
+    return out
 
 
-def _cells(coarse: Device, at: Device, contribution: Array, per_node: int) -> Array:
+def _cells(coarse: Device, fine: Device, there: Array, here: Array, per_node: int) -> Array:
     xo, yo = _axes(coarse)
-    xn, yn = _axes(at)
-    g = contribution.reshape(-1, per_node).sum(axis=1).reshape(-1, xn.size)
-    out = g @ _to_cells(xo, xn).T
+    xn, yn = _axes(fine)
+    g = there.reshape(-1, per_node).sum(axis=1).reshape(-1, xn.size)
+    h = here.reshape(-1, per_node).sum(axis=1).reshape(-1, xo.size)
+    rows = np.zeros(1, dtype=np.int64) if yo is None or yn is None else _on(yo, yn)
+    g[np.ix_(rows, _on(xo, xn))] -= h
+    out = _attributed(xo, xn, g)
     if yo is not None and yn is not None:
-        out = _to_cells(yo, yn) @ out
+        out = _attributed(yo, yn, out.T).T
     return np.asarray(out.ravel())
 
 
@@ -266,17 +275,17 @@ def _estimate(coarse: Device, fine: Device, x: Array, y: Array, raw: Raw, pins: 
     F, z = _adjoint(fine, y, raw, pins, weights(fine))
     there = z * F.residual
     f = 1.0 / (1.0 - float(k) ** -CONFIG.errors.assumed_order)
-    return ErrorEstimate(value=value, estimate=f * (float(np.sum(there)) - value), indicator=f * (_cells(coarse, fine, there, per_node) - _cells(coarse, coarse, here, per_node)), refinement=k)
+    return ErrorEstimate(value=value, estimate=f * (float(np.sum(there)) - value), indicator=f * _cells(coarse, fine, there, here, per_node), refinement=k)
 
 
-def current_error(device: Device, state: DeviceState, contact: str, models_for: Models = TransportModels.for_device, k: int = CONFIG.errors.refinement) -> ErrorEstimate:
-    fine = refined(device, k)
+def current_error(device: Device, state: DeviceState, contact: str, models_for: Models = TransportModels.for_device, k: int = CONFIG.errors.refinement, ky: int | None = None) -> ErrorEstimate:
+    fine = refined(device, k, ky)
     s = prolonged_state(device, fine, state)
 
     def raw(d: Device, v: Array) -> SparseAssembly:
         return _raw(d, models_for(d), v)
 
-    return _estimate(device, fine, pack(state.psi.data, state.n.data, state.p.data), pack(s.psi.data, s.n.data, s.p.data), raw, _pins, lambda d: _current_weights(d, contact), 3, k)
+    return _estimate(device, fine, pack(state.psi.data, state.n.data, state.p.data), pack(s.psi.data, s.n.data, s.p.data), raw, _pins, lambda d: _current_weights(d, contact), 3, max(k, ky or k))
 
 
 def _poisson_raw(device: Device, v: Array) -> SparseAssembly:
@@ -297,15 +306,15 @@ def _charge_weights(device: Device, contact: str) -> Array:
     return c
 
 
-def charge_error(device: Device, state: DeviceState, contact: str, k: int = CONFIG.errors.refinement) -> ErrorEstimate:
-    fine = refined(device, k)
+def charge_error(device: Device, state: DeviceState, contact: str, k: int = CONFIG.errors.refinement, ky: int | None = None) -> ErrorEstimate:
+    fine = refined(device, k, ky)
     y = _prolong(device, fine, state.psi.data)
     i, t = _poisson_pins(fine, y)
     y[i] = t
-    return _estimate(device, fine, state.psi.data, y, _poisson_raw, _poisson_pins, lambda d: _charge_weights(d, contact), 1, k)
+    return _estimate(device, fine, state.psi.data, y, _poisson_raw, _poisson_pins, lambda d: _charge_weights(d, contact), 1, max(k, ky or k))
 
 
-def capacitance_error(device: Device, contact: str, delta: float = CONFIG.errors.voltage_step, k: int = CONFIG.errors.refinement) -> ErrorEstimate:
+def capacitance_error(device: Device, contact: str, delta: float = CONFIG.errors.voltage_step, k: int = CONFIG.errors.refinement, ky: int | None = None) -> ErrorEstimate:
     v = next(c.voltage for c in device.contacts if c.name == _contact_name(device, contact))
 
     def at(u: float) -> tuple[Device, DeviceState]:
@@ -314,9 +323,9 @@ def capacitance_error(device: Device, contact: str, delta: float = CONFIG.errors
 
     d, s = at(v)
     value = small_signal_capacitance(d, s, contact, quasi_fermi=frozen_quasi_fermi(d))
-    a = charge_error(*at(v - delta), contact, k)
-    b = charge_error(*at(v + delta), contact, k)
-    return ErrorEstimate(value=value, estimate=(b.estimate - a.estimate) / (2.0 * delta), indicator=(b.indicator - a.indicator) / (2.0 * delta), refinement=k)
+    a = charge_error(*at(v - delta), contact, k, ky)
+    b = charge_error(*at(v + delta), contact, k, ky)
+    return ErrorEstimate(value=value, estimate=(b.estimate - a.estimate) / (2.0 * delta), indicator=(b.indicator - a.indicator) / (2.0 * delta), refinement=a.refinement)
 
 
 def _contact_name(device: Device, contact: str) -> str:
@@ -332,41 +341,72 @@ def _marked(score: Array, fraction: float) -> list[int]:
     return [int(v) for v in o[: int(np.searchsorted(c, fraction * c[-1])) + 1]]
 
 
-def _proposal(device: Device, indicator: Array, fraction: float) -> Device:
+Measure = Callable[[Device, DeviceState, int, "int | None"], ErrorEstimate]
+
+
+def _directional(d: Device, s: DeviceState, measure: Measure) -> tuple[ErrorEstimate, list[ErrorEstimate]]:
+    if isinstance(d.mesh, Mesh1D):
+        e = measure(d, s, CONFIG.errors.refinement, None)
+        return e, [e]
+    k = CONFIG.errors.refinement
+    a, b = measure(d, s, k, 1), measure(d, s, 1, k)
+    return ErrorEstimate(value=a.value, estimate=a.estimate + b.estimate, indicator=a.indicator + b.indicator, refinement=k), [a, b]
+
+
+def _proposal(device: Device, parts: list[ErrorEstimate], fraction: float) -> Device:
     x, y = _axes(device)
-    a = np.abs(indicator)
     if y is None:
-        return split(device, _marked(a, fraction))
-    g = a.reshape(y.size - 1, x.size - 1)
-    return split(device, _marked(g.sum(axis=0), fraction), _marked(g.sum(axis=1), fraction))
+        return split(device, _marked(np.abs(parts[0].indicator), fraction))
+    w = x.size - 1
+    a = np.abs(parts[0].indicator).reshape(-1, w).sum(axis=0)
+    b = np.abs(parts[1].indicator).reshape(-1, w).sum(axis=1)
+    m = _marked(np.concatenate([a, b]), fraction)
+    return split(device, [v for v in m if v < w], [v - w for v in m if v >= w])
 
 
-def adapt(device: Device, contact: str, rtol: float, budget: int = CONFIG.mesh.node_budget, models_for: Models = TransportModels.for_device, max_rounds: int = CONFIG.errors.max_rounds, fraction: float = CONFIG.errors.mark_fraction) -> Adapted:
+GOALS = ("current", "capacitance")
+
+
+def adapt(device: Device, contact: str, rtol: float, goal: str = "current", budget: int = CONFIG.mesh.node_budget, models_for: Models = TransportModels.for_device, max_rounds: int = CONFIG.errors.max_rounds, fraction: float = CONFIG.errors.mark_fraction) -> Adapted:
     if not rtol > 0.0:
         raise ValueError(f"the tolerance has to be above zero, got {rtol:g}")
+    if goal not in GOALS:
+        raise ValueError(f"unknown goal {goal!r}, use one of {GOALS}")
     if device.mesh.n_nodes > budget:
         raise ValueError(f"the starting mesh has {device.mesh.n_nodes} nodes, already over the budget of {budget}")
+
+    def measure(d: Device, s: DeviceState, k: int, ky: int | None) -> ErrorEstimate:
+        if goal == "capacitance":
+            return capacitance_error(d, contact, k=k, ky=ky)
+        return current_error(d, s, contact, models_for, k, ky)
+
+    def solved(d: Device, before: tuple[Device, DeviceState] | None) -> DeviceState | None:
+        if goal == "capacitance":
+            return solve_equilibrium(d, quasi_fermi=frozen_quasi_fermi(d))
+        m = models_for(d)
+        t = None if before is None else solve_bias_newton(d, m, guess=prolonged_state(before[0], d, before[1]))
+        if t is None or t.newton is None or not t.newton.converged:
+            t = solve_bias_ramped(d, m)
+        return t if t.newton is not None and t.newton.converged else None
+
     d = device
-    s = solve_bias_ramped(d, models_for(d))
-    if s.newton is None or not s.newton.converged:
-        raise RuntimeError(f"the starting mesh did not converge: {s.newton.message if s.newton else 'no newton run'}")
+    s = solved(d, None)
+    if s is None:
+        raise RuntimeError("the starting mesh did not converge")
     log: list[tuple[int, float, float]] = []
     for _ in range(max_rounds):
-        e = current_error(d, s, contact, models_for)
+        e, parts = _directional(d, s, measure)
         log.append((d.mesh.n_nodes, e.value, e.estimate))
         if abs(e.estimate) <= rtol * abs(e.value):
             return Adapted(d, s, e, True, f"reached {e.relative:.2e} on {d.mesh.n_nodes} nodes", tuple(log))
-        f = _proposal(d, e.indicator, fraction)
+        f = _proposal(d, parts, fraction)
         if f.mesh.n_nodes == d.mesh.n_nodes:
             return Adapted(d, s, e, False, f"the indicator flags nothing to refine, the estimate is still {e.relative:.2e} against {rtol:.2e}", tuple(log))
         if f.mesh.n_nodes > budget:
             return Adapted(d, s, e, False, f"stopped at the node budget of {budget}: the next mesh needs {f.mesh.n_nodes} nodes, and the estimate is still {e.relative:.2e} against {rtol:.2e}", tuple(log))
-        m = models_for(f)
-        t = solve_bias_newton(f, m, guess=prolonged_state(d, f, s))
-        if t.newton is None or not t.newton.converged:
-            t = solve_bias_ramped(f, m)
-        if t.newton is None or not t.newton.converged:
+        t = solved(f, (d, s))
+        if t is None:
             return Adapted(d, s, e, False, f"the refined mesh with {f.mesh.n_nodes} nodes did not converge, so I kept the last one, at {e.relative:.2e}", tuple(log))
         d, s = f, t
-    e = current_error(d, s, contact, models_for)
+    e, _ = _directional(d, s, measure)
     return Adapted(d, s, e, abs(e.estimate) <= rtol * abs(e.value), f"stopped after {max_rounds} rounds at {e.relative:.2e}", tuple(log))
