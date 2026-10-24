@@ -441,19 +441,22 @@ class ErrorFrame:
 
 def curve_errors(device: Device, curve: IVCurve | CVCurve, models_for: Models = TransportModels.for_device, on_frame: Callable[[object], None] | None = None) -> tuple[ErrorEstimate | None, ...]:
     out: list[ErrorEstimate | None] = []
-    for i, p in enumerate(curve.points):
-        e: ErrorEstimate | None = None
-        if isinstance(curve, CVCurve):
-            v = p.gate_voltage
-            if curve.response is Response.LOW_FREQUENCY:
-                e = capacitance_error(device.with_bias(**{curve.contact: v}), curve.contact)
-                if e.value != 0.0:
-                    r = p.capacitance / e.value
-                    e = replace(e, value=p.capacitance, estimate=r * e.estimate, indicator=r * e.indicator)
-        else:
-            v = p.voltage
-            e = current_error(device.with_bias(**{curve.contact: v}), p.state, curve.measured_at or curve.contact, models_for)
+
+    def keep(i: int, v: float, e: ErrorEstimate | None) -> None:
         out.append(e)
         if e is not None and on_frame is not None:
             on_frame(ErrorFrame(index=i, voltage=v, value=e.value, estimate=e.estimate, linear=e.linear))
+
+    if isinstance(curve, CVCurve):
+        for i, c in enumerate(curve.points):
+            e: ErrorEstimate | None = None
+            if curve.response is Response.LOW_FREQUENCY:
+                e = capacitance_error(device.with_bias(**{curve.contact: c.gate_voltage}), curve.contact)
+                if e.value != 0.0:
+                    r = c.capacitance / e.value
+                    e = replace(e, value=c.capacitance, estimate=r * e.estimate, indicator=r * e.indicator)
+            keep(i, c.gate_voltage, e)
+        return tuple(out)
+    for i, q in enumerate(curve.points):
+        keep(i, q.voltage, current_error(device.with_bias(**{curve.contact: q.voltage}), q.state, curve.measured_at or curve.contact, models_for))
     return tuple(out)
