@@ -90,6 +90,27 @@ class Npn:
 
 
 @dataclass(frozen=True)
+class Npn2d:
+    width: float = 0.0003
+    depth: float = 0.0002
+    emitter_window: float = 0.0001
+    emitter_contact: float = 8e-05
+    base_contact: float = 0.0002
+    epi_doping: float = 1e+16
+    buried_peak: float = 5e+18
+    buried_sigma: float = 3e-05
+    base_peak: float = 1e+17
+    base_sigma: float = 2.33e-05
+    emitter_peak: float = 1e+20
+    emitter_sigma: float = 3.97e-06
+    lateral_length: float = 5e-06
+    nx: int = 61
+    ny: int = 81
+    h_min_x: float = 2e-06
+    h_min_y: float = 1e-06
+
+
+@dataclass(frozen=True)
 class Stack:
     n_nodes: int = 201
     h_min: float = 1e-07
@@ -173,6 +194,7 @@ class Config:
     errors: Errors = field(default_factory=Errors)
     pn_diode: PnDiode = field(default_factory=PnDiode)
     npn: Npn = field(default_factory=Npn)
+    npn_2d: Npn2d = field(default_factory=Npn2d)
     stack: Stack = field(default_factory=Stack)
     mos_cap: MosCap = field(default_factory=MosCap)
     nmos: Nmos = field(default_factory=Nmos)
