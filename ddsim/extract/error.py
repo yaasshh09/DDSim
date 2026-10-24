@@ -1,7 +1,7 @@
 from __future__ import annotations
 import math
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 import numpy as np
 import numpy.typing as npt
 from ddsim.core.config import CONFIG
@@ -34,6 +34,14 @@ class ErrorEstimate:
     indicator: Array
 
     refinement: int
+
+    step: float = 0.0
+
+    step_cells: Array = field(default_factory=lambda: np.zeros(0))
+
+    @property
+    def linear(self) -> bool:
+        return self.step <= CONFIG.errors.max_step
 
     @property
     def relative(self) -> float:
@@ -254,7 +262,7 @@ Raw = Callable[[Device, Array], SparseAssembly]
 Pins = Callable[[Device, Array], tuple[npt.NDArray[np.int64], Array]]
 
 
-def _adjoint(device: Device, x: Array, raw: Raw, pins: Pins, c: Array) -> tuple[SparseAssembly, Array]:
+def _adjoint(device: Device, x: Array, raw: Raw, pins: Pins, c: Array, per_node: int) -> tuple[SparseAssembly, Array, Array]:
     A = raw(device, x)
     p, t = pins(device, x)
     g = np.zeros(x.size)
@@ -265,17 +273,17 @@ def _adjoint(device: Device, x: Array, raw: Raw, pins: Pins, c: Array) -> tuple[
     lu.factorize(S.rows, S.cols, S.values, S.shape)
     w = lu.solve(-g, trans="T")
     w[p] = c[p]
-    return A, w
+    return A, w, np.where(device.charge_volume_scaled > 0.0, np.abs(lu.solve(-S.residual)[::per_node]), 0.0)
 
 
 def _estimate(coarse: Device, fine: Device, x: Array, y: Array, raw: Raw, pins: Pins, weights: Callable[[Device], Array], per_node: int, k: int) -> ErrorEstimate:
     c = weights(coarse)
     here = c * raw(coarse, x).residual
     value = float(np.sum(here))
-    F, z = _adjoint(fine, y, raw, pins, weights(fine))
+    F, z, d = _adjoint(fine, y, raw, pins, weights(fine), per_node)
     there = z * F.residual
     f = 1.0 / (1.0 - float(k) ** -CONFIG.errors.assumed_order)
-    return ErrorEstimate(value=value, estimate=f * (float(np.sum(there)) - value), indicator=f * _cells(coarse, fine, there, here, per_node), refinement=k)
+    return ErrorEstimate(value=value, estimate=f * (float(np.sum(there)) - value), indicator=f * _cells(coarse, fine, there, here, per_node), refinement=k, step=float(np.max(d)), step_cells=_cells(coarse, fine, d, np.zeros(coarse.mesh.n_nodes), 1))
 
 
 def current_error(device: Device, state: DeviceState, contact: str, models_for: Models = TransportModels.for_device, k: int = CONFIG.errors.refinement, ky: int | None = None) -> ErrorEstimate:
@@ -325,7 +333,7 @@ def capacitance_error(device: Device, contact: str, delta: float = CONFIG.errors
     value = small_signal_capacitance(d, s, contact, quasi_fermi=frozen_quasi_fermi(d))
     a = charge_error(*at(v - delta), contact, k, ky)
     b = charge_error(*at(v + delta), contact, k, ky)
-    return ErrorEstimate(value=value, estimate=(b.estimate - a.estimate) / (2.0 * delta), indicator=(b.indicator - a.indicator) / (2.0 * delta), refinement=a.refinement)
+    return ErrorEstimate(value=value, estimate=(b.estimate - a.estimate) / (2.0 * delta), indicator=(b.indicator - a.indicator) / (2.0 * delta), refinement=a.refinement, step=max(a.step, b.step), step_cells=a.step_cells + b.step_cells)
 
 
 def _contact_name(device: Device, contact: str) -> str:
@@ -350,16 +358,21 @@ def _directional(d: Device, s: DeviceState, measure: Measure) -> tuple[ErrorEsti
         return e, [e]
     k = CONFIG.errors.refinement
     a, b = measure(d, s, k, 1), measure(d, s, 1, k)
-    return ErrorEstimate(value=a.value, estimate=a.estimate + b.estimate, indicator=a.indicator + b.indicator, refinement=k), [a, b]
+    return ErrorEstimate(value=a.value, estimate=a.estimate + b.estimate, indicator=a.indicator + b.indicator, refinement=k, step=max(a.step, b.step), step_cells=a.step_cells + b.step_cells), [a, b]
 
 
 def _proposal(device: Device, parts: list[ErrorEstimate], fraction: float) -> Device:
     x, y = _axes(device)
+    linear = all(e.linear for e in parts)
+
+    def score(e: ErrorEstimate) -> Array:
+        return np.abs(e.indicator) if linear else e.step_cells
+
     if y is None:
-        return split(device, _marked(np.abs(parts[0].indicator), fraction))
+        return split(device, _marked(score(parts[0]), fraction))
     w = x.size - 1
-    a = np.abs(parts[0].indicator).reshape(-1, w).sum(axis=0)
-    b = np.abs(parts[1].indicator).reshape(-1, w).sum(axis=1)
+    a = score(parts[0]).reshape(-1, w).sum(axis=0)
+    b = score(parts[1]).reshape(-1, w).sum(axis=1)
     m = _marked(np.concatenate([a, b]), fraction)
     return split(device, [v for v in m if v < w], [v - w for v in m if v >= w])
 
@@ -397,7 +410,7 @@ def adapt(device: Device, contact: str, rtol: float, goal: str = "current", budg
     for _ in range(max_rounds):
         e, parts = _directional(d, s, measure)
         log.append((d.mesh.n_nodes, e.value, e.estimate))
-        if abs(e.estimate) <= rtol * abs(e.value):
+        if e.linear and abs(e.estimate) <= rtol * abs(e.value):
             return Adapted(d, s, e, True, f"reached {e.relative:.2e} on {d.mesh.n_nodes} nodes", tuple(log))
         f = _proposal(d, parts, fraction)
         if f.mesh.n_nodes == d.mesh.n_nodes:
@@ -409,4 +422,4 @@ def adapt(device: Device, contact: str, rtol: float, goal: str = "current", budg
             return Adapted(d, s, e, False, f"the refined mesh with {f.mesh.n_nodes} nodes did not converge, so I kept the last one, at {e.relative:.2e}", tuple(log))
         d, s = f, t
     e, _ = _directional(d, s, measure)
-    return Adapted(d, s, e, abs(e.estimate) <= rtol * abs(e.value), f"stopped after {max_rounds} rounds at {e.relative:.2e}", tuple(log))
+    return Adapted(d, s, e, e.linear and abs(e.estimate) <= rtol * abs(e.value), f"stopped after {max_rounds} rounds at {e.relative:.2e}", tuple(log))

@@ -64,6 +64,7 @@ class Errors:
     mark_fraction: float = 0.5
     max_rounds: int = 40
     voltage_step: float = 0.01
+    max_step: float = 1.0
 
 
 @dataclass(frozen=True)

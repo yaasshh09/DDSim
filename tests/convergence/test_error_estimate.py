@@ -95,6 +95,7 @@ def test_the_value_is_the_current_the_benchmark_scores() -> None:
 def test_effectivity_against_richardson(number: int, name: str) -> None:
     a, limit, _ = richardson(name)
     e = estimated(name)
+    assert e.linear, f"the fine Newton step is {e.step:.2f} V_T, too far for a linearization"
     k = e.estimate / (limit - a)
     assert EFFECTIVITY[0] <= k <= EFFECTIVITY[1], f"benchmark {number}: estimated {e.estimate:.4e}, Richardson says {limit - a:.4e}, effectivity {k:.3f}"
 
@@ -140,8 +141,8 @@ def test_refining_a_cell_the_indicator_calls_clean_moves_nothing() -> None:
     assert abs(terminal_currents(f, t)['left'] - e.value) <= 1e-10 * abs(e.value)
 
 
-def test_adaptive_refinement_beats_the_hand_graded_mesh() -> None:
-    name = DIODES[0][1]
+@pytest.mark.parametrize("number,name", DIODES, ids=[n for _, n in DIODES])
+def test_adaptive_refinement_beats_the_hand_graded_mesh(number: int, name: str) -> None:
     a, limit, _ = richardson(name)
     target = abs(limit - a) / abs(a)
     b = P.BY_NAME[name]
@@ -150,6 +151,20 @@ def test_adaptive_refinement_beats_the_hand_graded_mesh() -> None:
     assert r.device.mesh.n_nodes < b.n_nodes
     assert abs(r.estimate.estimate) <= target * abs(r.estimate.value)
     assert abs(r.estimate.value - limit) <= 2.0 * target * abs(limit), "the estimate says the adaptive mesh is there and Richardson says it isn't"
+
+
+def test_adaptive_refinement_beats_the_hand_graded_capacitor() -> None:
+    name = MOS[0][1]
+    a, limit, _ = richardson(name)
+    target = abs(limit - a) / abs(a)
+    z = {x.name: x for x in P.MOS_BENCHMARKS}[name]
+    hand = mos_cap(substrate_doping=z.substrate_doping, t_ox=z.t_ox, t_si=z.t_si, n_silicon=z.n_silicon, n_oxide=z.n_oxide, h_min=z.h_min, work_function=z.work_function)
+    d = mos_cap(substrate_doping=z.substrate_doping, t_ox=z.t_ox, t_si=z.t_si, n_silicon=16, n_oxide=3, h_min=3e-6, work_function=z.work_function)
+    assert d.mesh.nx == hand.mesh.nx
+    r = adapt(d, "gate", rtol=target, goal="capacitance", budget=hand.mesh.n_nodes)
+    assert r.converged, r.message
+    assert r.device.mesh.n_nodes < hand.mesh.n_nodes
+    assert abs(r.estimate.value - limit) <= 2.0 * target * abs(limit)
 
 
 def test_the_adaptive_loop_says_when_it_runs_out_of_nodes() -> None:
@@ -175,6 +190,7 @@ def test_capacitance_effectivity_against_richardson(number: int, name: str) -> N
     a, limit, _ = richardson(name)
     e = capacitor(name)
     assert e.value == pytest.approx(a, rel=1e-9, abs=0)
+    assert e.linear, f"the fine Newton step is {e.step:.2f} V_T, too far for a linearization"
     k = e.estimate / (limit - a)
     assert EFFECTIVITY[0] <= k <= EFFECTIVITY[1], f"benchmark {number}: estimated {e.estimate:.4e}, Richardson says {limit - a:.4e}, effectivity {k:.3f}"
     assert float(np.sum(e.indicator)) == pytest.approx(e.estimate, rel=1e-9, abs=0)
