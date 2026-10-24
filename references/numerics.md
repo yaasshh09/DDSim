@@ -459,20 +459,43 @@ to read. Without it, the terminal currents stop summing to zero.
 
 ## Error estimation (Phase 12)
 
-Planned. The dual weighted residual estimate for a goal Q, such as a terminal
-current:
+`extract/error.py` estimates the discretization error in a goal Q: a terminal
+current, or the low frequency capacitance. It's a dual weighted residual.
 
-1. Solve the adjoint J^T z = dQ/dx at the converged state, reusing the
-   factorization with `trans='T'`.
-2. Prolong the solution and z onto the mesh refined once everywhere.
-3. Assemble the residual F_fine of the prolonged solution there. There's no
-   solve on the fine mesh.
-4. The estimate is eta = -z_fine . F_fine. The per cell terms are the
-   refinement indicator.
+1. Refine the mesh twice in every direction, keeping every old node, so the
+   contacts, the interface and the junction node all carry over.
+2. Prolong the converged state onto it. psi goes linearly. n and p take the
+   exact Scharfetter-Gummel profile along each edge,
+   n(t) = n_a + (n_b - n_a) (e^(d t) - 1) / (e^d - 1) with d the drop in psi,
+   so that on a straight potential the fine fluxes are the coarse one.
+3. Solve the adjoint J_fine^T z = -dQ/dx there, once, transposed, with z set
+   to the goal's own weight on every pinned row.
+4. The estimate is z . F_fine(prolonged) - Q_coarse. Its per cell terms are
+   the refinement indicator, and they add up to it.
+
+That's Q_fine - Q_coarse to first order, which is (1 - 2^-p) of the true
+error, so the estimate is scaled by 1 / (1 - 2^-1), taking the order to be 1,
+which is what SG has at a junction or a contact edge. Where it's really 2 the
+estimate runs 1.5 times high.
+
+I first solved z on the coarse mesh and prolonged it, as this section used
+to say. That's fine in 1D and wrong by a factor of 14 on the 65 nm MOSFET: the
+2D prolongation leaves large residuals at the contact edges, and weights that
+are 3 percent off there lose the whole estimate. See the 2026-10-24 rows of
+decisions.md.
+
+The capacitance goal is the centred difference of the gate charge estimate,
+10 mV either side, on the Poisson only problem `cv_sweep` solves.
+
+`adapt` solves, estimates, marks the columns and rows carrying half the
+indicator (Dorfler), splits them, and repeats until the relative estimate is
+under the tolerance or the next mesh would go over the node budget. It says
+which one stopped it.
 
 The check that matters is the effectivity index, estimate over true error,
-where true error comes from Richardson extrapolation. It has to sit in
-[0.5, 2] on every benchmark that has a Richardson reference.
+where true error comes from Richardson extrapolation. It sits in [0.5, 2] on
+benchmarks 1 to 7. Benchmark 8 has no Richardson limit that holds, so it's
+scored against the mesh halved everywhere.
 
 ## Iterative linear solves (Phase 16)
 
