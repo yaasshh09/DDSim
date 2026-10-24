@@ -25,7 +25,9 @@ collector underneath on top of a heavily doped buried layer.
 
 To get a Gummel plot, run a `transfer` sweep with the base as the contact.
 The collector current is what gets plotted, and the collector voltage knob
-sets V_CE. For output curves, run an `iv` sweep on the collector with the base
+sets V_CE. Put it at 1 V or so first. At its default of 0 the collector
+junction is forward biased as hard as the emitter one, the transistor is in
+saturation, and the collector current comes out negative. For output curves, run an `iv` sweep on the collector with the base
 voltage held.
 
 ## In more depth
