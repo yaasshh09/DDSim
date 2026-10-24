@@ -14,7 +14,7 @@ from ddsim.api.devices import (
 from ddsim.api.sweeps import run_sweep
 from ddsim.device.drawing import NODE_BUDGET
 def test_the_device_classes_are_offered() -> None:
-    assert set(DEVICE_KINDS) == {'pn_diode', "mos_cap", "nmos", "stack", "drawing"}
+    assert set(DEVICE_KINDS) == {'pn_diode', "mos_cap", "nmos", "npn", "npn_2d", "stack", "drawing"}
 
 
 def test_the_parameters_come_from_the_constructor_signature() -> None:

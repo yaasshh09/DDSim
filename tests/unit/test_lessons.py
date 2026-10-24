@@ -124,8 +124,8 @@ def test_an_unknown_lesson_is_a_key_error() -> None:
     with pytest.raises(KeyError):
         load_lesson("../app")
 
-def test_there_are_the_five_lessons_the_phase_asks_for() -> None:
-    assert len(lesson_names()) == 5
+def test_there_are_the_six_lessons_the_phases_ask_for() -> None:
+    assert len(lesson_names()) == 6
 
 
 @pytest.mark.parametrize('name', lesson_names())

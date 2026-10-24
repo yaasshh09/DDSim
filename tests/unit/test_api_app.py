@@ -44,7 +44,7 @@ def drain(client, job_id: str) -> list[Any]:
 def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     f = client.get('/api/schema').json()
 
-    assert set(f["devices"]) == {'pn_diode', "mos_cap", 'nmos', 'stack', "drawing"}
+    assert set(f["devices"]) == {'pn_diode', "mos_cap", 'nmos', 'npn', 'npn_2d', 'stack', "drawing"}
     assert set(f['sweeps']) == {"iv", 'transfer', "cv", "ac", "transient"}
 
 
@@ -65,7 +65,7 @@ def test_the_schema_carries_the_model_flags_and_their_choices(client) -> None:
 
 def test_the_schema_carries_the_coarse_presets_and_their_notes(client) -> None:
     z = client.get('/api/schema').json()["presets"]
-    assert set(z) == {"mos_cap", "nmos", "drawing"}; assert '1.5 mV' in z['drawing']['note']
+    assert set(z) == {"mos_cap", "nmos", "npn_2d", "drawing"}; assert '1.5 mV' in z['drawing']['note']
     assert z["nmos"]['parameters']["n_silicon"] == 29
     assert '0.621 percent' in z['nmos']['note']
 

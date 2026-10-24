@@ -27,6 +27,11 @@ _REQUEST_ARGUMENTS = ("contact", 'measure_at')
 
 MEASURED_BY_DEFAULT = "drain"
 
+
+def measured_by_default(device: Device) -> str:
+    k = {c.name for c in device.contacts}
+    return MEASURED_BY_DEFAULT if MEASURED_BY_DEFAULT in k or "collector" not in k else "collector"
+
 def _sweep(kind: str) -> Callable[..., Any]:
     if kind not in SWEEP_KINDS:
         b = ', '.join(sorted(SWEEP_KINDS))
@@ -110,7 +115,7 @@ def check_request(kind: str, device: Device, contact:str, settings: dict[str, An
         ) from d2
     e = sorted(k.name for k in x)
     if kind == "transfer" and measure_at is None:
-        measure_at = MEASURED_BY_DEFAULT
+        measure_at = measured_by_default(device)
     for w in (contact, measure_at):
         if w is not None and w not in e:
             raise KeyError(
@@ -149,7 +154,7 @@ def run_sweep(
                 device,
                 list(voltages),
                 contact=contact,
-                measure_at=MEASURED_BY_DEFAULT if measure_at is None else measure_at,
+                measure_at=measured_by_default(device) if measure_at is None else measure_at,
                 models=ys,
                 on_frame=on_frame,
                 **row,

@@ -6,12 +6,13 @@ from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from functools import cache
 from typing import Any
+from ddsim.device.bjt import npn_1d, npn_2d
 from ddsim.device.builder import Device
 from ddsim.device.drawing import NODE_BUDGET, Block, Electrode, Implant, drawing; from ddsim.device.mos_cap import mos_cap
 from ddsim.device.mosfet import nmos
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.stack import Region, stack
-DEVICE_KINDS: dict[str, Callable[..., Device]] = {"pn_diode": pn_diode, "mos_cap":mos_cap, 'nmos':nmos, "stack": stack, "drawing":drawing,}
+DEVICE_KINDS: dict[str, Callable[..., Device]] = {"pn_diode": pn_diode, "mos_cap":mos_cap, 'nmos':nmos, "npn": npn_1d, "npn_2d": npn_2d, "stack": stack, "drawing":drawing,}
 
 _EXPRESSIBLE = ("float", 'int', 'bool', "str")
 
@@ -50,6 +51,16 @@ COARSE:dict[str, Preset] = {
             "extrapolated threshold moves 0.7 mV, for a sweep that takes "
             "5.1 s instead of 20.4 s. Good enough to watch a MOSFET switch, "
             'though no number in the README was taken on it.'
+        ),
+    ),
+    "npn_2d": Preset(
+        parameters={"nx": 31, "ny": 41, "h_min_x": 4e-6, "h_min_y": 2e-6},
+        note=(
+            "A coarse mesh: 1271 nodes against the default 4941. Measured "
+            "2026-10-24 over a 0.4 V to 0.8 V Gummel plot, the collector "
+            "current reads up to 3.2 percent high and the base current up to "
+            "10.6 percent high, so beta comes out 3 to 9 percent low, for a "
+            "sweep that takes 3.2 s instead of 14.1 s."
         ),
     ),
     "drawing": Preset(

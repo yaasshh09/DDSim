@@ -549,7 +549,7 @@ function collect(container) {
 }
 
 function defaultContact() {
-  const contacts = { pn_diode: "anode", stack: "left" };
+  const contacts = { pn_diode: "anode", stack: "left", npn: "collector", npn_2d: "collector" };
   return contacts[el("device-kind").value] || "gate";
 }
 

@@ -194,3 +194,23 @@ def test_the_drain_lowers_the_barrier_only_on_a_short_channel() -> None:
     assert r < 15.0
     assert r < dat < s
     assert s > 5.0*r
+
+
+def test_the_collector_current_rises_a_decade_every_60_millivolts() -> None:
+    from ddsim.extract.params import saturation_current
+    _, t, _ = run("06-bjt")
+    assert saturation_current(t.voltage, t.current, window=(0.3, 0.6))[1] == pytest.approx(1.0, abs=0.01)
+    _, thin, _ = run("06-bjt", "A thinner base")
+    assert np.all(thin.current > t.current)
+
+
+def test_the_gain_falls_at_both_ends() -> None:
+    from ddsim.extract.iv import terminal_currents
+    from ddsim.api.sweeps import build_models
+    d, t, r = run("06-bjt")
+    m = build_models(d, r["sweep"].get("models"))
+    beta = np.array([p.current / terminal_currents(d.with_bias(base=p.voltage), p.state, m)["base"] for p in t.points])
+    k = int(np.argmax(beta))
+    assert 0 < k < beta.size - 1
+    assert beta[0] < 0.5 * beta[k]
+    assert beta[-1] < 0.1 * beta[k]

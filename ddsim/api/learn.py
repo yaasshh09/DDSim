@@ -147,9 +147,30 @@ def _json(name: str, what:str, text:str) -> Any:
     except json.JSONDecodeError as d:
         raise ValueError(f"{name}: {what} is not JSON: {d}") from d
 
-KNOB_TOPICS: dict[str, str] = {"Na":"doping", 'Nd':'doping', 'length':'pn-diode', "junction":"pn-diode", 'n_nodes':"mesh", "h_min":"mesh", 'anode_voltage': "contacts-and-bias", 'cathode_voltage':'contacts-and-bias', 'left_voltage':"contacts-and-bias", 'right_voltage':"contacts-and-bias", "substrate_doping": 'doping', "t_ox":"mos-capacitor", "t_si": 'mos-capacitor', 'width': 'mos-capacitor', "nx": "mesh", "ny":'mesh', 'n_silicon':'mesh', "n_oxide": "mesh", "gate_voltage": "contacts-and-bias", "body_voltage":"contacts-and-bias", 'work_function': "mos-capacitor", 'L_gate':'mosfet', 'sd_length':"mosfet", 'contact_length': 'mosfet', "sd_peak":"doping", "x_j":"doping", 'lateral_diffusion':"doping", 'n_contact':"mesh", 'n_sd':"mesh", 'n_channel': "mesh", "h_min_x":'mesh', "h_min_y":"mesh", "drain_voltage":"contacts-and-bias", 'source_voltage': 'contacts-and-bias', "degenerate":"fermi-dirac-statistics", 'step':"continuation", "start": "continuation", 'max_iterations':"convergence", 'update_tol':"convergence", 'response': "cv-sweep", 'mobility':'mobility', "auger":'recombination', "field_dependent":'velocity-saturation', "surface":'surface-scattering', "T": "temperature", "Q_f": "mos-capacitor", "incomplete_ionization": "doping", "resistance": "transient", "rtol": "transient",}
+KNOB_TOPICS: dict[str, str] = {"Na":"doping", 'Nd':'doping', 'length':'pn-diode', "junction":"pn-diode", 'n_nodes':"mesh", "h_min":"mesh", 'anode_voltage': "contacts-and-bias", 'cathode_voltage':'contacts-and-bias', 'left_voltage':"contacts-and-bias", 'right_voltage':"contacts-and-bias", "substrate_doping": 'doping', "t_ox":"mos-capacitor", "t_si": 'mos-capacitor', 'width': 'mos-capacitor', "nx": "mesh", "ny":'mesh', 'n_silicon':'mesh', "n_oxide": "mesh", "gate_voltage": "contacts-and-bias", "body_voltage":"contacts-and-bias", 'work_function': "mos-capacitor", 'L_gate':'mosfet', 'sd_length':"mosfet", 'contact_length': 'mosfet', "sd_peak":"doping", "x_j":"doping", 'lateral_diffusion':"doping", 'n_contact':"mesh", 'n_sd':"mesh", 'n_channel': "mesh", "h_min_x":'mesh', "h_min_y":"mesh", "drain_voltage":"contacts-and-bias", 'source_voltage': 'contacts-and-bias', "degenerate":"fermi-dirac-statistics", 'step':"continuation", "start": "continuation", 'max_iterations':"convergence", 'update_tol':"convergence", 'response': "cv-sweep", 'mobility':'mobility', "auger":'recombination', "field_dependent":'velocity-saturation', "surface":'surface-scattering', "T": "temperature", "Q_f": "mos-capacitor", "incomplete_ionization": "doping", "resistance": "transient", "rtol": "transient", "emitter_doping": "bjt", "base_doping": "bjt", "collector_doping": "bjt", "emitter_length": "bjt", "base_width": "bjt", "collector_length": "bjt", "emitter_window": "bjt", "emitter_contact": "bjt", "base_contact": "bjt", "epi_doping": "bjt", "buried_peak": "bjt", "buried_sigma": "bjt", "base_peak": "bjt", "base_sigma": "bjt", "emitter_peak": "bjt", "emitter_sigma": "bjt", "lateral_length": "bjt", "depth": "bjt", "emitter_voltage": "contacts-and-bias", "base_voltage": "contacts-and-bias", "collector_voltage": "contacts-and-bias",}
 
 KNOB_LABELS:dict[str, str] = {
+    "emitter_doping": "Emitter doping",
+    "base_doping": "Base doping",
+    "collector_doping": "Collector doping",
+    "emitter_length": "Emitter length",
+    "base_width": "Base width",
+    "collector_length": "Collector length",
+    "emitter_window": "Emitter window",
+    "emitter_contact": "Emitter contact reach",
+    "base_contact": "Base contact start",
+    "epi_doping": "Collector epi doping",
+    "buried_peak": "Buried layer doping",
+    "buried_sigma": "Buried layer spread",
+    "base_peak": "Base implant doping",
+    "base_sigma": "Base implant depth",
+    "emitter_peak": "Emitter implant doping",
+    "emitter_sigma": "Emitter implant depth",
+    "lateral_length": "Emitter edge softness",
+    "depth": "Device depth",
+    "emitter_voltage": "Emitter voltage",
+    "base_voltage": "Base voltage",
+    "collector_voltage": "Collector voltage",
     "Na": 'P-side doping',
     "Nd": "N-side doping",
     "length": 'Device length',

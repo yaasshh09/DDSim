@@ -24,6 +24,12 @@ source and drain regions and a gate over the channel between them. It puts
 the other two ideas together, a junction at each end and a gate in the
 middle. Its natural sweep is `transfer`, drain current against gate voltage.
 
+`npn` and `npn_2d` are bipolar transistors, an n type emitter and collector
+with a thin p type base between them. A small base current lets a large
+collector current through. Their natural sweep is `transfer` with the base as
+the contact, which reads the collector current, and there's more in the
+bipolar transistor explainer.
+
 Each device's knobs come straight from the Python function that builds it,
 defaults and all, so the form can't drift away from what the solver builds.
 
