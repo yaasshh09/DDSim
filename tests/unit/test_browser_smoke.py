@@ -1035,3 +1035,29 @@ def test_a_diode_solve_draws_its_error_bars_and_says_how_big(server) -> None:
             assert m == []
         finally:
             cc.close()
+
+
+def test_an_npn_gummel_plot_runs_in_a_real_browser(server) -> None:
+    with sync_playwright() as r:
+        cc = r.chromium.launch()
+        try:
+            p = cc.new_page()
+            m: list[str] = []
+            p.on('pageerror', lambda error: m.append(str(error)))
+            p.goto(server)
+            wait_until(p, "el('state').textContent === 'ready'", m)
+            p.select_option('#device-kind', "npn")
+            p.select_option('#sweep-kind', "transfer")
+            p.select_option('#contact', "base")
+            p.select_option('#measure-at', "collector")
+            p.fill('[data-name="collector_voltage"]', "1")
+            p.fill("#voltages", '0.3, 0.5, 0.7')
+            p.click('#solve')
+            wait_until(p, "el('state').textContent.startsWith('done') && state.fields !== null", m)
+            v = p.evaluate("state.points.map((q) => [q.voltage, q.value, q.error])")
+            assert [x[0] for x in v] == [0.3, 0.5, 0.7]
+            assert all(x[1] > 0 for x in v), f"the collector current of an npn in forward active should be positive, got {v}"
+            assert all(x[2] is not None for x in v)
+            assert m == []
+        finally:
+            cc.close()
