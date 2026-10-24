@@ -64,6 +64,10 @@ Each benchmark lists its runs in `devsim_runs` as (threads, extended precision) 
 
 Two more things. The steps use relative error 1e-8, because at 1e-10 devsim's update cycles around 5e-9 in its own roundoff once the junction starts to discharge, and the solve gives up at step 108. And the DC state is reached with a 1e-6 ohm cm^2 resistor in place, then the resistor is raised to its real value and the source corrected until the anode sits at the forward bias again. The golden header records that resistance, and ddsim reads it from there, so both tools drive the same circuit.
 
+## The npn generator holds the base current by root finding
+
+`generate_bjt.py` writes benchmark 15, the 2D npn from `parameters.NPN_2D`, which `tests/regression/test_devsim_bjt.py` checks against ddsim's own `CONFIG.npn_2d` field by field. There's no oxide, so the device is one silicon region with a thin metal region above and below it, because devsim drops a contact that sits on the outer edge of the mesh without saying so. The Gummel plot ramps the emitter down with the base and collector at zero, the same way `extract/bjt.py` does. The output curve walks the collector up and, at each step, moves the base voltage by a Newton step on log I_B, falling back to bisection inside the bracket it has found, until the base current is the one in the benchmark to 1e-9 in the log. The settle loop is its own small copy of the MOSFET one, since that one assumes an oxide region.
+
 ## The MOSFET generator decides convergence itself
 
 `generate_mosfet.py` does not trust what a devsim `solve` reports, and neither
