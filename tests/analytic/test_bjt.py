@@ -79,3 +79,52 @@ def test_a_cold_start_converges_without_a_ramp() -> None:
     d = npn_1d().with_bias(base=0.3, collector=0.3)
     s = solve_bias_newton(d, ideal(d))
     assert s.newton is not None and s.newton.converged
+
+
+def test_ebers_moll_reciprocity_holds() -> None:
+    from ddsim.extract.ac import admittance
+    d = npn_1d()
+    m = TransportModels.for_device(d)
+    s = solve_bias_ramped(d, m)
+    assert s.newton is not None and s.newton.converged
+    G = admittance(d, s, 1.0, m).G
+    k = [x.name for x in d.contacts]
+    forward = G[k.index(COLLECTOR), k.index(EMITTER)]
+    reverse = G[k.index(EMITTER), k.index(COLLECTOR)]
+    assert forward != 0.0
+    assert reverse == pytest.approx(forward, rel=1e-3, abs=0)
+
+
+def base_charge(d: Device, s: DeviceState) -> float:
+    b = d.net_doping.data < 0.0
+    return C.q * float(np.sum((s.p.to_physical(d.scale).data * d.mesh_1d.volume)[b]))
+
+
+def test_the_early_voltage_is_the_base_charge_over_the_collector_capacitance() -> None:
+    from ddsim.extract.ac import admittance
+    v, h = 0.5, 0.05
+    i = []
+    for u in (-h, h):
+        d = npn_1d().with_bias(base=v, collector=v + u)
+        s = solve_bias_ramped(d, ideal(d))
+        i.append(terminal_currents(d, s, ideal(d))[COLLECTOR])
+    d, s = biased(v)
+    measured = terminal_currents(d, s, ideal(d))[COLLECTOR] / ((i[1] - i[0]) / (2 * h))
+    c = admittance(d, s, 1e3, ideal(d)).C
+    k = [x.name for x in d.contacts]
+    cbc = c[k.index(COLLECTOR), k.index(COLLECTOR)]
+    assert cbc > 0.0
+    assert measured == pytest.approx(base_charge(d, s) / cbc, rel=0.10)
+
+
+def test_the_transconductance_lags_by_a_third_of_the_base_transit_time() -> None:
+    from ddsim.extract.ac import admittance
+    d = npn_1d(collector_length=2e-5).with_bias(base=0.5, collector=0.5)
+    s = solve_bias_ramped(d, ideal(d))
+    assert s.newton is not None and s.newton.converged
+    W = base_charge(d, s) / (C.q * float(np.max(-d.net_doping.data)))
+    tau = W ** 2 / (2.0 * C.D_n(d.material.T))
+    f = 0.01 / (2 * math.pi * tau)
+    g = -admittance(d, s, f, ideal(d)).y(COLLECTOR, EMITTER)
+    delay = -g.imag / (2 * math.pi * f * g.real)
+    assert delay == pytest.approx(tau / 3.0, rel=0.10)
