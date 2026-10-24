@@ -344,6 +344,7 @@ BEST_CAPABILITIES = frozenset(
         "Noise",
         "Transient",
         "Circuit elements on contacts",
+        "Discretization error estimates",
     }
 )
 
@@ -382,3 +383,10 @@ def test_the_speed_ratio_only_counts_what_both_tools_converged() -> None:
     assert tool._speed_ratio(SimpleNamespace(ddsim_speed=m, devsim_speed=k)) == pytest.approx(2.0)
     assert tool._speed_row(7, "nmos_180nm", m, k) == "| 7 | nmos_180nm | 2 | failed | n/a |"
     assert tool._speed_row(6, 'nmos_1um', m, k) == "| 6 | nmos_1um | 2 | 1 | 2 |"
+
+
+def test_the_error_row_says_what_share_of_sweeps_carries_an_estimate() -> None:
+    from ddsim.api.sweeps import ESTIMATED_SWEEPS, SWEEP_KINDS
+    row = [r for r in tool.headline(tool.load_board()).splitlines() if r.startswith("| Error estimates")][0]
+    assert f"{len(ESTIMATED_SWEEPS)} of {len(SWEEP_KINDS)} sweep kinds" in row.split("|")[2]
+    assert row.split("|")[3].strip() == "none"

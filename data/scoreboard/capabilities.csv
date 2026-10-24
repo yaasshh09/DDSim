@@ -31,7 +31,7 @@ Unstructured 2D meshes,no,,yes,create_gmsh_mesh:triangle,Phase 15
 3D meshes,no,,yes,create_gmsh_mesh:tetrahedron,Phase 16
 Cylindrical coordinates,no,,yes,cylindrical_node_volume + cylindrical_edge_couple,Phase 15
 Iterative linear solver,no,,yes,solver:iterative,Phase 16
-Discretization error estimates,no,,no,,Phase 12
+Discretization error estimates,yes,tests/convergence/test_error_estimate.py::test_effectivity_against_richardson + tests/convergence/test_error_estimate_2d.py::test_drain_current_effectivity_against_richardson,no,,Dual weighted residual on currents and C-V capacitance. Effectivity 0.64 to 1.5 against Richardson on benchmarks 1 to 7
 Adaptive mesh refinement,no,,no,,Phase 12
 Device check before solving,yes,tests/unit/test_api_app.py::test_a_device_can_be_checked_without_solving_it,no,,
 Browser client with live residual,yes,tests/unit/test_api_app.py::test_telemetry_arrives_before_the_job_is_finished,no,,

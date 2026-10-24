@@ -18,6 +18,8 @@ SWEEP_KINDS: dict[str, Callable[..., Any]] = {
 
 _TRANSPORT = ('iv', "transfer", "ac", "transient")
 
+ESTIMATED_SWEEPS = ("iv", "transfer", "cv")
+
 _MODEL_CHOICES:dict[str, tuple[str, ...]] = {"mobility": MOBILITY_MODELS}
 
 _REQUEST_ARGUMENTS = ("contact", 'measure_at')

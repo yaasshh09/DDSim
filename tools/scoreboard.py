@@ -590,9 +590,12 @@ def _speed_ratio(board: Board) -> float:
 def _estimates(board: Board) -> tuple[str, str]:
     r = {b2["capability"]: b2 for b2 in board.capabilities}
     k = r["Discretization error estimates"]
+    sys.path.insert(0, str(ROOT))
+    from ddsim.api.sweeps import ESTIMATED_SWEEPS, SWEEP_KINDS
+    w = f"{len(ESTIMATED_SWEEPS)} of {len(SWEEP_KINDS)} sweep kinds ({', '.join(ESTIMATED_SWEEPS)})"
     return (
-        'every result' if k['ddsim'] == "yes" else "none",
-        'every result' if k['devsim'] == "yes" else "none",
+        w if k['ddsim'] == "yes" else "none",
+        'built in' if k['devsim'] == "yes" else "none",
     )
 
 def headline(board:Board) -> str:

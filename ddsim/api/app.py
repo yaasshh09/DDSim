@@ -20,6 +20,7 @@ from ddsim.api.frames import (
 from ddsim.api.jobs import BusyError, JobRegistry, JobStatus, Send
 from ddsim.api.learn import (KNOB_LABELS, KNOB_TOPICS, PLOT_TOPICS, STATUS_TOPICS, lesson_names, load_lesson, load_topic, topic_names,)
 from ddsim.api.sweeps import (
+    ESTIMATED_SWEEPS,
     SWEEP_KINDS,
     check_request,
     model_parameters,
@@ -148,7 +149,7 @@ def create_app(registry:JobRegistry|None = None) -> FastAPI:
         def work(send: Send) -> Finished:
             jj, v2 = run_sweep(nxt.kind, z2, nxt.contact, nxt.voltages, settings=nxt.settings, models=nxt.models or None, measure_at=nxt.measure_at, on_frame=send, frequencies=nxt.frequencies, times=nxt.times,)
             e: tuple[ErrorEstimate | None, ...] = ()
-            if isinstance(jj, IVCurve | CVCurve):
+            if nxt.kind in ESTIMATED_SWEEPS and isinstance(jj, IVCurve | CVCurve):
                 e = curve_errors(z2, jj, lambda d: build_models(d, nxt.models or None), on_frame=send)
             return Finished(device=z2, curve=jj, models=v2, errors=e)
         try:
