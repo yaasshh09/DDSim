@@ -345,6 +345,7 @@ BEST_CAPABILITIES = frozenset(
         "Transient",
         "Circuit elements on contacts",
         "Discretization error estimates",
+        "Bipolar transistor",
     }
 )
 

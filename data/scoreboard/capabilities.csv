@@ -22,7 +22,7 @@ Fixed oxide charge,yes,tests/analytic/test_fixed_oxide_charge.py::test_the_cv_cu
 Incomplete ionization,yes,tests/analytic/test_incomplete_ionization.py::test_donor_bar_freezes_out_to_the_closed_form + tests/analytic/test_incomplete_ionization.py::test_a_frozen_out_bar_obeys_ohms_law_with_the_frozen_density,scripted,node_model,Freeze-out matches the closed form within 1e-10 at 100 to 300 K and carries current through Gummel and Newton. Boltzmann statistics only
 Impact ionization,no,,scripted,edge_model + equation,Phase 14
 Schottky contacts,no,,scripted,contact_equation,Phase 14
-Bipolar transistor,no,,scripted,create_2d_mesh + contact_equation,Phase 13
+Bipolar transistor,yes,tests/analytic/test_bjt.py::test_the_collector_current_is_gummels + tests/analytic/test_bjt_trends.py::test_beta_falls_at_both_ends + tests/analytic/test_bjt_2d.py::test_the_gummel_plot_runs_and_the_currents_balance,scripted,create_2d_mesh + contact_equation,A 1D npn with a majority carrier base contact and a 2D npn with a buried collector. Gummel's collector current to 2.6e-4 and beta falling at both ends without being asked to
 Heterojunctions,no,,scripted,interface_equation + python_packages.simple_physics.CreateSiliconSiliconInterface,Phase 18
 Quantum correction,no,,scripted,node_model + equation,Phase 17
 User-written equations with symbolic derivatives,no,,yes,equation + node_model + symdiff,
