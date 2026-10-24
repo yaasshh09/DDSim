@@ -256,7 +256,7 @@ def change(a: list[dict[str, float]], c: list[dict[str, float]]) -> float:
     return max(abs(x[k] - y[k]) / abs(y[k]) for x, y in zip(a, c, strict=True) for k in ("collector", "base"))
 
 
-def write(b: P.BjtBenchmark, g: list[dict[str, float]], o: list[dict[str, float]], nodes: int, mesh: float | None, seconds: float, out: str) -> None:
+def write(b: P.BjtBenchmark, g: list[dict[str, float]], o: list[dict[str, float]], nodes: int, mesh: float | None, refine: float, seconds: float, out: str) -> None:
     h = [
         f"# device: {b.name}",
         f"# benchmark: {b.number} in docs/04-validation.md",
@@ -271,7 +271,7 @@ def write(b: P.BjtBenchmark, g: list[dict[str, float]], o: list[dict[str, float]
     ]
     h += [f"# {k}: {v:.6e}" for k, v in P.NPN_2D.items()]
     if mesh is not None:
-        h.append(f"# mesh convergence: {mesh:.3e} worst relative change in a terminal current when every devsim spacing is halved")
+        h.append(f"# mesh convergence: {mesh:.3e} worst relative change in a terminal current when every devsim spacing is divided by {refine:g}")
     h.append("# notes: " + b.notes)
     h.append("# models: Boltzmann, constant mobility, SRH with Scharfetter lifetimes, ohmic contacts")
     h.append("# columns: curve (0 for the Gummel plot, 1 for the output curve), V_BE [V], V_CE [V], collector and base current [A/cm]")
@@ -287,7 +287,8 @@ def write(b: P.BjtBenchmark, g: list[dict[str, float]], o: list[dict[str, float]
 def main() -> int:
     a = argparse.ArgumentParser(description="Generate the npn golden curves with DEVSIM.")
     a.add_argument("--out", default=os.path.join("data", "golden"), help="output directory for the CSV files")
-    a.add_argument("--no-mesh-check", action="store_true", help="skip the halved mesh rerun")
+    a.add_argument("--no-mesh-check", action="store_true", help="skip the refined mesh rerun")
+    a.add_argument("--refine", type=float, default=2.0, help="divide every devsim spacing by this for the mesh check")
     o = a.parse_args()
     for b in P.BJT_BENCHMARKS:
         t = time.perf_counter()
@@ -296,16 +297,17 @@ def main() -> int:
         print(f"[{b.name}] output curve at I_B {b.i_b:g} A/cm", flush=True)
         out = output(b, 1.0)
         took = time.perf_counter() - t
-        mesh = None
-        if not o.no_mesh_check:
-            print(f"[{b.name}] halved mesh", flush=True)
-            g2, _ = gummel(b, 2.0)
-            o2 = output(b, 2.0)
-            mesh = max(change(g, g2), change(out, o2))
-            print(f"[{b.name}] halved mesh moves a current by {mesh:.3e}", flush=True)
         p = os.path.join(o.out, f"{b.name}.csv")
-        write(b, g, out, nodes, mesh, took, p)
-        print(f"[{b.name}] wrote {p}", flush=True)
+        write(b, g, out, nodes, None, o.refine, took, p)
+        print(f"[{b.name}] wrote {p} without a mesh check", flush=True)
+        if not o.no_mesh_check:
+            print(f"[{b.name}] mesh with every spacing divided by {o.refine:g}", flush=True)
+            g2, _ = gummel(b, o.refine)
+            o2 = output(b, o.refine)
+            mesh = max(change(g, g2), change(out, o2))
+            print(f"[{b.name}] the refined mesh moves a current by {mesh:.3e}", flush=True)
+            write(b, g, out, nodes, mesh, o.refine, took, p)
+            print(f"[{b.name}] wrote {p}", flush=True)
     return 0
 
 
