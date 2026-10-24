@@ -29,6 +29,14 @@ getting flipped.
 Points are joined in the order you listed the voltages, so an unsorted list
 zigzags.
 
+After the last point of an `iv`, `transfer` or `cv` sweep, I go back over
+every point and estimate how far the mesh puts it from the true answer. Each
+point then gets a small bar, and the note says how big the largest one is as
+a percentage. On a well built mesh they're a fraction of a percent, too short
+to see unless you hover, where the tooltip shows them as ± a number. If the
+note calls some of them rough, the mesh is too coarse there for the estimate
+itself to be trusted, usually because a junction falls between two nodes.
+
 Every finished run stays on the plot as a faded blue line until you press
 `clear runs`. Each one is labelled with the settings that differ from the run
 after it. So `Na 2e+17` means that curve was solved with Na at 2e17 and the
