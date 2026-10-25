@@ -68,6 +68,14 @@ Two more things. The steps use relative error 1e-8, because at 1e-10 devsim's up
 
 `generate_bjt.py` writes benchmark 15, the 2D npn from `parameters.NPN_2D`, which `tests/regression/test_devsim_bjt.py` checks against ddsim's own `CONFIG.npn_2d` field by field. There's no oxide, so the device is one silicon region with a thin metal region above and below it, because devsim drops a contact that sits on the outer edge of the mesh without saying so. The Gummel plot ramps the emitter down with the base and collector at zero, the same way `extract/bjt.py` does. The output curve walks the collector up and, at each step, moves the base voltage by a Newton step on log I_B, falling back to bisection inside the bracket it has found, until the base current is the one in the benchmark to 1e-9 in the log. The settle loop is its own small copy of the MOSFET one, since that one assumes an oxide region.
 
+The base current lives at the two contact edges. Each plate ends partway across the top surface, and current crowds at a metal edge, so I_B converges at order 1.5 instead of 2 there, and the columns carry nearly all of its mesh error. Doubling only the columns moved I_B by 2.7 percent on the first mesh, and doubling only the rows moved it by 0.15. So the mesh grades both edges to `devsim_h_edge`, finer than the junctions. The halved mesh is about 194k nodes and 4 GB, so this generator checks by coarsening instead: `--refine 0.5` reruns with every spacing doubled. For any order of 1 or more, that change bounds the error of the mesh that ships.
+
+```
+.venv-devsim/Scripts/python.exe tests/regression/devsim_gen/generate_bjt.py
+```
+
+It writes the CSV once the shipping mesh finishes, before the check starts, and writes it again with the mesh convergence line at the end. So a killed check never loses the curves.
+
 ## The MOSFET generator decides convergence itself
 
 `generate_mosfet.py` does not trust what a devsim `solve` reports, and neither

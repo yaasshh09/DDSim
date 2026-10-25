@@ -290,7 +290,7 @@ def main() -> int:
     a = argparse.ArgumentParser(description="Generate the npn golden curves with DEVSIM.")
     a.add_argument("--out", default=os.path.join("data", "golden"), help="output directory for the CSV files")
     a.add_argument("--no-mesh-check", action="store_true", help="skip the refined mesh rerun")
-    a.add_argument("--refine", type=float, default=2.0, help="divide every devsim spacing by this for the mesh check")
+    a.add_argument("--refine", type=float, default=0.5, help="divide every devsim spacing by this for the mesh check, so 0.5 doubles them")
     o = a.parse_args()
     for b in P.BJT_BENCHMARKS:
         t = time.perf_counter()
