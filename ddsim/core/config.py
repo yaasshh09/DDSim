@@ -104,7 +104,7 @@ class Npn2d:
     emitter_peak: float = 1e+20
     emitter_sigma: float = 3.97e-06
     lateral_length: float = 5e-06
-    nx: int = 61
+    nx: int = 121
     ny: int = 81
     h_min_x: float = 2e-06
     h_min_y: float = 1e-06

@@ -56,11 +56,11 @@ COARSE:dict[str, Preset] = {
     "npn_2d": Preset(
         parameters={"nx": 31, "ny": 41, "h_min_x": 4e-6, "h_min_y": 2e-6},
         note=(
-            "A coarse mesh: 1271 nodes against the default 4941. Measured "
-            "2026-10-24 over a 0.4 V to 0.8 V Gummel plot, the collector "
+            "A coarse mesh: 1271 nodes against the default 9801. Measured "
+            "2026-10-25 over a 0.4 V to 0.8 V Gummel plot, the collector "
             "current reads up to 3.2 percent high and the base current up to "
-            "10.6 percent high, so beta comes out 3 to 9 percent low, for a "
-            "sweep that takes 3.2 s instead of 14.1 s."
+            "15 percent high, so beta comes out 6 to 11 percent low, for a "
+            "sweep that takes 1.8 s instead of 22.1 s."
         ),
     ),
     "drawing": Preset(
