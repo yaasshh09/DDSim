@@ -85,11 +85,11 @@ def crossings(f: Callable[[float], float], span: float) -> list[float]:
 def build(b: P.BjtBenchmark, dev: str, refine: float) -> None:
     g = P.NPN_2D
     w, d = g["width"], g["depth"]
-    h, hj = b.devsim_h / refine, b.devsim_h_junction / refine
+    h, hj, he = b.devsim_h / refine, b.devsim_h_junction / refine, b.devsim_h_edge / refine
     ys = crossings(lambda y: net(0.0, y), d)
     xs = crossings(lambda x: net(x, d), w)
     create_2d_mesh(mesh=dev)
-    for x, s in sorted({0.0: h, g["emitter_contact"]: h, xs[0]: hj, g["base_contact"]: h, w: h}.items()):
+    for x, s in sorted({0.0: h, g["emitter_contact"]: he, xs[0]: hj, g["base_contact"]: he, w: h}.items()):
         add_2d_mesh_line(mesh=dev, dir="x", pos=x, ns=s, ps=s)
     add_2d_mesh_line(mesh=dev, dir="y", pos=-AIR, ns=AIR, ps=AIR)
     for y, s in sorted({0.0: h, ys[0]: hj, ys[1]: hj, d: hj}.items()):
@@ -267,11 +267,13 @@ def write(b: P.BjtBenchmark, g: list[dict[str, float]], o: list[dict[str, float]
         f"# base current: {b.i_b:.6e}",
         f"# devsim silicon nodes: {nodes}",
         f"# devsim seconds: {seconds:.1f}",
+        f"# devsim spacings: {b.devsim_h:.3e} bulk, {b.devsim_h_junction:.3e} at the junctions, {b.devsim_h_edge:.3e} at the contact edges [cm]",
         "# statistics: Boltzmann",
     ]
     h += [f"# {k}: {v:.6e}" for k, v in P.NPN_2D.items()]
     if mesh is not None:
-        h.append(f"# mesh convergence: {mesh:.3e} worst relative change in a terminal current when every devsim spacing is divided by {refine:g}")
+        how = f"divided by {refine:g}" if refine > 1.0 else f"multiplied by {1.0 / refine:g}"
+        h.append(f"# mesh convergence: {mesh:.3e} worst relative change in a terminal current when every devsim spacing is {how}")
     h.append("# notes: " + b.notes)
     h.append("# models: Boltzmann, constant mobility, SRH with Scharfetter lifetimes, ohmic contacts")
     h.append("# columns: curve (0 for the Gummel plot, 1 for the output curve), V_BE [V], V_CE [V], collector and base current [A/cm]")

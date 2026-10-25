@@ -863,6 +863,8 @@ class BjtBenchmark:
 
     devsim_h_junction: float = 5e-7
 
+    devsim_h_edge: float = 2.5e-7
+
     notes: str = ""
 
 
