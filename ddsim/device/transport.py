@@ -8,7 +8,7 @@ from ddsim.device.builder import Device
 from ddsim.device.equilibrium import (frozen_quasi_fermi, solve_equilibrium, solve_poisson,)
 from ddsim.device.state import DeviceState
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.impact import ImpactIonization, add_impact, impact_residual
+from ddsim.discretize.impact import ImpactIonization, add_impact, impact_residual, impact_term_scale
 from ddsim.discretize.boundary import (
     Carrier,
     add_thermionic,
@@ -620,6 +620,9 @@ def solve_bias_newton(
             residual: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
         ) -> dict[str, float]:
             _, n, p = unpack(x)
+            rate = np.abs(np.asarray(active.recombination.rate(n, p), dtype=np.float64))
+            if active.impact is not None:
+                rate = rate + impact_term_scale(x, obj, i, active.Dn, active.Dp, active.impact, device.dimension) / a
             s = residual_term_scales(
                 obj,
                 a,
@@ -627,7 +630,7 @@ def solve_bias_newton(
                 gp,
                 active.Dn,
                 active.Dp,
-                np.asarray(active.recombination.rate(n, p), dtype=np.float64),
+                rate,
                 i,
                 device.degeneracy,
             )

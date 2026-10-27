@@ -104,3 +104,18 @@ def impact_residual(x: Array, h: Array, geometry: EdgeGeometry, Dn: EdgeDiffusiv
     none = np.zeros(0, dtype=np.int64)
     zero = SparseAssembly(residual=np.zeros(x.size), rows=none, cols=none, values=np.zeros(0), shape=(x.size, x.size))
     return add_impact(zero, x, h, geometry, Dn, Dp, model, dimension).residual
+
+
+def impact_term_scale(x: Array, h: Array, geometry: EdgeGeometry, Dn: EdgeDiffusivity, Dp: EdgeDiffusivity, model: ImpactIonization, dimension: int) -> Array:
+    psi, n, p = unpack(x)
+    a, b = geometry.ends(h.size)
+    d = psi[b] - psi[a]
+    E = np.abs(d) / h
+    bp, bm = np.asarray(B(d), dtype=np.float64), np.asarray(B(-d), dtype=np.float64)
+    tn = diffusivity_at(Dn, d, h) / h * np.maximum(bp * n[b], bm * n[a])
+    tp = diffusivity_at(Dp, d, h) / h * np.maximum(bp * p[a], bm * p[b])
+    t = (model.alpha_n(E)[0] * tn + model.alpha_p(E)[0] * tp) * h * geometry.carrier_face / (2 * dimension)
+    out = np.zeros(psi.size)
+    np.maximum.at(out, a, t)
+    np.maximum.at(out, b, t)
+    return out

@@ -4,7 +4,7 @@ import pytest
 from ddsim.core import constants as C
 from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels
-from ddsim.extract.iv import iv_sweep
+from ddsim.extract.iv import gate_sweep, iv_sweep
 from ddsim.physics.recombination import SRHRecombination
 
 
@@ -52,7 +52,7 @@ def test_breakdown_matches_the_ionization_integral() -> None:
     v = [0.0, -6.0, -10.0, -12.0, -13.0] + [-round(x, 2) for x in np.arange(13.2, 13.81, 0.1)]
     a = iv_sweep(d, "anode", v + [-13.9, -14.0, -14.1], models=TransportModels.for_device(d, recombination=R))
     assert a.complete, a.message
-    b = iv_sweep(d, "anode", v, models=TransportModels.for_device(d, recombination=R, impact=True))
+    b = gate_sweep(d, v, contact="anode", measure_at="anode", models=TransportModels.for_device(d, recombination=R, impact=True))
     assert b.complete, b.message
     V = [-p.voltage for p in a.points]
     by_integral = crossing(V, [one_minus_integral(d, p.state) for p in a.points])
@@ -70,3 +70,13 @@ def test_breakdown_falls_with_doping() -> None:
     assert high < low
     for v, N in ((low, 1e16), (high, 1e17)):
         assert v == pytest.approx(60.0 * (C.Eg() / 1.1) ** 1.5 * (N / 1e16) ** -0.75, rel=0.30)
+
+
+def test_the_sweep_goes_through_the_knee() -> None:
+    d = pn_diode(Na=1e19, Nd=1e17, length=1.5e-4, junction=0.3e-4, n_nodes=301, h_min=1e-7)
+    v = [0.0, -10.0, -13.0, -13.5, -13.8, -13.9, -14.0, -14.05, -14.1, -14.2, -14.5]
+    b = gate_sweep(d, v, contact="anode", measure_at="anode", models=TransportModels.for_device(d, recombination=short_lived(d), impact=True))
+    assert b.complete, b.message
+    i = [abs(p.current) for p in b.points]
+    assert all(x < y for x, y in zip(i[1:], i[2:], strict=False))
+    assert i[-1] > 1e5 * i[2]
