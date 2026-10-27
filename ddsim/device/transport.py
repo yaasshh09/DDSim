@@ -10,6 +10,7 @@ from ddsim.device.state import DeviceState
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import (
     Carrier,
+    add_thermionic,
     apply_ohmic_densities,
     impose_ohmic_densities,
 )
@@ -314,6 +315,7 @@ def electron_block(
             Carrier.ELECTRON,
             c,
         )
+        val = add_thermionic(val, state.n.data, device.contacts, device.scale, Carrier.ELECTRON, device.material.T)
 
         it.factorize(val.rows, val.cols, val.values, val.shape)
         v = impose_ohmic_densities(state.n.data + it.solve(-val.residual), tmp3, device.ohmic_contacts, Carrier.ELECTRON, c,)
@@ -345,6 +347,7 @@ def hole_block(device:Device, models:TransportModels) -> BlockStep[DeviceState]:
             Carrier.HOLE,
             e,
         )
+        y = add_thermionic(y, state.p.data, device.contacts, device.scale, Carrier.HOLE, device.material.T)
 
         b.factorize(y.rows, y.cols, y.values, y.shape)
         f = impose_ohmic_densities(state.p.data+b.solve(-y.residual), m, device.ohmic_contacts, Carrier.HOLE, e,)

@@ -78,6 +78,15 @@ class PnDiode:
 
 
 @dataclass(frozen=True)
+class Schottky:
+    Nd: float = 1e+16
+    length: float = 0.0001
+    barrier: float = 0.7
+    n_nodes: int = 201
+    h_min: float = 1e-07
+
+
+@dataclass(frozen=True)
 class Npn:
     emitter_doping: float = 1e+18
     base_doping: float = 1e+17
@@ -193,6 +202,7 @@ class Config:
     mesh: Mesh = field(default_factory=Mesh)
     errors: Errors = field(default_factory=Errors)
     pn_diode: PnDiode = field(default_factory=PnDiode)
+    schottky: Schottky = field(default_factory=Schottky)
     npn: Npn = field(default_factory=Npn)
     npn_2d: Npn2d = field(default_factory=Npn2d)
     stack: Stack = field(default_factory=Stack)

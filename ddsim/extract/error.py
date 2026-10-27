@@ -11,7 +11,7 @@ from ddsim.device.regions import region_map
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import Carrier, Contact, OhmicContact, apply_contacts, apply_dirichlet_nodes, pins_carrier
+from ddsim.discretize.boundary import Carrier, Contact, OhmicContact, SchottkyContact, apply_contacts, apply_dirichlet_nodes, pins_carrier
 from ddsim.discretize.poisson import assemble_poisson
 from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
 from ddsim.extract.cv import CVCurve, Response, _charge_unit, _contact_nodes, small_signal_capacitance
@@ -100,7 +100,7 @@ def _moved(c: Contact, nx: int, ix: npt.NDArray[np.int64], iy: npt.NDArray[np.in
             out.update(int(iy[j] * nxf + t) for t in range(ix[i], ix[i + 1] + 1))
         if v + nx in s:
             out.update(int(t * nxf + ix[i]) for t in range(iy[j], iy[j + 1] + 1))
-    if isinstance(c, OhmicContact):
+    if isinstance(c, OhmicContact | SchottkyContact):
         return replace(c, node=out.pop())
     return replace(c, nodes=tuple(sorted(out)))
 

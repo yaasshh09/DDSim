@@ -7,7 +7,7 @@ from ddsim.core.field import Field, Location, ScalingState
 from ddsim.core.scaling import ScaleFactors
 from ddsim.device.doping import Coordinates, DopingProfile
 from ddsim.device.regions import RegionMap
-from ddsim.discretize.boundary import Contact, GateContact, SemiconductorContact
+from ddsim.discretize.boundary import Contact, GateContact, SchottkyContact, SemiconductorContact
 from ddsim.discretize.geometry import ScaledMesh
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.mesh.mesh2d import Mesh2D
@@ -233,6 +233,14 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
             "the donor occupancy is a function of n alone. Turn degenerate off "
             "or incomplete_ionization off."
         )
+
+    for item in contacts:
+        if isinstance(item, SchottkyContact) and not isinstance(mesh, Mesh1D):
+            raise ValueError(
+                f"contact {item.name!r} is a Schottky contact, which takes its "
+                "thermionic current through a face of unit area. That is the "
+                "1D device only for now."
+            )
 
     i = [item.name for item in contacts]
     if len(set(i)) != len(i):

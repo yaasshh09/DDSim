@@ -1,6 +1,6 @@
 from __future__ import annotations
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from functools import lru_cache
@@ -48,6 +48,32 @@ class OhmicPlate:
             )
 
 
+@dataclass(frozen=True)
+class SchottkyContact:
+    name: str
+
+    node: int
+
+    voltage: float
+
+    barrier: float
+
+    majority_only: bool = False
+
+    def __post_init__(self) -> None:
+        if not 0.0 < self.barrier < 2.0:
+            raise ValueError(
+                f"contact {self.name!r} has a barrier of {self.barrier:g} eV. "
+                "A metal on silicon sits between about 0.3 and 1 eV above the "
+                "Fermi level, so values outside 0 to 2 eV are taken for a typo "
+                "and refused."
+            )
+
+    @property
+    def nodes(self) -> tuple[int, ...]:
+        return (self.node,)
+
+
 GATE_WORK_FUNCTION_RANGE = (2.0,
      7.0)
 
@@ -79,15 +105,60 @@ class GateContact:
                 f"{x:g} eV are taken for a typo and refused."
             )
 
-SemiconductorContact = OhmicContact | OhmicPlate
+SemiconductorContact = OhmicContact | OhmicPlate | SchottkyContact
 
-Contact = OhmicContact | OhmicPlate | GateContact
+Contact = OhmicContact | OhmicPlate | SchottkyContact | GateContact
 
 
 def gate_psi_scaled(
     applied:float, work_function: float, T: float = C.T_ROOM
 ) -> float:
     return applied+(C.CHI_SI + C.Eg(T) / 2.0-work_function)/C.V_T(T)
+
+def barrier_density(barrier: float, T: float = C.T_ROOM) -> float:
+    return C.Nc(T) * math.exp(-barrier / C.V_T(T))
+
+
+def contact_psi_scaled(contact: SemiconductorContact, net_doping: float, applied: float, scale: ScaleFactors, degeneracy: Degeneracy | None = None) -> float:
+    if not isinstance(contact, SchottkyContact):
+        return ohmic_psi_scaled(net_doping, applied, degeneracy)
+    if degeneracy is not None:
+        raise NotImplementedError(
+            f"contact {contact.name!r} is a Schottky contact, and its barrier "
+            "density Nc exp(-phi_B / V_T) is Boltzmann. Solve without "
+            "degenerate=True."
+        )
+    return applied + math.log(barrier_density(contact.barrier, scale.T) / scale.C_0)
+
+
+def thermionic_constants(contact: SchottkyContact, carrier: Carrier, scale: ScaleFactors, T: float = C.T_ROOM) -> tuple[float, float]:
+    n0 = barrier_density(contact.barrier, T)
+    if carrier is Carrier.ELECTRON:
+        v = C.A_STAR_N * T * T / (C.q * C.Nc(T))
+        c0 = n0
+    else:
+        v = C.A_STAR_P * T * T / (C.q * C.Nv(T))
+        c0 = scale.C_0 ** 2 / n0
+    return v * scale.x_0 / scale.D_0, c0 / scale.C_0
+
+
+def add_thermionic(assembly: SparseAssembly, density: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier: Carrier, T: float = C.T_ROOM, row: Callable[[int], int] = int) -> SparseAssembly:
+    k = [c for c in contacts if isinstance(c, SchottkyContact)]
+    if not k:
+        return assembly
+    res = assembly.residual.copy()
+    at: list[int] = []
+    vs: list[float] = []
+    for c in k:
+        v, c0 = thermionic_constants(c, carrier, scale, T)
+        for w in c.nodes:
+            i = row(w)
+            res[i] += v * (density[i] - c0)
+            at.append(i)
+            vs.append(v)
+    a = np.asarray(at, dtype=np.int64)
+    return SparseAssembly(residual=res, rows=np.concatenate([assembly.rows, a]), cols=np.concatenate([assembly.cols, a]), values=np.concatenate([assembly.values, np.asarray(vs)]), shape=assembly.shape)
+
 
 def ohmic_psi_scaled(
     net_doping:float, applied: float, degeneracy: Degeneracy | None = None
@@ -172,6 +243,8 @@ def ohmic_density_scaled(net_doping:float, carrier:Carrier, degeneracy:Degenerac
         y, k = degeneracy.equilibrium_densities(net_doping)
     return float(y if carrier is Carrier.ELECTRON else k)
 def pins_carrier(contact: SemiconductorContact, net_doping: float, carrier: Carrier) -> bool:
+    if isinstance(contact, SchottkyContact):
+        return False
     if not contact.majority_only:
         return True
     return (carrier is Carrier.HOLE) == (net_doping < 0.0)
@@ -192,12 +265,12 @@ def impose_ohmic_densities(density:npt.NDArray[np.float64], net_doping:npt.NDArr
 def apply_ohmic_densities(assembly: SparseAssembly, density: npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[SemiconductorContact], carrier: Carrier, degeneracy: Degeneracy | None = None,) -> SparseAssembly:
     cur = [t for m2 in contacts for t in m2.nodes if pins_carrier(m2, float(net_doping[t]), carrier)]
     return apply_dirichlet_nodes(assembly, density, cur, [ohmic_density_scaled(float(net_doping[t]), carrier, degeneracy) for t in cur],)
-def apply_ohmic_contacts(assembly: SparseAssembly, psi: npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[SemiconductorContact], scale: ScaleFactors, degeneracy: Degeneracy | None = None,) -> SparseAssembly:
+def apply_ohmic_contacts(assembly: SparseAssembly, psi: npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[SemiconductorContact], scale: ScaleFactors, degeneracy: Degeneracy | None = None, T: float = C.T_ROOM,) -> SparseAssembly:
     k = [t2.name for t2 in contacts]
     if len(set(k)) != len(k):
         raise ValueError(f"contact names must be unique, got {k}")
 
-    y2, t = _ohmic_targets(net_doping, contacts, scale, degeneracy)
+    y2, t = _ohmic_targets(net_doping, contacts, scale, degeneracy, T)
 
     return apply_dirichlet_nodes(assembly,
                     psi,
@@ -205,7 +278,7 @@ def apply_ohmic_contacts(assembly: SparseAssembly, psi: npt.NDArray[np.float64],
             t)
 
 
-def _ohmic_targets(net_doping:npt.NDArray[np.float64], contacts:Sequence[SemiconductorContact], scale:ScaleFactors, degeneracy:Degeneracy | None = None,) -> tuple[list[int], list[float]]:
+def _ohmic_targets(net_doping:npt.NDArray[np.float64], contacts:Sequence[SemiconductorContact], scale:ScaleFactors, degeneracy:Degeneracy | None = None, T: float = C.T_ROOM,) -> tuple[list[int], list[float]]:
     c: list[int] = []
     xs: list[float] = []
     for m in contacts:
@@ -213,7 +286,7 @@ def _ohmic_targets(net_doping:npt.NDArray[np.float64], contacts:Sequence[Semicon
         for h in m.nodes:
             c.append(h)
             xs.append(
-                ohmic_psi_scaled(float(net_doping[h]), v, degeneracy)
+                contact_psi_scaled(m, float(net_doping[h]), v, scale, degeneracy)
             )
 
     return c, xs
@@ -233,7 +306,7 @@ def apply_contacts(
         raise ValueError(f"contact names must be unique, got {s}")
 
     out2 = [d for d in contacts if not isinstance(d, GateContact)]
-    m, g = _ohmic_targets(net_doping, out2, scale, degeneracy)
+    m, g = _ohmic_targets(net_doping, out2, scale, degeneracy, T)
 
     for nxt in contacts:
         if isinstance(nxt, GateContact):

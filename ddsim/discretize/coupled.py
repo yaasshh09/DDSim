@@ -14,7 +14,8 @@ from ddsim.discretize.boundary import (
     apply_dirichlet_nodes,
     gate_psi_scaled,
     ohmic_density_scaled,
-    ohmic_psi_scaled,
+    contact_psi_scaled,
+    add_thermionic,
     pins_carrier,
 )
 from ddsim.discretize.continuity import Diffusivity
@@ -482,7 +483,7 @@ def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], 
             xs = float(net_doping[w])
 
             h.append(unknown_index(w,
-                       Unknown.PSI)); u.append(ohmic_psi_scaled(xs, y, degeneracy))
+                       Unknown.PSI)); u.append(contact_psi_scaled(e, xs, y, scale, degeneracy))
             if pins_carrier(e, xs, Carrier.ELECTRON):
                 h.append(unknown_index(w, Unknown.N))
                 u.append(ohmic_density_scaled(xs, Carrier.ELECTRON, degeneracy))
@@ -495,6 +496,8 @@ def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], 
         u.append(0.0)
         h.append(unknown_index(w, Unknown.P))
         u.append(0.0)
+    assembly = add_thermionic(assembly, x, contacts, scale, Carrier.ELECTRON, T, lambda w: unknown_index(w, Unknown.N))
+    assembly = add_thermionic(assembly, x, contacts, scale, Carrier.HOLE, T, lambda w: unknown_index(w, Unknown.P))
     return apply_dirichlet_nodes(assembly, x, h, u)
 
 
