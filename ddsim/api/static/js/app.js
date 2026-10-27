@@ -121,6 +121,13 @@ function curveTitles(logY) {
   if (body.sweep.kind === "ac") {
     const ac = state.curve && state.curve.kind === "ac";
     const [part, at, driven] = ac ? el("ac-entry").value.split(" ") : ["C", body.sweep.contact, body.sweep.contact];
+    if (part === "f_T") {
+      const flat = state.schema.dimensions[body.device.kind] === 1;
+      return {
+        x: body.sweep.voltages.length > 1 ? at + " current, log₁₀ [" + (flat ? "A/cm²" : "A/cm") + "]" : "frequency, log₁₀ [Hz]",
+        y: "transit frequency " + at + " / " + driven + " [Hz]",
+      };
+    }
     const name = (part === "G" ? "conductance " : "capacitance ") + at + " / " + driven;
     const unit = part === "G" ? " [S/cm²]" : " [F/cm²]";
     return {
@@ -952,6 +959,17 @@ function acChoices() {
       }
     }
   }
+  if (curve.frequencies.some((f) => f > 0)) {
+    for (const a of curve.contacts) {
+      for (const b of curve.contacts) {
+        if (a === b) continue;
+        const option = document.createElement("option");
+        option.value = "f_T " + a + " " + b;
+        option.textContent = "f_T " + a + " / " + b;
+        entry.appendChild(option);
+      }
+    }
+  }
   entry.value = "C " + curve.contact + " " + curve.contact;
   curve.frequencies.forEach((f, k) => {
     const option = document.createElement("option");
@@ -968,12 +986,19 @@ function acPoints() {
   if (!curve.points.length) return [];
   const [part, at, driven] = el("ac-entry").value.split(" ");
   const i = curve.contacts.indexOf(at), j = curve.contacts.indexOf(driven);
-  const read = (point, k) => ({
+  const read = (point, k) => part === "f_T" ? {
+    value: point.f_T[k] === null ? null : point.f_T[k][i][j],
+    rough: point.G_spread[k][i][j] > curve.roundoff || point.C_spread[k][j][j] > curve.roundoff,
+  } : {
     value: point[part][k] === null ? null : point[part][k][i][j],
     rough: point[part + "_spread"][k][i][j] > curve.roundoff,
-  });
+  };
   if (curve.points.length > 1) {
     const k = Number(el("ac-frequency").value);
+    if (part === "f_T") {
+      return curve.points.filter((point) => Math.abs(point.currents[at]) > 0)
+        .map((point) => Object.assign({ voltage: decades(Math.abs(point.currents[at])) }, read(point, k)));
+    }
     return curve.points.map((point) => Object.assign({ voltage: point.voltage }, read(point, k)));
   }
   const out = [];

@@ -11,6 +11,7 @@ from ddsim.device.builder import Device
 from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
 from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
+from ddsim.extract.iv import terminal_currents
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.boundary import Carrier, GateContact, apply_dirichlet_nodes, pins_carrier
 from ddsim.discretize.coupled import (
@@ -205,6 +206,8 @@ class ACPoint:
 
     C_spread: tuple[npt.NDArray[np.float64], ...]
 
+    currents: dict[str, float]
+
 
 def _spread(a: npt.NDArray[np.float64], b: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
     top = np.maximum(np.abs(a), np.abs(b))
@@ -277,7 +280,7 @@ def ac_sweep(device: Device, contact: str, voltages: list[float], frequencies: l
             if on_frame is not None:
                 g = a.contacts.index(contact)
                 on_frame(ACFrame(index=len(out), voltage=v, frequency=f, conductance=float(a.G[g, g]), capacitance=float(a.C[g, g]) if f > 0.0 else None, G_spread=float(gs[-1][g, g]), C_spread=float(cs[-1][g, g])))
-        out.append(ACPoint(voltage=v, state=s, admittances=tuple(ys), G_spread=tuple(gs), C_spread=tuple(cs)))
+        out.append(ACPoint(voltage=v, state=s, admittances=tuple(ys), G_spread=tuple(gs), C_spread=tuple(cs), currents=terminal_currents(e, s, models)))
     return ACCurve(contact=contact, frequencies=tuple(frequencies), points=tuple(out), complete=True)
 
 

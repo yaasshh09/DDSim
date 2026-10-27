@@ -6,7 +6,7 @@ import numpy as np, numpy.typing as npt
 from ddsim.core.field import Field
 from ddsim.device.builder import Device
 from ddsim.device.state import DeviceState; from ddsim.device.transport import TransportModels
-from ddsim.extract.ac import ROUNDOFF, ACCurve, ACFrame, ACPoint
+from ddsim.extract.ac import ROUNDOFF, ACCurve, ACFrame, ACPoint, Admittance
 from ddsim.extract.bands import band_edges; from ddsim.extract.cv import CVCurve, CVFrame, CVPoint
 from ddsim.extract.error import ErrorEstimate, ErrorFrame
 from ddsim.extract.iv import IVCurve, IVFrame, IVPoint, node_current_density
@@ -161,6 +161,8 @@ def _curve_body(curve:IVCurve | CVCurve | ACCurve | TransientCurve) -> dict[str,
                     "C": [a.C.tolist() if a.frequency > 0.0 else None for a in f.admittances],
                     "G_spread": [g.tolist() for g in f.G_spread],
                     "C_spread": [c.tolist() for c in f.C_spread],
+                    "currents": f.currents,
+                    "f_T": [_f_t(a) for a in f.admittances],
                 }
                 for x, f in enumerate(curve.points)
             ],
@@ -183,6 +185,12 @@ def _curve_body(curve:IVCurve | CVCurve | ACCurve | TransientCurve) -> dict[str,
             ],
         }
     return {'kind':"iv", 'contact':curve.contact, 'measured_at':curve.measured_at, "complete":curve.complete, "message":curve.message, "points":[{'index': x, 'voltage': f.voltage, "current": f.current} for x, f in enumerate(curve.points)],}
+
+
+def _f_t(a: Admittance) -> list[list[float | None]] | None:
+    if a.frequency <= 0.0:
+        return None
+    return [[_finite(a.f_T(g, d)) if a.C[a.contacts.index(g), a.contacts.index(g)] != 0.0 else None for g in a.contacts] for d in a.contacts]
 
 
 def point_voltage(point: IVPoint | CVPoint | ACPoint) -> float:

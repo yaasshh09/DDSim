@@ -10,7 +10,8 @@ from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels
 from ddsim.extract.ac import ROUNDOFF, ac_sweep
 from ddsim.extract.cv import cv_sweep
-from ddsim.extract.iv import gate_sweep, iv_sweep
+from ddsim.extract.iv import gate_sweep, iv_sweep, terminal_currents
+from ddsim.device.bjt import npn_1d
 
 DIODE = {"n_nodes":61, 'h_min':5e-7}
 
@@ -427,6 +428,21 @@ def test_an_ac_result_carries_g_and_c_bit_for_bit_with_their_spreads(client) -> 
     assert p["C"] == [None, w.admittances[1].C.tolist()]
     assert p["G_spread"] == [x.tolist() for x in w.G_spread]
     assert p["C_spread"] == [x.tolist() for x in w.C_spread]
+
+
+def test_an_npn_ac_result_carries_f_t_and_the_dc_currents(client) -> None:
+    j = submit(client, {"device": {"kind": "npn", "parameters": {"collector_voltage": 1.0}}, "sweep": {"kind": "ac", "contact": "base", "voltages": [0.5, 0.7], "frequencies": [0.0, 1e6]}})
+    drain(client, j)
+    body = client.get(f"/api/jobs/{j}/result").json()
+    d = npn_1d(collector_voltage=1.0)
+    want = ac_sweep(d, "base", [0.5, 0.7], [0.0, 1e6])
+    k = body["contacts"]
+    for p, w in zip(body["points"], want.points, strict=True):
+        assert p["currents"] == terminal_currents(d.with_bias(base=w.voltage), w.state, TransportModels.for_device(d))
+        assert p["f_T"][0] is None
+        a = w.admittances[1]
+        assert p["f_T"][1][k.index("collector")][k.index("base")] == a.f_T("base", "collector")
+    assert 0 < body["points"][0]["f_T"][1][k.index("collector")][k.index("base")] < body["points"][1]["f_T"][1][k.index("collector")][k.index("base")]
 
 
 def test_the_fields_of_an_ac_point_carry_its_bias(client) -> None:

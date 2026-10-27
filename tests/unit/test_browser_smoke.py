@@ -1061,3 +1061,34 @@ def test_an_npn_gummel_plot_runs_in_a_real_browser(server) -> None:
             assert m == []
         finally:
             cc.close()
+
+
+def test_an_npn_f_t_is_drawn_against_its_collector_current(server) -> None:
+    with sync_playwright() as r:
+        cc = r.chromium.launch()
+        try:
+            p = cc.new_page()
+            m: list[str] = []
+            p.on('pageerror', lambda error: m.append(str(error)))
+            p.goto(server)
+            wait_until(p, "el('state').textContent === 'ready'", m)
+            p.select_option('#device-kind', "npn")
+            p.select_option('#sweep-kind', "ac")
+            p.select_option('#contact', "base")
+            p.fill('[data-name="collector_voltage"]', "1")
+            p.fill("#voltages", '0.5, 0.6, 0.7')
+            p.fill("#frequencies", '1e6')
+            p.click('#solve')
+            wait_until(p, "el('state').textContent.startsWith('done') && state.fields !== null", m)
+            p.select_option("#ac-entry", "f_T collector base")
+            k = p.evaluate("[state.curve.contacts.indexOf('collector'), state.curve.contacts.indexOf('base')]")
+            want = p.evaluate(f"state.curve.points.map((q) => q.f_T[0][{k[0]}][{k[1]}])")
+            assert p.evaluate("state.points.map((q) => q.value)") == want
+            assert want[0] < want[1] < want[2]
+            x = p.evaluate("state.curve.points.map((q) => q.currents.collector)")
+            assert p.evaluate("state.points.map((q) => q.voltage)") == pytest.approx([math.log10(abs(v)) for v in x])
+            assert "transit frequency" in p.evaluate("curveTitles(false).y")
+            assert "collector current" in p.evaluate("curveTitles(false).x")
+            assert m == []
+        finally:
+            cc.close()
