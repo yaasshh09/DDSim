@@ -49,8 +49,8 @@ def add_impact(assembly: SparseAssembly, x: Array, h: Array, geometry: EdgeGeome
     d = psi[b] - psi[a]
     share = h * geometry.carrier_face / (2 * dimension)
 
-    bp, bm = B(d), B(-d)
-    dbp, dbm = dB_dx(d), dB_dx(-d)
+    bp, bm = np.asarray(B(d), dtype=np.float64), np.asarray(B(-d), dtype=np.float64)
+    dbp, dbm = np.asarray(dB_dx(d), dtype=np.float64), np.asarray(dB_dx(-d), dtype=np.float64)
 
     kn = diffusivity_at(Dn, d, h) / h
     fn = bp * n[b] - bm * n[a]
@@ -63,14 +63,14 @@ def add_impact(assembly: SparseAssembly, x: Array, h: Array, geometry: EdgeGeome
     jn_nb = kn * bp
 
     kp = diffusivity_at(Dp, d, h) / h
-    fp = bm * p[a] - bp * p[b]
+    fp = bp * p[a] - bm * p[b]
     jp = kp * fp
-    jp_d = kp * (-dbm * p[a] - dbp * p[b])
+    jp_d = kp * (dbp * p[a] + dbm * p[b])
     tp = diffusivity_tangent(Dp, d, h)
     if tp is not None:
         jp_d = jp_d + tp / h * fp
-    jp_pa = kp * bm
-    jp_pb = -kp * bp
+    jp_pa = kp * bp
+    jp_pb = -kp * bm
 
     E = np.abs(d) / h
     E_d = np.sign(d) / h
@@ -98,3 +98,9 @@ def add_impact(assembly: SparseAssembly, x: Array, h: Array, geometry: EdgeGeome
                 cols.append(col)
                 vals.append(-dG * share)
     return SparseAssembly(residual=res, rows=np.concatenate([assembly.rows, *rows]), cols=np.concatenate([assembly.cols, *cols]), values=np.concatenate([assembly.values, *vals]), shape=assembly.shape)
+
+
+def impact_residual(x: Array, h: Array, geometry: EdgeGeometry, Dn: EdgeDiffusivity, Dp: EdgeDiffusivity, model: ImpactIonization, dimension: int) -> Array:
+    none = np.zeros(0, dtype=np.int64)
+    zero = SparseAssembly(residual=np.zeros(x.size), rows=none, cols=none, values=np.zeros(0), shape=(x.size, x.size))
+    return add_impact(zero, x, h, geometry, Dn, Dp, model, dimension).residual

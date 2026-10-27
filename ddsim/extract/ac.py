@@ -112,6 +112,8 @@ def _linearized(device: Device, state: DeviceState, frequency: float, models: Tr
             "misses its dependence on psi, n and p and the admittance would "
             "be wrong. Solve without surface=True."
         )
+    if models.impact is not None:
+        raise NotImplementedError("the small-signal solve does not linearize impact ionization yet. Solve without impact=True.")
     for run in (state.newton, state.gummel):
         if run is not None and not run.converged:
             raise ValueError(

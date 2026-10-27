@@ -11,6 +11,7 @@ from ddsim.discretize.boundary import SemiconductorContact
 from ddsim.discretize.continuity import electron_current, hole_current
 from ddsim.discretize.coupled import (coupled_residual, edge_drop, effective_potentials, pack, unpack,)
 from ddsim.discretize.geometry import EdgeGeometry
+from ddsim.discretize.impact import impact_residual
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.physics.mobility import diffusivity_at
 from ddsim.solve.continuation import continue_to
@@ -113,6 +114,8 @@ def continuity_residuals(
         geometry=z.geometry,
         degeneracy=device.degeneracy,
     )
+    if models.impact is not None:
+        y = y + impact_residual(pack(state.psi.data, state.n.data, state.p.data), z.h, z.geometry, models.Dn, models.Dp, models.impact, device.dimension)
     _, x2, g = unpack(y)
 
     return np.asarray(x2), np.asarray(g)

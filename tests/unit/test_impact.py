@@ -7,7 +7,8 @@ from ddsim.device.pn_diode import pn_diode
 from ddsim.device.transport import TransportModels
 from ddsim.discretize.assembly import SparseAssembly
 from ddsim.discretize.coupled import pack
-from ddsim.discretize.impact import ImpactIonization, add_impact
+from ddsim.discretize.impact import ImpactIonization, add_impact, impact_residual
+from ddsim.device.equilibrium import frozen_quasi_fermi, solve_equilibrium
 
 
 @pytest.mark.parametrize("E", [2e5, 3.9e5, 4.1e5, 6e5])
@@ -65,3 +66,13 @@ def test_the_jacobian_matches_central_differences(field_dependent) -> None:
         col = (assembled(d, mesh, m, up).residual - assembled(d, mesh, m, dn).residual) / (2 * step)
         top = max(np.abs(col).max(), np.abs(J[:, k]).max(), 1e-300)
         assert np.abs(col - J[:, k]).max() <= 1e-5 * top + 1e-9 * scale, f"column {k}"
+
+
+def test_an_equilibrium_junction_generates_nothing() -> None:
+    d = pn_diode(Na=1e19, Nd=1e17, length=1.5e-4, junction=0.3e-4, n_nodes=301, h_min=1e-7)
+    m = TransportModels.for_device(d, impact=True)
+    eq = solve_equilibrium(d, quasi_fermi=frozen_quasi_fermi(d))
+    z = d.scaled_mesh
+    r = impact_residual(pack(eq.psi.data, eq.n.data, eq.p.data), z.h, z.geometry, m.Dn, m.Dp, m.impact, 1)
+    flux = np.abs(m.Dn / z.h * eq.n.data[1:]).max()
+    assert np.abs(r).max() < 1e-12 * flux

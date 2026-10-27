@@ -8,6 +8,7 @@ from ddsim.device.builder import Device
 from ddsim.device.equilibrium import (frozen_quasi_fermi, solve_equilibrium, solve_poisson,)
 from ddsim.device.state import DeviceState
 from ddsim.discretize.assembly import SparseAssembly
+from ddsim.discretize.impact import ImpactIonization, add_impact, impact_residual
 from ddsim.discretize.boundary import (
     Carrier,
     add_thermionic,
@@ -32,6 +33,8 @@ from ddsim.discretize.coupled import (
     row_weights,
     scale_rows,
     unpack,
+    UNKNOWNS_PER_NODE,
+    Unknown,
 )
 from ddsim.mesh.mesh2d import Mesh2D, normal_field
 from ddsim.physics.mobility import (AroraMobility, CaugheyThomas, ConstantMobility, EdgeDiffusivity, LombardiSurface, diffusivity_at, edge_diffusivity,)
@@ -111,6 +114,8 @@ class TransportModels:
 
     field_dependent: bool = False
 
+    impact: ImpactIonization | None = None
+
     def at_state(
         self,
         device: Device,
@@ -123,7 +128,7 @@ class TransportModels:
         c2, g = self.surface.corrected(device, psi, n, p)
         return replace(self, Dn=_from_nodal_mobility(device, Carrier.ELECTRON, c2, self.field_dependent), Dp=_from_nodal_mobility(device, Carrier.HOLE, g, self.field_dependent),)
     @classmethod
-    def for_device(cls, device: Device, recombination: RecombinationModel | None = None, mobility: str = "constant", auger: bool = False, field_dependent: bool = False, surface: bool = False,) -> TransportModels:
+    def for_device(cls, device: Device, recombination: RecombinationModel | None = None, mobility: str = "constant", auger: bool = False, field_dependent: bool = False, surface: bool = False, impact: bool = False,) -> TransportModels:
         bb = device.scale
         c = np.abs(device.net_doping.data)
 
@@ -146,7 +151,17 @@ class TransportModels:
                 else None
             ),
             field_dependent=field_dependent,
+            impact=_impact(device) if impact else None,
         )
+
+
+def _impact(device: Device) -> ImpactIonization:
+    if device.dimension != 1:
+        raise NotImplementedError(
+            "impact ionization shares each edge's generation between its two "
+            "nodes, which is checked on the 1D mesh only. Solve a 1D device."
+        )
+    return ImpactIonization.for_silicon(device.scale)
 
 
 def _scaled_diffusivity(
@@ -299,6 +314,14 @@ def _lagged_effective_potential(
               'psi_eff')
 
 
+def _lagged_impact(assembly: SparseAssembly, device: Device, models: TransportModels, state: DeviceState, family: Unknown) -> SparseAssembly:
+    if models.impact is None:
+        return assembly
+    m = device.scaled_mesh
+    r = impact_residual(pack(state.psi.data, state.n.data, state.p.data), m.h, m.geometry, models.Dn, models.Dp, models.impact, device.dimension)
+    return replace(assembly, residual=assembly.residual + r[int(family)::UNKNOWNS_PER_NODE])
+
+
 def electron_block(
     device: Device, models: TransportModels
 ) -> BlockStep[DeviceState]:
@@ -316,6 +339,7 @@ def electron_block(
             c,
         )
         val = add_thermionic(val, state.n.data, device.contacts, device.scale, Carrier.ELECTRON, device.material.T)
+        val = _lagged_impact(val, device, models, state, Unknown.N)
 
         it.factorize(val.rows, val.cols, val.values, val.shape)
         v = impose_ohmic_densities(state.n.data + it.solve(-val.residual), tmp3, device.ohmic_contacts, Carrier.ELECTRON, c,)
@@ -348,6 +372,7 @@ def hole_block(device:Device, models:TransportModels) -> BlockStep[DeviceState]:
             e,
         )
         y = add_thermionic(y, state.p.data, device.contacts, device.scale, Carrier.HOLE, device.material.T)
+        y = _lagged_impact(y, device, models, state, Unknown.P)
 
         b.factorize(y.rows, y.cols, y.values, y.shape)
         f = impose_ohmic_densities(state.p.data+b.solve(-y.residual), m, device.ohmic_contacts, Carrier.HOLE, e,)
@@ -584,6 +609,8 @@ def solve_bias_newton(
                 device.ionization,
                 g,
             )
+            if active.impact is not None:
+                v = add_impact(v, x, obj, i, active.Dn, active.Dp, active.impact, device.dimension)
             v = apply_contacts_coupled(timed(v, x), x, gc, device.contacts, vals, t, device.material.T, device.degeneracy,)
             return scale_rows(v, row_weights(dat, res2.n_nodes))
         return assemble
