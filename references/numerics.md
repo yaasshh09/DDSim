@@ -334,7 +334,7 @@ and numeric split to exploit.
 The usual workaround, keeping `perm_c` and refactorizing `A[:, perm_c]` with
 `permc_spec="NATURAL"`, makes things worse here, and by a lot. On a five point
 stencil, 23 ms turns into 352 ms at 100x100 and 134 ms into 6146 ms at
-200x200. The column gather isn't the cost; it's 0.6 ms. The factorization
+200x200. The column gather costs only 0.6 ms. The factorization
 itself blows up, from 645,750 nonzeros in L and U under COLAMD to 3,933,424
 under the pre-permuted NATURAL run, 6.1 times more fill. SuperLU's COLAMD path
 does a column elimination tree postordering that the NATURAL path skips, so

@@ -2,13 +2,13 @@
 
 [![CI](https://github.com/yaasshh09/DDSim/actions/workflows/ci.yml/badge.svg)](https://github.com/yaasshh09/DDSim/actions/workflows/ci.yml)
 
-I built a working semiconductor device simulator completely from scratch. It has been benchmarked against DEVSIM, a public simulator. It solves the drift diffusion equations in order to get the coressponding IV and CV curves.
+I built a working semiconductor device simulator from scratch and benchmarked it against DEVSIM, a public simulator. It solves the drift diffusion equations to get a device's IV and CV curves.
 
 Built mainly using python and trace amounts of JS, CSS and HTML.
 
 ## What it does
 
-The project is mainly based on poisson's equations along with a few electron and hole continuty equations from the van roosbroeck systems.
+The project is mainly based on Poisson's equation along with the electron and hole continuity equations, which together make up the Van Roosbroeck system.
 
 It can simulate a variety of devices like pn diodes, mos capacitors, nmos transistors and also has an option to create your own custom 2d devices
 
@@ -29,7 +29,7 @@ It can simulate a variety of devices like pn diodes, mos capacitors, nmos transi
 
 ## Web app
 
-The browser front end runs the solver on the server and streams progress back over a web socket. This allows us to be able to watch the residual fall and the curve draw point by point in real-time.
+The browser front end runs the solver on the server and streams progress back over a web socket. You can watch the residual fall and the curve draw point by point in real time.
 
 
 <p align="center">
@@ -44,7 +44,7 @@ You can see where current flows and draw cutlines through the device, or sweep a
   <img src="images/site/mos-cap.png" alt="MOS capacitor" width="400">
 </p>
 
-Almost everything has an in-depth explainer. Each one starts+ with a simple explanation, then goes into the equations and points to the docs it came from (WIP).
+Almost everything has an in-depth explainer. Each one starts with a simple explanation, then goes into the equations and points to the docs it came from (WIP).
 
 
 <p align="center">

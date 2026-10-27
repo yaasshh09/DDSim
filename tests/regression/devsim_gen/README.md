@@ -152,8 +152,8 @@ constant mobility, SRH with midgap traps and doping dependent Scharfetter
 lifetimes, ideal ohmic contacts, the abrupt junction on a mesh node, and every
 constant in `parameters.py`.
 
-The mesh is deliberately not matched. Both codes solve the same continuum
-problem on their own grid, which is the point. The generator reports how much
+The mesh is deliberately not matched. Each code solves the same continuum
+problem on its own grid. The generator reports how much
 the answer moves when the DEVSIM mesh is halved so the size of that difference
 is on the record.
 

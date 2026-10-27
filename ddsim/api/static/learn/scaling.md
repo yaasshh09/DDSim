@@ -12,7 +12,7 @@ centimetre. A doping can be a hundred million billion per cubic centimetre,
 and the minority carrier density in the same device can be far below 1. A
 computer keeps about sixteen digits per number. Add something the size of ten
 to the minus five to something the size of ten to the twenty and the small
-one simply vanishes. Do that inside a big system of equations and you can't
+one vanishes. Do that inside a big system of equations and you can't
 trust the answer anymore.
 
 So before solving anything, the simulator divides each kind of quantity by a

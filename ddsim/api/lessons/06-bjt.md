@@ -39,7 +39,7 @@ regions take the same bite out of a thinner base, the current grows by more
 than double: 2.6 times at 0.2 V and 2.3 times at 0.6 V.
 
 The gain is the collector current over the base current, and on this device
-it isn't constant. It's 14 at 0.2 V, climbs to a plateau of 35 between 0.45
+it moves with bias. It's 14 at 0.2 V, climbs to a plateau of 35 between 0.45
 and 0.55 V, and falls to 2 at 1 V. Both falls come out of the physics without
 anything asking for them.
 
