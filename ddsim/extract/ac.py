@@ -13,7 +13,7 @@ from ddsim.device.state import DeviceState
 from ddsim.device.transport import TransportModels, solve_bias_newton, solve_bias_ramped
 from ddsim.extract.iv import terminal_currents
 from ddsim.discretize.assembly import SparseAssembly
-from ddsim.discretize.boundary import Carrier, GateContact, apply_dirichlet_nodes, pins_carrier
+from ddsim.discretize.boundary import Carrier, GateContact, SchottkyContact, add_thermionic, apply_dirichlet_nodes, pins_carrier
 from ddsim.discretize.coupled import (
     Unknown,
     assemble_coupled_terms,
@@ -129,9 +129,11 @@ def _linearized(device: Device, state: DeviceState, frequency: float, models: Tr
     N = x.size
     w = row_weights(scales, mesh.n_nodes)
     pins = _pinned(device)
+    full = add_thermionic(bare, x, device.contacts, s, Carrier.ELECTRON, device.material.T, lambda i: unknown_index(i, Unknown.N))
+    full = add_thermionic(full, x, device.contacts, s, Carrier.HOLE, device.material.T, lambda i: unknown_index(i, Unknown.P))
 
     def stamped(targets: list[float]) -> SparseAssembly:
-        a = SparseAssembly(residual=np.zeros(N), rows=bare.rows, cols=bare.cols, values=bare.values, shape=bare.shape)
+        a = SparseAssembly(residual=np.zeros(N), rows=full.rows, cols=full.cols, values=full.values, shape=full.shape)
         return scale_rows(apply_dirichlet_nodes(a, np.zeros(N), pins, targets), w)
 
     omega = 2.0 * math.pi * frequency * s.t_0
@@ -146,9 +148,9 @@ def _linearized(device: Device, state: DeviceState, frequency: float, models: Tr
             e[j, unknown_index(i, Unknown.PSI)] = 1j * omega
             if not isinstance(k, GateContact):
                 z = float(device.contact_doping_scaled.data[i])
-                if pins_carrier(k, z, Carrier.ELECTRON):
+                if pins_carrier(k, z, Carrier.ELECTRON) or isinstance(k, SchottkyContact):
                     e[j, unknown_index(i, Unknown.N)] = -1.0
-                if pins_carrier(k, z, Carrier.HOLE):
+                if pins_carrier(k, z, Carrier.HOLE) or isinstance(k, SchottkyContact):
                     e[j, unknown_index(i, Unknown.P)] = 1.0
     J = coo_matrix((bare.values, (bare.rows, bare.cols)), shape=bare.shape).tocsr()
     return _Linear(x=x, w=w, pins=pins, lu=lu, J=J, e=e, stamped=stamped)
