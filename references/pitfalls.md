@@ -164,6 +164,8 @@ Solver first, validated, then the UI.
 | devsim: `Contact "x" does not exist` after a mesh built fine | A requested mesh line got merged into a neighbouring node, so everything defined on it is empty. Check the boundary row landed |
 | Mesh refinement moves the off state and nothing else | Rows too coarse for the implant sigma, with the surface spacing fine |
 | Halving the mesh moves less than the terminals fail to cancel | Not a mesh error. The off state current is a flux cancellation, and the finer mesh cancels worse |
+| Current flows at zero bias once impact ionization is on (1342 A/cm^2 on a p+n diode) | The edge flux the generation reads disagrees with the one the continuity rows use. Mine had the hole Bernoulli pair swapped, so equilibrium carried a fake hole current that ionized. A Jacobian check against central differences can't see it, since the Jacobian matched the wrong flux. Check that an equilibrium junction generates nothing first |
+| A reverse leakage current moves in equal steps (4.08e-9 A/cm^2 here) | It is the roundoff of a majority flux cancellation at the contact, not physics. Multiplication read from it is noise. Shorten the SRH lifetimes so the generation current sits decades above the step |
 
 ## When genuinely stuck
 
