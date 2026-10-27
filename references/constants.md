@@ -204,6 +204,42 @@ The order they're combined in matters, and it's the reference's order: the
 bulk mobility gets its surface correction first, at nodes, and velocity
 saturation is applied afterwards on the edges with the parallel field.
 
+## Schottky contacts and impact ionization (Phase 14)
+
+### Effective Richardson constants
+
+| Name | Code | Value | Units |
+|---|---|---|---|
+| A*, electrons | `A_STAR_N` | 112 | A/(cm^2 K^2) |
+| A*, holes | `A_STAR_P` | 32 | A/(cm^2 K^2) |
+
+These are the theoretical silicon values Sze gives (Physics of Semiconductor
+Devices, 2nd ed., 1981, the thermionic emission section of the metal
+semiconductor chapter). I checked them on 2026-10-27 only through papers that
+quote them (112 for n-Si, 32 for p-Si), not against the book's page. The
+recombination velocity at the contact follows from them:
+
+    v_n = A*_n T^2 / (q Nc),   v_p = A*_p T^2 / (q Nv)   [cm/s]
+
+which is 2.2e6 cm/s for electrons and 5.8e5 cm/s for holes at 300 K with the
+Nc and Nv above. DEVSIM gets the same two numbers for benchmark 16.
+
+### Impact ionization, van Overstraeten and de Man
+
+    alpha = a exp(-b / E_par)   [1/cm]
+
+From R. van Overstraeten and H. de Man, Solid-State Electronics 13, 583
+(1970), the fit to silicon between 1.75e5 and 6e5 V/cm.
+
+| Carrier | Field range [V/cm] | a [1/cm] | b [V/cm] | Code |
+|---|---|---|---|---|
+| electrons | all | 7.03e5 | 1.231e6 | `II_A_N`, `II_B_N` |
+| holes | below 4e5 | 1.582e6 | 2.036e6 | `II_A_P_LOW`, `II_B_P_LOW` |
+| holes | 4e5 and above | 6.71e5 | 1.693e6 | `II_A_P_HIGH`, `II_B_P_HIGH` |
+
+The two hole fits meet at 4e5 V/cm to four digits (9.74e3 1/cm), so the
+switch at `II_E_P_SWITCH` leaves alpha_p continuous, though not its slope.
+
 ## SRH lifetimes
 
 Defaults, with Scharfetter doping dependence:

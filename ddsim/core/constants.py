@@ -150,6 +150,18 @@ GAMMA_SRH:float = 1.0
 
 CHI_SI: float = 4.05
 
+A_STAR_N: float = 112.0
+
+A_STAR_P: float = 32.0
+
+II_A_N: float = 7.03e5
+II_B_N: float = 1.231e6
+II_A_P_LOW: float = 1.582e6
+II_B_P_LOW: float = 2.036e6
+II_A_P_HIGH: float = 6.71e5
+II_B_P_HIGH: float = 1.693e6
+II_E_P_SWITCH: float = 4.0e5
+
 PHI_M_N_POLY:float = CHI_SI
 
 PHI_M_P_POLY:float = CHI_SI+Eg()
