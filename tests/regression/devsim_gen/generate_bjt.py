@@ -230,11 +230,13 @@ def output(b: P.BjtBenchmark, refine: float) -> list[dict[str, float]]:
         ramp(dev, COLLECTOR, u)
         lo: float | None = None
         hi: float | None = None
+        seen = []
         for _ in range(80):
             ramp(dev, BASE, vb)
             i = current(dev, BASE)
             miss = math.log(i / b.i_b) if i > 0.0 else -50.0
-            if abs(miss) < 1e-9:
+            seen.append((vb, i))
+            if abs(miss) < 1e-6 or (lo is not None and hi is not None and hi - lo < 1e-9):
                 break
             if miss < 0.0:
                 lo = vb
@@ -245,7 +247,8 @@ def output(b: P.BjtBenchmark, refine: float) -> list[dict[str, float]]:
                 nxt = 0.5 * (lo + hi)
             vb = nxt
         else:
-            raise RuntimeError(f"no base voltage holds {b.i_b:g} A/cm at V_CE {u:g} V")
+            tried = ", ".join(f"{x:.9f} V -> {y:.6e}" for x, y in seen[-8:])
+            raise RuntimeError(f"no base voltage holds {b.i_b:g} A/cm at V_CE {u:g} V. The last tries: {tried}")
         rows.append({"v_ce": u, "v_be": vb, "collector": current(dev, COLLECTOR), "base": current(dev, BASE)})
         print(f"    V_CE {u:.2f}: V_BE {vb:.6f} I_C {rows[-1]['collector']:.6e} A/cm", file=sys.stderr, flush=True)
     done(dev)
