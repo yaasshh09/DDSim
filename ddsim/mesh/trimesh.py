@@ -6,7 +6,7 @@ from scipy.spatial import Delaunay
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.geometry import EdgeGeometry, ScaledMesh
 from ddsim.mesh.mesh2d import Mesh2D
-from ddsim.mesh.quality import MeshQualityError, cotangent_edge_weights, triangle_areas
+from ddsim.mesh.quality import MeshQualityError, triangle_angles, triangle_areas
 
 COUPLING_ROUNDOFF = 1e-12
 
@@ -49,16 +49,40 @@ class TriMesh:
         return f"TriMesh {self.n_nodes} nodes, {self.triangles.shape[0]} triangles, {self.n_edges} edges"
 
 
-def triangle_mesh(points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int64]) -> TriMesh:
+def triangle_mesh(points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int64], cylindrical: bool = False) -> TriMesh:
     p = np.asarray(points, dtype=np.float64)
     t = np.asarray(triangles, dtype=np.int64)
     a = np.abs(triangle_areas(p, t))
     if np.any(a <= 0.0):
         k = int(np.flatnonzero(a <= 0.0)[0])
         raise MeshQualityError(f"triangle {k} has no area. Three collinear points have no dual cell to integrate over.")
-    edges, w = cotangent_edge_weights(p, t)
+    if cylindrical and np.any(p[:, 0] < 0.0):
+        raise MeshQualityError("a cylindrical mesh has r along x, and r can't go below zero")
+    angle = triangle_angles(p, t)
+    c = _circumcentres(p, t)
+    ends: list[npt.NDArray[np.int64]] = []
+    faces: list[npt.NDArray[np.float64]] = []
+    halves: list[tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]] = []
+    for k in range(3):
+        u, v = t[:, (k + 1) % 3], t[:, (k + 2) % 3]
+        m = 0.5 * (p[u] + p[v])
+        h = np.hypot(*(p[v] - p[u]).T)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            piece = 0.5 * h / np.tan(angle[:, k])
+        if cylindrical:
+            face = 2.0 * np.pi * piece * 0.5 * (m[:, 0] + c[:, 0])
+            for w in (u, v):
+                halves.append((w, 2.0 * np.pi * 0.25 * h * piece * (p[w, 0] + m[:, 0] + c[:, 0]) / 3.0))
+        else:
+            face = piece
+            for w in (u, v):
+                halves.append((w, 0.25 * h * piece))
+        ends.append(np.sort(np.column_stack([u, v]), axis=1))
+        faces.append(face)
+    edges, at = np.unique(np.concatenate(ends), axis=0, return_inverse=True)
+    face = np.zeros(edges.shape[0])
+    np.add.at(face, at.ravel(), np.concatenate(faces))
     h = np.hypot(*(p[edges[:, 1]] - p[edges[:, 0]]).T)
-    face = w * h
     bad = np.flatnonzero(face < -COUPLING_ROUNDOFF * np.abs(face).max())
     if bad.size:
         k = int(bad[np.argmin(face[bad])])
@@ -68,11 +92,19 @@ def triangle_mesh(points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int
             "than 90 at a boundary, which lets carrier densities go negative for no physical reason. "
             "Re-triangulate or refine that corner."
         )
-    face = np.maximum(face, 0.0)
-    v = np.zeros(p.shape[0])
-    np.add.at(v, edges[:, 0], 0.25 * h * face)
-    np.add.at(v, edges[:, 1], 0.25 * h * face)
-    return TriMesh(node_x=p[:, 0].copy(), node_y=p[:, 1].copy(), triangles=t, h=h, dual_face=face, volume=v, edge_nodes=edges)
+    vol = np.zeros(p.shape[0])
+    for w, piece_volume in halves:
+        np.add.at(vol, w, piece_volume)
+    return TriMesh(node_x=p[:, 0].copy(), node_y=p[:, 1].copy(), triangles=t, h=h, dual_face=np.maximum(face, 0.0), volume=vol, edge_nodes=edges.astype(np.int64))
+
+
+def _circumcentres(p: npt.NDArray[np.float64], t: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:
+    a, b, c = p[t[:, 0]], p[t[:, 1]], p[t[:, 2]]
+    d = 2.0 * (a[:, 0] * (b[:, 1] - c[:, 1]) + b[:, 0] * (c[:, 1] - a[:, 1]) + c[:, 0] * (a[:, 1] - b[:, 1]))
+    s = (a * a).sum(axis=1), (b * b).sum(axis=1), (c * c).sum(axis=1)
+    x = (s[0] * (b[:, 1] - c[:, 1]) + s[1] * (c[:, 1] - a[:, 1]) + s[2] * (a[:, 1] - b[:, 1])) / d
+    y = (s[0] * (c[:, 0] - b[:, 0]) + s[1] * (a[:, 0] - c[:, 0]) + s[2] * (b[:, 0] - a[:, 0])) / d
+    return np.column_stack([x, y])
 
 
 def triangulated(mesh: Mesh2D) -> TriMesh:

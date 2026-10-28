@@ -66,3 +66,43 @@ def test_a_delaunay_mesh_of_a_rectangle_tiles_it() -> None:
     m = delaunay_mesh(jiggle)
     assert m.volume.sum() == pytest.approx(1e-4 * 3e-5, rel=1e-12)
     assert (m.dual_face >= -1e-12 * m.dual_face.max()).all()
+
+
+def coax_capacitance(nr: int, nz: int, axial: bool = False) -> float:
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.linalg import spsolve
+    r1, r2, L = 1.0, 3.0, 2.0
+    r = r1 * (r2 / r1) ** np.linspace(0.0, 1.0, nr)
+    z = np.linspace(0.0, L, nz)
+    R, Z = np.meshgrid(r, z, indexing="xy")
+    nx = nr
+    i, j = np.meshgrid(np.arange(nr - 1), np.arange(nz - 1), indexing="xy")
+    a = (j * nx + i).ravel()
+    tri = np.concatenate([np.column_stack([a, a + 1, a + nx + 1]), np.column_stack([a, a + nx + 1, a + nx])])
+    m = triangle_mesh(np.column_stack([R.ravel(), Z.ravel()]), tri, cylindrical=True)
+    w = m.dual_face / m.h
+    e = m.edge_nodes
+    N = m.n_nodes
+    K = coo_matrix((np.concatenate([w, w, -w, -w]), (np.concatenate([e[:, 0], e[:, 1], e[:, 0], e[:, 1]]), np.concatenate([e[:, 0], e[:, 1], e[:, 1], e[:, 0]]))), shape=(N, N)).tocsr()
+    inner = np.flatnonzero(m.node_y == 0.0 if axial else m.node_x == r1)
+    outer = np.flatnonzero(m.node_y == L if axial else m.node_x == r2)
+    fixed = np.concatenate([inner, outer])
+    psi = np.zeros(N)
+    psi[inner] = 1.0
+    free = np.setdiff1d(np.arange(N), fixed)
+    psi[free] = spsolve(K[free][:, free].tocsc(), -K[free][:, fixed] @ psi[fixed])
+    return float((K @ psi)[inner].sum())
+
+
+def test_a_coaxial_capacitor_in_cylindrical_coordinates() -> None:
+    want = 2 * np.pi * 2.0 / np.log(3.0)
+    assert coax_capacitance(41, 5) == pytest.approx(want, rel=1e-3)
+
+
+def test_a_cylindrical_mesh_holds_the_volume_of_revolution() -> None:
+    m = triangle_mesh(np.array([[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0]]), np.array([[0, 1, 2], [0, 2, 3]]), cylindrical=True)
+    assert m.volume.sum() == pytest.approx(np.pi * (4.0 - 1.0) * 1.0, rel=1e-12)
+
+
+def test_a_disc_capacitor_along_the_axis_in_cylindrical_coordinates() -> None:
+    assert coax_capacitance(41, 5, axial=True) == pytest.approx(np.pi * (9.0 - 1.0) / 2.0, rel=1e-12)

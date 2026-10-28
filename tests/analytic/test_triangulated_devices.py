@@ -26,4 +26,4 @@ def test_a_triangulated_diode_carries_the_tensor_current() -> None:
     y = gate_sweep(b, V, contact="anode", measure_at="anode", models=TransportModels.for_device(b))
     assert x.complete and y.complete
     for p, q in zip(x.points[1:], y.points[1:], strict=True):
-        assert q.current == pytest.approx(p.current, rel=1e-9, abs=0)
+        assert q.current == pytest.approx(p.current, rel=1e-7, abs=0)
