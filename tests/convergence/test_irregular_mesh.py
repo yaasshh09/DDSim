@@ -50,3 +50,19 @@ def test_a_jiggled_delaunay_mesh_converges_to_the_tensor_richardson_value() -> N
     for n, e in errors.items():
         assert e <= 1.5 * abs(tensor_current(n) / ref - 1), (n, e)
     assert errors[51] / errors[201] > 2.5, errors
+
+
+def test_refining_near_the_junction_saves_nodes_over_refining_everywhere() -> None:
+    from ddsim.mesh.refine import refine
+    from ddsim.mesh.trimesh import triangulated
+    a, b, c = (tensor_current(n) for n in (101, 201, 401))
+    p = math.log2((a - b) / (b - c))
+    ref = c + (c - b) / (2**p - 1)
+    everywhere = near = triangulated(tensor_mesh_2d(uniform_mesh_1d(length=1e-4, n_nodes=26), uniform_mesh_1d(length=1e-5, n_nodes=ROWS)))
+    for _ in range(3):
+        everywhere = refine(everywhere, np.arange(everywhere.triangles.shape[0]))
+        centre = np.column_stack([near.node_x, near.node_y])[near.triangles].mean(axis=1)[:, 0]
+        near = refine(near, np.flatnonzero(abs(centre - 0.5e-4) < 0.15e-4))
+    e_all, e_near = abs(current(everywhere) / ref - 1), abs(current(near) / ref - 1)
+    assert near.n_nodes < 0.5 * everywhere.n_nodes, (near.n_nodes, everywhere.n_nodes)
+    assert e_near < 1.1 * e_all, (e_near, e_all)
