@@ -47,3 +47,32 @@ def test_a_junction_across_a_cylinder_carries_the_planar_current_times_its_area(
     assert c.complete and want.complete
     for a, b in zip(c.points[1:], want.points[1:], strict=True):
         assert a.current == pytest.approx(b.current * math.pi * RADIUS**2, rel=1e-6)
+
+
+def cylindrical_breakdown(r_j: float) -> float:
+    from ddsim.device.doping import Step
+    from ddsim.discretize.impact import ImpactIonization
+    from tests.analytic.test_avalanche import crossing
+    r = graded_mesh_1d(length=1.5e-4, n_nodes=401, refine_at=r_j, h_min=1e-7).x
+    p, t = grid(r, np.array([0.0, 2e-6]))
+    m = triangle_mesh(p, t, cylindrical=True)
+    n = r.size
+    d = build_device(mesh=m, doping=Step(left=-1e19, right=1e17, position=r_j), contacts=(OhmicPlate(name="anode", nodes=(0, n), voltage=0.0), OhmicPlate(name="cathode", nodes=(n - 1, 2 * n - 1), voltage=0.0)))
+    c = gate_sweep(d, [0.0] + [-v for v in np.arange(1.0, 15.01, 0.5)], contact="anode", measure_at="anode", models=TransportModels.for_device(d))
+    assert c.complete, c.message
+    model = ImpactIonization.for_silicon(d.scale)
+    h = np.diff(r) / d.scale.x_0
+    left = []
+    for q in c.points:
+        E = np.abs(np.diff(q.state.psi.data[:n])) / h
+        an = model.alpha_n(E)[0] * h
+        ap = model.alpha_p(E)[0] * h
+        left.append(1.0 - float(np.sum(an * np.exp(-(np.cumsum(an - ap) - 0.5 * (an - ap))))))
+    return crossing([-q.voltage for q in c.points], left)
+
+
+def test_a_curved_junction_breaks_down_before_a_planar_one() -> None:
+    from tests.analytic.test_avalanche import integral_breakdown
+    planar = integral_breakdown(1e17, 1.5e-4, 20.0)
+    wide, tight = cylindrical_breakdown(0.3e-4), cylindrical_breakdown(0.1e-4)
+    assert tight < wide < planar, (tight, wide, planar)
