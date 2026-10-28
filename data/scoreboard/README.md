@@ -13,7 +13,7 @@ it and fails if this file is stale. The rules are the 2026-09-25,
 | Accuracy: benchmarks reaching 1% on fewer nodes, of 10 | 2 | 5 (3 not in the asymptotic range) |
 | Error estimates reported | 3 of 5 sweep kinds (iv, transfer, cv) | none |
 | Speed: time per bias point, benchmarks both tools finished | 1.6x faster | 1x |
-| Capabilities, of 39 rows | 26 | 19 built in, 12 if you write the equations |
+| Capabilities, of 39 rows | 28 | 19 built in, 12 if you write the equations |
 
 ## Robustness
 
