@@ -13,6 +13,7 @@ from ddsim.discretize.coupled import (coupled_residual, edge_drop, effective_pot
 from ddsim.discretize.geometry import EdgeGeometry
 from ddsim.discretize.impact import impact_residual
 from ddsim.mesh.mesh1d import Mesh1D
+from ddsim.mesh.mesh2d import Mesh2D
 from ddsim.physics.mobility import diffusivity_at
 from ddsim.solve.continuation import continue_to
 
@@ -90,6 +91,8 @@ def node_current_density(device: Device, state: DeviceState, models: TransportMo
 
     if isinstance(j, Mesh1D):
         return spread(slice(None)), np.zeros(a)
+    if not isinstance(j, Mesh2D):
+        raise ValueError("current densities split into x and y need the tensor mesh's edge order, horizontal edges first. A triangle mesh has no such split yet.")
 
     b = slice(0, j.n_horizontal)
     tmp = slice(j.n_horizontal, j.n_edges)

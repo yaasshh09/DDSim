@@ -28,7 +28,7 @@ def _charge_unit(device: Device, width: float | None) -> float:
     if isinstance(device.mesh, Mesh1D):
         res = 1.0 if width is None else width
         return C.q * e.C_0 * e.x_0/res
-    res = device.mesh.x_axis.length if width is None else width
+    res = device.mesh.width if width is None else width
     return C.q*e.C_0 * e.x_0**2/res
 
 

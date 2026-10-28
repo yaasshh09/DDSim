@@ -35,6 +35,10 @@ class Mesh2D:
     def n_edges(self) -> int:
         return int(self.h.size)
     @property
+    def width(self) -> float:
+        return self.x_axis.length
+
+    @property
     def n_horizontal(self) -> int:
         return (self.nx - 1) * self.ny
     def node_at(self, i: int, j: int) -> int:

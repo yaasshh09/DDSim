@@ -18,7 +18,7 @@ from ddsim.extract.cv import CVCurve, Response, _charge_unit, _contact_nodes, sm
 from ddsim.extract.iv import IVCurve
 from ddsim.discretize.coupled import Unknown, apply_contacts_coupled, assemble_coupled_terms, effective_potentials, pack, unknown_index, unpack
 from ddsim.mesh.mesh1d import Mesh1D, _assemble
-from ddsim.mesh.mesh2d import tensor_mesh_2d
+from ddsim.mesh.mesh2d import Mesh2D, tensor_mesh_2d
 from ddsim.solve.linear import SparseLU
 
 Models = Callable[[Device], TransportModels]
@@ -70,6 +70,8 @@ def _axes(device: Device) -> tuple[Array, Array | None]:
     m = device.mesh
     if isinstance(m, Mesh1D):
         return m.x, None
+    if not isinstance(m, Mesh2D):
+        raise ValueError("the error estimate refines the mesh line by line, which needs a tensor mesh. A triangle mesh has no lines to subdivide yet.")
     return m.x_axis.x, m.y_axis.x
 
 

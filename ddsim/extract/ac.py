@@ -266,7 +266,7 @@ def ac_sweep(device: Device, contact: str, voltages: list[float], frequencies: l
     check_frequencies(frequencies)
     if models is None:
         models = TransportModels.for_device(device)
-    width = 1.0 if isinstance(device.mesh, Mesh1D) else device.mesh.x_axis.length
+    width = 1.0 if isinstance(device.mesh, Mesh1D) else device.mesh.width
     out: list[ACPoint] = []
     for v in voltages:
         e = device.with_bias(**{contact: v})
