@@ -926,6 +926,72 @@ class SchottkyBenchmark:
     notes: str = ""
 
 
+II_A_N = 7.03e5
+II_B_N = 1.231e6
+II_A_P_LOW = 1.582e6
+II_B_P_LOW = 2.036e6
+II_A_P_HIGH = 6.71e5
+II_B_P_HIGH = 1.693e6
+II_E_P_SWITCH = 4.0e5
+
+
+@dataclass(frozen=True)
+class BreakdownBenchmark:
+    name: str
+
+    number: int
+
+    Na: float
+
+    Nd: float
+
+    length: float
+
+    junction: float
+
+    tau: float
+
+    voltages: tuple[float, ...]
+
+    tolerance: float
+
+    n_nodes: int = 1201
+
+    h_min: float = 2.5e-8
+
+    devsim_h_junction: float = 1e-8
+
+    devsim_h_bulk: float = 1e-7
+
+    notes: str = ""
+
+
+BREAKDOWN_BENCHMARKS: tuple[BreakdownBenchmark, ...] = (
+    BreakdownBenchmark(
+        name="breakdown_1e17",
+        number=17,
+        Na=1e19,
+        Nd=1e17,
+        length=1.5e-4,
+        junction=0.3e-4,
+        tau=1e-12,
+        voltages=(-1.0, -5.0, -10.0, -13.0, -13.5, -13.8, -13.9, -14.0, -14.05, -14.1, -14.2, -14.5),
+        tolerance=0.05,
+        notes=(
+            "A one sided p+n junction driven through avalanche breakdown at "
+            "about 14.09 V, with van Overstraeten-de Man ionization written "
+            "into DEVSIM as an edge volume model, alpha(|E|) |J| for each "
+            "carrier. Both lifetimes are 1 ps so the leakage that gets "
+            "multiplied sits seven decades above the roundoff of the "
+            "majority flux at the contacts. The current climbs four decades "
+            "between 14.0 and 14.1 V, so 14.05 V asks the two codes to agree "
+            "on the breakdown voltage to about 1e-5, and both meshes are fine "
+            "for that reason."
+        ),
+    ),
+)
+
+
 SCHOTTKY_BENCHMARKS: tuple[SchottkyBenchmark, ...] = (
     SchottkyBenchmark(
         name="schottky_0p7",
