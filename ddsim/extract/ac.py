@@ -266,6 +266,8 @@ def ac_sweep(device: Device, contact: str, voltages: list[float], frequencies: l
     check_frequencies(frequencies)
     if models is None:
         models = TransportModels.for_device(device)
+    if device.dimension == 3:
+        raise ValueError("the ac sweep reports admittance per width, which has no meaning on a cylindrical device yet")
     width = 1.0 if isinstance(device.mesh, Mesh1D) else device.mesh.width
     out: list[ACPoint] = []
     for v in voltages:

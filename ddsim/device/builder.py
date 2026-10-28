@@ -68,7 +68,9 @@ class Device:
 
     @property
     def dimension(self) -> int:
-        return 1 if isinstance(self.mesh, Mesh1D) else 2
+        if isinstance(self.mesh, Mesh1D):
+            return 1
+        return 3 if isinstance(self.mesh, TriMesh) and self.mesh.cylindrical else 2
     @cached_property
     def scaled_mesh(self) -> ScaledMesh:
         if isinstance(self.mesh, Mesh1D):

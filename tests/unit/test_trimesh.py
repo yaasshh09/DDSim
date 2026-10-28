@@ -108,9 +108,10 @@ def test_a_disc_capacitor_along_the_axis_in_cylindrical_coordinates() -> None:
     assert coax_capacitance(41, 5, axial=True) == pytest.approx(np.pi * (9.0 - 1.0) / 2.0, rel=1e-12)
 
 
-def test_a_cylindrical_mesh_is_refused_as_a_device_mesh_until_its_scaling_exists() -> None:
+def test_a_cylindrical_mesh_scales_like_a_volume() -> None:
     from ddsim.core.scaling import ScaleFactors
     m = triangle_mesh(np.array([[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0]]), np.array([[0, 1, 2], [0, 2, 3]]), cylindrical=True)
-    assert m.cylindrical
-    with pytest.raises(ValueError, match="cylindrical"):
-        m.scaled(ScaleFactors.for_silicon())
+    s = ScaleFactors.for_silicon()
+    z = m.scaled(s)
+    np.testing.assert_allclose(z.volume, m.volume / s.x_0**3, rtol=1e-15)
+    np.testing.assert_allclose(z.geometry.dual_face, m.dual_face / s.x_0**2, rtol=1e-15)

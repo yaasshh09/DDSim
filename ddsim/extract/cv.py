@@ -25,6 +25,8 @@ class Response(Enum):
 def _charge_unit(device: Device, width: float | None) -> float:
     e = device.scale
 
+    if device.dimension == 3:
+        raise ValueError("a capacitance per width has no meaning on a cylindrical device, and its total isn't written yet")
     if isinstance(device.mesh, Mesh1D):
         res = 1.0 if width is None else width
         return C.q * e.C_0 * e.x_0/res
