@@ -27,6 +27,8 @@ class TriMesh:
 
     edge_nodes: npt.NDArray[np.int64]
 
+    cylindrical: bool = False
+
     @property
     def n_nodes(self) -> int:
         return int(self.node_x.size)
@@ -43,6 +45,8 @@ class TriMesh:
         return EdgeGeometry(edge_nodes=self.edge_nodes, dual_face=self.dual_face, eps_r=eps_r, semiconductor_face=semiconductor_face)
 
     def scaled(self, scale: ScaleFactors, eps_r: npt.NDArray[np.float64] | float = 1.0, semiconductor_face: npt.NDArray[np.float64] | None = None) -> ScaledMesh:
+        if self.cylindrical:
+            raise ValueError("a cylindrical mesh has volumes in cm^3 and faces in cm^2, and the device scaling is written for a planar 2D mesh, so it would solve in the wrong units. Use the mesh's couplings directly until cylindrical devices exist.")
         return ScaledMesh(h=self.h / scale.x_0, volume=self.volume / scale.x_0**2, geometry=EdgeGeometry(edge_nodes=self.edge_nodes, dual_face=self.dual_face / scale.x_0, eps_r=eps_r, semiconductor_face=None if semiconductor_face is None else semiconductor_face / scale.x_0))
 
     def __repr__(self) -> str:
@@ -95,7 +99,7 @@ def triangle_mesh(points: npt.NDArray[np.float64], triangles: npt.NDArray[np.int
     vol = np.zeros(p.shape[0])
     for w, piece_volume in halves:
         np.add.at(vol, w, piece_volume)
-    return TriMesh(node_x=p[:, 0].copy(), node_y=p[:, 1].copy(), triangles=t, h=h, dual_face=np.maximum(face, 0.0), volume=vol, edge_nodes=edges.astype(np.int64))
+    return TriMesh(node_x=p[:, 0].copy(), node_y=p[:, 1].copy(), triangles=t, h=h, dual_face=np.maximum(face, 0.0), volume=vol, edge_nodes=edges.astype(np.int64), cylindrical=cylindrical)
 
 
 def _circumcentres(p: npt.NDArray[np.float64], t: npt.NDArray[np.int64]) -> npt.NDArray[np.float64]:
