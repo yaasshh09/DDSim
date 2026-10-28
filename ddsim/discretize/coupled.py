@@ -463,7 +463,7 @@ def limit_psi_step(delta: npt.NDArray[np.float64], max_psi_step:float) -> npt.ND
     d[Unknown.PSI::UNKNOWNS_PER_NODE] = vv * (max_psi_step / v); return d
 
 
-def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier_free_nodes: Sequence[int] = (), T:float = C.T_ROOM, degeneracy:Degeneracy | None = None,) -> SparseAssembly:
+def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier_free_nodes: Sequence[int] = (), T:float = C.T_ROOM, degeneracy:Degeneracy | None = None, edge_h: npt.NDArray[np.float64] | None = None, thermionic: bool = True,) -> SparseAssembly:
     c = [e.name for e in contacts]
     if len(set(c)) != len(c):
         raise ValueError(f"contact names must be unique, got {c}")
@@ -496,8 +496,9 @@ def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], 
         u.append(0.0)
         h.append(unknown_index(w, Unknown.P))
         u.append(0.0)
-    assembly = add_thermionic(assembly, x, contacts, scale, Carrier.ELECTRON, T, lambda w: unknown_index(w, Unknown.N))
-    assembly = add_thermionic(assembly, x, contacts, scale, Carrier.HOLE, T, lambda w: unknown_index(w, Unknown.P))
+    if thermionic:
+        assembly = add_thermionic(assembly, x, contacts, scale, Carrier.ELECTRON, T, lambda w: unknown_index(w, Unknown.N), x[Unknown.PSI::UNKNOWNS_PER_NODE], edge_h, lambda w: unknown_index(w, Unknown.PSI))
+        assembly = add_thermionic(assembly, x, contacts, scale, Carrier.HOLE, T, lambda w: unknown_index(w, Unknown.P), x[Unknown.PSI::UNKNOWNS_PER_NODE], edge_h, lambda w: unknown_index(w, Unknown.PSI))
     return apply_dirichlet_nodes(assembly, x, h, u)
 
 

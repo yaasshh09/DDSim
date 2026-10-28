@@ -338,7 +338,7 @@ def electron_block(
             Carrier.ELECTRON,
             c,
         )
-        val = add_thermionic(val, state.n.data, device.contacts, device.scale, Carrier.ELECTRON, device.material.T)
+        val = add_thermionic(val, state.n.data, device.contacts, device.scale, Carrier.ELECTRON, device.material.T, potential=state.psi.data, h=device.scaled_mesh.h)
         val = _lagged_impact(val, device, models, state, Unknown.N)
 
         it.factorize(val.rows, val.cols, val.values, val.shape)
@@ -371,7 +371,7 @@ def hole_block(device:Device, models:TransportModels) -> BlockStep[DeviceState]:
             Carrier.HOLE,
             e,
         )
-        y = add_thermionic(y, state.p.data, device.contacts, device.scale, Carrier.HOLE, device.material.T)
+        y = add_thermionic(y, state.p.data, device.contacts, device.scale, Carrier.HOLE, device.material.T, potential=state.psi.data, h=device.scaled_mesh.h)
         y = _lagged_impact(y, device, models, state, Unknown.P)
 
         b.factorize(y.rows, y.cols, y.values, y.shape)
@@ -611,7 +611,7 @@ def solve_bias_newton(
             )
             if active.impact is not None:
                 v = add_impact(v, x, obj, i, active.Dn, active.Dp, active.impact, device.dimension)
-            v = apply_contacts_coupled(timed(v, x), x, gc, device.contacts, vals, t, device.material.T, device.degeneracy,)
+            v = apply_contacts_coupled(timed(v, x), x, gc, device.contacts, vals, t, device.material.T, device.degeneracy, obj,)
             return scale_rows(v, row_weights(dat, res2.n_nodes))
         return assemble
 

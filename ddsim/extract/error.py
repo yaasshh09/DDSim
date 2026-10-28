@@ -181,7 +181,7 @@ def _prolong(coarse: Device, fine: Device, v: Array, guide: Array | None = None,
 def _pins(device: Device, x: Array) -> tuple[npt.NDArray[np.int64], Array]:
     N = x.size
     e = SparseAssembly(residual=np.zeros(N), rows=np.zeros(0, dtype=np.int64), cols=np.zeros(0, dtype=np.int64), values=np.zeros(0), shape=(N, N))
-    a = apply_contacts_coupled(e, x, device.contact_doping_scaled.data, device.contacts, device.scale, device.carrier_free_nodes, device.material.T, device.degeneracy)
+    a = apply_contacts_coupled(e, x, device.contact_doping_scaled.data, device.contacts, device.scale, device.carrier_free_nodes, device.material.T, device.degeneracy, thermionic=False)
     return a.rows, x[a.rows] - a.residual[a.rows]
 
 

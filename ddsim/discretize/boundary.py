@@ -60,6 +60,8 @@ class SchottkyContact:
 
     majority_only: bool = False
 
+    image_force: bool = False
+
     def __post_init__(self) -> None:
         if not 0.0 < self.barrier < 2.0:
             raise ValueError(
@@ -142,22 +144,46 @@ def thermionic_constants(contact: SchottkyContact, carrier: Carrier, scale: Scal
     return v * scale.x_0 / scale.D_0, c0 / scale.C_0
 
 
-def add_thermionic(assembly: SparseAssembly, density: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier: Carrier, T: float = C.T_ROOM, row: Callable[[int], int] = int) -> SparseAssembly:
+def image_force_factor(contact: SchottkyContact, potential: npt.NDArray[np.float64], h: npt.NDArray[np.float64], scale: ScaleFactors) -> tuple[float, float, int]:
+    w = contact.node
+    nb = w + 1 if w + 1 < potential.size else w - 1
+    k = scale.psi_0 / (float(h[min(w, nb)]) * scale.x_0)
+    d = float(potential[nb] - potential[w])
+    E = abs(d) * k
+    if E == 0.0:
+        return 1.0, 0.0, nb
+    lowered = math.sqrt(C.q * E / (4.0 * math.pi * scale.eps))
+    f = math.exp(lowered / scale.psi_0)
+    return f, f * lowered / (2.0 * E * scale.psi_0) * k * math.copysign(1.0, d), nb
+
+
+def add_thermionic(assembly: SparseAssembly, density: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier: Carrier, T: float = C.T_ROOM, row: Callable[[int], int] = int, potential: npt.NDArray[np.float64] | None = None, h: npt.NDArray[np.float64] | None = None, psi_col: Callable[[int], int] | None = None) -> SparseAssembly:
     k = [c for c in contacts if isinstance(c, SchottkyContact)]
     if not k:
         return assembly
     res = assembly.residual.copy()
     at: list[int] = []
+    to: list[int] = []
     vs: list[float] = []
     for c in k:
         v, c0 = thermionic_constants(c, carrier, scale, T)
         for w in c.nodes:
             i = row(w)
-            res[i] += v * (density[i] - c0)
+            f, df, nb = 1.0, 0.0, w
+            if c.image_force:
+                if potential is None or h is None:
+                    raise ValueError(f"contact {c.name!r} lowers its barrier by the field at the contact, so the thermionic term needs the potential and the edge lengths")
+                f, df, nb = image_force_factor(c, potential, h, scale)
+            res[i] += v * f * (density[i] - c0)
             at.append(i)
-            vs.append(v)
-    a = np.asarray(at, dtype=np.int64)
-    return SparseAssembly(residual=res, rows=np.concatenate([assembly.rows, a]), cols=np.concatenate([assembly.cols, a]), values=np.concatenate([assembly.values, np.asarray(vs)]), shape=assembly.shape)
+            to.append(i)
+            vs.append(v * f)
+            if c.image_force and psi_col is not None:
+                g = v * df * (density[i] - c0)
+                at += [i, i]
+                to += [psi_col(nb), psi_col(w)]
+                vs += [g, -g]
+    return SparseAssembly(residual=res, rows=np.concatenate([assembly.rows, np.asarray(at, dtype=np.int64)]), cols=np.concatenate([assembly.cols, np.asarray(to, dtype=np.int64)]), values=np.concatenate([assembly.values, np.asarray(vs)]), shape=assembly.shape)
 
 
 def ohmic_psi_scaled(

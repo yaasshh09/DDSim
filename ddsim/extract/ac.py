@@ -131,8 +131,8 @@ def _linearized(device: Device, state: DeviceState, frequency: float, models: Tr
     N = x.size
     w = row_weights(scales, mesh.n_nodes)
     pins = _pinned(device)
-    full = add_thermionic(bare, x, device.contacts, s, Carrier.ELECTRON, device.material.T, lambda i: unknown_index(i, Unknown.N))
-    full = add_thermionic(full, x, device.contacts, s, Carrier.HOLE, device.material.T, lambda i: unknown_index(i, Unknown.P))
+    full = add_thermionic(bare, x, device.contacts, s, Carrier.ELECTRON, device.material.T, lambda i: unknown_index(i, Unknown.N), state.psi.data, mesh.h, lambda i: unknown_index(i, Unknown.PSI))
+    full = add_thermionic(full, x, device.contacts, s, Carrier.HOLE, device.material.T, lambda i: unknown_index(i, Unknown.P), state.psi.data, mesh.h, lambda i: unknown_index(i, Unknown.PSI))
 
     def stamped(targets: list[float]) -> SparseAssembly:
         a = SparseAssembly(residual=np.zeros(N), rows=full.rows, cols=full.cols, values=full.values, shape=full.shape)

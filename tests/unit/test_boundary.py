@@ -503,3 +503,34 @@ class TestApplyContacts:
                 ),
                 h,
             )
+
+
+def test_the_image_force_thermionic_jacobian_matches_central_differences() -> None:
+    import numpy as np
+    from ddsim.device.schottky import schottky_diode
+    from ddsim.discretize.assembly import SparseAssembly
+    from ddsim.discretize.boundary import Carrier, add_thermionic
+    from ddsim.discretize.coupled import Unknown, pack, unknown_index
+    d = schottky_diode(n_nodes=21, image_force=True)
+    rng = np.random.default_rng(5)
+    x = pack(np.linspace(-20.0, 0.0, 21) + 0.1 * rng.standard_normal(21), np.exp(rng.uniform(-2, 8, 21)), np.exp(rng.uniform(-2, 8, 21)))
+    h = d.scaled_mesh.h
+    none = np.zeros(0, dtype=np.int64)
+
+    def assembled(y):
+        a = SparseAssembly(residual=np.zeros(y.size), rows=none, cols=none, values=np.zeros(0), shape=(y.size, y.size))
+        for k, f in ((Carrier.ELECTRON, Unknown.N), (Carrier.HOLE, Unknown.P)):
+            a = add_thermionic(a, y, d.contacts, d.scale, k, d.material.T, lambda w, f=f: unknown_index(w, f), potential=y[0::3], h=h, psi_col=lambda w: unknown_index(w, Unknown.PSI))
+        return a
+
+    a = assembled(x)
+    J = np.zeros((x.size, x.size))
+    np.add.at(J, (a.rows, a.cols), a.values)
+    for k in range(6):
+        up, dn = x.copy(), x.copy()
+        s = 1e-6 * max(1.0, abs(x[k]))
+        up[k] += s
+        dn[k] -= s
+        col = (assembled(up).residual - assembled(dn).residual) / (2 * s)
+        assert np.abs(col - J[:, k]).max() <= 1e-6 * max(np.abs(col).max(), np.abs(J[:, k]).max(), 1e-300), k
+    assert np.abs(J[:, 3]).max() > 0.0
