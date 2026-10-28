@@ -80,6 +80,11 @@ def check_request(kind: str, device: Device, contact:str, settings: dict[str, An
                 "the ac sweep holds surface mobility fixed at the DC state, so "
                 "its admittance would be wrong. Turn surface off."
             )
+        if build_models(device, models).impact is not None and kind in ("ac", "transient"):
+            raise ValueError(
+                f"the {kind} sweep does not carry impact ionization yet, only the "
+                "DC sweeps do. Turn impact off."
+            )
         if build_models(device, models).surface is not None and kind == "transient":
             raise ValueError(
                 "no transient test has run with surface mobility yet, so the "

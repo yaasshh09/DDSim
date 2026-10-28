@@ -12,6 +12,7 @@ from ddsim.extract.ac import ROUNDOFF, ac_sweep
 from ddsim.extract.cv import cv_sweep
 from ddsim.extract.iv import gate_sweep, iv_sweep, terminal_currents
 from ddsim.device.bjt import npn_1d
+from ddsim.device.schottky import schottky_diode
 
 DIODE = {"n_nodes":61, 'h_min':5e-7}
 
@@ -45,7 +46,7 @@ def drain(client, job_id: str) -> list[Any]:
 def test_the_schema_offers_the_devices_the_registry_knows(client) -> None:
     f = client.get('/api/schema').json()
 
-    assert set(f["devices"]) == {'pn_diode', "mos_cap", 'nmos', 'npn', 'npn_2d', 'stack', "drawing"}
+    assert set(f["devices"]) == {'pn_diode', "mos_cap", 'nmos', 'npn', 'npn_2d', 'schottky', 'stack', "drawing"}
     assert set(f['sweeps']) == {"iv", 'transfer', "cv", "ac", "transient"}
 
 
@@ -546,3 +547,19 @@ def test_ac_and_transient_results_carry_no_error_estimate_yet(client) -> None:
     w = client.get(f"/api/jobs/{v}/result").json()
     assert "error" not in w["points"][0]
 
+
+
+def test_a_schottky_diode_solves_with_its_error_bars(client) -> None:
+    j = submit(client, {"device": {"kind": "schottky", "parameters": {}}, "sweep": {"kind": "iv", "contact": "anode", "voltages": [0.1, 0.2]}})
+    assert drain(client, j)[-1]["status"] == "done"
+    body = client.get(f"/api/jobs/{j}/result").json()
+    want = iv_sweep(schottky_diode(), "anode", [0.1, 0.2], models=TransportModels.for_device(schottky_diode()))
+    assert [p["current"] for p in body["points"]] == list(want.current)
+    assert all(p["error"] is not None and abs(p["error"]) < 0.01 * abs(p["current"]) for p in body["points"])
+
+
+@pytest.mark.parametrize(("device", "sweep"), [({"kind": "pn_diode", "parameters": DIODE}, {"kind": "ac", "contact": "anode", "voltages": [-1.0], "frequencies": [1e6]}), ({"kind": "nmos", "parameters": FET}, {"kind": "iv", "contact": "drain", "voltages": [0.1]})], ids=["ac", "2d"])
+def test_impact_ionization_where_it_is_not_carried_is_refused(client, device, sweep) -> None:
+    r = client.post("/api/jobs", json={"device": device, "sweep": {**sweep, "models": {"impact": True}}})
+    assert r.status_code == 400, r.text
+    assert "impact" in r.json()["detail"]

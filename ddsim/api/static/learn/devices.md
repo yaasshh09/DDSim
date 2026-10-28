@@ -30,6 +30,11 @@ collector current through. Their natural sweep is `transfer` with the base as
 the contact, which reads the collector current, and there's more in the
 bipolar transistor explainer.
 
+`schottky` is a metal sitting on n type silicon. There's no junction, just a
+barrier at the metal that electrons have to jump. Its natural sweep is `iv` on
+the anode, which is the metal, and there's more in the Schottky diode
+explainer.
+
 Each device's knobs come straight from the Python function that builds it,
 defaults and all, so the form can't drift away from what the solver builds.
 

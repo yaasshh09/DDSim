@@ -110,4 +110,4 @@ def test_a_range_crosses_the_schema(client) -> None:
 def test_the_schema_says_which_devices_are_one_dimensional(client) -> None:
     u = client.get("/api/schema").json()["dimensions"]
 
-    assert u == {'pn_diode': 1, 'mos_cap': 2, 'nmos': 2, 'npn': 1, 'npn_2d': 2, 'stack': 1, "drawing": 2,}
+    assert u == {'pn_diode': 1, 'mos_cap': 2, 'nmos': 2, 'npn': 1, 'npn_2d': 2, 'schottky': 1, 'stack': 1, "drawing": 2,}

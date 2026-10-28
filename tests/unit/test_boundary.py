@@ -534,3 +534,14 @@ def test_the_image_force_thermionic_jacobian_matches_central_differences() -> No
         col = (assembled(up).residual - assembled(dn).residual) / (2 * s)
         assert np.abs(col - J[:, k]).max() <= 1e-6 * max(np.abs(col).max(), np.abs(J[:, k]).max(), 1e-300), k
     assert np.abs(J[:, 3]).max() > 0.0
+
+
+def test_a_schottky_contact_pins_only_its_potential_for_the_error_estimate() -> None:
+    from ddsim.device.schottky import schottky_diode
+    from ddsim.device.transport import initial_state
+    from ddsim.discretize.coupled import Unknown, pack, unknown_index
+    from ddsim.extract.error import _pins
+    d = schottky_diode(n_nodes=21)
+    s = initial_state(d)
+    rows, _ = _pins(d, pack(s.psi.data, s.n.data, s.p.data))
+    assert set(rows.tolist()) == {unknown_index(0, Unknown.PSI), unknown_index(20, Unknown.PSI), unknown_index(20, Unknown.N), unknown_index(20, Unknown.P)}

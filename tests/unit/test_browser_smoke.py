@@ -1092,3 +1092,26 @@ def test_an_npn_f_t_is_drawn_against_its_collector_current(server) -> None:
             assert m == []
         finally:
             cc.close()
+
+
+def test_a_schottky_diode_runs_in_a_real_browser(server) -> None:
+    with sync_playwright() as r:
+        cc = r.chromium.launch()
+        try:
+            p = cc.new_page()
+            m: list[str] = []
+            p.on('pageerror', lambda error: m.append(str(error)))
+            p.goto(server)
+            wait_until(p, "el('state').textContent === 'ready'", m)
+            p.select_option('#device-kind', "schottky")
+            assert p.input_value('#contact') == "anode"
+            p.fill("#voltages", '-0.5, 0.1, 0.2')
+            p.click('#solve')
+            wait_until(p, "el('state').textContent.startsWith('done') && state.fields !== null", m)
+            v = p.evaluate("state.points.map((q) => [q.voltage, q.value, q.error])")
+            assert [x[0] for x in v] == [-0.5, 0.1, 0.2]
+            assert v[0][1] < 0 < v[1][1] < v[2][1]
+            assert all(x[2] is not None for x in v)
+            assert m == []
+        finally:
+            cc.close()

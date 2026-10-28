@@ -139,7 +139,8 @@
   "mobility": "\"constant\" uses one mobility everywhere, the value for undoped silicon. \"arora\" slows carriers down wherever the doping is heavy, which is what real silicon does.",
   "auger": "add Auger recombination on top of the usual defect recombination. It only matters at very high carrier densities, so it's off by default.",
   "field_dependent": "cap how fast carriers can go in a strong field. This is what gives you velocity saturation. Off by default.",
-  "surface": "slow down carriers pressed against the oxide, the way a real MOSFET channel does. Only works on a 2D device with an oxide on it. Off by default."
+  "surface": "slow down carriers pressed against the oxide, the way a real MOSFET channel does. Only works on a 2D device with an oxide on it. Off by default.",
+  "impact": "let a carrier in a strong field knock new electron hole pairs loose, which is what breaks a reverse biased junction down. 1D devices only, and only on the DC sweeps. Off by default."
  },
  "ddsim.device.bjt.npn_1d": {
   "emitter_doping": "how many donors per cubic centimetre in the emitter [cm^-3]. Range 1e17 to 1e20, log. Keep it well above the base, or the emitter takes as many holes as it gives electrons and the gain falls to nothing.",
@@ -180,5 +181,17 @@
   "degenerate": "use Fermi-Dirac statistics instead of the simpler Boltzmann ones. On by default, because the source and drain are doped to 1e20 cm^-3, and there Boltzmann puts the Fermi level 30.5 mV off.",
   "material": "silicon. Set its temperature with T.",
   "T": "temperature of the whole device [K]. Range 200 to 500. Both ends were solved over this device's lesson sweep, on the converged and the coarse mesh, on 2026-10-14. Hotter silicon has far more free carriers, so leakage climbs fast and the switch gets softer. Lifetimes and constant mobility stay at their 300 K values."
+ },
+ "ddsim.device.schottky.schottky_diode": {
+  "Nd": "how many donors per cubic centimetre in the silicon under the metal [cm^-3]. Range 1e14 to 1e18, log. Heavier doping thins the barrier's depletion region and raises the field at the metal.",
+  "length": "how long the silicon is, from the metal to the back contact [cm]. Range 2e-5 to 1e-3, log.",
+  "barrier": "how far the metal's Fermi level sits below the silicon's conduction edge at the interface [eV]. Range 0.3 to 1, the usual spread of metals on silicon. Each 60 mV taller cuts the current tenfold.",
+  "n_nodes": "how many mesh points the device is cut into [1]. Range 51 to 1001.",
+  "h_min": "the smallest spacing, right at the metal [cm]. Range 2e-8 to 1e-6, log.",
+  "anode_voltage": "voltage on the metal [V]. Range -5 to 0.5. Forward bias is positive.",
+  "cathode_voltage": "voltage on the back contact [V]. Range -1 to 1.",
+  "image_force": "lower the barrier by the pull of each electron's own image in the metal, by an amount that grows with the field at the contact. Off by default.",
+  "material": "silicon. Set its temperature with T.",
+  "T": "temperature of the whole device [K]. Range 200 to 500. A hotter metal throws far more electrons over the barrier, so both currents climb fast."
  }
 }

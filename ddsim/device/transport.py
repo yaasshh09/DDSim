@@ -157,7 +157,7 @@ class TransportModels:
 
 def _impact(device: Device) -> ImpactIonization:
     if device.dimension != 1:
-        raise NotImplementedError(
+        raise ValueError(
             "impact ionization shares each edge's generation between its two "
             "nodes, which is checked on the 1D mesh only. Solve a 1D device."
         )
