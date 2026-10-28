@@ -888,3 +888,61 @@ BJT_BENCHMARKS: tuple[BjtBenchmark, ...] = (
 )
 
 BJT_BY_NAME: dict[str, BjtBenchmark] = {b.name: b for b in BJT_BENCHMARKS}
+
+
+NC = 2.86e19
+
+NV = 3.1e19
+
+A_STAR_N = 112.0
+
+A_STAR_P = 32.0
+
+
+@dataclass(frozen=True)
+class SchottkyBenchmark:
+    name: str
+
+    number: int
+
+    Nd: float
+
+    length: float
+
+    barrier: float
+
+    voltages: tuple[float, ...]
+
+    tolerance: float
+
+    n_nodes: int = 201
+
+    h_min: float = 1e-7
+
+    devsim_h_contact: float = 1e-7
+
+    devsim_h_bulk: float = 2e-6
+
+    notes: str = ""
+
+
+SCHOTTKY_BENCHMARKS: tuple[SchottkyBenchmark, ...] = (
+    SchottkyBenchmark(
+        name="schottky_0p7",
+        number=16,
+        Nd=1e16,
+        length=1e-4,
+        barrier=0.7,
+        voltages=(-1.0, -0.5, -0.2) + tuple(round(0.05 * k, 2) for k in range(1, 8)),
+        tolerance=0.05,
+        notes=(
+            "A 0.7 eV barrier on 1e16 n-type silicon, 1 um long. DEVSIM has no "
+            "Schottky contact, so the generator writes one: the bulk edge "
+            "current over the contact edge plus q v (c - c0) / NodeVolume as "
+            "the contact node model, since DEVSIM integrates a contact node "
+            "model over the node volume. At this mobility v_R / v_D is about "
+            "0.05, so the current sits 5 percent under pure thermionic "
+            "emission and the diffusion part is exercised too."
+        ),
+    ),
+)
