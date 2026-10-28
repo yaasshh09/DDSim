@@ -5,6 +5,8 @@ import numpy as np, numpy.typing as npt
 from ddsim.core import constants as C
 from ddsim.discretize.geometry import EdgeGeometry
 from ddsim.mesh.mesh2d import Mesh2D
+from ddsim.mesh.quality import triangle_angles
+from ddsim.mesh.trimesh import TriMesh
 
 SILICON = 0
 
@@ -119,3 +121,39 @@ def stacked_regions(mesh:Mesh2D, interface_y:float) -> RegionMap:
     m = np.full((w2 - 1, f - 1), SILICON, dtype=np.int64)
     m[rows:] = OXIDE
     return region_map(mesh, m)
+
+
+def triangle_regions(mesh: TriMesh, material: npt.NDArray[np.int64]) -> RegionMap:
+    t = mesh.triangles
+    m = np.asarray(material, dtype=np.int64)
+    if m.shape != (t.shape[0],):
+        raise ValueError(f"the material list has {m.shape} entries but the mesh has {t.shape[0]} triangles")
+    if mesh.cylindrical:
+        raise ValueError("regions on a cylindrical mesh need the revolved pieces, which aren't written yet")
+    unknown = set(np.unique(m).tolist()) - set(_RELATIVE_EPS)
+    if unknown:
+        raise ValueError(f"no permittivity for material codes {sorted(unknown)}; the known ones are {sorted(_RELATIVE_EPS)}")
+    p = np.column_stack([mesh.node_x, mesh.node_y])
+    N = mesh.n_nodes
+    keys = mesh.edge_nodes[:, 0] * N + mesh.edge_nodes[:, 1]
+    eps_t = np.array([_RELATIVE_EPS[int(k)] for k in m])
+    silicon = m == SILICON
+    angle = triangle_angles(p, t)
+    weighted = np.zeros(mesh.n_edges)
+    total = np.zeros(mesh.n_edges)
+    face = np.zeros(mesh.n_edges)
+    volume = np.zeros(N)
+    for k in range(3):
+        u, v = t[:, (k + 1) % 3], t[:, (k + 2) % 3]
+        lo, hi = np.minimum(u, v), np.maximum(u, v)
+        at = np.searchsorted(keys, lo * N + hi)
+        h = np.hypot(*(p[v] - p[u]).T)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            piece = 0.5 * h / np.tan(angle[:, k])
+        np.add.at(weighted, at, eps_t * piece)
+        np.add.at(total, at, piece)
+        np.add.at(face, at, np.where(silicon, piece, 0.0))
+        for w in (u, v):
+            np.add.at(volume, w, np.where(silicon, 0.25 * h * piece, 0.0))
+    eps = np.divide(weighted, total, out=np.ones_like(total), where=total > 0.0)
+    return RegionMap(cell_material=m, eps_r=eps, semiconductor_volume=volume, semiconductor_face=np.maximum(face, 0.0), oxide_nodes=np.flatnonzero(volume <= 0.0).astype(np.int64))
