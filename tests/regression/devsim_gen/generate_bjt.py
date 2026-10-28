@@ -294,7 +294,17 @@ def main() -> int:
     a.add_argument("--out", default=os.path.join("data", "golden"), help="output directory for the CSV files")
     a.add_argument("--no-mesh-check", action="store_true", help="skip the refined mesh rerun")
     a.add_argument("--refine", type=float, default=0.5, help="divide every devsim spacing by this for the mesh check, so 0.5 doubles them")
+    a.add_argument("--only", type=float, default=None, help="solve once with every spacing divided by this and write that curve alone, for a convergence study")
     o = a.parse_args()
+    if o.only is not None:
+        for b in P.BJT_BENCHMARKS:
+            t = time.perf_counter()
+            g, nodes = gummel(b, o.only)
+            out = output(b, o.only)
+            p = os.path.join(o.out, f"{b.name}_refine_{o.only:g}.csv")
+            write(b, g, out, nodes, None, o.only, time.perf_counter() - t, p)
+            print(f"[{b.name}] wrote {p}", flush=True)
+        return 0
     for b in P.BJT_BENCHMARKS:
         t = time.perf_counter()
         print(f"[{b.name}] Gummel plot", flush=True)
