@@ -26,10 +26,10 @@ Bipolar transistor,yes,tests/analytic/test_bjt.py::test_the_collector_current_is
 Heterojunctions,no,,scripted,interface_equation + python_packages.simple_physics.CreateSiliconSiliconInterface,Phase 18
 Quantum correction,no,,scripted,node_model + equation,Phase 17
 User-written equations with symbolic derivatives,no,,yes,equation + node_model + symdiff,
-Gmsh mesh import,no,,yes,create_gmsh_mesh,Phase 15
-Unstructured 2D meshes,no,,yes,create_gmsh_mesh:triangle,Phase 15
+Gmsh mesh import,yes,tests/unit/test_gmsh.py::test_a_gmsh_4_1_file_reads_its_nodes_triangles_and_groups + tests/unit/test_gmsh.py::test_a_written_mesh_reads_back_exactly,yes,create_gmsh_mesh,A small reader for the 4.1 ASCII format with physical groups as contacts and regions. Regions other than one semiconductor are not wired into devices yet
+Unstructured 2D meshes,yes,tests/unit/test_trimesh.py::test_the_residual_on_the_triangulated_mesh_is_the_tensor_one + tests/analytic/test_triangulated_devices.py::test_a_triangulated_diode_carries_the_tensor_current + tests/unit/test_trimesh.py::test_an_obtuse_boundary_triangle_is_refused,yes,create_gmsh_mesh:triangle,Delaunay triangle meshes with a Voronoi dual that refuse a negative coupling. One semiconductor region only so far; the oxide and the error estimate still need the tensor mesh
 3D meshes,no,,yes,create_gmsh_mesh:tetrahedron,Phase 16
-Cylindrical coordinates,no,,yes,cylindrical_node_volume + cylindrical_edge_couple,Phase 15
+Cylindrical coordinates,no,,yes,cylindrical_node_volume + cylindrical_edge_couple,Phase 15. The mesh weights exist and pass the coax and disc capacitors (tests/unit/test_trimesh.py) but devices refuse a cylindrical mesh until its scaling is written
 Iterative linear solver,no,,yes,solver:iterative,Phase 16
 Discretization error estimates,yes,tests/convergence/test_error_estimate.py::test_effectivity_against_richardson + tests/convergence/test_error_estimate_2d.py::test_drain_current_effectivity_against_richardson,no,,Dual weighted residual on currents and C-V capacitance. Effectivity 0.64 to 1.5 against Richardson on benchmarks 1 to 7
 Adaptive mesh refinement,no,,no,,Phase 12
