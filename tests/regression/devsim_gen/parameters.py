@@ -495,6 +495,9 @@ def _rolloff(name:str, L_gate:float) -> MosfetBenchmark:
     )
 
 
+GMSH_BENCHMARK = MosfetBenchmark(name="nmos_1um_gmsh", number=18, L_gate=1e-4, gate_voltages=_gate_range(0.0, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.01, notes=("Benchmark 6's 1 um device on one shared triangle mesh, data/golden/nmos_1um_gmsh.msh, written by write_nmos_mesh.py from ddsim's tensor mesh split along its diagonals. ddsim reads it with its Gmsh reader and DEVSIM through create_gmsh_mesh, given the coordinates, elements and names the same pure python parser read, since DEVSIM 2.11 refuses format 4.1 files. Both codes solve the same discretization, so there is no mesh check and the tolerance is 1 percent."),)
+
+
 ROLLOFF_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
     _rolloff("rolloff_200nm", 2e-5),
     _rolloff("rolloff_100nm", 1e-5),
