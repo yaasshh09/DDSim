@@ -59,10 +59,11 @@ def golden() -> dict[str, list[float]]:
 
 
 @pytest.mark.parametrize("high", [False, True], ids=["Vd_low", "Vd_high"])
-def test_the_drain_current_on_the_shared_mesh_matches_devsim(high: bool) -> None:
+def test_the_drain_current_on_the_shared_mesh_matches_devsim(high: bool, record_property) -> None:
     g = golden()
     c = ours(B.drain_high if high else B.drain_low)
     assert c.complete, c.message
     want = g["high" if high else "low"]
+    record_property("worst_log_error", max(abs(math.log(i / w)) for w, i in zip(want, c.current, strict=True)))
     bad = [f"Vg {v:+.2f} V: devsim {w:.6e}, ddsim {i:.6e} A/cm" for v, w, i in zip(g["gate"], want, c.current, strict=True) if abs(math.log(i / w)) > B.tolerance]
     assert not bad, "\n".join(bad)

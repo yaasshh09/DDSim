@@ -66,21 +66,25 @@ def test_both_tools_start_from_the_same_forward_current(b):
 
 
 @pytest.mark.parametrize("b", P.TRANSIENT_BENCHMARKS, ids=lambda b: b.name)
-def test_storage_time_matches_devsim(b):
+def test_storage_time_matches_devsim(b, record_property):
     _, t = recovered(b.name)
     ref = float(golden(b).header["storage time"])
+    record_property("worst_relative_error", abs(storage_time(t, "anode") - ref) / abs(ref))
     assert storage_time(t, "anode") == pytest.approx(ref, rel=b.tolerance, abs=0)
 
 
 @pytest.mark.parametrize("b", P.TRANSIENT_BENCHMARKS, ids=lambda b: b.name)
-def test_the_current_matches_devsim_at_every_sample(b):
+def test_the_current_matches_devsim_at_every_sample(b, record_property):
     rows = golden(b).rows
     _, t = recovered(b.name)
     assert len(t.points) == len(rows)
     bad: list[str] = []
+    top = 0.0
     for p, r in zip(t.points, rows, strict=True):
         allowed = max(b.tolerance, NOISE_FACTOR * r["spread"])
         e = abs(p.currents["anode"] - r["current"]) / abs(r["current"])
+        top = max(top, e)
         if e > allowed:
             bad.append(f"{r['time']:.4e} s: devsim {r['current']:.6e}, ddsim {p.currents['anode']:.6e} A/cm^2, off by {e:.2%}, allowed {allowed:.2%}")
+    record_property("worst_relative_error", top)
     assert not bad, f"{b.name} disagrees with DEVSIM at {len(bad)} of {len(rows)} samples:\n  " + "\n  ".join(bad)

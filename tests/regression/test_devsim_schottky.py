@@ -33,16 +33,19 @@ def test_the_golden_curve_is_converged(b: P.SchottkyBenchmark) -> None:
 
 
 @pytest.mark.parametrize("b", P.SCHOTTKY_BENCHMARKS, ids=lambda b: b.name)
-def test_the_schottky_diode_matches_devsim(b: P.SchottkyBenchmark) -> None:
+def test_the_schottky_diode_matches_devsim(b: P.SchottkyBenchmark, record_property) -> None:
     g = P.read_golden(str(GOLDEN_DIR / f"{b.name}.csv"))
     d = schottky_diode(Nd=b.Nd, length=b.length, barrier=b.barrier, n_nodes=b.n_nodes, h_min=b.h_min)
     bad = []
+    top = 0.0
     for side in (sorted((v for v in b.voltages if v < 0.0), reverse=True), sorted(v for v in b.voltages if v > 0.0)):
         c = iv_sweep(d, "anode", [0.0, *side])
         assert c.complete, c.message
         for p in c.points[1:]:
             want = g.current[g.voltage.index(p.voltage)]
             e = abs(math.log(abs(p.current) / abs(want)))
+            top = max(top, e)
             if e > b.tolerance or math.copysign(1.0, p.current) != math.copysign(1.0, want):
                 bad.append(f"{p.voltage:+.2f} V: devsim {want:.6e}, ddsim {p.current:.6e} A/cm^2")
+    record_property("worst_log_error", top)
     assert not bad, "\n".join(bad)

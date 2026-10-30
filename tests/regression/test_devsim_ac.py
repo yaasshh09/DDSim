@@ -90,10 +90,11 @@ def test_golden_matches_the_benchmark(b):
 
 
 @pytest.mark.parametrize("b", P.AC_BENCHMARKS, ids=lambda b: b.name)
-def test_ddsim_matches_devsim(b):
+def test_ddsim_matches_devsim(b, record_property):
     rows = golden(b).rows
     bad: list[str] = []
     i = 0
+    top = 0.0
     for v in b.biases:
         for f, y, sv in POINTS[b.number](b, v):
             r = rows[i]
@@ -103,7 +104,9 @@ def test_ddsim_matches_devsim(b):
             e = abs(y - ref) / abs(ref)
             if sv is not None:
                 e = max(e, abs(sv - r["s_v"]) / abs(r["s_v"]))
+            top = max(top, e)
             if e > allowed:
                 bad.append(f"{v:+g} V, {f:.3e} Hz: devsim {ref:.6e}, ddsim {y:.6e}, off by {e:.2%}, allowed {allowed:.2%}")
+    record_property("worst_relative_error", top)
     assert i == len(rows)
     assert not bad, f"{b.name} disagrees with DEVSIM at {len(bad)} of {len(rows)} points:\n  " + "\n  ".join(bad)

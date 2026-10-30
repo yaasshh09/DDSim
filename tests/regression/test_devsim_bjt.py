@@ -63,25 +63,32 @@ def test_the_golden_curve_is_converged(b: P.BjtBenchmark) -> None:
 
 
 @pytest.mark.parametrize("b", P.BJT_BENCHMARKS, ids=lambda b: b.name)
-def test_the_gummel_plot_matches_devsim(b: P.BjtBenchmark) -> None:
+def test_the_gummel_plot_matches_devsim(b: P.BjtBenchmark, record_property) -> None:
     g, _ = ours(b.name)
     assert g.complete, g.message
     bad = []
+    top: dict[str, float] = {}
     for p, r in zip(g.points, rows(b, 0), strict=True):
         for k, got in (("collector", p.collector), ("base", p.base)):
             e = abs(got - r[k]) / abs(r[k])
+            top[k] = max(top.get(k, 0.0), e)
             if e > b.tolerance:
                 bad.append(f"V_BE {p.v_be:.2f} V: {k} devsim {r[k]:.6e}, ddsim {got:.6e} A/cm, off by {e:.2%}")
+    for k, v in top.items():
+        record_property(f"worst_relative_error_{k}", v)
     assert not bad, "\n".join(bad)
 
 
 @pytest.mark.parametrize("b", P.BJT_BENCHMARKS, ids=lambda b: b.name)
-def test_the_output_curve_matches_devsim(b: P.BjtBenchmark) -> None:
+def test_the_output_curve_matches_devsim(b: P.BjtBenchmark, record_property) -> None:
     _, c = ours(b.name)
     assert c.complete, c.message
     bad = []
+    top = 0.0
     for p, r in zip(c.points, rows(b, 1), strict=True):
         e = abs(p.collector - r["collector"]) / abs(r["collector"])
+        top = max(top, e)
         if e > b.tolerance:
             bad.append(f"V_CE {p.v_ce:.2f} V: collector devsim {r['collector']:.6e}, ddsim {p.collector:.6e} A/cm, off by {e:.2%}")
+    record_property("worst_relative_error", top)
     assert not bad, "\n".join(bad)

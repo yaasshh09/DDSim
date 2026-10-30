@@ -34,7 +34,7 @@ def test_the_golden_curve_is_converged(b: P.BreakdownBenchmark) -> None:
 
 
 @pytest.mark.parametrize("b", P.BREAKDOWN_BENCHMARKS, ids=lambda b: b.name)
-def test_the_breakdown_curve_matches_devsim(b: P.BreakdownBenchmark) -> None:
+def test_the_breakdown_curve_matches_devsim(b: P.BreakdownBenchmark, record_property) -> None:
     g = P.read_golden(str(GOLDEN_DIR / f"{b.name}.csv"))
     d = pn_diode(Na=b.Na, Nd=b.Nd, length=b.length, junction=b.junction, n_nodes=b.n_nodes, h_min=b.h_min)
     s = d.scale
@@ -43,8 +43,11 @@ def test_the_breakdown_curve_matches_devsim(b: P.BreakdownBenchmark) -> None:
     c = gate_sweep(d, [0.0, *sorted(b.voltages, reverse=True)], contact="anode", measure_at="anode", models=TransportModels.for_device(d, recombination=R, impact=True))
     assert c.complete, c.message
     bad = []
+    top = 0.0
     for p in c.points[1:]:
         want = g.current[g.voltage.index(p.voltage)]
+        top = max(top, abs(math.log(p.current / want)))
         if abs(math.log(p.current / want)) > b.tolerance:
             bad.append(f"{p.voltage:+.3f} V: devsim {want:.6e}, ddsim {p.current:.6e} A/cm^2")
+    record_property("worst_log_error", top)
     assert not bad, "\n".join(bad)
