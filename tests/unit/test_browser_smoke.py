@@ -7,6 +7,7 @@ import pytest, uvicorn
 from playwright.sync_api import Page, sync_playwright
 from playwright.sync_api import TimeoutError as PageTimeout
 from ddsim.api.app import create_app
+from ddsim.api.learn import lesson_names
 from ddsim.api.jobs import JobRegistry, JobStatus
 STARTUP_TIMEOUT = 10.0
 
@@ -256,7 +257,7 @@ def test_an_equation_wider_than_the_drawer_can_be_reached(server) -> None:
 def solved(page: Page, errors: list[str]) -> None:
     c = page.evaluate("state.job")
     page.click("#solve")
-    wait_until(page, f"state.job !== {json.dumps(c)} && el('state').textContent.startsWith('done')", errors)
+    wait_until(page, f"state.job !== {json.dumps(c)} && el('state').textContent.startsWith('done') && state.curve !== null", errors)
 
 
 def until(page: Page, ready, what:str, seconds: float = 30.0) -> None:
@@ -493,7 +494,7 @@ def test_a_lesson_sets_up_its_steps_and_leaves_the_device_behind(server) -> None
             r.on("pageerror", lambda error:cur.append(str(error)))
             r.goto(server)
             wait_until(r, "el('state').textContent === 'ready'", cur)
-            wait_until(r, "el('lesson').options.length === 6", cur)
+            wait_until(r, f"el('lesson').options.length === {len(lesson_names()) + 1}", cur)
 
             r.select_option('#lesson', "02-bias")
             wait_until(r, "!el('lesson-panel').hidden", cur)
