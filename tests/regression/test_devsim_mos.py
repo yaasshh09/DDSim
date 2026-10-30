@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Callable
 from pathlib import Path
 import pytest
 from ddsim.core import constants as C
@@ -121,10 +122,11 @@ def compare(voltage: list[float], expected:list[float], actual:list[float], tole
 
 
 @pytest.mark.parametrize("benchmark", P.MOS_BENCHMARKS, ids= lambda b:b.name)
-def test_ddsim_matches_devsim_charge(benchmark: P.MosBenchmark) -> None:
+def test_ddsim_matches_devsim_charge(benchmark: P.MosBenchmark, record_property: Callable[[str, object], None]) -> None:
     w = P.read_mos_golden(str(golden_path(benchmark)))
     d2 = ddsim_curve(benchmark)
     i, v = compare(w.gate_voltage, w.charge, list(d2.charge), benchmark.tolerance,)
+    record_property("worst_relative_error", v)
     assert not i, (
         f"{benchmark.name} gate charge disagrees with DEVSIM at "
         f"{len(i)} of {len(w.gate_voltage)} points:\n  "
@@ -134,7 +136,7 @@ def test_ddsim_matches_devsim_charge(benchmark: P.MosBenchmark) -> None:
 
 
 @pytest.mark.parametrize('benchmark', P.MOS_BENCHMARKS, ids= lambda b: b.name)
-def test_ddsim_matches_devsim_capacitance(benchmark: P.MosBenchmark) -> None:
+def test_ddsim_matches_devsim_capacitance(benchmark: P.MosBenchmark, record_property: Callable[[str, object], None]) -> None:
     i = P.read_mos_golden(str(golden_path(benchmark)))
     h = ddsim_curve(benchmark)
 
@@ -144,6 +146,7 @@ def test_ddsim_matches_devsim_capacitance(benchmark: P.MosBenchmark) -> None:
     )
 
     x, t = compare(r, e, c, benchmark.tolerance)
+    record_property("worst_relative_error", t)
 
     assert not x, (
         f"{benchmark.name} capacitance disagrees with DEVSIM at "

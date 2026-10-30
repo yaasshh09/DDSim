@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Callable
 import inspect; import math
 from pathlib import Path
 import numpy as np; import numpy.typing as npt, pytest
@@ -249,13 +250,14 @@ def test_ddsim_reaches_every_golden_bias(
 @pytest.mark.parametrize('benchmark', P.MOSFET_BENCHMARKS, ids= lambda b: b.name)
 @pytest.mark.parametrize('high', [False, True], ids=["Vd_low", "Vd_high"])
 def test_ddsim_matches_devsim_drain_current(
-    benchmark: P.MosfetBenchmark, high:bool
+    benchmark: P.MosfetBenchmark, high:bool, record_property: Callable[[str, object], None]
 ) -> None:
     xs = P.read_mosfet_golden(str(golden_path(benchmark)))
     r2 = benchmark.drain_high if high else benchmark.drain_low; h = ddsim_curve(benchmark, r2)
     k = xs.drain_high if high else xs.drain_low
     bb: list[str] = []
     d = 0.0
+    top = 0.0
     for y, (s2, t, m2) in enumerate(
         zip(xs.gate_voltage, k, list(h.current), strict=True)
     ):
@@ -270,12 +272,15 @@ def test_ddsim_matches_devsim_drain_current(
         w = max(benchmark.tolerance, NOISE_FACTOR * xs.imbalance(y, high))
         c2 = abs(m2 - t) / abs(t)
         d = max(d, c2 / w)
+        top = max(top, c2)
         if c2 > w:
             bb.append(
                 f"{s2:+.3f} V: devsim {t:.6e}, ddsim {m2:.6e}, "
                 f"off by {c2:.2%}, allowed {w:.2%}"
             )
 
+    record_property("worst_relative_error", top)
+    record_property("worst_over_allowed", d)
     assert not bb, (
         f"{benchmark.name} at Vd = {r2} V disagrees with DEVSIM at "
         f"{len(bb)} of {len(xs.gate_voltage)} points:\n  "
@@ -360,7 +365,7 @@ def test_rolloff_threshold_falls_in_both_codes(high:bool) -> None:
 
 
 @pytest.mark.parametrize("high", [False, True], ids=["Vd_low", "Vd_high"])
-def test_rolloff_magnitude_matches_devsim(high: bool) -> None:
+def test_rolloff_magnitude_matches_devsim(high: bool, record_property: Callable[[str, object], None]) -> None:
     t2 = 1 if high else 0
     w = [_devsim_thresholds(t)[t2] for t in P.ROLLOFF_TREND]
     stuff = [_ddsim_thresholds(t)[t2] for t in P.ROLLOFF_TREND]
@@ -368,6 +373,7 @@ def test_rolloff_magnitude_matches_devsim(high: bool) -> None:
     e = w[0] - w[-1]
     g = stuff[0] - stuff[-1]
     x = abs(g - e) / abs(e)
+    record_property("worst_relative_error", x)
 
     c = "\n  ".join(
         f"{z2}: devsim {b:+.4f} V, ddsim {num:+.4f} V, "
@@ -382,7 +388,7 @@ def test_rolloff_magnitude_matches_devsim(high: bool) -> None:
 
 
 @pytest.mark.parametrize("name", P.ROLLOFF_TREND)
-def test_rolloff_dibl_matches_devsim(name: str) -> None:
+def test_rolloff_dibl_matches_devsim(name: str, record_property: Callable[[str, object], None]) -> None:
     ok = P.MOSFET_BY_NAME[name]
     num = ok.drain_high - ok.drain_low
     t2, out2 = _devsim_thresholds(name)
@@ -394,6 +400,7 @@ def test_rolloff_dibl_matches_devsim(name: str) -> None:
         f"{out2:+.4f} V against {t2:+.4f}, which is not DIBL"
     )
     y = abs(tmp3 - z) / z
+    record_property("worst_relative_error", y)
     assert y <= 0.10, (
         f"{name} DIBL disagrees by {y:.1%}: devsim "
         f"{z * 1000:.1f} mV/V, ddsim {tmp3 * 1000:.1f} mV/V"
@@ -523,7 +530,7 @@ def test_full_stack_ddsim_reaches_every_golden_bias(
     'benchmark', P.FULL_STACK_BENCHMARKS, ids= lambda b: b.name
 )
 @pytest.mark.parametrize("high", [False, True], ids=['Vd_low', "Vd_high"])
-def test_full_stack_drain_current_matches_devsim(benchmark:P.MosfetBenchmark, high:bool) -> None:
+def test_full_stack_drain_current_matches_devsim(benchmark:P.MosfetBenchmark, high:bool, record_property: Callable[[str, object], None]) -> None:
     ii = P.read_mosfet_golden(str(golden_path(benchmark)))
     w = benchmark.drain_high if high else benchmark.drain_low; r = ddsim_full_curve(benchmark, w)
     flag = ii.drain_high if high else ii.drain_low
@@ -550,6 +557,7 @@ def test_full_stack_drain_current_matches_devsim(benchmark:P.MosfetBenchmark, hi
                 f"{m:.2%} against {t:.2%} allowed"
             )
 
+    record_property("worst_relative_error", a2)
     assert not c, (
         f"{benchmark.name} at Vd = {w} V, worst {a2:.2%}:\n  "
         + "\n  ".join(c)
@@ -573,13 +581,14 @@ def test_full_stack_threshold_falls_in_both_codes(high: bool) -> None:
 
 
 @pytest.mark.parametrize("high", [False, True], ids=["Vd_low", "Vd_high"])
-def test_full_stack_rolloff_matches_devsim(high: bool) -> None:
+def test_full_stack_rolloff_matches_devsim(high: bool, record_property: Callable[[str, object], None]) -> None:
     z2 = 1 if high else 0
     ii = [_devsim_thresholds(j)[z2] for j in P.FULL_STACK_TREND]
     out = [_ddsim_full_thresholds(j)[z2] for j in P.FULL_STACK_TREND]
     jj = ii[0] - ii[-1]
     idx = out[0] - out[-1]
     row = abs(idx - jj)/abs(jj)
+    record_property("worst_relative_error", row)
     t = "\n  ".join(
         f"{w}: devsim {cur:+.4f} V, ddsim {val2:+.4f} V, "
         f"{(val2 - cur) * 1000:+.1f} mV"
@@ -593,7 +602,7 @@ def test_full_stack_rolloff_matches_devsim(high: bool) -> None:
 
 
 @pytest.mark.parametrize('name', P.FULL_STACK_TREND)
-def test_full_stack_dibl_matches_devsim(name: str) -> None:
+def test_full_stack_dibl_matches_devsim(name: str, record_property: Callable[[str, object], None]) -> None:
     out2 = P.MOSFET_BY_NAME[name]
     j = out2.drain_high - out2.drain_low
 
@@ -608,6 +617,7 @@ def test_full_stack_dibl_matches_devsim(name: str) -> None:
         f"{val2:+.4f} V against {t:+.4f}, which is not DIBL"
     )
     jj = abs(a2 - a) / a
+    record_property("worst_relative_error", jj)
     assert jj <= 0.10, (
         f"{name}: DIBL disagrees by {jj:.1%}, devsim "
         f"{a * 1000:.1f} mV/V against ddsim "

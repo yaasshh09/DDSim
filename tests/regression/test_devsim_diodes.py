@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections.abc import Callable
 from pathlib import Path
 import pytest
 from ddsim.core import constants as C
@@ -106,12 +107,13 @@ def test_ddsim_reaches_every_golden_bias(benchmark: P.DiodeBenchmark) -> None:
 
 
 @pytest.mark.parametrize("benchmark", P.BENCHMARKS, ids= lambda b: b.name)
-def test_ddsim_matches_devsim(benchmark: P.DiodeBenchmark) -> None:
+def test_ddsim_matches_devsim(benchmark: P.DiodeBenchmark, record_property: Callable[[str, object], None]) -> None:
     xs = P.read_golden(str(golden_path(benchmark))); v = ddsim_curve(benchmark)
     j = dict(zip(v.voltage, v.current, strict=True))
     ss: list[str] = []
 
     num = 0.0
+    top = 0.0
     for info, mm in enumerate(xs.voltage):
         i = xs.current[info]
         res2 = j[mm]
@@ -127,12 +129,15 @@ def test_ddsim_matches_devsim(benchmark: P.DiodeBenchmark) -> None:
         u = max(benchmark.tolerance, NOISE_FACTOR * xs.imbalance(info))
         z = abs(res2 - i) / abs(i)
         num = max(num, z / u)
+        top = max(top, z)
         if z > u:
             ss.append(
                 f"{mm:+.3f} V: devsim {i:.6e}, ddsim {res2:.6e}, "
                 f"off by {z:.2%}, allowed {u:.2%}"
             )
 
+    record_property("worst_relative_error", top)
+    record_property("worst_over_allowed", num)
     assert not ss, (
         f"{benchmark.name} disagrees with DEVSIM at {len(ss)} of "
         f"{len(xs.voltage)} points:\n  " + "\n  ".join(ss)
