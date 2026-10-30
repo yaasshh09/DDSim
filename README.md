@@ -60,4 +60,4 @@ You can also draw your own device out of silicon, oxide, implants and contacts, 
 
 ## License
 
-CC BY-NC 4.0. You're free to use, share and adapt it for non-commercial work as long as you credit me. See [LICENSE](LICENSE).
+BSD 3-Clause. You're free to use, change and share it, commercially too, as long as you keep my copyright notice. See [LICENSE](LICENSE).
