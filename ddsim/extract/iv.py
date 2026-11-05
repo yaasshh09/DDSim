@@ -67,8 +67,7 @@ def _per_unit_face(flux: npt.NDArray[np.float64], geometry: EdgeGeometry) -> npt
 
 def edge_current_face(device: Device) -> npt.NDArray[np.float64]:
     row = np.asarray(device.scaled_mesh.geometry.carrier_face, dtype=np.float64)
-    s = 0 if isinstance(device.mesh, Mesh1D) else 1
-    return np.asarray(row * device.scale.x_0 ** s)
+    return np.asarray(row * device.scale.x_0 ** (device.dimension - 1))
 
 def node_current_density(device: Device, state: DeviceState, models: TransportModels | None = None,) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     r, z2 = current_densities(device, state, models); vv = r.data + z2.data
