@@ -153,8 +153,10 @@ class SparseLU:
 
 
 class GmresILU:
-    def __init__(self, drop_tol: float = 1e-5, fill_factor: float = 20.0, eta_max: float = 0.1, eta_min: float = 1e-12, restart: int = 60, max_restarts: int = 20) -> None:
+    def __init__(self, drop_tol: float = 1e-3, fill_factor: float = 10.0, eta_max: float = 0.1, eta_min: float = 1e-12, restart: int = 60, max_restarts: int = 20, tightenings: int = 2) -> None:
         self.drop_tol = drop_tol
+        self.tightenings = tightenings
+        self.fill: list[float] = []
         self.fill_factor = fill_factor
         self.eta_max = eta_max
         self.eta_min = eta_min
@@ -183,12 +185,17 @@ class GmresILU:
             raise RuntimeError(f"column {int(np.flatnonzero(tall == 0.0)[0])} of the Jacobian is all zeros, so the matrix is singular")
         self._cols = 1.0 / tall
         d = sp.csc_matrix(b @ sp.diags(self._cols))
+        self._matrix = d
+        self._ilu = self._incomplete(d, self.drop_tol, self.fill_factor)
+
+    def _incomplete(self, d: sp.csc_matrix, drop_tol: float, fill_factor: float) -> SuperLU:
         try:
-            self._ilu = spilu(d, drop_tol=self.drop_tol, fill_factor=self.fill_factor)
+            ilu = spilu(d, drop_tol=drop_tol, fill_factor=fill_factor, permc_spec="MMD_AT_PLUS_A")
         except RuntimeError as bar:
             self._ilu = None
             raise RuntimeError(f"the incomplete LU broke down, the matrix is singular or nearly so: {bar}") from bar
-        self._matrix = d
+        self.fill.append((ilu.L.nnz + ilu.U.nnz) / d.nnz)
+        return ilu
 
     def _next_eta(self, size: float) -> float:
         if self._last_norm is None or self._last_norm == 0.0:
@@ -207,17 +214,21 @@ class GmresILU:
         size = float(np.linalg.norm(rhs))
         self._eta = self._next_eta(size)
         self._last_norm = size
-        ilu = self._ilu
-        m = LinearOperator(self._matrix.shape, matvec=ilu.solve, dtype=np.float64)
-        count = [0]
+        drop, fill = self.drop_tol, self.fill_factor
+        for attempt in range(self.tightenings + 1):
+            m = LinearOperator(self._matrix.shape, matvec=self._ilu.solve, dtype=np.float64)
+            count = [0]
 
-        def tick(_: object) -> None:
-            count[0] += 1
+            def tick(_: object, count: list[int] = count) -> None:
+                count[0] += 1
 
-        x, info = gmres(self._matrix, rhs, rtol=self._eta, atol=0.0, restart=self.restart, maxiter=self.max_restarts, M=m, callback=tick, callback_type="pr_norm")
-        self.iterations.append(count[0])
-        self.forcing.append(self._eta)
-        got = float(np.linalg.norm(self._matrix @ x - rhs))
-        if info != 0 and got > max(self._eta, 1e-8) * size:
-            raise RuntimeError(f"GMRES reached {got / size:.3e} of the right hand side in {count[0]} iterations against a forcing term of {self._eta:.3e}. Tighten drop_tol so the incomplete LU is closer to the full one.")
-        return np.asarray(self._cols * x)
+            x, info = gmres(self._matrix, rhs, rtol=self._eta, atol=0.0, restart=self.restart, maxiter=self.max_restarts, M=m, callback=tick, callback_type="pr_norm")
+            self.iterations.append(count[0])
+            self.forcing.append(self._eta)
+            got = float(np.linalg.norm(self._matrix @ x - rhs))
+            if got <= max(self._eta, 1e-8) * size or (info == 0 and got <= 10 * self._eta * size):
+                return np.asarray(self._cols * x)
+            if attempt < self.tightenings:
+                drop, fill = drop * 1e-2, fill * 2
+                self._ilu = self._incomplete(self._matrix, drop, fill)
+        raise RuntimeError(f"GMRES reached {got / size:.3e} of the right hand side in {count[0]} iterations against a forcing term of {self._eta:.3e}, with the incomplete LU already tightened to drop_tol {drop:.0e}. The Jacobian is too badly conditioned for this preconditioner.")
