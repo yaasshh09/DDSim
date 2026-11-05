@@ -468,6 +468,59 @@ SPEED = (
     (8, 'nmos_65nm'),
 )
 
+SPEED_3D = ((19, "diode3d_gmsh"),)
+
+
+def speed3d_sweep() -> int:
+    from ddsim.device.builder import build_device
+    from ddsim.device.doping import abrupt_junction
+    from ddsim.discretize.boundary import OhmicPlate
+    from ddsim.mesh.gmsh import read_msh_volume
+    from tests.regression.devsim_gen import parameters as P
+    b = P.DIODE3D_BENCHMARK
+    g = read_msh_volume(ROOT / "data" / "golden" / f"{b.name}.msh")
+    d = build_device(mesh=g.mesh(), doping=abrupt_junction(Na=b.Na, Nd=b.Nd, position=b.junction), contacts=(OhmicPlate(name="anode", nodes=g.contact_nodes("anode"), voltage=0.0), OhmicPlate(name="cathode", nodes=g.contact_nodes("cathode"), voltage=0.0)))
+    return len(gate_sweep(d, list(b.voltages), contact="anode", measure_at="cathode", models=TransportModels.for_device(d)).points)
+
+
+def speed3d_child() -> None:
+    sys.path.insert(0, str(ROOT))
+    from tests.regression.devsim_gen.peak_memory import peak_mib
+    h = time.perf_counter()
+    n = speed3d_sweep()
+    print(f"{n} {time.perf_counter() - h:.3f} {peak_mib():.1f}")
+
+
+def run_speed3d(path: Path) -> Path:
+    i = [val for val in THREAD_VARIABLES if os.environ.get(val) != '1']
+    if i:
+        raise SystemExit(f"set {', '.join(i)} to 1 first, see references/decisions.md 2026-09-26")
+    b = [
+        f"# written {datetime.date.today().isoformat()} by tools/scoreboard.py speed3d",
+        f"# ddsim {_git_sha()}, python {platform.python_version()}",
+        f"# {platform.platform()}, {platform.processor()}, one BLAS thread, each run its own process",
+        "benchmark,name,run,points,seconds,peak_mib",
+    ]
+    with path.open("w", encoding='utf-8', newline="\n") as cur:
+        cur.write("\n".join(b) + "\n")
+        for idx, k in SPEED_3D:
+            for e in range(1, SPEED_RUNS + 1):
+                out = subprocess.run([sys.executable, __file__, "speed3d-child"], capture_output=True, text=True, check=True, cwd=ROOT).stdout.split()
+                cur.write(f"{idx},{k},{e},{out[-3]},{out[-2]},{out[-1]}\n"); cur.flush()
+                print(f"{k} run {e}: {out[-3]} points {out[-2]}s, peak {out[-1]} MiB")
+    return path
+
+
+def read_speed_3d(path: Path) -> dict[str, tuple[float, float]]:
+    if not path.exists():
+        return {}
+    b: dict[str, list[tuple[float, float]]] = {}
+    for r in _rows(path):
+        if int(r["points"]) == 0:
+            continue
+        b.setdefault(r["name"], []).append((float(r["seconds"]) / int(r["points"]), float(r["peak_mib"])))
+    return {k: (float(np.median([s for s, _ in v])), float(np.median([m for _, m in v]))) for k, v in b.items()}
+
 
 def speed_sweep(name:str) -> int:
     sys.path.insert(0, str(ROOT))
@@ -580,6 +633,8 @@ class Board:
     ddsim_speed:dict[str, float]
     devsim_speed: dict[str, float]
     capabilities: list[dict[str, str]]
+    ddsim_speed_3d: dict[str, tuple[float, float]]
+    devsim_speed_3d: dict[str, tuple[float, float]]
 
 
 def load_board() -> Board:
@@ -598,6 +653,8 @@ def load_board() -> Board:
         read_speed(OUT/"ddsim_speed.csv"),
         read_speed(OUT / "devsim_speed.csv"),
         _capabilities(),
+        read_speed_3d(OUT / "ddsim_speed_3d.csv"),
+        read_speed_3d(OUT / "devsim_speed_3d.csv"),
     )
 
 def _fewer_nodes(board: Board) -> tuple[int, int, int]:
@@ -654,6 +711,7 @@ def headline(board:Board) -> str:
         f"{v} | {tt} ({d} not in the asymptotic range) |",
         f"| Error estimates reported | {yy[0]} | {yy[1]} |",
         f"| Speed: time per bias point, benchmarks both tools finished | {ii} | 1x |",
+        f"| Speed in 3D: time per bias point and peak memory, benchmark 19 | {_speed3d_cell(board.ddsim_speed_3d)} | {_speed3d_cell(board.devsim_speed_3d)} |",
         f"| Capabilities, of {len(out)} rows | {t} | {u} built in, "
         f"{ok} if you write the equations |",
     ]
@@ -663,6 +721,11 @@ def headline(board:Board) -> str:
 
 def _number(value: float | None, digits: int = 3) -> str:
     return "n/a" if value is None else f"{value:.{digits}g}"
+
+
+def _speed3d_cell(speed: dict[str, tuple[float, float]]) -> str:
+    v = [speed[n] for _, n in SPEED_3D if n in speed]
+    return "not run" if not v else ", ".join(f"{s:.3g} s, {m:.0f} MiB" for s, m in v)
 
 
 def _speed_row(number:int, name:str, ours:dict[str, float], theirs:dict[str, float]) -> str:
@@ -740,6 +803,22 @@ def details(board: Board) -> str:
         '|---|---|---|---|---|',
     ]
     v += [_speed_row(u, x, board.ddsim_speed, board.devsim_speed) for u, x in SPEED]
+    v += [
+        "",
+        "### 3D",
+        "",
+        f"Median of {SPEED_RUNS} runs on one shared tetrahedral mesh, each run its",
+        "own process, one BLAS thread. Peak memory is the process's peak working",
+        "set, interpreter included. Kept apart from the table above so the 1D and",
+        "2D ratio does not hide it.",
+        "",
+        "| # | Benchmark | DDSim s/point | DEVSIM s/point | Ratio | DDSim peak MiB | DEVSIM peak MiB |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for u, x in SPEED_3D:
+        ours3, theirs3 = board.ddsim_speed_3d.get(x), board.devsim_speed_3d.get(x)
+        ratio = "n/a" if ours3 is None or theirs3 is None else f"{ours3[0] / theirs3[0]:.2g}"
+        v.append(f"| {u} | {x} | {'not run' if ours3 is None else f'{ours3[0]:.3g}'} | {'not run' if theirs3 is None else f'{theirs3[0]:.3g}'} | {ratio} | {'not run' if ours3 is None else f'{ours3[1]:.0f}'} | {'not run' if theirs3 is None else f'{theirs3[1]:.0f}'} |")
     v += ["", '## Capabilities', "", "See capabilities.csv.", ""]
 
     return "\n".join(v)
@@ -754,7 +833,7 @@ def write_summary() -> None:
 def main() -> int:
     w = argparse.ArgumentParser(description="The ddsim side of the Phase 8 scoreboard. See references/decisions.md, 2026-09-25.")
 
-    f = ['cases', 'run', "accuracy", "speed", "estimates", 'summary']
+    f = ['cases', 'run', "accuracy", "speed", "speed3d", "speed3d-child", "estimates", 'summary']
     w.add_argument('command', choices=f)
     w.add_argument('names', nargs="*", help='run only these cases')
     w.add_argument("--out", type=Path, default=OUT / "ddsim_robustness.csv")
@@ -768,6 +847,10 @@ def main() -> int:
         print(run_estimates(OUT / "ddsim_estimates.csv"))
     elif k2.command == "speed":
         print(run_speed(OUT/"ddsim_speed.csv"))
+    elif k2.command == "speed3d":
+        print(run_speed3d(OUT / "ddsim_speed_3d.csv"))
+    elif k2.command == "speed3d-child":
+        speed3d_child()
 
     elif k2.command == "summary":
         write_summary()

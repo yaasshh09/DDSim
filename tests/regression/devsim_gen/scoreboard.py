@@ -450,9 +450,45 @@ def run_speed(path: str) -> str:
                 print(f"{it} run {k}: {y2} points {ok:.1f}s")
 
     return path
+
+
+SPEED_3D = ((19, "diode3d_gmsh"),)
+
+
+def speed3d_child() -> None:
+    import generate_diode3d as G3
+    from peak_memory import peak_mib
+    h = time.perf_counter()
+    with GM.quiet():
+        rows, _ = G3.sweep(P.DIODE3D_BENCHMARK, os.path.join(ROOT, G3.MESH))
+    print(f"{len(rows)} {time.perf_counter() - h:.3f} {peak_mib():.1f}")
+
+
+def run_speed3d(path: str) -> str:
+    import subprocess
+    b = [t for t in THREAD_VARIABLES if os.environ.get(t) != "1"]
+    if b:
+        raise SystemExit(f"set {', '.join(b)} to 1 first, see references/decisions.md 2026-09-26")
+    cnt = [
+        f"# written {datetime.date.today().isoformat()} by devsim_gen/scoreboard.py speed3d",
+        f"# devsim {devsim.__version__}, python {platform.python_version()}",
+        f"# {platform.platform()}, {platform.processor()}, one BLAS thread, each run its own process",
+        "benchmark,name,run,points,seconds,peak_mib",
+    ]
+    with open(path, "w", encoding="utf-8", newline="\n") as tt:
+        tt.write("\n".join(cnt) + "\n")
+        for ret, it in SPEED_3D:
+            for k in range(1, SPEED_RUNS + 1):
+                out = subprocess.run([sys.executable, os.path.abspath(__file__), "speed3d-child"], capture_output=True, text=True, check=True, cwd=ROOT).stdout.split()
+                tt.write(f"{ret},{it},{k},{out[-3]},{out[-2]},{out[-1]}\n")
+                tt.flush()
+                print(f"{it} run {k}: {out[-3]} points {out[-2]}s, peak {out[-1]} MiB")
+    return path
+
+
 def main() -> int:
     tmp2 = argparse.ArgumentParser(description="The DEVSIM side of the Phase 8 scoreboard.")
-    tmp2.add_argument("command", choices=['api', "run", "accuracy", "speed"])
+    tmp2.add_argument("command", choices=['api', "run", "accuracy", "speed", "speed3d", "speed3d-child"])
     tmp2.add_argument('names', nargs="*", help='run only these cases')
     tmp2.add_argument("--out", default=None)
     tmp2.add_argument('--resume', action='store_true', help="keep finished rows")
@@ -464,6 +500,10 @@ def main() -> int:
 
     elif xs.command == "speed":
         print(run_speed(xs.out or os.path.join(OUT, 'devsim_speed.csv')))
+    elif xs.command == "speed3d":
+        print(run_speed3d(xs.out or os.path.join(OUT, "devsim_speed_3d.csv")))
+    elif xs.command == "speed3d-child":
+        speed3d_child()
     else:
         v2 = xs.out or os.path.join(OUT, 'devsim_robustness.csv'); print(run(xs.names or None, v2, resume=xs.resume))
     return 0

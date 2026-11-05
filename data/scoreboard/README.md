@@ -13,6 +13,7 @@ it and fails if this file is stale. The rules are the 2026-09-25,
 | Accuracy: benchmarks reaching 1% on fewer nodes, of 10 | 2 | 5 (3 not in the asymptotic range) |
 | Error estimates reported | 3 of 5 sweep kinds (iv, transfer, cv) | none |
 | Speed: time per bias point, benchmarks both tools finished | 1.6x faster | 1x |
+| Speed in 3D: time per bias point and peak memory, benchmark 19 | 1.97 s, 139 MiB | not run |
 | Capabilities, of 39 rows | 32 | 19 built in, 12 if you write the equations |
 
 ## Robustness
@@ -81,6 +82,17 @@ BLAS thread each.
 | 6 | nmos_1um | 1.16 | failed | n/a |
 | 7 | nmos_180nm | 0.929 | failed | n/a |
 | 8 | nmos_65nm | 0.98 | failed | n/a |
+
+### 3D
+
+Median of 5 runs on one shared tetrahedral mesh, each run its
+own process, one BLAS thread. Peak memory is the process's peak working
+set, interpreter included. Kept apart from the table above so the 1D and
+2D ratio does not hide it.
+
+| # | Benchmark | DDSim s/point | DEVSIM s/point | Ratio | DDSim peak MiB | DEVSIM peak MiB |
+|---|---|---|---|---|---|---|
+| 19 | diode3d_gmsh | 1.97 | not run | n/a | 139 | not run |
 
 ## Capabilities
 
