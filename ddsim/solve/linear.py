@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal, TypeVar, cast
 import numpy as np; import numpy.typing as npt, scipy.sparse as sp
-from scipy.sparse.linalg import SuperLU, splu
+from scipy.sparse.linalg import LinearOperator, SuperLU, gmres, spilu, splu
 Number = TypeVar('Number', np.float64, np.complex128)
 Ordering = Literal["COLAMD", "NATURAL", "MMD_ATA", "MMD_AT_PLUS_A"]
 
@@ -150,3 +150,74 @@ class SparseLU:
                 f"expected {self._size} to match the factorized matrix"
             )
         return cast('npt.NDArray[Number]', np.asarray(cast(Any, self._lu).solve(m, trans=trans)))
+
+
+class GmresILU:
+    def __init__(self, drop_tol: float = 1e-5, fill_factor: float = 20.0, eta_max: float = 0.1, eta_min: float = 1e-12, restart: int = 60, max_restarts: int = 20) -> None:
+        self.drop_tol = drop_tol
+        self.fill_factor = fill_factor
+        self.eta_max = eta_max
+        self.eta_min = eta_min
+        self.restart = restart
+        self.max_restarts = max_restarts
+        self._matrix: sp.csc_matrix | None = None
+        self._ilu: SuperLU | None = None
+        self._rows: npt.NDArray[np.float64] | None = None
+        self._cols: npt.NDArray[np.float64] | None = None
+        self._last_norm: float | None = None
+        self._eta = eta_max
+        self.iterations: list[int] = []
+        self.forcing: list[float] = []
+
+    def factorize(self, rows: npt.NDArray[np.integer], cols: npt.NDArray[np.integer], values: npt.NDArray[np.floating], shape: tuple[int, int]) -> None:
+        if shape[0] != shape[1]:
+            raise ValueError(f"matrix must be square, got shape {shape}")
+        a = sp.csr_matrix((np.asarray(values, dtype=np.float64), (rows, cols)), shape=shape)
+        big = np.asarray(abs(a).max(axis=1).todense()).ravel()
+        if np.any(big == 0.0):
+            raise RuntimeError(f"row {int(np.flatnonzero(big == 0.0)[0])} of the Jacobian is all zeros, so the matrix is singular")
+        self._rows = 1.0 / big
+        b = sp.csc_matrix(sp.diags(self._rows) @ a)
+        tall = np.asarray(abs(b).max(axis=0).todense()).ravel()
+        if np.any(tall == 0.0):
+            raise RuntimeError(f"column {int(np.flatnonzero(tall == 0.0)[0])} of the Jacobian is all zeros, so the matrix is singular")
+        self._cols = 1.0 / tall
+        d = sp.csc_matrix(b @ sp.diags(self._cols))
+        try:
+            self._ilu = spilu(d, drop_tol=self.drop_tol, fill_factor=self.fill_factor)
+        except RuntimeError as bar:
+            self._ilu = None
+            raise RuntimeError(f"the incomplete LU broke down, the matrix is singular or nearly so: {bar}") from bar
+        self._matrix = d
+
+    def _next_eta(self, size: float) -> float:
+        if self._last_norm is None or self._last_norm == 0.0:
+            eta = self.eta_max
+        else:
+            eta = 0.9 * (size / self._last_norm) ** 2
+            floor = 0.9 * self._eta**2
+            if floor > 0.1:
+                eta = max(eta, floor)
+        return min(max(eta, self.eta_min), self.eta_max)
+
+    def solve(self, b: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        if self._ilu is None or self._matrix is None or self._rows is None or self._cols is None:
+            raise RuntimeError("no factorization available, call factorize first")
+        rhs = self._rows * np.asarray(b, dtype=np.float64)
+        size = float(np.linalg.norm(rhs))
+        self._eta = self._next_eta(size)
+        self._last_norm = size
+        ilu = self._ilu
+        m = LinearOperator(self._matrix.shape, matvec=ilu.solve, dtype=np.float64)
+        count = [0]
+
+        def tick(_: object) -> None:
+            count[0] += 1
+
+        x, info = gmres(self._matrix, rhs, rtol=self._eta, atol=0.0, restart=self.restart, maxiter=self.max_restarts, M=m, callback=tick, callback_type="pr_norm")
+        self.iterations.append(count[0])
+        self.forcing.append(self._eta)
+        got = float(np.linalg.norm(self._matrix @ x - rhs))
+        if info != 0 and got > max(self._eta, 1e-8) * size:
+            raise RuntimeError(f"GMRES reached {got / size:.3e} of the right hand side in {count[0]} iterations against a forcing term of {self._eta:.3e}. Tighten drop_tol so the incomplete LU is closer to the full one.")
+        return np.asarray(self._cols * x)

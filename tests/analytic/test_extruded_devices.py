@@ -21,7 +21,7 @@ def diode(mesh):
 
 
 def sweep(d):
-    return gate_sweep(d, V, contact="anode", measure_at="anode", models=TransportModels.for_device(d))
+    return gate_sweep(d, V, contact="anode", measure_at="anode", models=TransportModels.for_device(d), iterative=False)
 
 
 def test_an_extruded_mesh_tiles_the_box() -> None:

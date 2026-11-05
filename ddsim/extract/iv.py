@@ -318,7 +318,7 @@ def iv_sweep(device: Device, contact: str, voltages: list[float], models: Transp
 
     return _walk_sweep(device=device, contact=contact, measured_at=contact, voltages=voltages, models=models, at_bias=at_bias, start=start, step=step, min_step=min_step, on_frame=on_frame,)
 
-def gate_sweep(device: Device, voltages:list[float], contact:str = "gate", measure_at: str = 'drain', models: TransportModels | None = None, step: float = CONFIG.sweeps.gate_step, min_step: float|None = None, start:float = 0.0, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None]|None = None,) -> IVCurve:
+def gate_sweep(device: Device, voltages:list[float], contact:str = "gate", measure_at: str = 'drain', models: TransportModels | None = None, step: float = CONFIG.sweeps.gate_step, min_step: float|None = None, start:float = 0.0, max_iterations: int = CONFIG.bias.max_iterations, on_frame: Callable[[object], None]|None = None, iterative: bool | None = None,) -> IVCurve:
     h = {t2.name for t2 in device.contacts}
 
     for xx in (contact, measure_at):
@@ -333,7 +333,7 @@ def gate_sweep(device: Device, voltages:list[float], contact:str = "gate", measu
 
     def at_bias(voltage: float, guess: DeviceState | None) -> DeviceState | None:
         tmp2 = device.with_bias(**{contact: voltage})
-        stuff = (solve_bias_ramped(tmp2, models=models, max_iterations=max_iterations, on_frame=on_frame,) if guess is None else solve_bias_newton(tmp2, models=models, guess=guess, max_iterations=max_iterations, on_frame=on_frame,))
+        stuff = (solve_bias_ramped(tmp2, models=models, max_iterations=max_iterations, on_frame=on_frame, iterative=iterative,) if guess is None else solve_bias_newton(tmp2, models=models, guess=guess, max_iterations=max_iterations, on_frame=on_frame, iterative=iterative,))
         assert stuff.newton is not None
         return stuff if stuff.newton.converged else None
     return _walk_sweep(device=device, contact=contact, measured_at=measure_at, voltages=voltages, models=models, at_bias=at_bias, start=start, step=step, min_step=min_step, on_frame=on_frame,)

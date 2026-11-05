@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 import numpy as np; import numpy.typing as npt
-from ddsim.solve.linear import SparseLU
+from ddsim.solve.linear import GmresILU, SparseLU
 class Assembly(Protocol):
     @property
     def residual(self) -> npt.NDArray[np.float64]:
@@ -81,7 +81,7 @@ def newton_solve(
     ) = None,
     max_iterations: int = CONFIG.newton.max_iterations,
     stagnation_window: int|None = CONFIG.newton.stagnation_window,
-    solver:SparseLU|None = None,
+    solver:SparseLU | GmresILU | None = None,
     on_iteration:Callable[[NewtonIteration], None] | None = None,
 ) -> NewtonResult:
     if max_step is not None and limit is not None:

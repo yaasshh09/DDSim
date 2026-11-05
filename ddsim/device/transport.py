@@ -37,6 +37,7 @@ from ddsim.discretize.coupled import (
     Unknown,
 )
 from ddsim.mesh.mesh2d import Mesh2D, normal_field
+from ddsim.mesh.mesh3d import Mesh3D
 from ddsim.physics.mobility import (AroraMobility, CaugheyThomas, ConstantMobility, EdgeDiffusivity, LombardiSurface, diffusivity_at, edge_diffusivity,)
 from ddsim.physics.recombination import (
     AugerRecombination,
@@ -46,7 +47,7 @@ from ddsim.physics.recombination import (
     scharfetter_lifetime,
 )
 from ddsim.solve.continuation import continue_to
-from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve; from ddsim.solve.linear import SparseLU
+from ddsim.solve.gummel import BlockStep, GummelResult, gummel_solve; from ddsim.solve.linear import GmresILU, SparseLU
 from ddsim.solve.newton import NewtonIteration, NewtonResult, newton_solve
 MOBILITY_MODELS = ("constant", 'arora')
 
@@ -558,7 +559,10 @@ def solve_bias_newton(
     surface_rtol:float = CONFIG.bias.surface_rtol,
     on_frame:Callable[[object], None]|None = None,
     step: TimeStep | None = None,
+    iterative: bool | None = None,
 ) -> DeviceState:
+    if iterative is None:
+        iterative = isinstance(device.mesh, Mesh3D)
     if models is None:
         models = TransportModels.for_device(device)
     if step is not None and not step.dt > 0.0:
@@ -652,6 +656,7 @@ def solve_bias_newton(
             update_tol=update_tol,
             update_norm=mm,
             max_iterations=max_iterations,
+            solver=GmresILU() if iterative else None,
             on_iteration=k2,
         )
     def solve_with(active:TransportModels, x: npt.NDArray[np.float64]) -> NewtonResult:
@@ -678,6 +683,7 @@ def solve_bias_ramped(
     step: float = CONFIG.bias.ramp_step,
     max_iterations: int = CONFIG.bias.max_iterations,
     on_frame: Callable[[object], None] | None = None,
+    iterative: bool | None = None,
 ) -> DeviceState:
     if models is None:
         models = TransportModels.for_device(device)
@@ -693,6 +699,7 @@ def solve_bias_ramped(
             guess=guess,
             max_iterations=max_iterations,
             on_frame=on_frame,
+            iterative=iterative,
         )
         assert tmp3.newton is not None
         return tmp3 if tmp3.newton.converged else None
@@ -702,6 +709,7 @@ def solve_bias_ramped(
         models=models,
         max_iterations=max_iterations,
         on_frame=on_frame,
+        iterative=iterative,
     )
 
     buf = continue_to(
