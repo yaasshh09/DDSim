@@ -100,3 +100,13 @@ def test_a_cut_through_an_extruded_diode_carries_the_terminal_current() -> None:
         across = (np.minimum(d.mesh.node_x[u], d.mesh.node_x[v]) < cut) & (np.maximum(d.mesh.node_x[u], d.mesh.node_x[v]) > cut)
         assert across.sum() == 3 * 3
         assert abs(flux[across].sum()) == pytest.approx(abs(terminal_currents(d, s, models)["anode"]), rel=1e-6)
+
+
+def test_a_diode_split_into_tetrahedra_carries_the_box_current() -> None:
+    from ddsim.mesh.tetmesh import tetrahedralized
+    flat = tensor_mesh_2d(graded_mesh_1d(length=1e-4, n_nodes=41, refine_at=0.5e-4, h_min=1e-6), uniform_mesh_1d(length=1e-5, n_nodes=3))
+    box = extruded(flat, uniform_mesh_1d(length=2e-5, n_nodes=3))
+    x, y = sweep(diode(box)), sweep(diode(tetrahedralized(box)))
+    assert x.complete and y.complete
+    for p, q in zip(x.points[1:], y.points[1:], strict=True):
+        assert q.current == pytest.approx(p.current, rel=1e-9, abs=0)

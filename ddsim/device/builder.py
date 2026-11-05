@@ -12,10 +12,11 @@ from ddsim.discretize.geometry import ScaledMesh
 from ddsim.mesh.mesh1d import Mesh1D
 from ddsim.mesh.mesh2d import Mesh2D
 from ddsim.mesh.mesh3d import Mesh3D
+from ddsim.mesh.tetmesh import TetMesh
 from ddsim.mesh.trimesh import TriMesh
 from ddsim.physics.statistics import Degeneracy, Ionization
 
-AnyMesh = Mesh1D | Mesh2D | TriMesh | Mesh3D
+AnyMesh = Mesh1D | Mesh2D | TriMesh | Mesh3D | TetMesh
 
 
 @dataclass(frozen=True)
@@ -71,7 +72,7 @@ class Device:
     def dimension(self) -> int:
         if isinstance(self.mesh, Mesh1D):
             return 1
-        if isinstance(self.mesh, Mesh3D):
+        if isinstance(self.mesh, (Mesh3D, TetMesh)):
             return 3
         return 3 if isinstance(self.mesh, TriMesh) and self.mesh.cylindrical else 2
     @cached_property
@@ -183,7 +184,7 @@ class Device:
         )
         if isinstance(self.mesh, Mesh1D):
             el = f"length={self.mesh.length:.3e} cm"
-        elif isinstance(self.mesh, (TriMesh, Mesh3D)):
+        elif isinstance(self.mesh, (TriMesh, Mesh3D, TetMesh)):
             el = repr(self.mesh)
         else:
             el = (

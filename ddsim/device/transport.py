@@ -38,6 +38,7 @@ from ddsim.discretize.coupled import (
 )
 from ddsim.mesh.mesh2d import Mesh2D, normal_field
 from ddsim.mesh.mesh3d import Mesh3D
+from ddsim.mesh.tetmesh import TetMesh
 from ddsim.physics.mobility import (AroraMobility, CaugheyThomas, ConstantMobility, EdgeDiffusivity, LombardiSurface, diffusivity_at, edge_diffusivity,)
 from ddsim.physics.recombination import (
     AugerRecombination,
@@ -562,7 +563,7 @@ def solve_bias_newton(
     iterative: bool | None = None,
 ) -> DeviceState:
     if iterative is None:
-        iterative = isinstance(device.mesh, Mesh3D)
+        iterative = isinstance(device.mesh, (Mesh3D, TetMesh))
     if models is None:
         models = TransportModels.for_device(device)
     if step is not None and not step.dt > 0.0:
