@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 import numpy.typing as npt
-from ddsim.mesh.msh41 import LINE, TRIANGLE, parse
+from ddsim.mesh.msh41 import LINE, TETRAHEDRON, TRIANGLE, parse, parse_volume
+from ddsim.mesh.tetmesh import TetMesh, tet_mesh
 from ddsim.mesh.trimesh import TriMesh, triangle_mesh
 
 
@@ -62,5 +63,63 @@ def write_msh(path: str | Path, points: npt.NDArray[np.float64], triangles: npt.
         for a, b, c in t[np.asarray(which)].tolist():
             tag += 1
             out.append(f"{tag} {a + 1} {b + 1} {c + 1}")
+    out.append("$EndElements")
+    Path(path).write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+@dataclass(frozen=True)
+class GmshVolume:
+    points: npt.NDArray[np.float64]
+
+    tets: npt.NDArray[np.int64]
+
+    region_of_tets: tuple[str, ...]
+
+    faces: npt.NDArray[np.int64]
+
+    contact_of_faces: tuple[str, ...]
+
+    def contact_nodes(self, name: str) -> tuple[int, ...]:
+        if name not in self.contact_of_faces:
+            raise KeyError(f"the mesh has no contact named {name!r}. Its surface groups are {sorted(set(self.contact_of_faces))}")
+        k = [i for i, c in enumerate(self.contact_of_faces) if c == name]
+        return tuple(int(v) for v in np.unique(self.faces[k]))
+
+    def mesh(self) -> TetMesh:
+        return tet_mesh(self.points, self.tets)
+
+
+def read_msh_volume(path: str | Path) -> GmshVolume:
+    xyz, tet, region, tri, contact = parse_volume(Path(path).read_text(encoding="utf-8"), str(path))
+    return GmshVolume(points=np.asarray(xyz, dtype=np.float64), tets=np.asarray(tet, dtype=np.int64).reshape(-1, 4), region_of_tets=tuple(region), faces=np.asarray(tri, dtype=np.int64).reshape(-1, 3), contact_of_faces=tuple(contact))
+
+
+def write_msh_volume(path: str | Path, points: npt.NDArray[np.float64], tets: npt.NDArray[np.int64], regions: Mapping[str, npt.NDArray[np.int64]], contacts: Mapping[str, npt.NDArray[np.int64]]) -> None:
+    p = np.asarray(points, dtype=np.float64)
+    lo, hi = p.min(axis=0), p.max(axis=0)
+    box = " ".join(repr(float(v)) for v in (*lo, *hi))
+    groups = [(2, name) for name in contacts] + [(3, name) for name in regions]
+    out = ["$MeshFormat", "4.1 0 8", "$EndMeshFormat", "$PhysicalNames", str(len(groups))]
+    out += [f'{dim} {k + 1} "{name}"' for k, (dim, name) in enumerate(groups)]
+    out += ["$EndPhysicalNames", "$Entities", f"0 0 {len(contacts)} {len(regions)}"]
+    out += [f"{k + 1} {box} 1 {k + 1} 0" for k in range(len(contacts))]
+    out += [f"{k + 1} {box} 1 {len(contacts) + k + 1} 0" for k in range(len(regions))]
+    out += ["$EndEntities", "$Nodes", f"1 {p.shape[0]} 1 {p.shape[0]}", f"3 1 0 {p.shape[0]}"]
+    out += [str(i + 1) for i in range(p.shape[0])]
+    out += [f"{x!r} {y!r} {z!r}" for x, y, z in p.tolist()]
+    n_elements = sum(len(v) for v in contacts.values()) + sum(len(v) for v in regions.values())
+    out += ["$EndNodes", "$Elements", f"{len(contacts) + len(regions)} {n_elements} 1 {n_elements}"]
+    tag = 0
+    for k, faces in enumerate(contacts.values()):
+        out.append(f"2 {k + 1} {TRIANGLE} {len(faces)}")
+        for a, b, c in np.asarray(faces).tolist():
+            tag += 1
+            out.append(f"{tag} {a + 1} {b + 1} {c + 1}")
+    t = np.asarray(tets)
+    for k, which in enumerate(regions.values()):
+        out.append(f"3 {k + 1} {TETRAHEDRON} {len(which)}")
+        for a, b, c, d in t[np.asarray(which)].tolist():
+            tag += 1
+            out.append(f"{tag} {a + 1} {b + 1} {c + 1} {d + 1}")
     out.append("$EndElements")
     Path(path).write_text("\n".join(out) + "\n", encoding="utf-8")

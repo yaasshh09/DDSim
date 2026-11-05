@@ -3,6 +3,7 @@ from collections.abc import Iterator
 
 LINE = 1
 TRIANGLE = 2
+TETRAHEDRON = 4
 
 
 def _sections(text: str) -> dict[str, list[str]]:
@@ -78,3 +79,48 @@ def parse(text: str, where: str = "the mesh") -> tuple[list[tuple[float, float]]
                 seg.append(f)
                 contact.append(group)
     return xy, tri, region, seg, contact
+
+
+def parse_volume(text: str, where: str = "the mesh") -> tuple[list[tuple[float, float, float]], list[list[int]], list[str], list[list[int]], list[str]]:
+    s = _sections(text)
+    version = s.get("MeshFormat", ["?"])[0].split()[0]
+    if version != "4.1" or s["MeshFormat"][0].split()[1] != "0":
+        raise ValueError(f"{where} is Gmsh format {version}, and this reader takes 4.1 ASCII only. Save it from Gmsh with Mesh.MshFileVersion = 4.1.")
+    names = {}
+    for line in s.get("PhysicalNames", [])[1:]:
+        d, t, name = line.split(maxsplit=2)
+        names[(int(d), int(t))] = name.strip('"')
+    physical = _physical_of_entities(s.get("Entities", ["0 0 0 0"]))
+
+    it = iter(s["Nodes"])
+    blocks = int(next(it).split()[0])
+    tags: list[int] = []
+    xyz: list[tuple[float, float, float]] = []
+    for _ in range(blocks):
+        _, _, parametric, n = (int(v) for v in next(it).split())
+        if parametric:
+            raise ValueError(f"{where} stores parametric node coordinates, which this reader does not take")
+        tags += [int(next(it)) for _ in range(n)]
+        for _ in range(n):
+            x, y, z = (float(v) for v in next(it).split())
+            xyz.append((x, y, z))
+    index = {t: i for i, t in enumerate(tags)}
+
+    it = iter(s["Elements"])
+    blocks = int(next(it).split()[0])
+    tet: list[list[int]] = []
+    region: list[str] = []
+    tri: list[list[int]] = []
+    contact: list[str] = []
+    for _ in range(blocks):
+        dim, entity, kind, n = (int(v) for v in next(it).split())
+        group = names.get((dim, physical.get((dim, entity), -1)), "")
+        for _ in range(n):
+            f = [index[int(v)] for v in next(it).split()[1:]]
+            if kind == TETRAHEDRON:
+                tet.append(f)
+                region.append(group)
+            elif kind == TRIANGLE:
+                tri.append(f)
+                contact.append(group)
+    return xyz, tet, region, tri, contact

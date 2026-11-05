@@ -93,3 +93,24 @@ def test_a_file_that_is_not_4_1_is_refused(tmp_path) -> None:
     p.write_text("$MeshFormat\n2.2 0 8\n$EndMeshFormat\n", encoding="utf-8")
     with pytest.raises(ValueError, match="4.1"):
         read_msh(p)
+
+
+def test_a_written_volume_mesh_reads_back_exactly(tmp_path) -> None:
+    from ddsim.mesh.gmsh import read_msh_volume, write_msh_volume
+    from ddsim.mesh.mesh3d import extruded
+    from ddsim.mesh.tetmesh import tetrahedralized
+    m = tetrahedralized(extruded(tensor_mesh_2d(graded_mesh_1d(length=2e-4, n_nodes=14, refine_at=0.5e-4, h_min=5e-6), uniform_mesh_1d(length=1e-4, n_nodes=3)), uniform_mesh_1d(length=1e-4, n_nodes=4)))
+    p = np.column_stack([m.node_x, m.node_y, m.node_z])
+    top = np.flatnonzero(m.node_z == m.node_z.max())
+    faces = np.array([f for f in np.unique(np.sort(np.concatenate([np.delete(m.tets, k, axis=1) for k in range(4)]), axis=1), axis=0) if np.isin(f, top).all()])
+    half = m.tets.shape[0] // 2
+    path = tmp_path / "box.msh"
+    write_msh_volume(path, p, m.tets, {"left": np.arange(half), "right": np.arange(half, m.tets.shape[0])}, {"lid": faces})
+    g = read_msh_volume(path)
+    np.testing.assert_array_equal(g.points, p)
+    np.testing.assert_array_equal(g.tets, m.tets)
+    assert g.region_of_tets == ("left",) * half + ("right",) * (m.tets.shape[0] - half)
+    assert g.contact_nodes("lid") == tuple(top.tolist())
+    np.testing.assert_allclose(g.mesh().dual_face, m.dual_face, rtol=1e-15)
+    with pytest.raises(KeyError, match="lid"):
+        g.contact_nodes("floor")
