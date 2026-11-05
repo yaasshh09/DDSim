@@ -90,6 +90,7 @@ ignore = ["N802", "N803", "N806", "N812", "N815", "N816", "E401", "E501", "E702"
 "tests/analytic/test_mos_cv_plot.py" = ["E402"]
 "tests/analytic/test_mosfet_rolloff_plot.py" = ["E402"]
 "tests/analytic/test_mosfet_transfer_plot.py" = ["E402"]
+"tests/regression/devsim_gen/generate_diode3d.py" = ["E402"]
 "tests/regression/devsim_gen/generate_diodes.py" = ["E402"]
 "tests/regression/devsim_gen/generate_mos_cv.py" = ["E402"]
 "tests/regression/devsim_gen/generate_mosfet.py" = ["E402"]

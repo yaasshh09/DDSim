@@ -498,6 +498,10 @@ def _rolloff(name:str, L_gate:float) -> MosfetBenchmark:
 GMSH_BENCHMARK = MosfetBenchmark(name="nmos_1um_gmsh", number=18, L_gate=1e-4, gate_voltages=_gate_range(0.0, 1.5, 0.1), drain_low=0.05, drain_high=1.0, tolerance=0.01, notes=("Benchmark 6's 1 um device on one shared triangle mesh, data/golden/nmos_1um_gmsh.msh, written by write_nmos_mesh.py from ddsim's tensor mesh split along its diagonals. ddsim reads it with its Gmsh reader and DEVSIM through create_gmsh_mesh, given the coordinates, elements and names the same pure python parser read, since DEVSIM 2.11 refuses format 4.1 files. Both codes solve the same discretization, so there is no mesh check and the tolerance is 1 percent."),)
 
 
+DIODE3D_WIDTH = 4e-5
+DIODE3D_PATCH = 2e-5
+DIODE3D_BENCHMARK = DiodeBenchmark(name="diode3d_gmsh", number=19, Na=1e18, Nd=1e16, length=1e-4, junction=3e-5, voltages=tuple(round(0.2 + 0.05 * k, 10) for k in range(11)), tolerance=0.02, n_nodes=41, h_min=5e-7, notes=("A p+n diode in 3D on one shared tetrahedral mesh, data/golden/diode3d_gmsh.msh, written by write_diode3d_mesh.py as a graded box split into six Kuhn tetrahedra per cell. The anode covers the p+ face at x = 0 and the cathode is a square patch in one corner of the opposite face, so the current spreads in y and z and the solve is 3D. Both codes read the same file and solve the same discretization, so there is no mesh check. The tolerance is 2 percent on log I. Forward bias only, since a 0.4 um square of 1e16 silicon passes about 1e-20 A in reverse, below where any contact residual resolves. The comparison reads the cathode, on the 1e16 side. The anode sits on 1e18 silicon whose edge fluxes are so large that its residual cancels to noise below about 1e-12 A in both codes."))
+
 ROLLOFF_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
     _rolloff("rolloff_200nm", 2e-5),
     _rolloff("rolloff_100nm", 1e-5),
