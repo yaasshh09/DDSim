@@ -153,7 +153,7 @@ class SparseLU:
 
 
 class GmresILU:
-    def __init__(self, drop_tol: float = 1e-3, fill_factor: float = 10.0, eta_max: float = 0.1, eta_min: float = 1e-12, restart: int = 60, max_restarts: int = 20, tightenings: int = 2) -> None:
+    def __init__(self, drop_tol: float = 1e-3, fill_factor: float = 10.0, eta_max: float = 0.1, eta_min: float = 1e-12, restart: int = 60, max_restarts: int = 20, tightenings: int = 2, reuse: bool = True) -> None:
         self.drop_tol = drop_tol
         self.tightenings = tightenings
         self.fill: list[float] = []
@@ -170,11 +170,28 @@ class GmresILU:
         self._eta = eta_max
         self.iterations: list[int] = []
         self.forcing: list[float] = []
+        self.reuse = reuse
+        self.reused = 0
+        self._raw: sp.csr_matrix | None = None
+        self._stale = False
+        self._slow = False
+        self._drop = drop_tol
 
     def factorize(self, rows: npt.NDArray[np.integer], cols: npt.NDArray[np.integer], values: npt.NDArray[np.floating], shape: tuple[int, int]) -> None:
         if shape[0] != shape[1]:
             raise ValueError(f"matrix must be square, got shape {shape}")
         a = sp.csr_matrix((np.asarray(values, dtype=np.float64), (rows, cols)), shape=shape)
+        self._raw = a
+        if self.reuse and self._ilu is not None and self._rows is not None and self._cols is not None and self._rows.size == shape[0] and not self._slow:
+            self._matrix = sp.csc_matrix(sp.diags(self._rows) @ a @ sp.diags(self._cols))
+            self._stale = True
+            self.reused += 1
+            return
+        self._rebuild(a)
+
+    def _rebuild(self, a: sp.csr_matrix) -> None:
+        self._stale = False
+        self._slow = False
         big = np.asarray(abs(a).max(axis=1).todense()).ravel()
         if np.any(big == 0.0):
             raise RuntimeError(f"row {int(np.flatnonzero(big == 0.0)[0])} of the Jacobian is all zeros, so the matrix is singular")
@@ -189,13 +206,20 @@ class GmresILU:
         self._ilu = self._incomplete(d, self.drop_tol, self.fill_factor)
 
     def _incomplete(self, d: sp.csc_matrix, drop_tol: float, fill_factor: float) -> SuperLU:
-        try:
-            ilu = spilu(d, drop_tol=drop_tol, fill_factor=fill_factor, permc_spec="MMD_AT_PLUS_A")
-        except RuntimeError as bar:
-            self._ilu = None
-            raise RuntimeError(f"the incomplete LU broke down, the matrix is singular or nearly so: {bar}") from bar
-        self.fill.append((ilu.L.nnz + ilu.U.nnz) / d.nnz)
-        return ilu
+        why = ""
+        orders: tuple[tuple[Ordering, float], ...] = (("MMD_AT_PLUS_A", 0.1), ("MMD_AT_PLUS_A", 1.0), ("COLAMD", 0.1))
+        for tighter in range(3):
+            for order, pivot in orders:
+                try:
+                    ilu = spilu(d, drop_tol=drop_tol * 1e-2**tighter, fill_factor=fill_factor * 2**tighter, permc_spec=order, diag_pivot_thresh=pivot)
+                except RuntimeError as bar:
+                    why = str(bar)
+                    continue
+                self._drop = drop_tol * 1e-2**tighter
+                self.fill.append((ilu.L.nnz + ilu.U.nnz) / d.nnz)
+                return ilu
+        self._ilu = None
+        raise RuntimeError(f"the incomplete LU broke down at every ordering down to drop_tol {drop_tol * 1e-4:.0e}, the matrix is singular or nearly so: {why}")
 
     def _next_eta(self, size: float) -> float:
         if self._last_norm is None or self._last_norm == 0.0:
@@ -214,8 +238,10 @@ class GmresILU:
         size = float(np.linalg.norm(rhs))
         self._eta = self._next_eta(size)
         self._last_norm = size
-        drop, fill = self.drop_tol, self.fill_factor
-        for attempt in range(self.tightenings + 1):
+        drop, fill = self._drop, self.fill_factor
+        attempt = 0
+        while True:
+            assert self._ilu is not None and self._matrix is not None and self._rows is not None and self._cols is not None
             m = LinearOperator(self._matrix.shape, matvec=self._ilu.solve, dtype=np.float64)
             count = [0]
 
@@ -227,8 +253,17 @@ class GmresILU:
             self.forcing.append(self._eta)
             got = float(np.linalg.norm(self._matrix @ x - rhs))
             if got <= max(self._eta, 1e-8) * size or (info == 0 and got <= 10 * self._eta * size):
+                if self._stale and count[0] > 50:
+                    self._slow = True
                 return np.asarray(self._cols * x)
-            if attempt < self.tightenings:
-                drop, fill = drop * 1e-2, fill * 2
-                self._ilu = self._incomplete(self._matrix, drop, fill)
+            if self._stale and self._raw is not None:
+                self._rebuild(self._raw)
+                rhs = self._rows * np.asarray(b, dtype=np.float64)
+                size = float(np.linalg.norm(rhs))
+                continue
+            if attempt >= self.tightenings:
+                break
+            attempt += 1
+            drop, fill = drop * 1e-2, fill * 2
+            self._ilu = self._incomplete(self._matrix, drop, fill)
         raise RuntimeError(f"GMRES reached {got / size:.3e} of the right hand side in {count[0]} iterations against a forcing term of {self._eta:.3e}, with the incomplete LU already tightened to drop_tol {drop:.0e}. The Jacobian is too badly conditioned for this preconditioner.")
