@@ -655,3 +655,29 @@ def test_the_update_split_puts_each_family_under_its_own_name() -> None:
     b = coupled_update_by_family(t2, i)
     assert b == {'psi':0.25, 'n':0.5, "p": 4.0}
     assert coupled_update_norm(t2, i) == 4.0
+
+
+@pytest.mark.parametrize("row,col", ALL_BLOCKS, ids=lambda u: u.name)
+def test_band_offsets_keep_the_jacobian_exact(device, geometry, perturbed_x, row, col):
+    from ddsim.discretize.coupled import assemble_coupled_terms
+    from ddsim.discretize.geometry import EdgeGeometry
+    h, volume = geometry
+    rng = np.random.default_rng(7)
+    shifted = EdgeGeometry(band_n=rng.uniform(-2.0, 2.0, h.size), band_p=rng.uniform(-2.0, 2.0, h.size))
+    m = TransportModels.for_device(device)
+    doping = device.net_doping_scaled.data
+
+    def evaluate(x):
+        return coupled_residual(h=h, volume=volume, x=x, net_doping=doping, Dn=m.Dn, Dp=m.Dp, recombination=m.recombination, geometry=shifted)
+
+    want = complex_step_jacobian(evaluate, perturbed_x)
+    k, u, b = coupled_jacobian(h=h, volume=volume, x=perturbed_x, Dn=m.Dn, Dp=m.Dp, recombination=m.recombination, geometry=shifted)
+    got = coo_matrix((b, (k, u)), shape=(perturbed_x.size,) * 2).toarray()
+    scale = np.max(np.abs(block(want, row, col)))
+    np.testing.assert_allclose(block(got, row, col), block(want, row, col), rtol=1e-10, atol=1e-10 * max(scale, 1e-300))
+    a = assemble_coupled_terms(h, volume, perturbed_x, doping, m.Dn, m.Dp, m.recombination, shifted).assembly
+    np.testing.assert_allclose(a.residual, evaluate(perturbed_x), rtol=1e-13, atol=0.0)
+    full = coo_matrix((a.values, (a.rows, a.cols)), shape=(perturbed_x.size,) * 2).toarray()
+    np.testing.assert_allclose(block(full, row, col), block(want, row, col), rtol=1e-10, atol=1e-10 * max(scale, 1e-300))
+    plain = coupled_residual(h=h, volume=volume, x=perturbed_x, net_doping=doping, Dn=m.Dn, Dp=m.Dp, recombination=m.recombination)
+    assert np.max(np.abs(plain - evaluate(perturbed_x))) > 0.0

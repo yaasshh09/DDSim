@@ -19,7 +19,7 @@ from ddsim.discretize.boundary import (
     pins_carrier,
 )
 from ddsim.discretize.continuity import Diffusivity
-from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry
+from ddsim.discretize.geometry import UNIFORM_1D, EdgeGeometry, EdgeQuantity
 from ddsim.mesh.mesh1d import Mesh1D; from ddsim.physics.bernoulli import B, dB_dx
 from ddsim.physics.mobility import (
     EdgeDiffusivity,
@@ -93,8 +93,10 @@ def effective_potentials(psi:npt.NDArray[Number], n:npt.NDArray[Number], p:npt.N
         cast("npt.NDArray[Number]", degeneracy.hole_potential(cur, f)),
     )
 
-def _bernoulli_pair(psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
+def _bernoulli_pair(psi: npt.NDArray[Number], geometry: EdgeGeometry = UNIFORM_1D, shift: EdgeQuantity | None = None) -> tuple[npt.NDArray[Number], npt.NDArray[Number]]:
     r = edge_drop(psi, geometry)
+    if shift is not None:
+        r = r + shift
     return np.asarray(B(r)), np.asarray(B(-r))
 
 
@@ -116,8 +118,10 @@ def _diffusivity_tangent(
     return diffusivity_tangent(D, edge_drop(psi, geometry), h)
 
 
-def _bernoulli_derivative_pair(psi:npt.NDArray[np.float64], geometry:EdgeGeometry = UNIFORM_1D) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+def _bernoulli_derivative_pair(psi:npt.NDArray[np.float64], geometry:EdgeGeometry = UNIFORM_1D, shift: EdgeQuantity | None = None) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
     vals = edge_drop(psi, geometry)
+    if shift is not None:
+        vals = vals + shift
     return (
         np.asarray(dB_dx(vals), dtype=np.float64),
         np.asarray(dB_dx(-vals), dtype=np.float64),
@@ -147,8 +151,8 @@ def coupled_residual(
         net_doping,
         _diffusivity_at(Dn, psi, h, geometry),
         _diffusivity_at(Dp, psi, h, geometry),
-        _bernoulli_pair(out2, geometry),
-        _bernoulli_pair(s, geometry),
+        _bernoulli_pair(out2, geometry, geometry.band_n),
+        _bernoulli_pair(s, geometry, geometry.band_p),
         z2,
         geometry,
     )
@@ -236,7 +240,7 @@ def coupled_jacobian(
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
     psi, n, p = unpack(x)
     u, arr = effective_potentials(psi, n, p, degeneracy)
-    return _jacobian_from(h, volume, x, _diffusivity_at(Dn, psi, h, geometry), _diffusivity_at(Dp, psi, h, geometry), _bernoulli_pair(u, geometry), _bernoulli_pair(arr, geometry), _bernoulli_derivative_pair(u, geometry), _bernoulli_derivative_pair(arr, geometry), np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64), np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64), geometry, _diffusivity_tangent(Dn, psi, h, geometry), _diffusivity_tangent(Dp, psi, h, geometry), *_potential_tangents(n, p, degeneracy),)
+    return _jacobian_from(h, volume, x, _diffusivity_at(Dn, psi, h, geometry), _diffusivity_at(Dp, psi, h, geometry), _bernoulli_pair(u, geometry, geometry.band_n), _bernoulli_pair(arr, geometry, geometry.band_p), _bernoulli_derivative_pair(u, geometry, geometry.band_n), _bernoulli_derivative_pair(arr, geometry, geometry.band_p), np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64), np.asarray(recombination.d_rate_dp(n, p), dtype=np.float64), geometry, _diffusivity_tangent(Dn, psi, h, geometry), _diffusivity_tangent(Dp, psi, h, geometry), *_potential_tangents(n, p, degeneracy),)
 
 
 def coupled_mass(volume: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.float64]]:
@@ -403,13 +407,13 @@ def assemble_coupled_terms(
     psi, n, p = unpack(x)
     b, x2 = effective_potentials(psi, n, p, degeneracy)
 
-    j = _bernoulli_pair(b, geometry)
-
+    j = _bernoulli_pair(b, geometry, geometry.band_n)
+    same = degeneracy is None and geometry.band_n is None and geometry.band_p is None
     lst = (
-        j if degeneracy is None else _bernoulli_pair(x2, geometry)
+        j if same else _bernoulli_pair(x2, geometry, geometry.band_p)
     )
-    rr = _bernoulli_derivative_pair(b, geometry)
-    z = (rr if degeneracy is None else _bernoulli_derivative_pair(x2, geometry))
+    rr = _bernoulli_derivative_pair(b, geometry, geometry.band_n)
+    z = (rr if same else _bernoulli_derivative_pair(x2, geometry, geometry.band_p))
     v2, f = _potential_tangents(n, p, degeneracy)
     g = np.asarray(recombination.rate(n, p), dtype=np.float64)
     d = np.asarray(recombination.d_rate_dn(n, p), dtype=np.float64)
@@ -515,7 +519,7 @@ def residual_term_scales(
 ) -> TermScales:
     psi, n, p = unpack(x)
     c, k = effective_potentials(psi, n, p, degeneracy)
-    return _term_scales_from(h, volume, x, net_doping, _diffusivity_at(Dn, psi, h, geometry), _diffusivity_at(Dp, psi, h, geometry), _bernoulli_pair(c, geometry), _bernoulli_pair(k, geometry), R, geometry,)
+    return _term_scales_from(h, volume, x, net_doping, _diffusivity_at(Dn, psi, h, geometry), _diffusivity_at(Dp, psi, h, geometry), _bernoulli_pair(c, geometry, geometry.band_n), _bernoulli_pair(k, geometry, geometry.band_p), R, geometry,)
 
 def _term_scales_from(h:npt.NDArray[np.float64], volume: npt.NDArray[np.float64], x: npt.NDArray[np.float64], net_doping:npt.NDArray[np.float64], Dn:Diffusivity, Dp:Diffusivity, bernoulli_n:tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], bernoulli_p:tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], R:npt.NDArray[np.float64] | None, geometry: EdgeGeometry = UNIFORM_1D,) -> TermScales:
     psi, n, p = unpack(x)

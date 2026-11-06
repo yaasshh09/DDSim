@@ -11,6 +11,8 @@ class EdgeGeometry:
     dual_face:EdgeQuantity = 1.0
     eps_r: EdgeQuantity = 1.0
     semiconductor_face:EdgeQuantity | None = None
+    band_n: EdgeQuantity | None = None
+    band_p: EdgeQuantity | None = None
     def __post_init__(self) -> None:
         if self.edge_nodes is None:
             return
