@@ -71,12 +71,16 @@ class Bands:
         return np.asarray(self.d_n[right] - self.d_n[left]), np.asarray(-(self.d_p[right] - self.d_p[left]))
 
 
+def bands_along(x: Array, material_at: Callable[[float], Semiconductor], T: float = C.T_ROOM) -> Bands:
+    nodes = [material_at(float(v)) for v in x]
+    edges = [material_at(float(0.5 * (a + b))) for a, b in zip(x[:-1], x[1:], strict=True)]
+    return band_offsets(nodes, edges, Semiconductor.silicon(T), T)
+
+
 def layered_bands(x: Array, boundaries: tuple[float, ...], layers: tuple[Semiconductor, ...], T: float = C.T_ROOM) -> Bands:
     if len(layers) != len(boundaries) + 1:
         raise ValueError(f"{len(boundaries)} boundaries make {len(boundaries) + 1} layers, got {len(layers)} materials")
-    k = np.searchsorted(np.asarray(boundaries), x, side="right")
-    j = np.searchsorted(np.asarray(boundaries), 0.5 * (x[:-1] + x[1:]), side="right")
-    return band_offsets([layers[i] for i in k], [layers[i] for i in j], Semiconductor.silicon(T), T)
+    return bands_along(x, lambda v: layers[int(np.searchsorted(boundaries, v, side="right"))], T)
 
 
 def band_offsets(nodes: list[Semiconductor], edges: list[Semiconductor], reference: Semiconductor, T: float = C.T_ROOM) -> Bands:
