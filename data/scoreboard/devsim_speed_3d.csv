@@ -1,0 +1,9 @@
+# written 2026-11-06 by devsim_gen/scoreboard.py speed3d
+# devsim 2.11.0, python 3.14.6
+# Windows-11-10.0.26300-SP0, AMD64 Family 23 Model 96 Stepping 1, AuthenticAMD, one BLAS thread, each run its own process
+benchmark,name,run,points,seconds,peak_mib
+19,diode3d_gmsh,1,11,147.175,176.6
+19,diode3d_gmsh,2,11,134.984,175.3
+19,diode3d_gmsh,3,11,131.253,175.9
+19,diode3d_gmsh,4,11,134.266,175.2
+19,diode3d_gmsh,5,11,136.445,175.7
