@@ -172,6 +172,8 @@ class GmresILU:
         self.forcing: list[float] = []
         self.reuse = reuse
         self.reused = 0
+        self.direct = 0
+        self._lu: SuperLU | None = None
         self._raw: sp.csr_matrix | None = None
         self._stale = False
         self._slow = False
@@ -182,6 +184,11 @@ class GmresILU:
             raise ValueError(f"matrix must be square, got shape {shape}")
         a = sp.csr_matrix((np.asarray(values, dtype=np.float64), (rows, cols)), shape=shape)
         self._raw = a
+        if self.direct:
+            self._scale(a)
+            assert self._matrix is not None
+            self._lu = splu(self._matrix, permc_spec="COLAMD")
+            return
         if self.reuse and self._ilu is not None and self._rows is not None and self._cols is not None and self._rows.size == shape[0] and not self._slow:
             self._matrix = sp.csc_matrix(sp.diags(self._rows) @ a @ sp.diags(self._cols))
             self._stale = True
@@ -192,6 +199,11 @@ class GmresILU:
     def _rebuild(self, a: sp.csr_matrix) -> None:
         self._stale = False
         self._slow = False
+        self._scale(a)
+        assert self._matrix is not None
+        self._ilu = self._incomplete(self._matrix, self.drop_tol, self.fill_factor)
+
+    def _scale(self, a: sp.csr_matrix) -> None:
         big = np.asarray(abs(a).max(axis=1).todense()).ravel()
         if np.any(big == 0.0):
             raise RuntimeError(f"row {int(np.flatnonzero(big == 0.0)[0])} of the Jacobian is all zeros, so the matrix is singular")
@@ -201,9 +213,7 @@ class GmresILU:
         if np.any(tall == 0.0):
             raise RuntimeError(f"column {int(np.flatnonzero(tall == 0.0)[0])} of the Jacobian is all zeros, so the matrix is singular")
         self._cols = 1.0 / tall
-        d = sp.csc_matrix(b @ sp.diags(self._cols))
-        self._matrix = d
-        self._ilu = self._incomplete(d, self.drop_tol, self.fill_factor)
+        self._matrix = sp.csc_matrix(b @ sp.diags(self._cols))
 
     def _incomplete(self, d: sp.csc_matrix, drop_tol: float, fill_factor: float) -> SuperLU:
         why = ""
@@ -232,6 +242,8 @@ class GmresILU:
         return min(max(eta, self.eta_min), self.eta_max)
 
     def solve(self, b: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        if self.direct and self._lu is not None and self._rows is not None and self._cols is not None:
+            return np.asarray(self._cols * self._lu.solve(self._rows * np.asarray(b, dtype=np.float64)))
         if self._ilu is None or self._matrix is None or self._rows is None or self._cols is None:
             raise RuntimeError("no factorization available, call factorize first")
         rhs = self._rows * np.asarray(b, dtype=np.float64)
@@ -266,4 +278,11 @@ class GmresILU:
             attempt += 1
             drop, fill = drop * 1e-2, fill * 2
             self._ilu = self._incomplete(self._matrix, drop, fill)
-        raise RuntimeError(f"GMRES reached {got / size:.3e} of the right hand side in {count[0]} iterations against a forcing term of {self._eta:.3e}, with the incomplete LU already tightened to drop_tol {drop:.0e}. The Jacobian is too badly conditioned for this preconditioner.")
+        try:
+            self._lu = splu(self._matrix, permc_spec="COLAMD")
+            x = self._lu.solve(rhs)
+        except (RuntimeError, MemoryError) as bar:
+            raise RuntimeError(f"GMRES reached {got / size:.3e} of the right hand side in {count[0]} iterations against a forcing term of {self._eta:.3e}, with the incomplete LU already tightened to drop_tol {drop:.0e}, and the direct fallback failed too: {bar}") from bar
+        self.direct += 1
+        self._slow = True
+        return np.asarray(self._cols * x)
