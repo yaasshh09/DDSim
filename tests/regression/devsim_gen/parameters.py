@@ -502,6 +502,22 @@ DIODE3D_WIDTH = 4e-5
 DIODE3D_PATCH = 2e-5
 DIODE3D_BENCHMARK = DiodeBenchmark(name="diode3d_gmsh", number=19, Na=1e18, Nd=1e16, length=1e-4, junction=3e-5, voltages=tuple(round(0.2 + 0.05 * k, 10) for k in range(11)), tolerance=0.02, n_nodes=41, h_min=5e-7, notes=("A p+n diode in 3D on one shared tetrahedral mesh, data/golden/diode3d_gmsh.msh, written by write_diode3d_mesh.py as a graded box split into six Kuhn tetrahedra per cell. The anode covers the p+ face at x = 0 and the cathode is a square patch in one corner of the opposite face, so the current spreads in y and z and the solve is 3D. Both codes read the same file and solve the same discretization, so there is no mesh check. The tolerance is 2 percent on log I. Forward bias only, since a 0.4 um square of 1e16 silicon passes about 1e-20 A in reverse, below where any contact residual resolves. The comparison reads the cathode, on the 1e16 side. The anode sits on 1e18 silicon whose edge fluxes are so large that its residual cancels to noise below about 1e-12 A in both codes."))
 
+DG_NAME = "dg_moscap_2nm"
+DG_NUMBER = 20
+DG_T_OX = 2e-7
+DG_SUBSTRATE = -1e17
+DG_H_MIN = 1e-8
+DG_N_SILICON = 161
+DG_GATES: tuple[float, ...] = tuple(round(0.5 + 0.05 * k, 10) for k in range(31))
+DG_GAMMA = 8.72
+DG_GAMMA_OX = 1.0
+DG_MASS = 1.0903
+DG_MASS_OX = 0.14
+DG_BARRIER = 3.15
+DG_MASS_TUNNEL = 0.4
+DG_TOLERANCE = 1e-6
+DG_NOTES = ("The 2 nm oxide MOS capacitor on 1e17 p silicon with density gradient electrons, Wettstein's log form with the Garcia-Loureiro oxide boundary term, the same equations as devsim/devsim_density_gradient but written out here with ddsim's constants. ddsim writes the mesh nodes, the doping and the gate and body boundary potentials to data/golden/dg_moscap_2nm_inputs.json, and the generator builds the identical 1D mesh from them, so the two codes solve one discretization and the tolerance is 1e-6 rather than the 3 percent PHASE-17 asks; a 20 percent error in one coefficient of the gradient term moves the charge by only 1.2 percent. gamma 8.72 is the value that matches ddsim's Schrodinger-Poisson inversion charge at 1.5 V.")
+
 ROLLOFF_BENCHMARKS: tuple[MosfetBenchmark, ...] = (
     _rolloff("rolloff_200nm", 2e-5),
     _rolloff("rolloff_100nm", 1e-5),
