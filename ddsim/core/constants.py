@@ -87,6 +87,8 @@ def n_i(T:float = T_ROOM) -> float:
     t2 = Eg(T_ROOM) / (2.0*V_T(T_ROOM))-Eg(T) / (2.0 * V_T(T)); return float(N_I_300 * (T / T_ROOM) ** 1.5 * math.exp(t2))
 
 EPS_R_SI: float = 11.7
+M_L: float = 0.916
+M_T: float = 0.19
 EPS_R_OX:float = 3.9
 
 

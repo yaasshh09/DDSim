@@ -251,6 +251,21 @@ Defaults, with Scharfetter doping dependence:
 | N_ref | 5e16 cm^-3 | 5e16 cm^-3 |
 | gamma | 1 | 1 |
 
+## Conduction valley masses (Phase 17, quantum confinement)
+
+| Name | Value | Units | Note |
+|---|---|---|---|
+| m_l | 0.916 | m_0 | longitudinal, along a valley's axis |
+| m_t | 0.19 | m_0 | transverse |
+
+These are the values usually quoted for silicon's six X valleys (Sze and Ng, Physics of
+Semiconductor Devices). Likely, not checked against the original measurement this session.
+On a (100) surface two valleys confine with m_l and move in the plane with m_t, and four
+confine with m_t and move with sqrt(m_l m_t). The Schrodinger-Poisson solve takes its band
+edge offset from the Nc these masses imply, 2 sum_v (2 pi m_dv kT)^(3/2) / h^3 with
+m_dv^3 = m_l m_t^2, so its classical limit is the Boltzmann density exactly, independent of
+the Nc in the table above.
+
 ## Auger coefficients
 
 | Name | Value | Units |
