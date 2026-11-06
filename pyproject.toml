@@ -105,5 +105,5 @@ module = ["ddsim.discretize.coupled", "ddsim.solve.linear"]
 disable_error_code = ["redundant-cast"]
 
 [[tool.mypy.overrides]]
-module = ["fontTools", "fontTools.*"]
+module = ["fontTools", "fontTools.*", "atomsim", "atomsim.*"]
 ignore_missing_imports = true
