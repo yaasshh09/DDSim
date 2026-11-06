@@ -506,8 +506,59 @@ nodes. The adaptive loop won't stop on one that isn't.
 
 ## Iterative linear solves (Phase 16)
 
-Planned for 3D, where a direct LU fills in too much. GMRES preconditioned by
-an incomplete LU, inside an inexact Newton whose linear tolerance follows the
-Eisenstat-Walker forcing rule. `splu` stays the default in 1D and 2D. On
-every 2D benchmark, the two must reach the same converged state within the
-Newton tolerance.
+Built for 3D, where a direct LU fills in too much: `GmresILU` in
+`solve/linear.py`, the default on a `Mesh3D` or `TetMesh`, with `splu` still
+the default in 1D and 2D. GMRES is preconditioned by an incomplete LU of the
+Jacobian scaled by rows and then by columns, inside an inexact Newton whose
+linear tolerance follows Eisenstat-Walker's second choice. The ILU and its
+scales are kept across the Newton iterations of one bias point and rebuilt
+only when GMRES misses or crawls; an ILU that breaks down is retried at other
+orderings and tighter drop tolerances, and a step no ILU can carry falls back
+to `splu` for the rest of that bias point. On benchmarks 6, 10, 15 and 18 the
+two solvers land on the same state to 1e-8. Read the 2026-11-06 decisions rows
+before changing any of it.
+
+**A residual of 1e-14 is not a small error.** On an off-state MOSFET the
+Jacobian's condition number is large enough that GMRES and `splu` states
+agreeing to 1e-12 give drain currents 40 times apart, because the contact
+residual cancels fluxes of hundreds of A/cm. Compare states, and currents only
+above that floor.
+
+## Band edges that vary in space (Phase 18)
+
+Written before the code, as PHASE-18 asks.
+
+With a position dependent affinity chi(x), band densities Nc(x), Nv(x) and gap
+Eg(x), the nondegenerate electron density is n = Nc exp((E_Fn - E_c)/kT) with
+E_c = -q psi - chi. Differentiating:
+
+    J_n = mu_n n grad(E_Fn) = q D_n ( grad n - n grad(theta_n) / V_T )
+    theta_n = psi + chi/q + V_T ln(Nc / Nc_ref)
+
+which is the silicon current relation with psi replaced by theta_n. The same
+route for holes, with E_v = E_c - Eg, gives
+
+    theta_p = psi + (chi + Eg)/q - V_T ln(Nv / Nv_ref)
+
+So the Scharfetter-Gummel flux is unchanged in form, with the edge argument
+X_n = (theta_n,j - theta_n,i)/V_T for electrons and X_p from theta_p for holes.
+Each edge gets two offsets, delta_n = X_n - X and delta_p = X_p - X, computed
+once from the materials at its ends. In scaled form the equilibrium densities
+are n = n_ref exp(psi + d_n) and p = n_ref exp(-psi + d_p), with d_n and d_p
+the node offsets, so n p = n_i(x)^2 at every node.
+
+**Silicon must not change by a bit.** X is computed exactly as today and the
+offset is added afterwards. On an edge with the same material at both ends the
+offset is exactly 0.0, and X + 0.0 is X, so every silicon edge produces the
+identical floating point flux. Adding theta = psi + c at the nodes and
+differencing would not have that property: (psi_j + c) - (psi_i + c) can
+differ from psi_j - psi_i in the last bit.
+
+**An abrupt interface is one edge wide.** A node sits at the interface and
+belongs to one material, so the band step falls across the edges that cross
+the interface and the SG flux sees it as a linear ramp over one cell. That is
+drift-diffusion over a graded step, which in the limit h -> 0 holds the quasi
+Fermi levels continuous. Thermionic emission, the other common choice and the
+one PHASE-18 names, needs two unknowns at an interface node. The first version
+takes the continuous form and records it in decisions; thermionic emission can
+come later as a node split.
