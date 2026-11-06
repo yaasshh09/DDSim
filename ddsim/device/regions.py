@@ -5,6 +5,7 @@ import numpy as np, numpy.typing as npt
 from ddsim.core import constants as C
 from ddsim.discretize.geometry import EdgeGeometry
 from ddsim.mesh.mesh2d import Mesh2D
+from ddsim.mesh.mesh3d import Mesh3D
 from ddsim.mesh.quality import triangle_angles
 from ddsim.mesh.trimesh import TriMesh
 
@@ -157,3 +158,47 @@ def triangle_regions(mesh: TriMesh, material: npt.NDArray[np.int64]) -> RegionMa
             np.add.at(volume, w, np.where(silicon, 0.25 * h * piece, 0.0))
     eps = np.divide(weighted, total, out=np.ones_like(total), where=total > 0.0)
     return RegionMap(cell_material=m, eps_r=eps, semiconductor_volume=volume, semiconductor_face=np.maximum(face, 0.0), oxide_nodes=np.flatnonzero(volume <= 0.0).astype(np.int64))
+
+
+def box_regions(mesh: Mesh3D, cell_material: npt.NDArray[np.int64]) -> RegionMap:
+    if not isinstance(mesh.base, Mesh2D):
+        raise ValueError("box regions take a tensor base extruded along z, so every cell is a box")
+    nx, ny, nz = mesh.base.nx, mesh.base.ny, mesh.z_axis.n_nodes
+    m = np.asarray(cell_material, dtype=np.int64)
+    if m.shape != (nz - 1, ny - 1, nx - 1):
+        raise ValueError(f"the material array has shape {m.shape} but the mesh has {(nz - 1, ny - 1, nx - 1)} cells, ordered z, y, x")
+    unknown = set(np.unique(m).tolist()) - set(_RELATIVE_EPS)
+    if unknown:
+        raise ValueError(f"no permittivity for material codes {sorted(unknown)}; the known ones are {sorted(_RELATIVE_EPS)}")
+    k, j, i = (a.ravel() for a in np.meshgrid(np.arange(nz - 1), np.arange(ny - 1), np.arange(nx - 1), indexing="ij"))
+    eps = np.array([_RELATIVE_EPS[int(c)] for c in m.ravel()])
+    silicon = (m.ravel() == SILICON).astype(np.float64)
+    ax, ay, az = 0.5 * mesh.base.x_axis.h[i], 0.5 * mesh.base.y_axis.h[j], 0.5 * mesh.z_axis.h[k]
+    N = mesh.n_nodes
+    keys = mesh.edge_nodes[:, 0] * N + mesh.edge_nodes[:, 1]
+    order = np.argsort(keys)
+    ranked = keys[order]
+
+    def node(a: npt.NDArray[np.int64], b: npt.NDArray[np.int64], c: npt.NDArray[np.int64]) -> npt.NDArray[np.int64]:
+        return np.asarray(c * nx * ny + b * nx + a, dtype=np.int64)
+
+    def edge(u: npt.NDArray[np.int64], v: npt.NDArray[np.int64]) -> npt.NDArray[np.int64]:
+        return np.asarray(order[np.searchsorted(ranked, np.minimum(u, v) * N + np.maximum(u, v))], dtype=np.int64)
+
+    weighted = np.zeros(mesh.n_edges)
+    total = np.zeros(mesh.n_edges)
+    face = np.zeros(mesh.n_edges)
+    volume = np.zeros(N)
+    pieces = []
+    for p in (0, 1):
+        for q in (0, 1):
+            pieces.append((edge(node(i, j + p, k + q), node(i + 1, j + p, k + q)), ay * az))
+            pieces.append((edge(node(i + p, j, k + q), node(i + p, j + 1, k + q)), ax * az))
+            pieces.append((edge(node(i + p, j + q, k), node(i + p, j + q, k + 1)), ax * ay))
+            for r in (0, 1):
+                np.add.at(volume, node(i + p, j + q, k + r), silicon * ax * ay * az)
+    for at, piece in pieces:
+        np.add.at(weighted, at, eps * piece)
+        np.add.at(total, at, piece)
+        np.add.at(face, at, silicon * piece)
+    return RegionMap(cell_material=m, eps_r=weighted / total, semiconductor_volume=volume, semiconductor_face=face, oxide_nodes=np.flatnonzero(volume <= 0.0).astype(np.int64))

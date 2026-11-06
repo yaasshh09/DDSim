@@ -110,3 +110,37 @@ def test_a_diode_split_into_tetrahedra_carries_the_box_current() -> None:
     assert x.complete and y.complete
     for p, q in zip(x.points[1:], y.points[1:], strict=True):
         assert q.current == pytest.approx(p.current, rel=1e-9, abs=0)
+
+
+def test_box_regions_split_every_face_and_volume_between_their_cells() -> None:
+    from ddsim.device.regions import OXIDE, SILICON, box_regions
+    base = tensor_mesh_2d(graded_mesh_1d(length=2e-4, n_nodes=14, refine_at=0.5e-4, h_min=5e-6), uniform_mesh_1d(length=1e-4, n_nodes=5))
+    m = extruded(base, graded_mesh_1d(length=3e-4, n_nodes=17, refine_at=1e-4, h_min=1e-5))
+    cells = np.full((16, 4, 13), SILICON)
+    r = box_regions(m, cells)
+    np.testing.assert_allclose(r.semiconductor_volume, m.volume, rtol=1e-12)
+    np.testing.assert_allclose(r.semiconductor_face, m.dual_face, rtol=1e-12)
+    np.testing.assert_allclose(r.eps_r, 1.0, rtol=1e-12)
+    cells[:, 2:, :] = OXIDE
+    r = box_regions(m, cells)
+    assert r.semiconductor_volume.sum() == pytest.approx(2e-4 * base.y_axis.x[2] * 3e-4, rel=1e-12)
+    top = np.flatnonzero(m.node_y > base.y_axis.x[2])
+    assert set(r.oxide_nodes.tolist()) == set(top.tolist())
+
+
+def test_an_extruded_mosfet_carries_the_2d_drain_current_times_its_width() -> None:
+    from dataclasses import replace
+    from ddsim.device.mosfet import nmos
+    from ddsim.device.regions import box_regions
+    d = nmos(L_gate=1e-4, drain_voltage=0.1, degenerate=False, n_contact=3, n_sd=8, n_channel=10, n_silicon=16, n_oxide=3, h_min_x=1e-6, h_min_y=2e-7)
+    z = graded_mesh_1d(length=2e-5, n_nodes=6, refine_at=0.0, h_min=2e-6)
+    m = extruded(d.mesh, z)
+    n = d.mesh.n_nodes
+    contacts = tuple(replace(c, nodes=tuple(v + k * n for k in range(z.n_nodes) for v in c.nodes)) for c in d.contacts)
+    e = build_device(mesh=m, doping=d.doping, contacts=contacts, regions=box_regions(m, np.tile(d.regions.cell_material[None], (z.n_nodes - 1, 1, 1))), degenerate=False)
+    models = TransportModels.for_device(d, mobility="constant")
+    x = gate_sweep(d, [0.0, 0.5, 1.0], models=models, iterative=False)
+    y = gate_sweep(e, [0.0, 0.5, 1.0], models=TransportModels.for_device(e, mobility="constant"), iterative=False)
+    assert x.complete and y.complete
+    for p, q in zip(x.points[1:], y.points[1:], strict=True):
+        assert q.current == pytest.approx(p.current * z.length, rel=1e-9, abs=0)
