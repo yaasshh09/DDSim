@@ -8,6 +8,7 @@ from ddsim.device.doping import Along, Coordinates, DopingProfile, Gaussian, Lay
 from ddsim.discretize.boundary import OhmicContact, OhmicPlate
 from ddsim.mesh.mesh1d import graded_mesh_1d_through
 from ddsim.mesh.mesh2d import tensor_mesh_2d
+from ddsim.physics.bands import Semiconductor, layered_bands
 
 EMITTER = "emitter"
 
@@ -16,7 +17,7 @@ BASE = 'base'
 COLLECTOR = "collector"
 
 
-def npn_1d(emitter_doping: float = CONFIG.npn.emitter_doping, base_doping: float = CONFIG.npn.base_doping, collector_doping: float = CONFIG.npn.collector_doping, emitter_length: float = CONFIG.npn.emitter_length, base_width: float = CONFIG.npn.base_width, collector_length: float = CONFIG.npn.collector_length, n_nodes: int = CONFIG.npn.n_nodes, h_min: float = CONFIG.npn.h_min, emitter_voltage: float = 0.0, base_voltage: float = 0.0, collector_voltage: float = 0.0, material: Material | None = None, T: float = C.T_ROOM,) -> Device:
+def npn_1d(emitter_doping: float = CONFIG.npn.emitter_doping, base_doping: float = CONFIG.npn.base_doping, collector_doping: float = CONFIG.npn.collector_doping, emitter_length: float = CONFIG.npn.emitter_length, base_width: float = CONFIG.npn.base_width, collector_length: float = CONFIG.npn.collector_length, n_nodes: int = CONFIG.npn.n_nodes, h_min: float = CONFIG.npn.h_min, emitter_voltage: float = 0.0, base_voltage: float = 0.0, collector_voltage: float = 0.0, material: Material | None = None, T: float = C.T_ROOM, base_material: Semiconductor | None = None,) -> Device:
     for k, v in (("emitter_doping", emitter_doping), ("base_doping", base_doping), ('collector_doping', collector_doping), ("emitter_length", emitter_length), ('base_width', base_width), ("collector_length", collector_length)):
         if v <= 0.0:
             raise ValueError(f"{k} must be positive, got {v:g}")
@@ -30,7 +31,11 @@ def npn_1d(emitter_doping: float = CONFIG.npn.emitter_doping, base_doping: float
         OhmicContact(name=BASE, node=i, voltage=base_voltage, majority_only=True),
         OhmicContact(name=COLLECTOR, node=z.n_nodes - 1, voltage=collector_voltage),
     )
-    return build_device(mesh=z, doping=Layers(boundaries=(a, b), values=(emitter_doping, -base_doping, collector_doping)), contacts=x, material=material, T=T)
+    bands = None
+    if base_material is not None:
+        si = Semiconductor.silicon(T)
+        bands = layered_bands(z.x, (a, b), (si, base_material, si), T)
+    return build_device(mesh=z, doping=Layers(boundaries=(a, b), values=(emitter_doping, -base_doping, collector_doping)), contacts=x, material=material, T=T, bands=bands)
 
 
 def _crossings(f: DopingProfile, at: tuple[float | None, float | None], span: float) -> tuple[float, ...]:

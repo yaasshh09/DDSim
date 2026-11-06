@@ -5,7 +5,7 @@ from ddsim.device.builder import Device, Material, build_device
 from ddsim.device.doping import abrupt_junction
 from ddsim.discretize.boundary import OhmicContact
 from ddsim.mesh.mesh1d import Mesh1D, graded_mesh_1d
-from ddsim.physics.bands import Bands, Semiconductor, band_offsets
+from ddsim.physics.bands import Bands, Semiconductor, layered_bands
 
 def pn_diode(
     Na: float = CONFIG.pn_diode.Na,
@@ -43,6 +43,4 @@ def pn_diode(
 
 
 def hetero_bands(mesh: Mesh1D, junction: float, left: Semiconductor, right: Semiconductor, T: float = C.T_ROOM) -> Bands:
-    nodes = [left if x < junction else right for x in mesh.x]
-    edges = [left if 0.5 * (a + b) < junction else right for a, b in zip(mesh.x[:-1], mesh.x[1:], strict=True)]
-    return band_offsets(nodes, edges, Semiconductor.silicon(T), T)
+    return layered_bands(mesh.x, (junction,), (left, right), T)
