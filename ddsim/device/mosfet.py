@@ -1,18 +1,20 @@
 from __future__ import annotations
 from ddsim.core.config import CONFIG
 import math
+from typing import Any
+import numpy as np
 from scipy.special import erfcinv as _erfcinv
 from ddsim.core import constants as C; from ddsim.device.builder import Device, Material, build_device
 from ddsim.device.doping import Along, Erfc, Gaussian, Mirrored, Uniform
 from ddsim.device.regions import stacked_regions
-from ddsim.discretize.boundary import GateContact, OhmicPlate
+from ddsim.discretize.boundary import Contact, GateContact, OhmicPlate
 from ddsim.mesh.mesh1d import (
     Mesh1D,
     graded_mesh_1d,
     stacked_mesh_1d,
     uniform_mesh_1d,
 )
-from ddsim.mesh.mesh2d import tensor_mesh_2d
+from ddsim.mesh.mesh2d import Mesh2D, tensor_mesh_2d
 
 SOURCE = 'source'
 
@@ -125,3 +127,43 @@ def nmos(L_gate: float = CONFIG.nmos.L_gate, sd_length: float = CONFIG.nmos.sd_l
     y2 = (Along(Erfc(peak=0.5, position=sd_length, length=xs), "x") * Along(Gaussian(peak=1.0, centre=t_si, sigma=m), "y") * sd_peak)
     out2 = Uniform(substrate_doping) + y2 + Mirrored(y2, 0.5 * w)
     return build_device(mesh=tmp, doping=out2, contacts=b, material=material, regions=j, degenerate=degenerate, Q_f=Q_f, T=T, incomplete_ionization=incomplete_ionization,)
+
+
+def narrow_nmos(width: float, field_width: float = 3e-5, t_field: float = 2e-5, n_width: int = 6, n_field: int = 6, n_field_oxide: int = 4, gate_voltage: float = 0.0, drain_voltage: float = 0.0, **process: Any) -> Device:
+    from dataclasses import replace
+    from ddsim.device.regions import OXIDE, SILICON, box_regions
+    from ddsim.mesh.mesh3d import extruded
+    t_ox = process.get("t_ox", CONFIG.nmos.t_ox)
+    t_si = process.get("t_si", CONFIG.nmos.t_si)
+    if width <= 0.0 or field_width <= 0.0:
+        raise ValueError(f"width and field_width must be positive, got {width:g} and {field_width:g} cm")
+    if t_field <= t_ox:
+        raise ValueError(f"the field oxide has to be thicker than the gate oxide, got t_field={t_field:g} against t_ox={t_ox:g} cm")
+    d = nmos(gate_voltage=gate_voltage, drain_voltage=drain_voltage, **process)
+    assert isinstance(d.mesh, Mesh2D)
+    y = stacked_mesh_1d(d.mesh.y_axis, uniform_mesh_1d(length=t_field - t_ox, n_nodes=n_field_oxide))
+    field = uniform_mesh_1d(length=field_width, n_nodes=n_field)
+    s = float(field.h[0])
+    half = uniform_mesh_1d(length=0.5 * width, n_nodes=n_width) if 0.5 * width / (n_width - 1) <= 1.5 * s else graded_mesh_1d(length=0.5 * width, n_nodes=n_width, refine_at=0.5 * width, h_min=s)
+    z = stacked_mesh_1d(half, field)
+    base = tensor_mesh_2d(d.mesh.x_axis, y)
+    m = extruded(base, z)
+    top = t_si + t_field
+    cells = np.full((z.n_nodes - 1, y.n_nodes - 1, base.nx - 1), SILICON, dtype=np.int64)
+    cells[:, y.x[:-1] >= t_si * (1 - 1e-12), :] = OXIDE
+    gate = next(c for c in d.contacts if isinstance(c, GateContact))
+    lo, hi = d.mesh.node_x[list(gate.nodes)].min(), d.mesh.node_x[list(gate.nodes)].max()
+    tol = 1e-9 * top
+    over = (m.node_x >= lo - tol) & (m.node_x <= hi + tol)
+    active = m.node_z <= 0.5 * width + tol
+    metal = over & (((m.node_y >= t_si + t_ox - tol) & active) | (m.node_y >= top - tol))
+    contacts: list[Contact] = [replace(gate, nodes=tuple(np.flatnonzero(metal).tolist()))]
+    n = base.n_nodes
+    for c in d.contacts:
+        if isinstance(c, GateContact):
+            continue
+        assert isinstance(c, OhmicPlate)
+        layers = range(z.n_nodes) if c.name == BODY else np.flatnonzero(z.x <= 0.5 * width + tol)
+        flat = [int(base.node_at(int(np.argmin(np.abs(d.mesh.x_axis.x - d.mesh.node_x[v]))), int(np.argmin(np.abs(y.x - d.mesh.node_y[v]))))) for v in c.nodes]
+        contacts.append(replace(c, nodes=tuple(v + int(k) * n for k in layers for v in flat)))
+    return build_device(mesh=m, doping=d.doping, contacts=tuple(contacts), material=d.material, regions=box_regions(m, cells), degenerate=d.degenerate, T=d.material.T)
