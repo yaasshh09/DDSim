@@ -1,6 +1,7 @@
 from __future__ import annotations
 import math
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 import numpy as np
 import numpy.typing as npt
 from ddsim.core import constants as C
@@ -25,6 +26,33 @@ class Semiconductor:
     @classmethod
     def silicon(cls, T: float = C.T_ROOM) -> Semiconductor:
         return cls(name="silicon", eps_r=C.EPS_R_SI, chi=C.CHI_SI, Eg=C.Eg(T), Nc=C.Nc(T), Nv=C.Nv(T))
+
+    @classmethod
+    def germanium(cls, T: float = C.T_ROOM) -> Semiconductor:
+        s = (T / C.T_ROOM) ** 1.5
+        return cls(name="germanium", eps_r=C.GE_EPS_R, chi=C.GE_CHI, Eg=C.varshni(C.GE_EG_0, C.GE_EG_ALPHA, C.GE_EG_BETA, T),
+                   Nc=C.GE_NC_300 * s, Nv=C.GE_NV_300 * s)
+
+    @classmethod
+    def gaas(cls, T: float = C.T_ROOM) -> Semiconductor:
+        s = (T / C.T_ROOM) ** 1.5
+        return cls(name="gaas", eps_r=C.GAAS_EPS_R, chi=C.GAAS_CHI, Eg=C.varshni(C.GAAS_EG_0, C.GAAS_EG_ALPHA, C.GAAS_EG_BETA, T),
+                   Nc=C.GAAS_NC_300 * s, Nv=C.GAAS_NV_300 * s)
+
+    @classmethod
+    def sige(cls, x: float, T: float = C.T_ROOM) -> Semiconductor:
+        if not 0.0 <= x < C.SIGE_X_MAX:
+            raise ValueError(f"Si(1-x)Ge(x) needs 0 <= x < {C.SIGE_X_MAX}, the Si-like range its formulas hold in; got {x}")
+        si = cls.silicon(T)
+        return replace(si, name="sige", eps_r=si.eps_r + C.SIGE_EPS_LINEAR * x,
+                       Eg=si.Eg + C.SIGE_EG_LINEAR * x + C.SIGE_EG_QUADRATIC * x * x)
+
+
+MATERIALS: dict[str, Callable[[float], Semiconductor]] = {
+    "silicon": Semiconductor.silicon,
+    "germanium": Semiconductor.germanium,
+    "gaas": Semiconductor.gaas,
+}
 
 
 @dataclass(frozen=True)

@@ -183,3 +183,33 @@ def semiconductor_work_function(
 
 def work_function_difference(metal: float, net_doping:float | npt.NDArray[np.float64], T: float = T_ROOM,) -> npt.NDArray[np.float64]:
     return np.asarray(metal - semiconductor_work_function(net_doping, T))
+
+
+GE_EPS_R: float = 16.2
+GE_CHI: float = 4.0
+GE_NC_300: float = 1.0e19
+GE_NV_300: float = 5.0e18
+GE_EG_0: float = 0.742
+GE_EG_ALPHA: float = 4.8e-4
+GE_EG_BETA: float = 235.0
+GE_MU_N: float = 3900.0
+GE_MU_P: float = 1900.0
+
+GAAS_EPS_R: float = 12.9
+GAAS_CHI: float = 4.07
+GAAS_NC_300: float = 4.7e17
+GAAS_NV_300: float = 9.0e18
+GAAS_EG_0: float = 1.519
+GAAS_EG_ALPHA: float = 5.405e-4
+GAAS_EG_BETA: float = 204.0
+GAAS_MU_N: float = 8500.0
+GAAS_MU_P: float = 400.0
+
+SIGE_EG_LINEAR: float = -0.41
+SIGE_EG_QUADRATIC: float = 0.008
+SIGE_EPS_LINEAR: float = 4.5
+SIGE_X_MAX: float = 0.85
+
+
+def varshni(E0: float, alpha: float, beta: float, T: float) -> float:
+    return E0 - alpha * T * T / (T + beta)
