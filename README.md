@@ -58,6 +58,22 @@ You can also draw your own device out of silicon, oxide, implants and contacts, 
 </p>
 
 
+## The stack
+
+DDSim is one layer of a bigger plan. Layer 0 is [AtomSIM](https://github.com/yaasshh09/AtomSim), my Schrodinger solver for isolated atoms, and the idea is that every number DDSim uses should eventually come from a layer below it. The first real link is quantum confinement in a thin oxide MOS capacitor: AtomSIM's eigen solver finds the electron levels in the well at the interface, and DDSim uses them for the charge.
+
+```python
+from ddsim.device.mos_cap import mos_cap
+from ddsim.device.schrodinger_poisson import solve_schrodinger_poisson
+
+d = mos_cap(gate_voltage=1.5, t_ox=2e-7, substrate_doping=-1e17, h_min=1e-8, n_silicon=161)
+q = solve_schrodinger_poisson(d)               # levels from atomsim.numerics.radial_solver
+c = solve_schrodinger_poisson(d, quantum=False)
+print(q.centroid * 1e7, c.centroid * 1e7)       # 1.62 nm against 0.47 nm
+```
+
+That needs AtomSIM installed next to DDSim (`pip install -e ../atom_sim`).
+
 ## License
 
 BSD 3-Clause. You're free to use, change and share it, commercially too, as long as you keep my copyright notice. See [LICENSE](LICENSE).
