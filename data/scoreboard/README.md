@@ -13,7 +13,7 @@ it and fails if this file is stale. The rules are the 2026-09-25,
 | Accuracy: benchmarks reaching 1% on fewer nodes, of 10 | 2 | 5 (3 not in the asymptotic range) |
 | Error estimates reported | 3 of 5 sweep kinds (iv, transfer, cv) | none |
 | Speed: time per bias point, benchmarks both tools finished | 1.6x faster | 1x |
-| Speed in 3D: time per bias point and peak memory, benchmark 19 | 1.97 s, 139 MiB | not run |
+| Speed in 3D: time per bias point and peak memory, benchmark 19 | not run | not run |
 | Capabilities, of 39 rows | 32 | 19 built in, 12 if you write the equations |
 
 ## Robustness
@@ -92,7 +92,7 @@ set, interpreter included. Kept apart from the table above so the 1D and
 
 | # | Benchmark | DDSim s/point | DEVSIM s/point | Ratio | DDSim peak MiB | DEVSIM peak MiB |
 |---|---|---|---|---|---|---|
-| 19 | diode3d_gmsh | 1.97 | not run | n/a | 139 | not run |
+| 19 | diode3d_gmsh | not run | not run | n/a | not run | not run |
 
 ## Capabilities
 
