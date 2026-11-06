@@ -46,7 +46,7 @@ def test_the_sheet_charge_matches_devsim(record_property) -> None:
     v, want = golden()
     assert tuple(v) == P.DG_GATES
     err = np.abs(ours() / want - 1.0)
-    record_property("worst_charge_error", float(err.max()))
+    record_property("worst_relative_error_charge", float(err.max()))
     assert err.max() < P.DG_TOLERANCE, f"worst {err.max():.3e} at {v[int(err.argmax())]:+.2f} V"
 
 
@@ -55,5 +55,5 @@ def test_the_capacitance_matches_devsim(record_property) -> None:
     c_dev = -np.gradient(want, v)
     c_ours = -np.gradient(ours(), v)
     err = np.abs(c_ours / c_dev - 1.0)
-    record_property("worst_capacitance_error", float(err.max()))
+    record_property("worst_relative_error_capacitance", float(err.max()))
     assert err.max() < P.DG_TOLERANCE, f"worst {err.max():.3e} at {v[int(err.argmax())]:+.2f} V"
