@@ -11,9 +11,11 @@ from ddsim.discretize.boundary import (
     Carrier,
     Contact,
     GateContact,
+    SchottkyContact,
     apply_dirichlet_nodes,
     gate_psi_scaled,
     ohmic_density_scaled,
+    ohmic_psi_scaled,
     contact_psi_scaled,
     add_thermionic,
     pins_carrier,
@@ -27,6 +29,7 @@ from ddsim.physics.mobility import (
     diffusivity_tangent,
 )
 from ddsim.physics.recombination import Density, RecombinationModel
+from ddsim.physics.bands import Bands
 from ddsim.physics.statistics import Degeneracy, Ionization
 
 EPS = float(np.finfo(np.float64).eps)
@@ -467,7 +470,7 @@ def limit_psi_step(delta: npt.NDArray[np.float64], max_psi_step:float) -> npt.ND
     d[Unknown.PSI::UNKNOWNS_PER_NODE] = vv * (max_psi_step / v); return d
 
 
-def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier_free_nodes: Sequence[int] = (), T:float = C.T_ROOM, degeneracy:Degeneracy | None = None, edge_h: npt.NDArray[np.float64] | None = None, thermionic: bool = True,) -> SparseAssembly:
+def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], net_doping: npt.NDArray[np.float64], contacts: Sequence[Contact], scale: ScaleFactors, carrier_free_nodes: Sequence[int] = (), T:float = C.T_ROOM, degeneracy:Degeneracy | None = None, edge_h: npt.NDArray[np.float64] | None = None, thermionic: bool = True, bands: Bands | None = None,) -> SparseAssembly:
     c = [e.name for e in contacts]
     if len(set(c)) != len(c):
         raise ValueError(f"contact names must be unique, got {c}")
@@ -485,6 +488,17 @@ def apply_contacts_coupled(assembly: SparseAssembly, x:npt.NDArray[np.float64], 
 
         for w in e.nodes:
             xs = float(net_doping[w])
+            if bands is not None and not isinstance(e, SchottkyContact):
+                nl = float(bands.n_local[w])
+                h.append(unknown_index(w, Unknown.PSI))
+                u.append(ohmic_psi_scaled(xs / nl, y) - 0.5 * float(bands.d_n[w] - bands.d_p[w]))
+                if pins_carrier(e, xs, Carrier.ELECTRON):
+                    h.append(unknown_index(w, Unknown.N))
+                    u.append(ohmic_density_scaled(xs / nl, Carrier.ELECTRON) * nl)
+                if pins_carrier(e, xs, Carrier.HOLE):
+                    h.append(unknown_index(w, Unknown.P))
+                    u.append(ohmic_density_scaled(xs / nl, Carrier.HOLE) * nl)
+                continue
 
             h.append(unknown_index(w,
                        Unknown.PSI)); u.append(contact_psi_scaled(e, xs, y, scale, degeneracy))

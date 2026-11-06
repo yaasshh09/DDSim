@@ -327,6 +327,8 @@ def _lagged_impact(assembly: SparseAssembly, device: Device, models: TransportMo
 def electron_block(
     device: Device, models: TransportModels
 ) -> BlockStep[DeviceState]:
+    if device.bands is not None:
+        raise ValueError("the Gummel blocks solve silicon only; a device with band offsets goes through the coupled Newton solve (gate_sweep or solve_bias_newton)")
     tmp3 = device.contact_doping_scaled.data
     c = device.degeneracy
     it = SparseLU()
@@ -353,6 +355,8 @@ def electron_block(
 
 
 def hole_block(device:Device, models:TransportModels) -> BlockStep[DeviceState]:
+    if device.bands is not None:
+        raise ValueError("the Gummel blocks solve silicon only; a device with band offsets goes through the coupled Newton solve (gate_sweep or solve_bias_newton)")
     m = device.contact_doping_scaled.data; e = device.degeneracy
     b = SparseLU()
     def step(state:DeviceState) -> tuple[DeviceState, float]:
@@ -616,7 +620,7 @@ def solve_bias_newton(
             )
             if active.impact is not None:
                 v = add_impact(v, x, obj, i, active.Dn, active.Dp, active.impact, device.dimension)
-            v = apply_contacts_coupled(timed(v, x), x, gc, device.contacts, vals, t, device.material.T, device.degeneracy, obj,)
+            v = apply_contacts_coupled(timed(v, x), x, gc, device.contacts, vals, t, device.material.T, device.degeneracy, obj, bands=device.bands,)
             return scale_rows(v, row_weights(dat, res2.n_nodes))
         return assemble
 

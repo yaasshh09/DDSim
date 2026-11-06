@@ -14,6 +14,7 @@ from ddsim.mesh.mesh2d import Mesh2D
 from ddsim.mesh.mesh3d import Mesh3D
 from ddsim.mesh.tetmesh import TetMesh
 from ddsim.mesh.trimesh import TriMesh
+from ddsim.physics.bands import Bands
 from ddsim.physics.statistics import Degeneracy, Ionization
 
 AnyMesh = Mesh1D | Mesh2D | TriMesh | Mesh3D | TetMesh
@@ -50,6 +51,8 @@ class Device:
 
     incomplete_ionization: bool = False
 
+    bands: Bands | None = None
+
     @cached_property
     def net_doping(self) -> Field:
         d = self.doping(self.node_coordinates)
@@ -77,15 +80,20 @@ class Device:
         return 3 if isinstance(self.mesh, TriMesh) and self.mesh.cylindrical else 2
     @cached_property
     def scaled_mesh(self) -> ScaledMesh:
-        if isinstance(self.mesh, Mesh1D):
-            return self.mesh.scaled(self.scale)
-        if self.regions is None:
-            return self.mesh.scaled(self.scale)
-        return self.mesh.scaled(
-            self.scale,
-            eps_r=self.regions.eps_r,
-            semiconductor_face=self.regions.semiconductor_face,
-        )
+        if isinstance(self.mesh, Mesh1D) or self.regions is None:
+            m = self.mesh.scaled(self.scale)
+        else:
+            m = self.mesh.scaled(
+                self.scale,
+                eps_r=self.regions.eps_r,
+                semiconductor_face=self.regions.semiconductor_face,
+            )
+        if self.bands is None:
+            return m
+        a, b = m.geometry.ends(m.n_edges)
+        n, p = self.bands.edge_offsets(a, b)
+        eps = self.bands.eps_r if self.regions is None else m.geometry.eps_r
+        return replace(m, geometry=replace(m.geometry, eps_r=eps, band_n=n, band_p=p))
     @cached_property
     def charge_volume_scaled(self) -> npt.NDArray[np.float64]:
         if self.regions is None:
@@ -196,7 +204,7 @@ class Device:
             f"{el} contacts=({a})"
         )
 
-def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False, Q_f: float = 0.0, incomplete_ionization: bool = False, T: float = C.T_ROOM,) -> Device:
+def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ...], material: Material | None = None, C_0: float|None = None, regions:RegionMap|None = None, degenerate: bool = False, Q_f: float = 0.0, incomplete_ionization: bool = False, T: float = C.T_ROOM, bands: Bands | None = None,) -> Device:
     if material is None:
         material = Material.silicon(T)
     elif T != C.T_ROOM and T != material.T:
@@ -251,6 +259,11 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
                 "1D device only for now."
             )
 
+    if bands is not None:
+        if bands.d_n.size != mesh.n_nodes or bands.d_p.size != mesh.n_nodes or bands.eps_r.size != mesh.n_edges:
+            raise ValueError(f"the band offsets cover {bands.d_n.size} nodes and {bands.eps_r.size} edges but the mesh has {mesh.n_nodes} and {mesh.n_edges}")
+        if degenerate or incomplete_ionization:
+            raise ValueError("band offsets are written for Boltzmann statistics with full ionization, where n and p are exponentials of psi plus a constant per node")
     i = [item.name for item in contacts]
     if len(set(i)) != len(i):
         raise ValueError(f"contact names must be unique, got {i}")
@@ -267,4 +280,5 @@ def build_device(mesh:AnyMesh, doping: DopingProfile, contacts:tuple[Contact, ..
         degenerate=degenerate,
         Q_f=Q_f,
         incomplete_ionization=incomplete_ionization,
+        bands=bands,
     )

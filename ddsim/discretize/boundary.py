@@ -9,6 +9,7 @@ import numpy.typing as npt
 from ddsim.core import constants as C
 from ddsim.core.scaling import ScaleFactors
 from ddsim.discretize.assembly import SparseAssembly
+from ddsim.physics.bands import Bands
 from ddsim.physics.statistics import Degeneracy, equilibrium_densities_scaled
 
 @dataclass(frozen=True)
@@ -304,13 +305,17 @@ def apply_ohmic_contacts(assembly: SparseAssembly, psi: npt.NDArray[np.float64],
             t)
 
 
-def _ohmic_targets(net_doping:npt.NDArray[np.float64], contacts:Sequence[SemiconductorContact], scale:ScaleFactors, degeneracy:Degeneracy | None = None, T: float = C.T_ROOM,) -> tuple[list[int], list[float]]:
+def _ohmic_targets(net_doping:npt.NDArray[np.float64], contacts:Sequence[SemiconductorContact], scale:ScaleFactors, degeneracy:Degeneracy | None = None, T: float = C.T_ROOM, bands: Bands | None = None,) -> tuple[list[int], list[float]]:
     c: list[int] = []
     xs: list[float] = []
     for m in contacts:
         v = m.voltage / scale.psi_0
         for h in m.nodes:
             c.append(h)
+            if bands is not None and not isinstance(m, SchottkyContact):
+                nl = float(bands.n_local[h])
+                xs.append(ohmic_psi_scaled(float(net_doping[h]) / nl, v) - 0.5 * float(bands.d_n[h] - bands.d_p[h]))
+                continue
             xs.append(
                 contact_psi_scaled(m, float(net_doping[h]), v, scale, degeneracy)
             )
@@ -326,13 +331,14 @@ def apply_contacts(
     scale:ScaleFactors,
     T:float = C.T_ROOM,
     degeneracy: Degeneracy|None = None,
+    bands: Bands | None = None,
 ) -> SparseAssembly:
     s = [nxt.name for nxt in contacts]
     if len(set(s)) != len(s):
         raise ValueError(f"contact names must be unique, got {s}")
 
     out2 = [d for d in contacts if not isinstance(d, GateContact)]
-    m, g = _ohmic_targets(net_doping, out2, scale, degeneracy, T)
+    m, g = _ohmic_targets(net_doping, out2, scale, degeneracy, T, bands)
 
     for nxt in contacts:
         if isinstance(nxt, GateContact):

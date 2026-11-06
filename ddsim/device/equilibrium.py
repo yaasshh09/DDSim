@@ -99,6 +99,7 @@ def solve_poisson(device: Device, psi_initial: npt.NDArray[np.float64], phi_n: F
             ss,
             device.material.T,
             s,
+            device.bands,
         )
     item = float(np.max(np.abs(cur.data) * f))
     y, v = hh.geometry.ends(hh.n_edges)
@@ -115,13 +116,21 @@ def solve_equilibrium(device: Device, quasi_fermi: tuple[Field, Field] | None = 
     cc = device.contact_doping_scaled.data
 
     b2 = device.degeneracy
-    if b2 is None:
+    bands = device.bands
+    if bands is not None:
+        zero = np.zeros(cc.size)
+        fn = zero if phi_n is None else phi_n.data
+        fp = zero if phi_p is None else phi_p.data
+        phi_n = Field(fn - bands.d_n, "V", ScalingState.SCALED, Location.NODE, name="phi_n")
+        phi_p = Field(fp + bands.d_p, "V", ScalingState.SCALED, Location.NODE, name="phi_p")
+        item = np.asarray(psi_equilibrium_scaled(cc / bands.n_local), dtype=np.float64) - 0.5 * (bands.d_n - bands.d_p) + np.where(cc >= 0.0, fn, fp)
+    elif b2 is None:
         item = np.asarray(psi_equilibrium_scaled(cc), dtype=np.float64)
     else:
         item = np.asarray(
             b2.equilibrium_psi(cc), dtype=np.float64
         )
-    if phi_n is not None and phi_p is not None:
+    if phi_n is not None and phi_p is not None and bands is None:
         k = np.where(cc >= 0.0,
             phi_n.data,
                       phi_p.data)
