@@ -34,11 +34,11 @@ def _denominator(
     p: Density,
     tau_n: Lifetime,
     tau_p:Lifetime,
-    n1:float,
-    p1: float,
+    n1: Density,
+    p1: Density,
 ) -> Density:
     return tau_p * (n + n1) + tau_n * (p + p1)
-def srh_rate(n: Density, p: Density, tau_n: Lifetime, tau_p: Lifetime, ni2: float = 1.0, n1:float = 1.0, p1:float = 1.0,) -> Density:
+def srh_rate(n: Density, p: Density, tau_n: Lifetime, tau_p: Lifetime, ni2: Density = 1.0, n1: Density = 1.0, p1: Density = 1.0,) -> Density:
     return (n * p - ni2) / _denominator(n, p, tau_n, tau_p, n1, p1)
 
 def d_srh_dn(
@@ -46,9 +46,9 @@ def d_srh_dn(
     p:Density,
     tau_n: Lifetime,
     tau_p:Lifetime,
-    ni2:float = 1.0,
-    n1:float = 1.0,
-    p1:float = 1.0,
+    ni2: Density = 1.0,
+    n1: Density = 1.0,
+    p1: Density = 1.0,
 ) -> Density:
     b = _denominator(n, p, tau_n, tau_p, n1, p1); return (p * b - (n * p - ni2) * tau_p) / (b * b)
 
@@ -58,19 +58,19 @@ def d_srh_dp(
     p:Density,
     tau_n: Lifetime,
     tau_p: Lifetime,
-    ni2: float = 1.0,
-    n1: float = 1.0,
-    p1: float = 1.0,
+    ni2: Density = 1.0,
+    n1: Density = 1.0,
+    p1: Density = 1.0,
 ) -> Density:
     c = _denominator(n, p, tau_n, tau_p, n1, p1)
     return (n * c - (n*p-ni2) * tau_n)/(c * c)
 
-def srh_electron_linearization(n: Density, p:Density, tau_n: Lifetime, tau_p: Lifetime, ni2:float = 1.0, n1: float = 1.0, p1: float = 1.0,) -> tuple[Density, Density]:
+def srh_electron_linearization(n: Density, p:Density, tau_n: Lifetime, tau_p: Lifetime, ni2: Density = 1.0, n1: Density = 1.0, p1: Density = 1.0,) -> tuple[Density, Density]:
     s2 = _denominator(n, p, tau_n, tau_p, n1, p1)
     return p/s2, ni2 / s2
 
 
-def srh_hole_linearization(n:Density, p: Density, tau_n:Lifetime, tau_p:Lifetime, ni2: float = 1.0, n1: float = 1.0, p1: float = 1.0,) -> tuple[Density, Density]:
+def srh_hole_linearization(n:Density, p: Density, tau_n:Lifetime, tau_p:Lifetime, ni2: Density = 1.0, n1: Density = 1.0, p1: Density = 1.0,) -> tuple[Density, Density]:
     s = _denominator(n, p, tau_n, tau_p, n1, p1)
     return n / s, ni2 / s
 
@@ -98,9 +98,9 @@ class SRHRecombination:
 
     tau_p: Lifetime
 
-    ni2:float = 1.0
-    n1:float = 1.0
-    p1: float = 1.0
+    ni2: Density = 1.0
+    n1: Density = 1.0
+    p1: Density = 1.0
 
     def rate(self, n:Density, p:Density) -> Density:
         return srh_rate(n, p, self.tau_n, self.tau_p, self.ni2, self.n1, self.p1)
@@ -157,7 +157,7 @@ class AugerRecombination:
     C_n: Lifetime
     C_p: Lifetime
 
-    ni2: float = 1.0
+    ni2: Density = 1.0
 
     def _coefficient(self, n: Density, p: Density) -> Density:
         return self.C_n * n + self.C_p * p

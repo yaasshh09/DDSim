@@ -55,6 +55,15 @@ def test_an_isotype_junction_holds_a_flat_fermi_level_and_piles_electrons_into_t
     assert s.n.data[-1] == pytest.approx(d.net_doping_scaled.data[-1], rel=1e-3)
 
 
+@pytest.mark.parametrize("right", [Semiconductor.sige(0.2), Semiconductor.germanium()], ids=["sige", "germanium"])
+def test_an_equilibrium_heterojunction_carries_no_current_under_srh(right: Semiconductor) -> None:
+    d = device(abrupt_junction(Na=1e16, Nd=1e16, position=X), hetero_bands(mesh(), X, SILICON, right))
+    g = gate_sweep(d, [0.0, 0.3], contact="anode", measure_at="anode", models=TransportModels.for_device(d))
+    assert g.complete
+    zero, forward = (p.current for p in g.points)
+    assert abs(zero) <= 1e-12 * abs(forward), f"{zero:.3e} A/cm^2 at 0 V against {forward:.3e} at 0.3 V, so SRH sees silicon's n_i in the {right.name}"
+
+
 @pytest.mark.parametrize("Na,Nd", [(1e16, 3e16), (1e16, 1e16), (1e15, 3e15)])
 def test_an_anisotype_junction_splits_its_built_in_potential_by_eps_times_doping(Na: float, Nd: float) -> None:
     wide = replace(SILICON, name="wide", eps_r=1.2 * SILICON.eps_r, chi=SILICON.chi - 0.1, Eg=SILICON.Eg + 0.3)

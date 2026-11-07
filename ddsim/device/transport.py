@@ -135,9 +135,12 @@ class TransportModels:
         c = np.abs(device.net_doping.data)
 
         if recombination is None:
-            recombination = SRHRecombination(tau_n=scharfetter_lifetime(c, tau_max=C.TAU_N_MAX, tau_min=C.TAU_N_MIN) / bb.t_0, tau_p=scharfetter_lifetime(c, tau_max=C.TAU_P_MAX, tau_min=C.TAU_P_MIN) / bb.t_0, ni2=(device.material.n_i/bb.C_0)**2, n1=device.material.n_i/bb.C_0, p1=device.material.n_i / bb.C_0,)
+            ni: float | npt.NDArray[np.float64] = device.material.n_i / bb.C_0
+            if device.bands is not None:
+                ni = ni * device.bands.n_local
+            recombination = SRHRecombination(tau_n=scharfetter_lifetime(c, tau_max=C.TAU_N_MAX, tau_min=C.TAU_N_MIN) / bb.t_0, tau_p=scharfetter_lifetime(c, tau_max=C.TAU_P_MAX, tau_min=C.TAU_P_MIN) / bb.t_0, ni2=ni**2, n1=ni, p1=ni,)
             if auger:
-                recombination = SumOfRecombination((recombination, AugerRecombination(C_n=C.AUGER_C_N * bb.C_0 ** 2 * bb.t_0, C_p=C.AUGER_C_P * bb.C_0**2 * bb.t_0, ni2=(device.material.n_i/bb.C_0) ** 2,),))
+                recombination = SumOfRecombination((recombination, AugerRecombination(C_n=C.AUGER_C_N * bb.C_0 ** 2 * bb.t_0, C_p=C.AUGER_C_P * bb.C_0**2 * bb.t_0, ni2=ni**2,),))
 
         return cls(
             recombination=recombination,
