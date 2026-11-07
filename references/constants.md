@@ -266,6 +266,45 @@ edge offset from the Nc these masses imply, 2 sum_v (2 pi m_dv kT)^(3/2) / h^3 w
 m_dv^3 = m_l m_t^2, so its classical limit is the Boltzmann density exactly, independent of
 the Nc in the table above.
 
+## Other materials (Phase 18)
+
+Every number here comes from one source, the Ioffe NSM archive,
+www.ioffe.ru/SVA/NSM/Semicond/ (the basic, bandstr and electric pages of each
+material), read 2026-11-06. `Semiconductor.germanium`, `.gaas` and `.sige` in
+`physics/bands.py` build them.
+
+| Name | Ge | GaAs | Units |
+|---|---|---|---|
+| Eg at 300 K, table | 0.661 | 1.424 | eV |
+| Eg(T), Varshni | 0.742 - 4.8e-4 T^2/(T + 235) | 1.519 - 5.405e-4 T^2/(T + 204) | eV |
+| chi | 4.0 | 4.07 | eV |
+| Nc at 300 K | 1.0e19 | 4.7e17 | cm^-3 |
+| Nv at 300 K | 5.0e18 | 9.0e18 | cm^-3 |
+| eps_r, static | 16.2 | 12.9 | |
+| mu_n, pure | 3900 | 8500 | cm^2/Vs |
+| mu_p, pure | 1900 | 400 | cm^2/Vs |
+| n_i printed | 2.0e13 | 2.1e6 | cm^-3 |
+
+Nc and Nv scale as (T/300)^1.5, the same as silicon's. The Varshni fits give
+0.6613 and 1.4225 eV at 300 K, and the solve uses the fit. The archive prints
+the mobilities as upper bounds for pure material, and no solve reads them yet.
+Every material still runs silicon's mobility.
+
+Si(1-x)Ge(x), relaxed alloy, for 0 <= x < 0.85:
+
+| Name | Value | Units |
+|---|---|---|
+| Eg | Eg_Si(T) - 0.41 x + 0.008 x^2 | eV |
+| eps_r | 11.7 + 4.5 x | |
+| Nc | silicon's (the archive gives ~2.8e19 across the range) | cm^-3 |
+| chi, Nv | silicon's, not given by the archive | |
+
+The archive's 1.12 eV and 11.7 at x = 0 are silicon's own values, so the code
+adds the composition terms to ddsim's silicon, and x = 0 is silicon bit for
+bit. Keeping chi at silicon's puts the whole gap drop in the valence band, and
+the gap is the relaxed alloy's, not the strained one an HBT base on silicon has.
+Both are rows in decisions.md.
+
 ## Auger coefficients
 
 | Name | Value | Units |
