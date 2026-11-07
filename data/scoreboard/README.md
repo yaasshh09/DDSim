@@ -14,7 +14,7 @@ it and fails if this file is stale. The rules are the 2026-09-25,
 | Error estimates reported | 3 of 5 sweep kinds (iv, transfer, cv) | none |
 | Speed: time per bias point, benchmarks both tools finished | 1.6x faster | 1x |
 | Speed in 3D: time per bias point and peak memory, benchmark 19 | 0.832 s, 123 MiB | 12.3 s, 176 MiB |
-| Capabilities, of 39 rows | 33 | 19 built in, 12 if you write the equations |
+| Capabilities, of 40 rows | 35 | 19 built in, 13 if you write the equations |
 
 ## Robustness
 

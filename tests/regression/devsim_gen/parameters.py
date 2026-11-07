@@ -515,6 +515,19 @@ DG_MASS = 1.0903
 DG_MASS_OX = 0.14
 DG_BARRIER = 3.15
 DG_MASS_TUNNEL = 0.4
+HETERO_NAME = "hetero_sige_si"
+HETERO_NUMBER = 21
+HETERO_GE = 0.2
+HETERO_NA = 1e17
+HETERO_ND = 1e16
+HETERO_LENGTH = 4e-4
+HETERO_JUNCTION = 2e-4
+HETERO_N_NODES = 401
+HETERO_H_MIN = 2e-7
+HETERO_VOLTAGES: tuple[float, ...] = tuple(round(0.25 + 0.05 * k, 10) for k in range(9))
+HETERO_TOLERANCE = 1e-6
+HETERO_NOTES = ("An abrupt p Si0.8Ge0.2 (Na 1e17) / n Si (Nd 1e16) diode, the SiGe from the Ioffe archive's relaxed alloy formulas with chi, Nc and Nv held at silicon's, so the 0.082 eV gap drop is a valence band step and the SiGe permittivity is 12.6. Both codes use the interface condition of references/decisions.md 2026-11-06: one edge wide, continuous quasi-Fermi levels, the band offsets added to the Scharfetter-Gummel arguments. ddsim writes its mesh nodes, doping, per node offsets d_n and d_p and per edge permittivities to data/golden/hetero_sige_si_inputs.json, and the generator builds the identical 1D mesh, so the two codes solve one discretization and the tolerance is 1e-6 rather than the 5 percent PHASE-18 asks. The generator computes its own contact densities from the local n_i and refuses an equilibrium whose n p departs from n_local^2. Constant mobility, SRH with doping dependent lifetimes and a trap at each material's midgap.")
+
 DG_TOLERANCE = 1e-6
 DG_NOTES = ("The 2 nm oxide MOS capacitor on 1e17 p silicon with density gradient electrons, Wettstein's log form with the Garcia-Loureiro oxide boundary term, the same equations as devsim/devsim_density_gradient but written out here with ddsim's constants. ddsim writes the mesh nodes, the doping and the gate and body boundary potentials to data/golden/dg_moscap_2nm_inputs.json, and the generator builds the identical 1D mesh from them, so the two codes solve one discretization and the tolerance is 1e-6 rather than the 3 percent PHASE-17 asks; a 20 percent error in one coefficient of the gradient term moves the charge by only 1.2 percent. gamma 8.72 is the value that matches ddsim's Schrodinger-Poisson inversion charge at 1.5 V.")
 
